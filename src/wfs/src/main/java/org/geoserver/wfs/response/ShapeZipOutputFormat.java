@@ -190,12 +190,22 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
                 new ShapefileDumper(tempDir) {
 
                     @Override
-                    protected String getShapeName(
-                            SimpleFeatureType schema, String geometryName, String geometryType) {
-                        FeatureTypeInfo ftInfo = getFeatureTypeInfo(schema);
-                        String fileName =
-                                new FileNameSource(getClass())
-                                        .getShapeName(ftInfo, geometryName, geometryType);
+                    protected String getShapeName(SimpleFeatureType schema, String geometryType) {
+                        String fileName;
+
+                        if (request != null
+                                && request.getFormatOptions() != null
+                                && request.getFormatOptions().containsKey("SHAPEFILE")) {
+                            fileName = (String) request.getFormatOptions().get("SHAPEFILE");
+                            if (fileName.contains(".shp")) {
+                                fileName = fileName.substring(0, fileName.indexOf(".shp"));
+                            }
+                        } else {
+                            FeatureTypeInfo ftInfo = getFeatureTypeInfo(schema);
+                            fileName =
+                                    new FileNameSource(getClass())
+                                            .getShapeName(ftInfo, geometryType);
+                        }
                         return fileName;
                     }
 
