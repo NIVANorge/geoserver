@@ -478,8 +478,7 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
             this.clazz = clazz;
         }
 
-        private Properties processTemplate(
-                FeatureTypeInfo ftInfo, String geometryName, String geometryType) {
+        private Properties processTemplate(FeatureTypeInfo ftInfo, String geometryType) {
             try {
                 // setup template subsystem
                 GeoServerTemplateLoader templateLoader =
@@ -503,7 +502,6 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
                 Map<String, Object> context = new HashMap<>();
                 context.put("typename", getTypeName(ftInfo));
                 context.put("workspace", ftInfo.getNamespace().getPrefix());
-                context.put("geometryName", geometryName == null ? "" : geometryName);
                 context.put("geometryType", geometryType == null ? "" : geometryType);
                 context.put("timestamp", timestamp);
                 SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd_HHmmss");
@@ -529,7 +527,7 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
         }
 
         public String getZipName(FeatureTypeInfo ftInfo) {
-            Properties props = processTemplate(ftInfo, null, null);
+            Properties props = processTemplate(ftInfo, null);
             String filename = props.getProperty("zip");
             if (filename == null) {
                 filename = getTypeName(ftInfo);
@@ -538,9 +536,8 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
             return filename;
         }
 
-        public String getShapeName(
-                FeatureTypeInfo ftInfo, String geometryName, String geometryType) {
-            Properties props = processTemplate(ftInfo, geometryName, geometryType);
+        public String getShapeName(FeatureTypeInfo ftInfo, String geometryType) {
+            Properties props = processTemplate(ftInfo, geometryType);
             String filename = props.getProperty("shp");
             if (filename == null) {
                 filename = getTypeName(ftInfo) + geometryType;
@@ -550,7 +547,7 @@ public class ShapeZipOutputFormat extends WFSGetFeatureOutputFormat
         }
 
         public String getRequestDumpName(FeatureTypeInfo ftInfo) {
-            Properties props = processTemplate(ftInfo, null, null);
+            Properties props = processTemplate(ftInfo, null);
             String filename = props.getProperty("txt");
             if (filename == null) {
                 filename = getTypeName(ftInfo);
