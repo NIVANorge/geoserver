@@ -74,17 +74,10 @@
 
   <distributionManagement>
     <repository>
-      <uniqueVersion>false</uniqueVersion>
-      <id>nexus</id>
-      <name>OSGeo Release Repository</name>
-      <url>https://repo.osgeo.org/repository/Geoserver-releases/</url>
+      <id>github</id>
+      <name>GitHub Packages NIVANorge</name>
+      <url>https://maven.pkg.github.com/nivanorge/maven</url>
     </repository>
-    <snapshotRepository>
-      <uniqueVersion>false</uniqueVersion>
-      <id>nexus</id>
-      <name>OSGeo Snapshot Repository</name>
-      <url>https://repo.osgeo.org/repository/geoserver-snapshots/</url>
-    </snapshotRepository>
   </distributionManagement>
 
   <properties>
