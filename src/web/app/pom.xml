@@ -1850,7 +1850,7 @@
         <dependency>
           <groupId>niva.geoserver</groupId>
           <artifactId>niva-geoserver</artifactId>
-          <version>10.0</version>
+          <version>10.1</version>
         </dependency>
       </dependencies>
     </profile>
