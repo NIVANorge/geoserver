@@ -1846,6 +1846,9 @@
     </profile>
     <profile>
       <id>niva</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
       <dependencies>
         <dependency>
           <groupId>niva.geoserver</groupId>
