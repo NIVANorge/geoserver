@@ -121,11 +121,16 @@ public class GML2OutputFormat extends WFSGetFeatureOutputFormat
 
             ResourceInfo meta =
                     catalog.getResourceByName(featureType.getName(), ResourceInfo.class);
+            String uri;
+            if (meta != null) {
+                String prefix = meta.getNamespace().getPrefix();
+                uri = meta.getNamespace().getURI();
 
-            String prefix = meta.getNamespace().getPrefix();
-            String uri = meta.getNamespace().getURI();
-
-            ftNames.declareNamespace(features.getSchema(), prefix, uri);
+                ftNames.declareNamespace(features.getSchema(), prefix, uri);
+            } else {
+                uri = featureType.getName().getNamespaceURI();
+                ftNames.declareNamespace(featureType, "rs" + i, uri);
+            }
 
             if (ftNamespaces.containsKey(uri)) {
                 String location = (String) ftNamespaces.get(uri);
