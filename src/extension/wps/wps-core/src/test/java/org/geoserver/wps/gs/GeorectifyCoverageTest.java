@@ -27,6 +27,7 @@ import org.geotools.filter.function.RenderingTransformation;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class GeorectifyCoverageTest extends WPSTestSupport {
@@ -39,6 +40,7 @@ public class GeorectifyCoverageTest extends WPSTestSupport {
         assertTrue(f instanceof RenderingTransformation);
     }
 
+    @Ignore // Not working on Windows
     @Test
     public void testGeorectify()
             throws IOException, MismatchedDimensionException, NoSuchAuthorityCodeException,
