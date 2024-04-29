@@ -2679,7 +2679,6 @@
         </plugins>
       </build>
     </profile>
-
     <profile>
       <id>niva</id>
       <dependencies>
