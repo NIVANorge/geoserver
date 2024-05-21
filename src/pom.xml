@@ -2679,17 +2679,17 @@
         </plugins>
       </build>
     </profile>
-    
+
     <profile>
       <id>niva</id>
       <dependencies>
         <dependency>
-        <groupId>niva.geoserver</groupId>
-        <artifactId>niva-geoserver</artifactId>
-        <version>11.0.0</version>			  
+          <groupId>niva.geoserver</groupId>
+          <artifactId>niva-geoserver</artifactId>
+          <version>11.0.0</version>
         </dependency>
       </dependencies>
-	  </profile>
+    </profile>
   </profiles>
 
 </project>
