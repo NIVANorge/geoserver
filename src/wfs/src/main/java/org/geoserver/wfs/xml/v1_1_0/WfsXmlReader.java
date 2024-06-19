@@ -72,7 +72,7 @@ public class WfsXmlReader extends XmlRequestReader {
                 ((GetFeatureType) parsed)
                         .setFormatOptions(((GetFeatureType) request).getFormatOptions());
             }
-    
+
             return parsed;
         } catch (IOException e) {
             throw cleanException(e);
