@@ -893,24 +893,32 @@ public class Dispatcher extends AbstractController {
         // step 5: execute
         Object result = null;
 
-        try {
-            if (serviceBean instanceof DirectInvocationService) {
-                // invokeDirect expects the operation to be called as declared in the operation
-                // descriptor, although it used to match a method name, lets use the declared
-                // operation name for contract compliance.
-                String operationName = opDescriptor.getId();
-                result =
-                        ((DirectInvocationService) serviceBean)
-                                .invokeDirect(operationName, parameters);
-            } else {
-                Method operation = opDescriptor.getMethod();
+        if (serviceBean instanceof DirectInvocationService) {
+            // invokeDirect expects the operation to be called as declared in the operation
+            // descriptor, although it used to match a method name, lets use the declared
+            // operation name for contract compliance.
+            String operationName = opDescriptor.getId();
+            result =
+                    ((DirectInvocationService) serviceBean).invokeDirect(operationName, parameters);
+        } else {
+            Method operation = opDescriptor.getMethod();
+            try {
                 result = operation.invoke(serviceBean, parameters);
+            } catch (IllegalArgumentException e) {
+                StringBuilder sb = new StringBuilder();
+                for (Object p : parameters) {
+                    sb.append(" - " + (p == null ? "null" : p.getClass().getName()) + "\n");
+                }
+
+                throw new IllegalArgumentException(
+                        "Bad request definition. Resulting in following invokation details.\nSignature: "
+                                + operation
+                                + "\nProxy: "
+                                + serviceBean
+                                + "\nArguments:\n"
+                                + sb.toString(),
+                        e);
             }
-        } catch (Exception e) {
-            if (e.getCause() != null) {
-                throw e.getCause();
-            }
-            throw e;
         }
 
         return fireOperationExecutedCallback(req, opDescriptor, result);
