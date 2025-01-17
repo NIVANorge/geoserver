@@ -9,6 +9,8 @@ import java.io.Reader;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.xml.namespace.QName;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
@@ -24,6 +26,7 @@ import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.gml2.FeatureTypeCache;
 import org.geotools.gml2.SrsSyntax;
 import org.geotools.util.Converters;
+import org.geotools.util.logging.Logging;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.OptionalComponentParameter;
 import org.geotools.xsd.Parser;
@@ -46,6 +49,8 @@ public class WFSXmlUtils {
             "org.geoserver.wfs.xml.entityExpansionLimit";
 
     public static final String XLINK_DEFAULT_PREFIX = "xlink";
+
+    private static final Logger LOGGER = Logging.getLogger(WFSXmlUtils.class);
 
     public static void initRequestParser(Parser parser, WFSInfo wfs, GeoServer geoServer, Map kvp) {
         // check the strict flag to determine if we should validate or not
@@ -109,11 +114,13 @@ public class WFSXmlUtils {
             FeatureType featureType = null;
             try {
                 featureType = meta.getFeatureType();
+                featureTypeCache.put(featureType);
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                LOGGER.log(
+                        Level.SEVERE,
+                        "WFS will be missing layer - " + meta + " - because of an error.",
+                        e);
             }
-
-            featureTypeCache.put(featureType);
         }
 
         // add the wfs handler factory to handle feature elements
