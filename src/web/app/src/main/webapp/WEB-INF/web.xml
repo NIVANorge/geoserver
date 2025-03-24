@@ -305,7 +305,14 @@
       <extension>yaml</extension>
       <mime-type>text/plain</mime-type>
     </mime-mapping>
-  
+    <mime-mapping>
+      <extension>txt</extension>
+      <mime-type>text/plain</mime-type>
+    </mime-mapping>
+    <mime-mapping>
+      <extension>ico</extension>
+      <mime-type>image/x-icon</mime-type>  
+    </mime-mapping>
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
     </welcome-file-list>
