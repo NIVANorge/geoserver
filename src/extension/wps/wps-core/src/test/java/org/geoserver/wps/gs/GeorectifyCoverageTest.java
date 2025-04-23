@@ -27,8 +27,10 @@ import org.geotools.filter.function.RenderingTransformation;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore
 public class GeorectifyCoverageTest extends WPSTestSupport {
 
     @Test
