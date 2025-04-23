@@ -149,10 +149,12 @@ public abstract class BaseFeatureKvpRequestReader extends WFSKvpRequestReader {
                 if (storedQueryId != null) {
                     buildStoredQueries(eObject, storedQueryId, rawKvp);
                 } else {
+                    /*
                     throw new WFSException(
                             eObject,
                             "The query should specify either typeName, featureId filter" + ", or a stored query id",
                             "MissingParameterValue");
+                    */
                 }
             }
         }
