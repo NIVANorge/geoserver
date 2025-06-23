@@ -82,7 +82,7 @@
 
   <properties>
     <gs.version>2.26.1-NIVA</gs.version>
-    <gt.version>32.2-NIVA</gt.version>
+    <gt.version>32.3-NIVA</gt.version>
     <gwc.version>1.26.1-NIVA</gwc.version>
     <jts.version>1.20.0</jts.version>
     <spring.version>5.3.39</spring.version>
@@ -2976,7 +2976,7 @@
         <dependency>
           <groupId>niva.geoserver</groupId>
           <artifactId>niva-geoserver</artifactId>
-          <version>12.2.3</version>
+          <version>12.2.4</version>
         </dependency>
       </dependencies>
     </profile>
