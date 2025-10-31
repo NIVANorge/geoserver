@@ -55,6 +55,8 @@
         <prop key="/web/resources/**">#{webDispatcherMappingSystem}</prop>
         <prop key="/">filePublisher</prop>
         <prop key="/index.html">filePublisher</prop>
+        <prop key="/robots.txt">filePublisher</prop>
+        <prop key="/favicon.ico">filePublisher</prop>
       </props>
     </property>
   </bean>
