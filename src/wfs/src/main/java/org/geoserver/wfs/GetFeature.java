@@ -1265,6 +1265,12 @@ public class GetFeature {
         // replace gml:boundedBy with an expression
         transformedFilter = (Filter) transformedFilter.accept(new BoundedByVisitor(), null);
 
+        // bbox should work against default geometry if not specified
+        if (source.getSchema() instanceof SimpleFeatureType) {
+            transformedFilter = (Filter)
+                    transformedFilter.accept(new BBOXPropertyNameVisitor((SimpleFeatureType) source.getSchema()), null);
+        }
+
         // only handle non-joins for now
         QName typeName = primaryTypeName;
         org.geotools.api.data.Query dataQuery = new org.geotools.api.data.Query(
@@ -1724,6 +1730,32 @@ public class GetFeature {
             }
 
             return data;
+        }
+    }
+
+    /** Ensures that BBOX filters without a property name are rewritten to use the default geometry */
+    private class BBOXPropertyNameVisitor extends DuplicatingFilterVisitor {
+
+        private final SimpleFeatureType schema;
+
+        public BBOXPropertyNameVisitor(SimpleFeatureType schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public Object visit(BBOX filter, Object extraData) {
+            // BBOX must work against a propertyName, if not specified we
+            // need to switch to the default geometry
+            Expression expression1 = filter.getExpression1();
+            if (expression1 instanceof PropertyName
+                    && !((PropertyName) expression1).getPropertyName().isEmpty()) {
+                return super.visit(filter, extraData);
+            } else {
+                GeometryDescriptor defaultGeom = schema.getGeometryDescriptor();
+                PropertyName defaultGeomProp = filterFactory.property(defaultGeom.getName());
+                BBOX newBBOX = filterFactory.bbox(defaultGeomProp, filter.getBounds());
+                return super.visit(newBBOX, extraData);
+            }
         }
     }
 
