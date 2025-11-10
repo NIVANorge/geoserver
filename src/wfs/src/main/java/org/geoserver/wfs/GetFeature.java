@@ -13,6 +13,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.api.feature.type.AttributeDescriptor;
 import org.geotools.api.feature.type.FeatureType;
 import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.feature.type.PropertyDescriptor;
 import org.geotools.api.filter.And;
 import org.geotools.api.filter.BinaryComparisonOperator;
 import org.geotools.api.filter.ExcludeFilter;
@@ -1265,6 +1267,9 @@ public class GetFeature {
         // replace gml:boundedBy with an expression
         transformedFilter = (Filter) transformedFilter.accept(new BoundedByVisitor(), null);
 
+        // BBOX requests must be fixed to properties with geometry and or-ed.
+        transformedFilter = (Filter) transformedFilter.accept(new BBOXFixingFilterVisitor(source.getSchema()), null);
+
         // only handle non-joins for now
         QName typeName = primaryTypeName;
         org.geotools.api.data.Query dataQuery = new org.geotools.api.data.Query(
@@ -1755,6 +1760,48 @@ public class GetFeature {
                 return filterFactory.intersects(boundedBy, filterFactory.literal(polygon));
             }
             return super.visit(filter, extraData);
+        }
+    }
+
+    /**
+     * Makes sure expression1 of BBOX filters are proper geometry properties, instead of being empty. If schema contains
+     * multiple geometries, it creates an OR-filter of BBOX-es, one for each geometry property.
+     */
+    private class BBOXFixingFilterVisitor extends DuplicatingFilterVisitor {
+
+        private final FeatureType schema;
+
+        private BBOXFixingFilterVisitor(FeatureType schema) {
+            this.schema = schema;
+        }
+
+        @Override
+        public Object visit(BBOX filter, Object extraData) {
+            Expression expression1 = filter.getExpression1();
+            if (expression1 instanceof PropertyName
+                    && !(((PropertyName) expression1).getPropertyName().isEmpty())) {
+                return super.visit(filter, extraData);
+            } else {
+                Collection<PropertyDescriptor> geomDescriptors = this.schema.getDescriptors().stream()
+                        .filter(d -> d instanceof GeometryDescriptor)
+                        .collect(Collectors.toList());
+                if (geomDescriptors.size() == 1) {
+                    BBOX newBBOX = createBBOX(geomDescriptors.iterator().next(), filter);
+                    return super.visit(newBBOX, extraData);
+                } else {
+                    List<Filter> bboxes = geomDescriptors.stream()
+                            .map(d -> createBBOX(d, filter))
+                            .collect(Collectors.toList());
+                    Or orFilter = filterFactory.or(bboxes);
+                    return super.visit(orFilter, extraData);
+                }
+            }
+        }
+
+        private BBOX createBBOX(PropertyDescriptor geomDescriptor, BBOX original) {
+            PropertyName geomProperty = filterFactory.property(geomDescriptor.getName());
+            Expression originalBounds = original.getExpression2();
+            return filterFactory.bbox(geomProperty, originalBounds);
         }
     }
 }
