@@ -37,8 +37,7 @@ public final class ClientStreamAbortedException extends IOException {
     }
 
     public ClientStreamAbortedException(Throwable cause) {
-        super();
-        initCause(cause);
+        this("Client stream aborted", cause);
     }
 
     /**
