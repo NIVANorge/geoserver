@@ -22,7 +22,7 @@ jobs:
       - name: Deploy GeoServer
         run: |
           cd geoserver/src
-          mvn -s $GITHUB_WORKSPACE/.github/workflows/maven-settings.xml deploy -DskipTests
+          mvn -s $GITHUB_WORKSPACE/.github/workflows/maven-settings.xml deploy -P wps -DskipTests
         env:
           USER_NAME: ${{ secrets.MVN_USER }}
           ACCESS_TOKEN: ${{ secrets.MVN_TOKEN }}
