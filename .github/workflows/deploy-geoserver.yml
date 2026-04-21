@@ -21,7 +21,7 @@ jobs:
 
       - name: Deploy GeoServer
         run: |
-          cd geoserver/src
+          cd src
           mvn -s $GITHUB_WORKSPACE/.github/workflows/maven-settings.xml deploy -P wps -DskipTests
         env:
           USER_NAME: ${{ secrets.MVN_USER }}
@@ -29,14 +29,14 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
             tag_name: ${{ github.ref_name }}
             name: Release ${{ github.ref_name }}
             draft: false
             prerelease: false
             files: |
-                geoserver/src/web/app/target/geoserver.war
+                src/web/app/target/geoserver.war
             generate_release_notes: true
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
