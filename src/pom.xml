@@ -2970,16 +2970,6 @@
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>niva</id>
-      <dependencies>
-        <dependency>
-          <groupId>niva.geoserver</groupId>
-          <artifactId>niva-geoserver</artifactId>
-          <version>12.6.1</version>
-        </dependency>
-      </dependencies>
-    </profile>
   </profiles>
 
 </project>
