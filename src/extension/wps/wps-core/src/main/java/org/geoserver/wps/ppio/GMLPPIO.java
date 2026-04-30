@@ -7,6 +7,7 @@ package org.geoserver.wps.ppio;
 
 import java.io.InputStream;
 import javax.xml.namespace.QName;
+import org.apache.commons.io.IOUtils;
 import org.geotools.gml2.GML;
 import org.geotools.gml2.GMLConfiguration;
 import org.geotools.xsd.Configuration;
@@ -27,6 +28,17 @@ public class GMLPPIO extends XMLPPIO {
 
     protected GMLPPIO(Class<?> type, String mimeType, QName element) {
         super(type, type, mimeType, element);
+    }
+
+    @Override
+    public Object decode(Object input) throws Exception {
+        if (input == null) {
+            return null;
+        } else if (input instanceof String) {
+            return decode(IOUtils.toInputStream((String) input, "UTF-8"));
+        } else {
+            return super.decode(input);
+        }
     }
 
     @Override
