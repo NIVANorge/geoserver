@@ -4,9 +4,9 @@
  */
 package org.geoserver.geofence.server.rest.xml;
 
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlAttribute;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 import org.geoserver.geofence.core.model.AdminRule;
 import org.geoserver.geofence.core.model.IPAddressRange;
 import org.geoserver.geofence.core.model.enums.AdminGrantType;
@@ -107,8 +107,7 @@ public class JaxbAdminRule extends AbstractPayload {
         rule.setAccess(AdminGrantType.valueOf(getAccess()));
         rule.setUsername(getUserName());
         rule.setRolename(getRoleName());
-        rule.setAddressRange(
-                getAddressRange() == null ? null : new IPAddressRange(getAddressRange()));
+        rule.setAddressRange(getAddressRange() == null ? null : new IPAddressRange(getAddressRange()));
         rule.setWorkspace(getWorkspace());
         rule.setId(id);
         return rule;

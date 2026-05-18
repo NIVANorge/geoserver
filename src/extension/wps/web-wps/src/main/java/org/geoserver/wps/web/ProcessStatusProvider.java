@@ -21,12 +21,12 @@ import org.geoserver.web.wicket.GeoServerDataProvider;
 import org.geoserver.wps.ProcessStatusStore;
 import org.geoserver.wps.executor.ExecutionStatus;
 import org.geoserver.wps.executor.ProcessStatusTracker;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.sort.SortBy;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.sort.SortBy;
 
 /**
  * Provides a filtered, sorted view over the running/recently completed processes
@@ -36,38 +36,34 @@ import org.opengis.filter.sort.SortBy;
 @SuppressWarnings("serial")
 public class ProcessStatusProvider extends GeoServerDataProvider<ExecutionStatus> {
     private static Logger LOGGER = Logging.getLogger(ProcessStatusProvider.class);
-    private static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
-    static final Property<ExecutionStatus> TYPE =
-            new AbstractProperty<ExecutionStatus>("type") {
-                @Override
-                public Object getPropertyValue(ExecutionStatus item) {
-                    // we might want to have a "C" state for the chained processes
-                    return item.isAsynchronous() ? "A" : "S";
-                }
+    private static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
+    static final Property<ExecutionStatus> TYPE = new AbstractProperty<>("type") {
+        @Override
+        public Object getPropertyValue(ExecutionStatus item) {
+            // we might want to have a "C" state for the chained processes
+            return item.isAsynchronous() ? "A" : "S";
+        }
 
-                @Override
-                public boolean isSearchable() {
-                    // when really it isn't sortable or searchable
-                    return false;
-                }
-            };
+        @Override
+        public boolean isSearchable() {
+            // when really it isn't sortable or searchable
+            return false;
+        }
+    };
 
     static final Property<ExecutionStatus> NODE = new BeanProperty<>("node", "nodeId");
 
     static final Property<ExecutionStatus> USER = new BeanProperty<>("user", "userName");
 
-    static final Property<ExecutionStatus> PROCESS =
-            new BeanProperty<>("processName", "processName");
+    static final Property<ExecutionStatus> PROCESS = new BeanProperty<>("processName", "processName");
 
-    static final Property<ExecutionStatus> CREATED =
-            new BeanProperty<>("creationTime", "creationTime");
+    static final Property<ExecutionStatus> CREATED = new BeanProperty<>("creationTime", "creationTime");
 
     static final Property<ExecutionStatus> PHASE = new BeanProperty<>("phase", "phase");
 
     static final Property<ExecutionStatus> PROGRESS = new BeanProperty<>("progress", "progress");
 
-    static final Property<ExecutionStatus> EXPIRATION =
-            new BeanProperty<>("expirationDate", "expirationDate");
+    static final Property<ExecutionStatus> EXPIRATION = new BeanProperty<>("expirationDate", "expirationDate");
 
     static final Property<ExecutionStatus> COMPLETION =
             new BeanProperty<>("estimatedCompletion", "estimatedCompletion");
@@ -77,18 +73,7 @@ public class ProcessStatusProvider extends GeoServerDataProvider<ExecutionStatus
     static final Property<ExecutionStatus> TASK = new BeanProperty<>("task", "task");
 
     static final List<Property<ExecutionStatus>> PROPERTIES =
-            Arrays.asList(
-                    TYPE,
-                    NODE,
-                    USER,
-                    PROCESS,
-                    CREATED,
-                    PHASE,
-                    PROGRESS,
-                    EXPIRATION,
-                    COMPLETION,
-                    NEXT_POLL,
-                    TASK);
+            Arrays.asList(TYPE, NODE, USER, PROCESS, CREATED, PHASE, PROGRESS, EXPIRATION, COMPLETION, NEXT_POLL, TASK);
 
     private long first;
 
@@ -96,8 +81,7 @@ public class ProcessStatusProvider extends GeoServerDataProvider<ExecutionStatus
 
     @Override
     protected List<ExecutionStatus> getItems() {
-        ProcessStatusTracker tracker =
-                GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
+        ProcessStatusTracker tracker = GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
         return tracker.getStore().list(Query.ALL);
     }
 
@@ -124,8 +108,7 @@ public class ProcessStatusProvider extends GeoServerDataProvider<ExecutionStatus
     }
 
     private Filter getFullSearch(String[] keywords) {
-        ProcessStatusTracker tracker =
-                GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
+        ProcessStatusTracker tracker = GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
         ProcessStatusStore store = tracker.getStore();
         Filter ret = Filter.INCLUDE;
         if (store.supportsPredicate()) {
@@ -165,8 +148,7 @@ public class ProcessStatusProvider extends GeoServerDataProvider<ExecutionStatus
 
     @Override
     protected List<ExecutionStatus> getFilteredItems() {
-        ProcessStatusTracker tracker =
-                GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
+        ProcessStatusTracker tracker = GeoServerApplication.get().getBeanOfType(ProcessStatusTracker.class);
         ProcessStatusStore store = tracker.getStore();
         Query query = new Query("status", getFilter());
         if (count > 0) {

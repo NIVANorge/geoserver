@@ -15,20 +15,20 @@ import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.WorkspaceInfo;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.PropertyName;
 
 public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
 
@@ -36,7 +36,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
 
     private static MongoTestSetup testSetup;
 
-    private static FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    private static FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     @Before
     @Override
@@ -65,8 +65,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
 
     @Test
     public void testPropertyNameWithDotSeparator() throws Exception {
-        FeatureTypeInfo fti =
-                getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
+        FeatureTypeInfo fti = getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
         @SuppressWarnings("unchecked")
         FeatureSource<FeatureType, Feature> source =
                 (FeatureSource<FeatureType, Feature>) fti.getFeatureSource(null, null);
@@ -77,8 +76,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
         while (it.hasNext()) {
             Feature f = it.next();
             Object result = pn.evaluate(f);
-            if (result instanceof List) {
-                List listRes = (List) result;
+            if (result instanceof List listRes) {
                 assertEquals(5, listRes.size());
                 assertTrue(listRes.containsAll(Arrays.asList(35, 25, 80, 1019, 1015)));
             }
@@ -87,8 +85,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
 
     @Test
     public void testPropertyNameReturningNestedFeaturesList() throws Exception {
-        FeatureTypeInfo fti =
-                getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
+        FeatureTypeInfo fti = getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
         @SuppressWarnings("unchecked")
         FeatureSource<FeatureType, Feature> source =
                 (FeatureSource<FeatureType, Feature>) fti.getFeatureSource(null, null);
@@ -98,24 +95,20 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
         PropertyName pn = FF.property("measurements.values");
         Feature f = it.next();
         Object result = pn.evaluate(f);
-        if (result instanceof List) {
-            List listRes = (List) result;
+        if (result instanceof List listRes) {
             assertEquals(5, listRes.size());
-            ((List) result).forEach(e -> assertTrue(e instanceof Feature));
+            listRes.forEach(e -> assertTrue(e instanceof Feature));
         }
     }
 
     @Test
     public void testPostFilterEvaluation() throws Exception {
-        FeatureTypeInfo fti =
-                getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
+        FeatureTypeInfo fti = getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
         @SuppressWarnings("unchecked")
         FeatureSource<FeatureType, Feature> source =
                 (FeatureSource<FeatureType, Feature>) fti.getFeatureSource(null, null);
         Expression filter = FF.function("filter", FF.literal("value < 40"));
-        Expression stream =
-                FF.function(
-                        "stream", FF.property("measurements.values"), filter, FF.property("value"));
+        Expression stream = FF.function("stream", FF.property("measurements.values"), filter, FF.property("value"));
         Expression aggregate = FF.function("aggregate", stream, FF.literal("AVG"));
         Filter eq = FF.equals(aggregate, FF.literal(30));
         FeatureCollection<FeatureType, Feature> collection = source.getFeatures(eq);
@@ -133,8 +126,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
 
     @Test
     public void testWrongPropertyName() throws Exception {
-        FeatureTypeInfo fti =
-                getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
+        FeatureTypeInfo fti = getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
         @SuppressWarnings("unchecked")
         FeatureSource<FeatureType, Feature> source =
                 (FeatureSource<FeatureType, Feature>) fti.getFeatureSource(null, null);
@@ -167,8 +159,7 @@ public class SchemalessCollectionTest extends AbstractMongoDBOnlineTestSupport {
         // test that when evaluating a property name traversing nested features
         // with cardinality > 1 and not existing or null property for all the nested features
         // the return value is null and not empty list.
-        FeatureTypeInfo fti =
-                getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
+        FeatureTypeInfo fti = getCatalog().getFeatureTypeByName("gs:" + StationsTestSetup.COLLECTION_NAME);
         @SuppressWarnings("unchecked")
         FeatureSource<FeatureType, Feature> source =
                 (FeatureSource<FeatureType, Feature>) fti.getFeatureSource(null, null);

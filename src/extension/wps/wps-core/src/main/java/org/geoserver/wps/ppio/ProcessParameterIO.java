@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.geoserver.platform.GeoServerExtensions;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.locationtech.jts.geom.Envelope;
 import org.springframework.context.ApplicationContext;
@@ -44,7 +44,7 @@ public abstract class ProcessParameterIO {
         DECODING,
         /** Both encoding and decoding supported */
         BOTH
-    };
+    }
 
     /** list of default ppios supported out of the box */
     static List<ProcessParameterIO> defaults;
@@ -84,6 +84,7 @@ public abstract class ProcessParameterIO {
         defaults.add(new GMLPPIO.GML3.Geometry());
         defaults.add(new GMLPPIO.GML2.Geometry());
         defaults.add(new WKTPPIO());
+        defaults.add(new EWKTPPIO());
         defaults.add(new GMLPPIO.GML3.GeometryAlternate());
         defaults.add(new GMLPPIO.GML2.GeometryAlternate());
 
@@ -92,6 +93,7 @@ public abstract class ProcessParameterIO {
         defaults.add(new WFSPPIO.WFS11());
         defaults.add(new WFSPPIO.WFS10Alternate());
         defaults.add(new WFSPPIO.WFS11Alternate());
+        defaults.add(new WFSPPIO.WFS20());
 
         // CRS
         defaults.add(new CoordinateReferenceSystemPPIO());
@@ -103,7 +105,7 @@ public abstract class ProcessParameterIO {
 
         // envelopes
         defaults.add(new BoundingBoxPPIO(ReferencedEnvelope.class));
-        defaults.add(new BoundingBoxPPIO(org.opengis.geometry.Envelope.class));
+        defaults.add(new BoundingBoxPPIO(org.geotools.api.geometry.Bounds.class));
         defaults.add(new BoundingBoxPPIO(Envelope.class));
 
         // filters
@@ -126,8 +128,7 @@ public abstract class ProcessParameterIO {
 
         if (mime != null) {
             for (ProcessParameterIO ppio : all) {
-                if (ppio instanceof ComplexPPIO
-                        && ((ComplexPPIO) ppio).getMimeType().equals(mime)) {
+                if (ppio instanceof ComplexPPIO iO && iO.getMimeType().equals(mime)) {
                     return ppio;
                 }
             }
@@ -169,9 +170,7 @@ public abstract class ProcessParameterIO {
 
         // do a two phase search, first try to match the identifier
         for (ProcessParameterIO ppio : l) {
-            if (ppio.getIdentifer() != null
-                    && ppio.getIdentifer().equals(p.key)
-                    && typeCompatible(p, ppio)) {
+            if (ppio.getIdentifer() != null && ppio.getIdentifer().equals(p.key) && typeCompatible(p, ppio)) {
                 matches.add(ppio);
             }
         }
@@ -274,8 +273,8 @@ public abstract class ProcessParameterIO {
     }
 
     /**
-     * Used to advertise if the PPIO can support encoding, decoding, or both. By default BOTH is
-     * returned, subclass can override with their specific abilities
+     * Used to advertise if the PPIO can support encoding, decoding, or both. By default BOTH is returned, subclass can
+     * override with their specific abilities
      */
     public PPIODirection getDirection() {
         return PPIODirection.BOTH;

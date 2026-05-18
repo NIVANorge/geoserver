@@ -5,6 +5,11 @@
  */
 package org.geoserver.web.wicket;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
+import org.apache.wicket.markup.head.JavaScriptContentHeaderItem;
+import org.apache.wicket.markup.head.OnDomReadyHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
@@ -15,10 +20,11 @@ import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.model.ResourceModel;
 import org.apache.wicket.validation.IValidatable;
 import org.apache.wicket.validation.ValidationError;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geometry.jts.ReferencedEnvelope3D;
+import org.geotools.util.Converters;
 import org.locationtech.jts.geom.Envelope;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * A form component for a {@link Envelope} object.
@@ -28,6 +34,28 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
  */
 public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(EnvelopePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            EnvelopePanel.class, EnvelopePanel.class.getSimpleName() + ".css")));
+        }
+        String oDomReadyScript = "\n";
+        oDomReadyScript += "\nEnvelopePanel_setup('" + this.getMarkupId() + "');";
+
+        response.render(OnDomReadyHeaderItem.forScript(oDomReadyScript));
+
+        response.render(JavaScriptContentHeaderItem.forReference(
+                new org.apache.wicket.request.resource.PackageResourceReference(
+                        EnvelopePanel.class, EnvelopePanel.class.getSimpleName() + ".js")));
+    }
+
+    @Serial
     private static final long serialVersionUID = -2975427786330616705L;
 
     protected Label minXLabel, minYLabel, maxXLabel, maxYLabel, minZLabel, maxZLabel;
@@ -68,8 +96,8 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
     }
 
     /**
-     * Makes the CRS bounds a required component of the envelope. It is warmly suggested that the
-     * crs field be made visible too
+     * Makes the CRS bounds a required component of the envelope. It is warmly suggested that the crs field be made
+     * visible too
      */
     public void setCrsRequired(boolean crsRequired) {
         this.crsRequired = crsRequired;
@@ -117,6 +145,7 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
         crsPanel = new CRSPanel("crs", new PropertyModel<>(this, "crs"));
         crsContainer.add(crsPanel);
         add(crsContainer);
+        setOutputMarkupId(true);
     }
 
     private void addBoundingBoxValidators() {
@@ -136,8 +165,7 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
      * @param maxValueField
      * @param axis
      */
-    private void validateAxis(
-            IValidatable<Double> validatable, DecimalTextField maxValueField, String axis) {
+    private void validateAxis(IValidatable<Double> validatable, DecimalTextField maxValueField, String axis) {
         // if max is not valid, form will fail anyway, and there is nothing to compare against
         if (maxValueField.isValid()) {
             maxValueField.convertInput();
@@ -145,8 +173,7 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
             if (convertedValue != null && validatable.getValue() >= convertedValue) {
                 ValidationError error = new ValidationError();
                 error.setMessage(
-                        new ParamResourceModel("validation.boundingBoxAxisNonPositive", this, axis)
-                                .getObject());
+                        new ParamResourceModel("validation.boundingBoxAxisNonPositive", this, axis).getObject());
                 validatable.error(error);
             }
         }
@@ -159,7 +186,13 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
     }
 
     private void updateFields() {
-        ReferencedEnvelope e = getModelObject();
+        Object o = getModelObject();
+        ReferencedEnvelope e;
+        if (o instanceof ReferencedEnvelope) {
+            e = getModelObject();
+        } else {
+            e = Converters.convert(o, ReferencedEnvelope.class);
+        }
         if (e != null) {
             this.minX = e.getMinX();
             this.minY = e.getMinY();
@@ -167,9 +200,9 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
             this.maxY = e.getMaxY();
             this.crs = e.getCoordinateReferenceSystem();
             if (is3D()) {
-                if (e instanceof ReferencedEnvelope3D) {
-                    this.minZ = ((ReferencedEnvelope3D) e).getMinZ();
-                    this.maxZ = ((ReferencedEnvelope3D) e).getMaxZ();
+                if (e instanceof ReferencedEnvelope3D envelope3D) {
+                    this.minZ = envelope3D.getMinZ();
+                    this.maxZ = envelope3D.getMaxZ();
                 } else {
                     this.minZ = Double.NaN;
                     this.maxZ = Double.NaN;
@@ -182,11 +215,9 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
     }
 
     public EnvelopePanel setReadOnly(final boolean readOnly) {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    component.setEnabled(!readOnly);
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            component.setEnabled(!readOnly);
+        });
         crsPanel.setReadOnly(readOnly);
 
         return this;
@@ -195,11 +226,9 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
     @SuppressWarnings("unchecked")
     @Override
     public void convertInput() {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField<String>) component).processInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField<String>) component).processInput();
+        });
 
         if (isCRSFieldVisible()) {
             crsPanel.processInput();
@@ -213,9 +242,7 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
                 if (is3D()) {
                     double minZsafe = minZ == null ? Double.NaN : minZ;
                     double maxZsafe = maxZ == null ? Double.NaN : maxZ;
-                    setConvertedInput(
-                            new ReferencedEnvelope3D(
-                                    minX, maxX, minY, maxY, minZsafe, maxZsafe, crs));
+                    setConvertedInput(new ReferencedEnvelope3D(minX, maxX, minY, maxY, minZsafe, maxZsafe, crs));
                 } else {
                     setConvertedInput(new ReferencedEnvelope(minX, maxX, minY, maxY, crs));
                 }
@@ -231,11 +258,11 @@ public class EnvelopePanel extends FormComponentPanel<ReferencedEnvelope> {
         // when the client programmatically changed the model, update the fields
         // so that the textfields will change too
         updateFields();
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField<String>) component).clearInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField<String>) component).clearInput();
+        });
+
+        crsPanel.modelChanged();
     }
 
     /** Returns the coordinate reference system added by the user in the GUI, if any and valid */

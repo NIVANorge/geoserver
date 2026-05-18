@@ -9,7 +9,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import org.checkerframework.checker.units.qual.K;
 
 /**
  * Map decorator which makes String keys case-insensitive.
@@ -103,8 +102,8 @@ public class CaseInsensitiveMap<K extends String, V> implements Map<K, V> {
 
     @SuppressWarnings("unchecked")
     <T> T upper(T key) {
-        if ((key != null) && key instanceof String) {
-            return (T) ((String) key).toUpperCase();
+        if ((key != null) && key instanceof String string) {
+            return (T) string.toUpperCase();
         }
 
         return key;

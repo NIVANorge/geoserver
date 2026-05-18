@@ -7,7 +7,9 @@ package org.geoserver.catalog;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 import java.util.Arrays;
 import java.util.List;
@@ -17,15 +19,16 @@ import org.geoserver.catalog.LayerGroupInfo.Mode;
 import org.geoserver.catalog.impl.LayerGroupInfoImpl;
 import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.MockTestData;
+import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.test.GeoServerMockTestSupport;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.NoSuchAuthorityCodeException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.NoSuchAuthorityCodeException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class LayerGroupHelperTest extends GeoServerMockTestSupport {
 
@@ -188,17 +191,10 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
         // a plain group
         assertExpectedLayers(Arrays.asList(pondsLayer), ponds);
         // a EO group
-        assertExpectedLayers(
-                Arrays.asList(roadSegmentsLayer, lakesLayer, neatlineLayer), lakesNeatline);
+        assertExpectedLayers(Arrays.asList(roadSegmentsLayer, lakesLayer, neatlineLayer), lakesNeatline);
         // a nested one
         assertExpectedLayers(
-                Arrays.asList(
-                        forestLayer,
-                        roadSegmentsLayer,
-                        lakesLayer,
-                        neatlineLayer,
-                        buildingsLayer,
-                        pondsLayer),
+                Arrays.asList(forestLayer, roadSegmentsLayer, lakesLayer, neatlineLayer, buildingsLayer, pondsLayer),
                 nested);
         // a container group
         assertExpectedLayers(Arrays.asList(forestLayer), container);
@@ -255,9 +251,7 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
         assertExpectedStyles(Arrays.asList(lineStyle, polygonStyle, pointStyle), lakesNeatline);
         // nested group
         assertExpectedStyles(
-                Arrays.asList(
-                        polygonStyle, lineStyle, polygonStyle, pointStyle, polygonStyle, null),
-                nested);
+                Arrays.asList(polygonStyle, lineStyle, polygonStyle, pointStyle, polygonStyle, null), nested);
         // a container group
         assertExpectedStyles(Arrays.asList(polygonStyle), container);
         // a nested container
@@ -276,8 +270,7 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
         // EO group
         assertExpectedRenderingStyles(Arrays.asList(lineStyle), lakesNeatline);
         // nested group
-        assertExpectedRenderingStyles(
-                Arrays.asList(polygonStyle, lineStyle, polygonStyle, null), nested);
+        assertExpectedRenderingStyles(Arrays.asList(polygonStyle, lineStyle, polygonStyle, null), nested);
 
         try {
             // a container group
@@ -301,20 +294,13 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
         new LayerGroupHelper(ponds).calculateBounds();
         assertEquals(ponds.getBounds(), ponds.getBounds());
         // EO group
-        ReferencedEnvelope eoExpected =
-                aggregateEnvelopes(roadSegmentsLayer, lakesLayer, neatlineLayer);
+        ReferencedEnvelope eoExpected = aggregateEnvelopes(roadSegmentsLayer, lakesLayer, neatlineLayer);
         new LayerGroupHelper(lakesNeatline).calculateBounds();
         ReferencedEnvelope eoActual = lakesNeatline.getBounds();
         assertEquals(eoExpected, eoActual);
         // nested group
-        ReferencedEnvelope nestedExpected =
-                aggregateEnvelopes(
-                        forestLayer,
-                        roadSegmentsLayer,
-                        lakesLayer,
-                        neatlineLayer,
-                        buildingsLayer,
-                        pondsLayer);
+        ReferencedEnvelope nestedExpected = aggregateEnvelopes(
+                forestLayer, roadSegmentsLayer, lakesLayer, neatlineLayer, buildingsLayer, pondsLayer);
         new LayerGroupHelper(nested).calculateBounds();
         assertEquals(nestedExpected, nested.getBounds());
     }
@@ -322,14 +308,8 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
     @Test
     public void testBoundsCRS() throws Exception {
         CoordinateReferenceSystem targetCRS = CRS.decode("EPSG:32628", true);
-        ReferencedEnvelope nestedExpected =
-                aggregateEnvelopes(
-                        forestLayer,
-                        roadSegmentsLayer,
-                        lakesLayer,
-                        neatlineLayer,
-                        buildingsLayer,
-                        pondsLayer);
+        ReferencedEnvelope nestedExpected = aggregateEnvelopes(
+                forestLayer, roadSegmentsLayer, lakesLayer, neatlineLayer, buildingsLayer, pondsLayer);
         nestedExpected = nestedExpected.transform(targetCRS, true);
         new LayerGroupHelper(nested).calculateBounds(targetCRS);
         assertEquals(nestedExpected, nested.getBounds());
@@ -350,11 +330,29 @@ public class LayerGroupHelperTest extends GeoServerMockTestSupport {
         assertNull(nested.getBounds());
     }
 
+    @Test
+    public void testUseProvidedCatalog() {
+        Catalog catalog = mock(Catalog.class);
+        LayerGroupHelper helper = new LayerGroupHelper(catalog, container);
+        assertSame(catalog, helper.catalog);
+    }
+
+    @Test
+    public void testDefaultsToCatalogBean() {
+        Catalog catalog = mock(Catalog.class);
+        GeoServerExtensionsHelper.singleton("catalog", catalog, Catalog.class);
+        try {
+            LayerGroupHelper helper = new LayerGroupHelper(container);
+            assertSame(catalog, helper.catalog);
+        } finally {
+            GeoServerExtensionsHelper.init(null);
+        }
+    }
+
     private ReferencedEnvelope aggregateEnvelopes(LayerInfo... layers) {
-        ReferencedEnvelope eoExpected =
-                new ReferencedEnvelope(
-                        layers[0].getResource().getNativeBoundingBox(),
-                        layers[0].getResource().getCRS());
+        ReferencedEnvelope eoExpected = new ReferencedEnvelope(
+                layers[0].getResource().getNativeBoundingBox(),
+                layers[0].getResource().getCRS());
         for (int i = 1; i < layers.length; i++) {
             eoExpected.expandToInclude(layers[i].getResource().getNativeBoundingBox());
         }

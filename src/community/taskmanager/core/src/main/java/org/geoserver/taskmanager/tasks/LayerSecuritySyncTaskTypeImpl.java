@@ -8,11 +8,11 @@ import it.geosolutions.geoserver.rest.GeoServerRESTManager;
 import it.geosolutions.geoserver.rest.decoder.RESTDataRules;
 import it.geosolutions.geoserver.rest.encoder.GSDataRulesEncoder;
 import it.geosolutions.geoserver.rest.manager.GeoServerRESTSecurityManager.RuleType;
+import jakarta.annotation.PostConstruct;
 import java.net.MalformedURLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.PostConstruct;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.security.impl.DataAccessRule;
 import org.geoserver.security.impl.DataAccessRuleDAO;
@@ -37,23 +37,22 @@ public class LayerSecuritySyncTaskTypeImpl implements TaskType {
 
     public static final String PARAM_LAYER = "layer";
 
-    @Autowired protected ExtTypes extTypes;
+    @Autowired
+    protected ExtTypes extTypes;
 
-    @Autowired protected DataAccessRuleDAO dao;
+    @Autowired
+    protected DataAccessRuleDAO dao;
 
-    protected final Map<String, ParameterInfo> paramInfo =
-            new LinkedHashMap<String, ParameterInfo>();
+    protected final Map<String, ParameterInfo> paramInfo = new LinkedHashMap<String, ParameterInfo>();
 
     @PostConstruct
     public void initParamInfo() {
         paramInfo.put(PARAM_EXT_GS, new ParameterInfo(PARAM_EXT_GS, extTypes.extGeoserver, true));
-        ParameterInfo paramWorkspace =
-                new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
+        ParameterInfo paramWorkspace = new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
         paramInfo.put(PARAM_WORKSPACE, paramWorkspace);
         paramInfo.put(
                 PARAM_LAYER,
-                new ParameterInfo(PARAM_LAYER, extTypes.internalLayer, true)
-                        .dependsOn(false, paramWorkspace));
+                new ParameterInfo(PARAM_LAYER, extTypes.internalLayer, true).dependsOn(false, paramWorkspace));
     }
 
     @Override

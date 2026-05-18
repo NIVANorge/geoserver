@@ -12,14 +12,18 @@ import com.jayway.jsonpath.DocumentContext;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.geoserver.config.GeoServer;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.ogcapi.APIException;
 import org.geoserver.ogcapi.Queryables;
 import org.geoserver.ogcapi.Sortables;
+import org.geoserver.opensearch.eo.OSEOInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfoImpl;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.resource.Resource;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.jsoup.nodes.Document;
@@ -42,7 +46,7 @@ public class CollectionsTest extends STACTestSupport {
     @Test
     public void testTemplatesCopy() throws Exception {
         GeoServerDataDirectory dd = getDataDirectory();
-        Resource templates = dd.get("templates/ogc/stac");
+        Resource templates = dd.get("templates/ogc/stac/v1");
         assertEquals(Resource.Type.RESOURCE, templates.get("collections.json").getType());
         assertEquals(Resource.Type.RESOURCE, templates.get("items.json").getType());
     }
@@ -55,19 +59,28 @@ public class CollectionsTest extends STACTestSupport {
         assertEquals("GeoServer STAC Collections", document.select("#title").text());
 
         // the collection titles
-        Set<String> titles =
-                document.select("div.card-header h2").stream()
-                        .map(e -> e.text())
-                        .collect(Collectors.toSet());
+        Set<String> titles = document.select("div.card-header h2").stream()
+                .map(e -> e.text())
+                .collect(Collectors.toSet());
         assertThat(
                 titles,
-                Matchers.containsInAnyOrder(
-                        "ATMTEST", "ATMTEST2", "SENTINEL2", "SENTINEL1", "LANDSAT8", "GS_TEST"));
+                Matchers.containsInAnyOrder("ATMTEST", "ATMTEST2", "SENTINEL2", "SENTINEL1", "LANDSAT8", "GS_TEST"));
 
         // test the Sentinel2 entry
-        Elements s2Body =
-                document.select("div.card-header:has(a:contains(SENTINEL2)) ~ div.card-body");
+        Elements s2Body = document.select("div.card-header:has(a:contains(SENTINEL2)) ~ div.card-body");
         testSentinel2HTML(s2Body);
+    }
+
+    @Test
+    public void testCollectionsHTMLEOSummaries() throws Exception {
+        Document document = getAsJSoup("ogc/stac/v1/collections?f=html");
+        Elements s2Body = document.select("div.card-header:has(a:contains(SENTINEL2))");
+        assertEquals(
+                "SENTINEL2 Distinct Orbit Direction Values: [DESCENDING] "
+                        + "Spatial Extent: -119.174, 33.333, 16.354, 44.247 "
+                        + "Min TimeStart: 2016-01-17T10:10:30.743Z "
+                        + "Max TimeEnd: 2017-03-08T18:54:21.026Z",
+                s2Body.text());
     }
 
     @Test
@@ -89,16 +102,49 @@ public class CollectionsTest extends STACTestSupport {
                 1,
                 s1.read("providers[?(@.name == 'European Union/ESA/Copernicus')]", List.class)
                         .size());
-        assertEquals(1, s1.read("providers[?(@.name == 'GeoServer')].length()", List.class).size());
+        assertEquals(
+                1,
+                s1.read("providers[?(@.name == 'GeoServer')].length()", List.class)
+                        .size());
 
         // and the Landsat ones
         DocumentContext l8 = readSingleContext(json, "collections[?(@.id == 'LANDSAT8')]");
         assertEquals(2, (int) l8.read("providers.length()", Integer.class));
-        assertEquals(1, l8.read("providers[?(@.name == 'USGS')].length()", List.class).size());
-        assertEquals(1, l8.read("providers[?(@.name == 'GeoServer')].length()", List.class).size());
+        assertEquals(
+                1,
+                l8.read("providers[?(@.name == 'USGS')].length()", List.class).size());
+        assertEquals(
+                1,
+                l8.read("providers[?(@.name == 'GeoServer')].length()", List.class)
+                        .size());
         assertEquals(2, (int) l8.read("providers.length()", Integer.class));
         assertEquals(1, l8.read("providers[?(@.name == 'USGS')]", List.class).size());
-        assertEquals(1, l8.read("providers[?(@.name == 'GeoServer')].length()", List.class).size());
+        assertEquals(
+                1,
+                l8.read("providers[?(@.name == 'GeoServer')].length()", List.class)
+                        .size());
+    }
+
+    @Test
+    public void testCollectionsWorkspaceJSON() throws Exception {
+        DocumentContext jsonCite = getAsJSONPath("cite/ogc/stac/v1/collections?f=json", 200);
+        // all collections are accounted for (one is disabled, two have a workspace other than cite)
+        OpenSearchAccess osa = getOpenSearchAccess();
+        Integer collectionCountCite = osa.getCollectionSource().getCount(Query.ALL) - 3;
+        assertEquals(collectionCountCite, jsonCite.read("$.collections.length()"));
+        // no Sentinel2 collection in cite workspace because it has a workspace other than cite
+        assertJsonListSize(jsonCite, "collections[?(@.id == 'SENTINEL2')]", 0);
+        // sf workspace has Sentinel2 collection because it explicitly has a sf workspace reference
+        DocumentContext jsonSf = getAsJSONPath("sf/ogc/stac/v1/collections?f=json", 200);
+        Integer collectionCountSf = osa.getCollectionSource().getCount(Query.ALL) - 2;
+        assertEquals(collectionCountSf, jsonSf.read("$.collections.length()"));
+        assertJsonListSize(jsonSf, "collections[?(@.id == 'SENTINEL2')]", 1);
+        // sf workspace has Sentinel1 collection because its workspaces array is null
+        assertJsonListSize(jsonSf, "collections[?(@.id == 'SENTINEL1')]", 1);
+        // global workspace has Landsat8 collection because thereis a null value in the workspaces
+        // array
+        DocumentContext jsonGlobal = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsonGlobal, "collections[?(@.id == 'LANDSAT8')]", 1);
     }
 
     @Test
@@ -113,9 +159,7 @@ public class CollectionsTest extends STACTestSupport {
     private void testSentinel2HTML(Elements elements) {
         assertTextContains(elements, "[data-tid='title']", "The Sentinel-2 mission");
         assertTextContains(
-                elements,
-                "[data-tid='description']",
-                "The SENTINEL-2 mission is a land monitoring constellation");
+                elements, "[data-tid='description']", "The SENTINEL-2 mission is a land monitoring constellation");
         assertTextContains(elements, "[data-tid='gbounds']", "-179, -89, 179, 89");
         assertTextContains(elements, "[data-tid='tbounds']", "2015-07-01");
         assertTextContains(elements, "[data-tid='tbounds']", "2016-02-26");
@@ -128,16 +172,15 @@ public class CollectionsTest extends STACTestSupport {
         testSentinel2JSON(s2);
     }
 
-    public void testSentinel2JSON(DocumentContext s2) {
+    private void testSentinel2JSON(DocumentContext s2) {
         assertEquals("The Sentinel-2 mission", s2.read("title"));
         assertThat(
                 s2.read("description"),
                 CoreMatchers.containsString(
-                        "The SENTINEL-2 mission is a land monitoring constellation of two "
-                                + "satellites"));
+                        "The SENTINEL-2 mission is a land monitoring constellation of two " + "satellites"));
         assertEquals(STACService.STAC_VERSION, s2.read("stac_version"));
         assertEquals("CC-BY-NC-ND-3.0-IGO", s2.read("license"));
-        // Sentinel 2 bounding box
+        // Sentinel 2 bounding box, uses the eoSummaries function in the collections.json template
         DocumentContext s2bbox = readContext(s2, "extent.spatial.bbox");
         assertEquals(-179, s2bbox.read("$[0][0]"), 0d);
         assertEquals(-89, s2bbox.read("$[0][1]"), 0d);
@@ -145,26 +188,25 @@ public class CollectionsTest extends STACTestSupport {
         assertEquals(89, s2bbox.read("$[0][3]"), 0d);
         // Sentinel 2 temporal range
         DocumentContext s2time = readContext(s2, "extent.temporal.interval");
-        assertEquals("2015-07-01T10:20:21.000+00:00", s2time.read("$[0][0]"));
-        assertEquals("2016-02-26T10:20:21.000+00:00", s2time.read("$[0][1]"));
+        assertEquals("2015-07-01T10:20:21.000Z", s2time.read("$[0][0]"));
+        assertEquals("2016-02-26T10:20:21.000Z", s2time.read("$[0][1]"));
         // the providers for sentinel2
         assertEquals(2, (int) s2.read("providers.length()", Integer.class));
         assertEquals(
                 1,
                 s2.read("providers[?(@.name == 'European Union/ESA/Copernicus')]", List.class)
                         .size());
-        assertEquals(1, s2.read("providers[?(@.name == 'GeoServer')].length()", List.class).size());
+        assertEquals(
+                1,
+                s2.read("providers[?(@.name == 'GeoServer')].length()", List.class)
+                        .size());
         // the links for sentinel2
         assertEquals(6, (int) s2.read("links.length()", Integer.class));
         assertEquals(
                 "http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2",
                 readSingle(s2, "links[?(@.rel == 'self')].href"));
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1",
-                readSingle(s2, "links[?(@.rel == 'parent')].href"));
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1",
-                readSingle(s2, "links[?(@.rel == 'root')].href"));
+        assertEquals("http://localhost:8080/geoserver/ogc/stac/v1", readSingle(s2, "links[?(@.rel == 'parent')].href"));
+        assertEquals("http://localhost:8080/geoserver/ogc/stac/v1", readSingle(s2, "links[?(@.rel == 'root')].href"));
         assertEquals(
                 "http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2/items",
                 readSingle(s2, "links[?(@.rel == 'items')].href"));
@@ -186,8 +228,48 @@ public class CollectionsTest extends STACTestSupport {
 
     @Test
     public void testVersionHeader() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse("ogc/stac/v1/collections/SENTINEL2?f=json");
+        MockHttpServletResponse response = getAsServletResponse("ogc/stac/v1/collections/SENTINEL2?f=json");
         assertTrue(headerHasValue(response, "API-Version", "1.0.0"));
+    }
+
+    @Test
+    public void testProprietaryCollections() throws Exception {
+        // set a collection limit on proprietary collections
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        List<EOCollectionAccessLimitInfo> collectionLimits = service.getCollectionLimits();
+        collectionLimits.add(new EOCollectionAccessLimitInfoImpl("license = 'proprietary'", List.of(ROLE_PROPRIETARY)));
+        // the sensor type is not exposed in JSON, will have to use the collection identifiers for JSON tests
+        collectionLimits.add(new EOCollectionAccessLimitInfoImpl("eo:sensorType = 'ATMOSPHERIC'", List.of(ROLE_ATM)));
+        gs.save(service);
+
+        // without role, no proprietary collections
+        DocumentContext jsAnonymous = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsAnonymous, "collections[?(@.license == 'proprietary')]", 0);
+        assertJsonListSize(jsAnonymous, "collections[?(@.id == 'ATMTEST' || @.id == 'ATMTEST2')]", 0);
+
+        // with role, non-disabled proprietary collections show up (only one at the moment)
+        login("propuser", "secret", ROLE_PROPRIETARY);
+        DocumentContext jsProp = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsProp, "collections[?(@.license == 'proprietary')]", 1);
+        assertJsonListSize(jsProp, "collections[?(@.id == 'ATMTEST' || @.id == 'ATMTEST2')]", 0);
+
+        // now try with atm role, should get the other proprietary collection (2 of them) but not the proprietary one
+        login("atmuser", "secret", ROLE_ATM);
+        DocumentContext jsAtm = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsAtm, "collections[?(@.license == 'proprietary')]", 0);
+        assertJsonListSize(jsAtm, "collections[?(@.id == 'ATMTEST' || @.id == 'ATMTEST2')]", 2);
+
+        // now use both roles, should get both proprietary and atm collections
+        login("bothuser", "secret", ROLE_ATM, ROLE_PROPRIETARY);
+        DocumentContext jsBoth = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsBoth, "collections[?(@.license == 'proprietary')]", 1);
+        assertJsonListSize(jsBoth, "collections[?(@.id == 'ATMTEST' || @.id == 'ATMTEST2')]", 2);
+
+        // finally, become all powerful admin and get them all
+        login("admin", "geoserver", "ROLE_ADMINISTRATOR");
+        DocumentContext jsAdmin = getAsJSONPath("ogc/stac/v1/collections?f=json", 200);
+        assertJsonListSize(jsAdmin, "collections[?(@.license == 'proprietary')]", 1);
+        assertJsonListSize(jsAdmin, "collections[?(@.id == 'ATMTEST' || @.id == 'ATMTEST2')]", 2);
     }
 }

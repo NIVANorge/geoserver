@@ -6,14 +6,13 @@
 package org.geoserver.web.wicket;
 
 import org.apache.wicket.model.IModel;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.referencing.CRS;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * Model wrapper for {@link CoordinateReferenceSystem} instances.
  *
- * <p>This model operates by persisting the wkt ({@link CoordinateReferenceSystem#toWKT()}) for a
- * crs.
+ * <p>This model operates by persisting the wkt ({@link CoordinateReferenceSystem#toWKT()}) for a crs.
  *
  * @author Justin Deoliveira, OpenGeo
  */

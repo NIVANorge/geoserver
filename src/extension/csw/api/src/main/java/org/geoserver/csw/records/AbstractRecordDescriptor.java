@@ -7,25 +7,25 @@ package org.geoserver.csw.records;
 
 import java.util.LinkedList;
 import java.util.List;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.referencing.CRS;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /**
- * Describes a record, its schema, its possible representations, in a pluggable way The Abstract
- * class provides some default behaviour.
+ * Describes a record, its schema, its possible representations, in a pluggable way The Abstract class provides some
+ * default behaviour.
  *
  * @author Niels Charlier
  */
 public abstract class AbstractRecordDescriptor implements RecordDescriptor {
 
-    public static final FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+    public static final FilterFactory ff = CommonFactoryFinder.getFilterFactory();
 
     public static final String DEFAULT_CRS_NAME = "urn:x-ogc:def:crs:EPSG:6.11:4326";
 
@@ -36,14 +36,12 @@ public abstract class AbstractRecordDescriptor implements RecordDescriptor {
         try {
             DEFAULT_CRS = CRS.decode(DEFAULT_CRS_NAME);
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to decode the default CRS, this should never happen!", e);
+            throw new RuntimeException("Failed to decode the default CRS, this should never happen!", e);
         }
     }
 
     /**
-     * The GeoTools feature type representing this kind of record The default method retrieves type
-     * from the descriptor
+     * The GeoTools feature type representing this kind of record The default method retrieves type from the descriptor
      *
      * @return the feature type
      */
@@ -78,8 +76,7 @@ public abstract class AbstractRecordDescriptor implements RecordDescriptor {
     }
 
     /**
-     * Helper method to build a property name from a simple name (not an x-path) with namespace
-     * support.
+     * Helper method to build a property name from a simple name (not an x-path) with namespace support.
      *
      * @param namespaces Namespace support
      * @param name the Name

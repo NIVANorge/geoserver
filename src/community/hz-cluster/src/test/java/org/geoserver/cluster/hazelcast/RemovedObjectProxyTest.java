@@ -37,17 +37,13 @@ public class RemovedObjectProxyTest {
 
                 @SuppressWarnings("unchecked")
                 InvocationHandler handler =
-                        new RemovedObjectProxy(
-                                "Test", "Test", (Class<? extends CatalogInfo>) clazz);
+                        new RemovedObjectProxy("Test", "Test", (Class<? extends CatalogInfo>) clazz);
                 CatalogInfo info =
-                        (CatalogInfo)
-                                Proxy.newProxyInstance(
-                                        clazz.getClassLoader(), new Class[] {clazz}, handler);
+                        (CatalogInfo) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[] {clazz}, handler);
 
                 // Check that the method is called by accept when the proxy is mimicking the
                 // appropriate type
                 CatalogVisitor visitor = createMock(CatalogVisitor.class);
-                System.err.println(method);
                 method.invoke(visitor, same(info));
                 expectLastCall();
 
@@ -64,17 +60,12 @@ public class RemovedObjectProxyTest {
         replay(ds);
 
         RemovedObjectProxy handler =
-                new RemovedObjectProxy(
-                        "Test", "Test", (Class<? extends CatalogInfo>) FeatureTypeInfo.class);
+                new RemovedObjectProxy("Test", "Test", (Class<? extends CatalogInfo>) FeatureTypeInfo.class);
 
         handler.addCatalogCollaborator("store", ds);
 
-        FeatureTypeInfo info =
-                (FeatureTypeInfo)
-                        Proxy.newProxyInstance(
-                                FeatureTypeInfo.class.getClassLoader(),
-                                new Class[] {FeatureTypeInfo.class},
-                                handler);
+        FeatureTypeInfo info = (FeatureTypeInfo) Proxy.newProxyInstance(
+                FeatureTypeInfo.class.getClassLoader(), new Class[] {FeatureTypeInfo.class}, handler);
 
         // Added collaborator is returned by appropriate accessor
         assertThat(info.getStore(), sameInstance(ds));

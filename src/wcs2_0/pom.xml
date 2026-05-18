@@ -10,7 +10,7 @@ application directory.
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>geoserver</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver</groupId>
@@ -19,7 +19,15 @@ application directory.
   <name>Web Coverage Service 2.0 Module</name>
 
   <dependencies>
-
+    <dependency>
+      <groupId>jakarta.mail</groupId>
+      <artifactId>jakarta.mail-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-main</artifactId>
@@ -28,11 +36,6 @@ application directory.
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wcs</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-wcs1_1</artifactId>
-      <type>jar</type>
     </dependency>
 
     <dependency>
@@ -45,15 +48,14 @@ application directory.
     </dependency>
 
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <scope>provided</scope>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-iau-wkt</artifactId>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-main</artifactId>
-      <classifier>tests</classifier>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-arcgrid</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -65,7 +67,49 @@ application directory.
       </testResource>
     </testResources>
 
-    <plugins></plugins>
+    <plugins>
+      <plugin>
+        <!--
+        Run tests with surefire-junit4 engine instead of junit jupiter's junit-vintage-engine
+        as configured in the root pom. The upgrade to junit-vintage-engine causes several
+        test failures and requires further investigation.
+        -->
+        <artifactId>maven-surefire-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-junit4</artifactId>
+            <version>3.5.3</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+    </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>gs-test-dependences</id>
+      <activation>
+        <property>
+          <name>!maven.test.skip</name>
+        </property>
+      </activation>
+      <dependencies>
+        <!-- isolate gs reactor test dependencies when building fresh version -->
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-main</artifactId>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-ows</artifactId>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 
 </project>

@@ -7,6 +7,7 @@ package org.geoserver.ogcapi.v1.styles;
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,11 +28,11 @@ import org.geoserver.ogcapi.AbstractDocument;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.ows.URLMangler;
 import org.geoserver.ows.util.ResponseUtils;
-import org.geotools.styling.Description;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.StyledLayer;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.UserLayer;
+import org.geotools.api.style.Description;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.StyledLayer;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.UserLayer;
 import org.geotools.util.Version;
 
 /** Style metadadata information */
@@ -63,33 +64,25 @@ public class StyleMetadataDocument extends AbstractDocument {
 
     SampleDataSupport sampleDataSupport;
 
+    @JsonCreator
     public StyleMetadataDocument() {
         // empty constructor for Jackson usage
     }
 
     public StyleMetadataDocument(
-            StyleInfo si,
-            GeoServer gs,
-            SampleDataSupport sampleDataSupport,
-            ThumbnailBuilder thumbnails)
+            StyleInfo si, GeoServer gs, SampleDataSupport sampleDataSupport, ThumbnailBuilder thumbnails)
             throws IOException {
         this.sampleDataSupport = sampleDataSupport;
         this.id = si.prefixedName();
         StyledLayerDescriptor sld = si.getSLD();
         Optional<StyleMetadataInfo> styleMetadata =
-                Optional.ofNullable(
-                        si.getMetadata()
-                                .get(StyleMetadataInfo.METADATA_KEY, StyleMetadataInfo.class));
+                Optional.ofNullable(si.getMetadata().get(StyleMetadataInfo.METADATA_KEY, StyleMetadataInfo.class));
         this.title = styleMetadata.map(StyleMetadataInfo::getTitle).orElseGet(() -> getTitle(sld));
-        this.description =
-                styleMetadata
-                        .map(StyleMetadataInfo::getAbstract)
-                        .orElseGet(() -> getDescription(sld));
+        this.description = styleMetadata.map(StyleMetadataInfo::getAbstract).orElseGet(() -> getDescription(sld));
         this.keywords = styleMetadata.map(StyleMetadataInfo::getKeywords).orElse(null);
-        this.pointOfContact =
-                styleMetadata
-                        .map(StyleMetadataInfo::getPointOfContact)
-                        .orElseGet(() -> gs.getSettings().getContact().getContactPerson());
+        this.pointOfContact = styleMetadata
+                .map(StyleMetadataInfo::getPointOfContact)
+                .orElseGet(() -> gs.getSettings().getContact().getContactPerson());
         this.accessConstraints =
                 styleMetadata.map(StyleMetadataInfo::getAccessConstraints).orElse("unclassified");
 
@@ -111,36 +104,24 @@ public class StyleMetadataDocument extends AbstractDocument {
         if (styledLayers.length == 1) {
             // common GeoServer case, there is a single layer referenced and we use only the style
             // portion, not the layer one, we allow both userlayer and namedlayer
-            StyleLayer sl =
-                    new StyleLayer(si, styledLayers[0], gs.getCatalog(), sampleDataSupport, false);
+            StyleLayer sl = new StyleLayer(si, styledLayers[0], gs.getCatalog(), sampleDataSupport, false);
             layers.add(sl);
         } else {
             // here we skip the UserLayer, as they should contain data inline, so they get skipped
-            layers =
-                    Arrays.stream(styledLayers)
-                            .filter(sl -> sl instanceof NamedLayer)
-                            .map(
-                                    nl ->
-                                            new StyleLayer(
-                                                    si,
-                                                    nl,
-                                                    gs.getCatalog(),
-                                                    sampleDataSupport,
-                                                    true))
-                            .collect(Collectors.toList());
+            layers = Arrays.stream(styledLayers)
+                    .filter(sl -> sl instanceof NamedLayer)
+                    .map(nl -> new StyleLayer(si, nl, gs.getCatalog(), sampleDataSupport, true))
+                    .collect(Collectors.toList());
         }
 
         // link to the thumbnail if possible
         if (thumbnails.canGenerateThumbnail(si)) {
             String baseURL = APIRequestInfo.get().getBaseURL();
-            String href =
-                    ResponseUtils.buildURL(
-                            baseURL,
-                            "ogc/styles/v1/styles/"
-                                    + ResponseUtils.urlEncode(si.prefixedName())
-                                    + "/thumbnail",
-                            Collections.singletonMap("f", "image/png"),
-                            URLMangler.URLType.SERVICE);
+            String href = ResponseUtils.buildURL(
+                    baseURL,
+                    "ogc/styles/v1/styles/" + ResponseUtils.urlEncode(si.prefixedName()) + "/thumbnail",
+                    Collections.singletonMap("f", "image/png"),
+                    URLMangler.URLType.SERVICE);
             addLink(new Link(href, "preview", "image/png", "Thumbnail for " + si.prefixedName()));
         }
     }
@@ -172,15 +153,14 @@ public class StyleMetadataDocument extends AbstractDocument {
     /** Extracts the description of all styles contained in user layers or named layers */
     private Stream<Description> getDescriptions(StyledLayerDescriptor sld) {
         return Arrays.stream(sld.getStyledLayers())
-                .flatMap(
-                        sl -> {
-                            if (sl instanceof NamedLayer) {
-                                return Arrays.stream(((NamedLayer) sl).getStyles());
-                            } else if (sl instanceof UserLayer) {
-                                return Arrays.stream(((UserLayer) sl).getUserStyles());
-                            }
-                            return Stream.empty();
-                        })
+                .flatMap(sl -> {
+                    if (sl instanceof NamedLayer layer1) {
+                        return Arrays.stream(layer1.getStyles());
+                    } else if (sl instanceof UserLayer layer) {
+                        return Arrays.stream(layer.getUserStyles());
+                    }
+                    return Stream.empty();
+                })
                 .filter(s -> s != null && s.getDescription() != null && s.getDescription() != null)
                 .map(s -> s.getDescription());
     }

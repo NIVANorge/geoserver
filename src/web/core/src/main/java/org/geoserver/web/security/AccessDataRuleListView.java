@@ -4,6 +4,7 @@
  */
 package org.geoserver.web.security;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -33,7 +34,7 @@ public class AccessDataRuleListView extends ListView<DataAccessRuleInfo> {
     @Override
     protected void populateItem(ListItem<DataAccessRuleInfo> item) {
         DataAccessRuleInfo ruleModel = item.getModelObject();
-        item.add(new Label("roleName", new PropertyModel<String>(ruleModel, "roleName")));
+        item.add(new Label("roleName", new PropertyModel<>(ruleModel, "roleName")));
         CheckBox readCheckBox = new CheckBox("read", new PropertyModel<>(ruleModel, "read"));
         readCheckBox.setOutputMarkupId(true);
         item.add(readCheckBox);
@@ -84,17 +85,17 @@ public class AccessDataRuleListView extends ListView<DataAccessRuleInfo> {
 
     private void addNewCheckboxesUpdateBeahaviour() {
         for (CheckBox c : checkBoxes) {
-            c.add(
-                    new AjaxFormComponentUpdatingBehavior("click") {
+            c.add(new AjaxFormComponentUpdatingBehavior("click") {
 
-                        private static final long serialVersionUID = 1154921156065269691L;
+                @Serial
+                private static final long serialVersionUID = 1154921156065269691L;
 
-                        @Override
-                        protected void onUpdate(AjaxRequestTarget target) {
-                            selectAll = checkAllSelected();
-                            target.add(c.getForm());
-                        }
-                    });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    selectAll = checkAllSelected();
+                    target.add(c.getForm());
+                }
+            });
         }
     }
 

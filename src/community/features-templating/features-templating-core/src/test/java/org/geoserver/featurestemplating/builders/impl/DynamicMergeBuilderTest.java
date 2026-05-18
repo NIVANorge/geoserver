@@ -3,17 +3,9 @@ package org.geoserver.featurestemplating.builders.impl;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.geoserver.featurestemplating.builders.TemplateBuilder;
 import org.geoserver.featurestemplating.builders.TemplateBuilderMaker;
 import org.geoserver.featurestemplating.configuration.TemplateIdentifier;
@@ -21,16 +13,25 @@ import org.geoserver.featurestemplating.readers.JSONMerger;
 import org.geoserver.featurestemplating.readers.JSONTemplateReader;
 import org.geoserver.featurestemplating.readers.TemplateReaderConfiguration;
 import org.geoserver.featurestemplating.writers.GeoJSONWriter;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.data.DataTestCase;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.jdbc.JDBCDataStore;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.JSONSerializer;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 public class DynamicMergeBuilderTest extends DataTestCase {
 
@@ -57,12 +58,8 @@ public class DynamicMergeBuilderTest extends DataTestCase {
         tb.add("arrayMetadata", String.class);
         tb.setName("jsonFieldSimpleType");
         SimpleFeatureType schema = tb.buildFeatureType();
-        schema.getDescriptor("dynamicMetadata")
-                .getUserData()
-                .put(JDBCDataStore.JDBC_NATIVE_TYPENAME, "json");
-        schema.getDescriptor("staticMetadata")
-                .getUserData()
-                .put(JDBCDataStore.JDBC_NATIVE_TYPENAME, "json");
+        schema.getDescriptor("dynamicMetadata").getUserData().put(JDBCDataStore.JDBC_NATIVE_TYPENAME, "json");
+        schema.getDescriptor("staticMetadata").getUserData().put(JDBCDataStore.JDBC_NATIVE_TYPENAME, "json");
 
         SimpleFeatureBuilder fb = new SimpleFeatureBuilder(schema);
         fb.add(DYNAMIC_METADATA);
@@ -72,7 +69,7 @@ public class DynamicMergeBuilderTest extends DataTestCase {
     }
 
     @Test
-    public void testObtainDynamicMergeBuilder() throws JsonProcessingException {
+    public void testObtainDynamicMergeBuilder() throws JacksonException {
         JsonNode overlay = new ObjectMapper().readTree("{\"metadata\":\"${staticMetadata}\"}");
         ObjectNode mergedNode = new JSONMerger().mergeTrees(node, overlay);
         TemplateBuilderMaker builderMaker = new TemplateBuilderMaker();
@@ -86,10 +83,9 @@ public class DynamicMergeBuilderTest extends DataTestCase {
     @Test
     public void testMergeStaticResultOverlayExpression() throws Exception {
         JSONObject json = encodeDynamicMerge("${staticMetadata}", jsonFieldSimpleFeature, true);
-        JSONObject metadata19139 =
-                json.getJSONObject("dynamicMergeBuilder")
-                        .getJSONObject("metadata")
-                        .getJSONObject("metadata_iso_19139");
+        JSONObject metadata19139 = json.getJSONObject("dynamicMergeBuilder")
+                .getJSONObject("metadata")
+                .getJSONObject("metadata_iso_19139");
         assertEquals("metadata_iso_19139", metadata19139.getString("title"));
         assertEquals("http://metadata_iso_19139.org", metadata19139.getString("href"));
         assertEquals("metadata", metadata19139.getString("type"));
@@ -98,10 +94,9 @@ public class DynamicMergeBuilderTest extends DataTestCase {
     @Test
     public void testMergeStaticResultBaseExpression() throws Exception {
         JSONObject json = encodeDynamicMerge("${staticMetadata}", jsonFieldSimpleFeature, false);
-        JSONObject metadata19139 =
-                json.getJSONObject("dynamicMergeBuilder")
-                        .getJSONObject("metadata")
-                        .getJSONObject("metadata_iso_19139");
+        JSONObject metadata19139 = json.getJSONObject("dynamicMergeBuilder")
+                .getJSONObject("metadata")
+                .getJSONObject("metadata_iso_19139");
         assertEquals("basetext", metadata19139.getString("title"));
         assertEquals("basehref", metadata19139.getString("href"));
         assertEquals("basetype", metadata19139.getString("type"));
@@ -115,26 +110,18 @@ public class DynamicMergeBuilderTest extends DataTestCase {
         } catch (UnsupportedOperationException e) {
             message = e.getMessage();
         }
-        assertEquals(
-                message,
-                "A json attribute value cannot have a template directive among its fields.");
+        assertEquals(message, "A json attribute value cannot have a template directive among its fields.");
     }
 
-    private JSONObject encodeDynamicMerge(
-            String expression, Feature feature, boolean overlayExpression) throws IOException {
+    private JSONObject encodeDynamicMerge(String expression, Feature feature, boolean overlayExpression)
+            throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        GeoJSONWriter writer =
-                new GeoJSONWriter(
-                        new JsonFactory().createGenerator(baos, JsonEncoding.UTF8),
-                        TemplateIdentifier.JSON);
+        GeoJSONWriter writer = new GeoJSONWriter(
+                JsonFactory.builder().build().createGenerator(ObjectWriteContext.empty(), baos, JsonEncoding.UTF8),
+                TemplateIdentifier.JSON);
 
-        DynamicMergeBuilder builder =
-                new DynamicMergeBuilder(
-                        "dynamicMergeBuilder",
-                        expression,
-                        new NamespaceSupport(),
-                        node,
-                        overlayExpression);
+        DynamicMergeBuilder builder = new DynamicMergeBuilder(
+                "dynamicMergeBuilder", expression, new NamespaceSupport(), node, overlayExpression);
         writer.writeStartObject();
         builder.evaluate(writer, new TemplateBuilderContext(feature));
         writer.writeEndObject();

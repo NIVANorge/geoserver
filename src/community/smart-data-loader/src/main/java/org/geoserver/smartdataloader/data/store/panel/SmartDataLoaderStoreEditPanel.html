@@ -1,17 +1,59 @@
+<?xml version="1.0"?>
 <html xmlns:wicket="http://wicket.apache.org/">
-<body>
-<wicket:panel>
-	<fieldset>
-	  <legend><span><wicket:message key="connectionParameters">PostGIS Connection Parameters</wicket:message></span></legend>
-		<label><span wicket:id="dataStoreName">bar</span></label>
-		<select class="select" wicket:id="postgisdatastore" id="postgisdatastore"></select>
-	  <div wicket:id="rootentities"></div>
-	  <br/>
-	  <div wicket:id="domainmodel"></div>
-	  <br/>
-	  <div wicket:id="exclusions"></div>
-	  <div wicket:id="datastorename"></div>
-	</fieldset>
-</wicket:panel>
-</body>
+  <body>
+    <wicket:panel>
+      <div class="gs-panel-SmartDataLoaderStoreEditPanel">
+        <fieldset>
+          <legend>
+            <span>
+              <wicket:message key="connectionParameters">PostGIS Connection Parameters</wicket:message>
+            </span>
+          </legend>
+          <div class="gs-form">
+            <div class="gs-form-group">
+              <label>
+                <span wicket:id="dataStoreName">bar</span>
+              </label>
+              <select class="w-fit" wicket:id="postgisdatastore" id="postgisdatastore"/>
+            </div>
+          </div>
+          <div wicket:id="rootentities"/>
+          
+          <div wicket:id="domainmodel"/>
+
+          <div wicket:id="entities-prefix"/>
+
+          <div wicket:id="exclusions"/>
+          <div wicket:id="datastorename"/>
+        </fieldset>
+        
+        <div wicket:id="virtualRelationships"/>
+
+        <fieldset wicket:id="overridesContainer">
+          <legend>
+            <span>Overrides rules administration</span>
+          </legend>
+          <div>
+            <div wicket:id="addOverridePanel"/>
+            <table cellspacing="0" class="overrides-dataview">
+              <tr>
+                <th>ID</th>
+                <th>Expression</th>
+                <th>Actions</th>
+              </tr>
+              <tr wicket:id="overridesview">
+                <td><span wicket:id="overridekey">[contactid]</span></td>
+                <td><span wicket:id="expression">[firstname]</span></td>
+                <td>
+                  <span>
+                    <a wicket:id="removeLink" class="button outline-danger"><i class="gs-icon gs-icon-delete"></i>Remove</a>
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </fieldset>
+      </div>
+    </wicket:panel>
+  </body>
 </html>

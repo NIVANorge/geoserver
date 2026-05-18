@@ -6,11 +6,11 @@ package org.geoserver.ogcapi.v1.stac;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
-import org.opengis.feature.Feature;
+import org.geotools.api.feature.Feature;
 
 /**
- * Wrapper for the returned FeatureCollection containing a single STAC item definitions. Used
- * because Spring MVC response binding is driven by the response type.
+ * Wrapper for the returned FeatureCollection containing a single STAC item definitions. Used because Spring MVC
+ * response binding is driven by the response type.
  */
 @JsonIgnoreType
 public class ItemResponse {

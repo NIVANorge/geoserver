@@ -13,60 +13,55 @@ import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.monitor.MonitorConfig;
 import org.geoserver.monitor.ows.RequestObjectHandler;
 import org.geoserver.ows.util.OwsUtils;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.spatial.BBOX;
+import org.geotools.api.geometry.BoundingBox;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.filter.visitor.ExtractBoundsFilterVisitor;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
-import org.opengis.filter.spatial.BBOX;
-import org.opengis.geometry.BoundingBox;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
 
 public abstract class WFSRequestObjectHandler extends RequestObjectHandler {
 
     static final Logger LOGGER = Logging.getLogger(WFSRequestObjectHandler.class);
 
     // TODO: this should probably be handled as an update or extension to ExtractBoundsFilterVisitor
-    ExtractBoundsFilterVisitor visitor =
-            new ExtractBoundsFilterVisitor() {
-                @Override
-                public Object visit(BBOX filter, Object data) {
-                    if (data == null) {
-                        return null;
-                    }
+    ExtractBoundsFilterVisitor visitor = new ExtractBoundsFilterVisitor() {
+        @Override
+        public Object visit(BBOX filter, Object data) {
+            if (data == null) {
+                return null;
+            }
 
-                    BoundingBox bbox = (BoundingBox) data;
+            BoundingBox bbox = (BoundingBox) data;
 
-                    BoundingBox bounds;
-                    try {
-                        bounds = filter.getBounds();
-                        if (bounds.getCoordinateReferenceSystem() == null) {
-                            bounds =
-                                    ReferencedEnvelope.create(
-                                            bounds, bbox.getCoordinateReferenceSystem());
-                        }
-                        bounds.toBounds(monitorConfig.getBboxCrs());
-                    } catch (TransformException ex) {
-                        // We're stuck so give up.
-                        return null;
-                    }
-
-                    bbox.include(bounds);
-                    return bbox;
+            BoundingBox bounds;
+            try {
+                bounds = filter.getBounds();
+                if (bounds.getCoordinateReferenceSystem() == null) {
+                    bounds = ReferencedEnvelope.create(bounds, bbox.getCoordinateReferenceSystem());
                 }
-            };
+                bounds.toBounds(monitorConfig.getBboxCrs());
+            } catch (TransformException ex) {
+                // We're stuck so give up.
+                return null;
+            }
+
+            bbox.include(bounds);
+            return bbox;
+        }
+    };
 
     Catalog catalog;
 
-    protected WFSRequestObjectHandler(
-            String reqObjClassName, MonitorConfig config, Catalog catalog) {
+    protected WFSRequestObjectHandler(String reqObjClassName, MonitorConfig config, Catalog catalog) {
         super(reqObjClassName, config);
         this.catalog = catalog;
     }
 
     protected String toString(Object name) {
-        if (name instanceof QName) {
-            QName qName = (QName) name;
+        if (name instanceof QName qName) {
             String prefix = qName.getPrefix();
             if (prefix == null || "".equals(prefix)) {
                 prefix = qName.getNamespaceURI();
@@ -83,8 +78,7 @@ public abstract class WFSRequestObjectHandler extends RequestObjectHandler {
 
     /** Look up the CRS of the specified FeatureType */
     protected CoordinateReferenceSystem crsFromTypeName(QName typeName) {
-        FeatureTypeInfo featureType =
-                catalog.getFeatureTypeByName(typeName.getNamespaceURI(), typeName.getLocalPart());
+        FeatureTypeInfo featureType = catalog.getFeatureTypeByName(typeName.getNamespaceURI(), typeName.getLocalPart());
 
         return featureType.getCRS();
     }
@@ -132,8 +126,7 @@ public abstract class WFSRequestObjectHandler extends RequestObjectHandler {
                         continue;
                     }
 
-                    Filter f =
-                            OwsUtils.has(e, "filter") ? (Filter) OwsUtils.get(e, "filter") : null;
+                    Filter f = OwsUtils.has(e, "filter") ? (Filter) OwsUtils.get(e, "filter") : null;
                     if (f != null) {
                         ReferencedEnvelope startingBbox = new ReferencedEnvelope(defaultCrs);
                         bbox = (ReferencedEnvelope) f.accept(visitor, startingBbox);

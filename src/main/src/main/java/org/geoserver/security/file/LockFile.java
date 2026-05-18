@@ -15,12 +15,13 @@ import java.util.logging.Logger;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geoserver.security.impl.Util;
+import org.geoserver.util.SortedProperties;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
- * A simple class to support file based stores. Simulates a write lock by creating/removing a
- * physical file on the file system
+ * A simple class to support file based stores. Simulates a write lock by creating/removing a physical file on the file
+ * system
  *
  * @author Christian
  */
@@ -29,8 +30,7 @@ public class LockFile {
     protected long lockFileLastModified;
     protected Resource lockFileTarget, lockFile;
 
-    static Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.security.xml");
+    static Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.geoserver.security.xml");
 
     public LockFile(Resource file) throws IOException {
         lockFileTarget = file;
@@ -90,7 +90,7 @@ public class LockFile {
     /** Write some info into the lock file hostname, ip, user and lock file path */
     protected void writeLockFileContent(Resource lockFile) throws IOException {
 
-        Properties props = new Properties();
+        SortedProperties props = new SortedProperties();
         try (OutputStream out = lockFile.out()) {
             props.store(out, "Locking info");
 
@@ -102,8 +102,7 @@ public class LockFile {
                 hostname = InetAddress.getLocalHost().getHostName();
                 InetAddress[] addrs = InetAddress.getAllByName(hostname);
                 for (InetAddress addr : addrs) {
-                    if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress())
-                        ip = addr.getHostAddress();
+                    if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress()) ip = addr.getHostAddress();
                 }
             } catch (UnknownHostException ex) {
             }

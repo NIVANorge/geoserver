@@ -10,6 +10,20 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.IllegalAttributeException;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.api.referencing.operation.MathTransform2D;
+import org.geotools.api.referencing.operation.OperationNotFoundException;
+import org.geotools.api.referencing.operation.TransformException;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.factory.CommonFactoryFinder;
@@ -26,36 +40,22 @@ import org.geotools.referencing.ReferencingFactoryFinder;
 import org.geotools.util.factory.FactoryRegistryException;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.IllegalAttributeException;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.MathTransform2D;
-import org.opengis.referencing.operation.OperationNotFoundException;
-import org.opengis.referencing.operation.TransformException;
-import org.opengis.util.ProgressListener;
 
 /**
- * Decorating feature collection which reprojects feature geometries to a particular coordinate
- * reference system on the fly.
+ * Decorating feature collection which reprojects feature geometries to a particular coordinate reference system on the
+ * fly.
  *
- * <p>The coordinate reference system of feature geometries is looked up using {@link
- * org.locationtech.jts.geom.Geometry#getUserData()}.
+ * <p>The coordinate reference system of feature geometries is looked up using
+ * {@link org.locationtech.jts.geom.Geometry#getUserData()}.
  *
- * <p>The {@link #defaultSource} attribute can be set to specify a coordinate refernence system to
- * transform from when one is not specified by teh geometry itself. Leaving the property null
- * specifies that the geometry will not be transformed.
+ * <p>The {@link #defaultSource} attribute can be set to specify a coordinate refernence system to transform from when
+ * one is not specified by teh geometry itself. Leaving the property null specifies that the geometry will not be
+ * transformed.
  *
  * @author Justin Deoliveira, The Open Planning Project
  */
 public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollection {
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2(null);
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory(null);
 
     /** The schema of reprojected features */
     SimpleFeatureType schema;
@@ -72,10 +72,8 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
     /** Transformation hints */
     Hints hints = new Hints(Hints.LENIENT_DATUM_SHIFT, Boolean.TRUE);
 
-    public ReprojectingFeatureCollection(
-            SimpleFeatureCollection delegate, CoordinateReferenceSystem target)
-            throws SchemaException, OperationNotFoundException, FactoryRegistryException,
-                    FactoryException {
+    public ReprojectingFeatureCollection(SimpleFeatureCollection delegate, CoordinateReferenceSystem target)
+            throws SchemaException, OperationNotFoundException, FactoryRegistryException, FactoryException {
         super(delegate);
 
         this.target = target;
@@ -88,18 +86,15 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
         CoordinateReferenceSystem source = delegate.getSchema().getCoordinateReferenceSystem();
 
         if (source != null) {
-            MathTransform tx =
-                    ReferencingFactoryFinder.getCoordinateOperationFactory(hints)
-                            .createOperation(source, target)
-                            .getMathTransform();
+            MathTransform tx = ReferencingFactoryFinder.getCoordinateOperationFactory(hints)
+                    .createOperation(source, target)
+                    .getMathTransform();
 
-            GeometryCoordinateSequenceTransformer transformer =
-                    new GeometryCoordinateSequenceTransformer();
+            GeometryCoordinateSequenceTransformer transformer = new GeometryCoordinateSequenceTransformer();
             transformer.setMathTransform(tx);
             transformers.put(source, transformer);
         } else {
-            throw new RuntimeException(
-                    "Source was null in trying to create a reprojected feature collection!");
+            throw new RuntimeException("Source was null in trying to create a reprojected feature collection!");
         }
     }
 
@@ -139,8 +134,7 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
             DefaultCRSFilterVisitor defaulter = new DefaultCRSFilterVisitor(FF, crs);
             filter = (Filter) filter.accept(defaulter, null);
             if (crsDelegate != null && !CRS.equalsIgnoreMetadata(crs, crsDelegate)) {
-                ReprojectingFilterVisitor reprojector =
-                        new ReprojectingFilterVisitor(FF, delegate.getSchema());
+                ReprojectingFilterVisitor reprojector = new ReprojectingFilterVisitor(FF, delegate.getSchema());
                 filter = (Filter) filter.accept(reprojector, null);
             }
         }
@@ -149,8 +143,7 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
 
         if (sub != null) {
             try {
-                ReprojectingFeatureCollection wrapper =
-                        new ReprojectingFeatureCollection(sub, target);
+                ReprojectingFeatureCollection wrapper = new ReprojectingFeatureCollection(sub, target);
                 wrapper.setDefaultSource(defaultSource);
 
                 return wrapper;
@@ -228,9 +221,8 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
             AttributeDescriptor type = schema.getDescriptor(i);
             Object object = feature.getAttribute(type.getName());
 
-            if (object instanceof Geometry) {
+            if (object instanceof Geometry geometry) {
                 // check for crs
-                Geometry geometry = (Geometry) object;
                 CoordinateReferenceSystem crs = (CoordinateReferenceSystem) geometry.getUserData();
 
                 if (crs == null) {
@@ -251,12 +243,9 @@ public class ReprojectingFeatureCollection extends DecoratingSimpleFeatureCollec
                             MathTransform2D tx;
 
                             try {
-                                tx =
-                                        (MathTransform2D)
-                                                ReferencingFactoryFinder
-                                                        .getCoordinateOperationFactory(hints)
-                                                        .createOperation(crs, target)
-                                                        .getMathTransform();
+                                tx = (MathTransform2D) ReferencingFactoryFinder.getCoordinateOperationFactory(hints)
+                                        .createOperation(crs, target)
+                                        .getMathTransform();
                             } catch (Exception e) {
                                 String msg = "Could not transform for crs: " + crs;
                                 throw (IOException) new IOException(msg).initCause(e);

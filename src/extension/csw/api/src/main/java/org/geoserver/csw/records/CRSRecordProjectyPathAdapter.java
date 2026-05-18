@@ -5,14 +5,14 @@
  */
 package org.geoserver.csw.records;
 
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.visitor.DuplicatingFilterVisitor;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /**
- * Expands the paths referring to SimpleLiteral instances so that they contain the dc:value ending,
- * and moves the filter against the bbox to the internal geometry
+ * Expands the paths referring to SimpleLiteral instances so that they contain the dc:value ending, and moves the filter
+ * against the bbox to the internal geometry
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -25,7 +25,7 @@ public class CRSRecordProjectyPathAdapter extends DuplicatingFilterVisitor {
 
     @Override
     public Object visit(PropertyName expression, Object extraData) {
-        FilterFactory2 filterFactory = getFactory(extraData);
+        FilterFactory filterFactory = getFactory(extraData);
         NamespaceSupport nss = expression.getNamespaceContext();
 
         return extender.extendProperty(expression, filterFactory, nss);

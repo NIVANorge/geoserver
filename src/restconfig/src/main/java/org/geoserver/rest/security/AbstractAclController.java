@@ -4,6 +4,7 @@
  */
 package org.geoserver.rest.security;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -15,7 +16,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.rest.ResourceNotFoundException;
@@ -34,8 +34,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-public abstract class AbstractAclController<
-                R extends Comparable<R>, DAO extends AbstractAccessRuleDAO<R>>
+public abstract class AbstractAclController<R extends Comparable<R>, DAO extends AbstractAccessRuleDAO<R>>
         implements SequentialExecutionController {
 
     public static final String ANY = "*";
@@ -111,7 +110,7 @@ public abstract class AbstractAclController<
         ruleString = URLDecoder.decode(ruleString, "utf-8");
 
         String msg = validateRuleKey(ruleString);
-        if (msg != null) throw new RestException(msg, HttpStatus.UNPROCESSABLE_ENTITY);
+        if (msg != null) throw new RestException(msg, HttpStatus.UNPROCESSABLE_CONTENT);
 
         R rule = null;
         for (R ruleCandidate : ruleDAO.getRules()) {
@@ -156,7 +155,7 @@ public abstract class AbstractAclController<
         return result;
     }
 
-    /** Calculate the the intersection of the keys */
+    /** Calculate the intersection of the keys */
     protected Set<Object> intersection(Map map) {
 
         Set<Object> result = new HashSet<>();
@@ -196,7 +195,7 @@ public abstract class AbstractAclController<
     protected abstract String keyFor(R rule);
 
     /**
-     * Validate a rule, return an error message or <code>null</code> if the rule is ok
+     * Validate a rule, return an error message or {@code null} if the rule is ok
      *
      * @param ruleKey ,ruleValue
      */
@@ -220,7 +219,7 @@ public abstract class AbstractAclController<
         for (Entry<String, String> entry : ruleMap.entrySet()) {
             String msg = validateRule(entry.getKey(), entry.getValue());
             if (msg != null) {
-                throw new RestException(msg, HttpStatus.UNPROCESSABLE_ENTITY);
+                throw new RestException(msg, HttpStatus.UNPROCESSABLE_CONTENT);
             }
         }
     }
@@ -289,8 +288,8 @@ public abstract class AbstractAclController<
     }
 
     protected RestException createRestException(Exception ex) {
-        if (ex instanceof RestException) {
-            return (RestException) ex; // do nothing
+        if (ex instanceof RestException exception) {
+            return exception; // do nothing
         } else {
             return new RestException("", HttpStatus.INTERNAL_SERVER_ERROR, ex);
         }

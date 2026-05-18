@@ -6,25 +6,24 @@ package org.geoserver.featurestemplating.expressions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.factory.epsg.CartesianAuthorityFactory;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 
 /** Cql function that allows to reproject geometry towards targetCRS */
 public class ReprojectFunction extends FunctionExpressionImpl {
-    public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "reproject",
-                    parameter("reprojected", Geometry.class),
-                    parameter("targetCRS", String.class),
-                    parameter("geometry", Geometry.class));
+    public static FunctionName NAME = new FunctionNameImpl(
+            "reproject",
+            parameter("reprojected", Geometry.class),
+            parameter("targetCRS", String.class),
+            parameter("geometry", Geometry.class));
 
     public ReprojectFunction() {
         super(NAME);

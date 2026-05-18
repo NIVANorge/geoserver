@@ -5,6 +5,9 @@
  */
 package org.geoserver.web.wicket;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import org.apache.wicket.Page;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
@@ -13,14 +16,29 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 
 /**
- * A simple bookmarkable link with a label inside. This is a utility component, avoid some
- * boilerplate code in case the link is really just pointing to a bookmarkable page without side
- * effects
+ * A simple bookmarkable link with a label inside. This is a utility component, avoid some boilerplate code in case the
+ * link is really just pointing to a bookmarkable page without side effects
  *
  * @author Andrea Aime - OpenGeo
  */
 public class SimpleBookmarkableLink extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(SimpleBookmarkableLink.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -7688902365198291065L;
+
     BookmarkablePageLink<?> link;
     Label label;
 
@@ -31,8 +49,7 @@ public class SimpleBookmarkableLink extends Panel {
 
     private static PageParameters toPageParameters(String[] pageParams) {
         if (pageParams.length % 2 == 1)
-            throw new IllegalArgumentException(
-                    "The page parameters array should contain an even number of elements");
+            throw new IllegalArgumentException("The page parameters array should contain an even number of elements");
 
         PageParameters result = new PageParameters();
         for (int i = 0; i < pageParams.length; i += 2) {

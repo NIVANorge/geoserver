@@ -10,22 +10,23 @@ import java.util.logging.Logger;
 import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.DimensionInfo;
 import org.geoserver.catalog.ResourceInfo;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ows.URLMangler.URLType;
 import org.geoserver.ows.util.ResponseUtils;
 import org.geoserver.wcs.WCSInfo;
-import org.geoserver.wcs2_0.GetCoverage;
 import org.geoserver.wcs2_0.eo.WCSEOMetadata;
 import org.geoserver.wcs2_0.response.WCS20CoverageMetadataProvider;
 import org.geoserver.wcs2_0.response.WCSDimensionsHelper;
 import org.geoserver.wcs2_0.util.NCNameResourceCodec;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
+import org.geotools.gml2.SrsSyntax;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.CRS.AxisOrder;
 import org.geotools.util.logging.Logging;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.xml.sax.Attributes;
 import org.xml.sax.helpers.AttributesImpl;
 import org.xml.sax.helpers.NamespaceSupport;
@@ -106,11 +107,7 @@ public class WCSEOCoverageMetadataProvider implements WCS20CoverageMetadataProvi
             return new String[0];
         }
         String schemaLocation =
-                ResponseUtils.buildURL(
-                        schemaBaseURL,
-                        "schemas/wcseo/1.0/wcsEOCoverage.xsd",
-                        null,
-                        URLType.RESOURCE);
+                ResponseUtils.buildURL(schemaBaseURL, "schemas/wcseo/1.0/wcsEOCoverage.xsd", null, URLType.RESOURCE);
         return new String[] {WCSEOMetadata.NAMESPACE, schemaLocation};
     }
 
@@ -167,7 +164,7 @@ public class WCSEOCoverageMetadataProvider implements WCS20CoverageMetadataProvi
         element(tx, "om:observedProperty", null, null);
 
         // the footprint
-        GeneralEnvelope ge = reader.getOriginalEnvelope();
+        GeneralBounds ge = reader.getOriginalEnvelope();
         CoordinateReferenceSystem crs = reader.getCoordinateReferenceSystem();
         String srsName = getSRSName(crs);
         final boolean axisSwap = CRS.getAxisOrder(crs).equals(AxisOrder.EAST_NORTH);
@@ -223,16 +220,16 @@ public class WCSEOCoverageMetadataProvider implements WCS20CoverageMetadataProvi
     }
 
     private String getSRSName(CoordinateReferenceSystem crs) {
-        Integer EPSGCode = null;
+        String crsId = null;
         try {
-            EPSGCode = CRS.lookupEpsgCode(crs, false);
+            crsId = ResourcePool.lookupIdentifier(crs, true);
         } catch (FactoryException e) {
             throw new IllegalStateException("Unable to lookup epsg code for this CRS:" + crs, e);
         }
-        if (EPSGCode == null) {
+        if (crsId == null) {
             throw new IllegalStateException("Unable to lookup epsg code for this CRS:" + crs);
         }
-        return GetCoverage.SRS_STARTER + EPSGCode;
+        return SrsSyntax.OGC_HTTP_URI.getSRS(crsId);
     }
 
     private void element(Translator tx, String element, String content, AttributesImpl attributes) {

@@ -4,7 +4,7 @@
  */
 package org.geoserver.ogcapi.v1.coverages;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.APIRequestInfo;
 import org.geoserver.ogcapi.DefaultAPIExceptionHandler;
@@ -28,8 +28,7 @@ public class WCS20ExceptionHandler extends DefaultAPIExceptionHandler {
     @Override
     public void handle(Throwable t, HttpServletResponse response) {
         WCS20Exception wc = (WCS20Exception) t;
-        if (WCS20Exception.WCS20ExceptionCode.NoSuchCoverage.getExceptionCode()
-                .equals(wc.getCode())) {
+        if (WCS20Exception.WCS20ExceptionCode.NoSuchCoverage.getExceptionCode().equals(wc.getCode())) {
             // the one and only valid 404 usage
             response.setStatus(404);
         } else if (wc.getHttpCode() == 404) {

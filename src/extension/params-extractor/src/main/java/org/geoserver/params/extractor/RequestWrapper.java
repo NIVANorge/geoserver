@@ -4,6 +4,8 @@
  */
 package org.geoserver.params.extractor;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -11,8 +13,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
 
 public final class RequestWrapper extends HttpServletRequestWrapper {
 
@@ -30,10 +30,7 @@ public final class RequestWrapper extends HttpServletRequestWrapper {
         originalParameters = request.getParameterMap();
         // extract URL portions for servletpath and pathinfo
         final Pattern pathsPattern =
-                Pattern.compile(
-                        "^"
-                                + request.getContextPath()
-                                + "(/[^?/#]+)(/[^?#]*[^/?#])?(?:/|/?[?#].*)?$");
+                Pattern.compile("^" + request.getContextPath() + "(/[^?/#]+)(/[^?#]*[^/?#])?(?:/|/?[?#].*)?$");
         Matcher matcher = pathsPattern.matcher(urlTransform.getOriginalRequestUri());
         if (matcher.matches()) {
             servletPath = Optional.ofNullable(matcher.group(1)).orElse("");

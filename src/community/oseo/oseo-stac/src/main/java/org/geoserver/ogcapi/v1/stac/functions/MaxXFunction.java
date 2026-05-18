@@ -6,16 +6,15 @@ package org.geoserver.ogcapi.v1.stac.functions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.FunctionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.filter.capability.FunctionName;
 
 /** Returns the maximum X value of the given geometry */
 public class MaxXFunction extends FunctionImpl {
 
-    public static FunctionName NAME =
-            new FunctionNameImpl("maxx", Double.class, parameter("geometry", Geometry.class));
+    public static FunctionName NAME = new FunctionNameImpl("maxx", Double.class, parameter("geometry", Geometry.class));
 
     public MaxXFunction() {
         this.functionName = NAME;

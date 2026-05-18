@@ -13,14 +13,14 @@ package org.geoserver.gsr.translate.geometry;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import net.sf.json.JSON;
-import net.sf.json.JSONSerializer;
-import net.sf.json.test.JSONAssert;
 import org.apache.commons.io.FileUtils;
 import org.geoserver.gsr.api.GeoServicesJacksonJsonConverter;
 import org.geoserver.gsr.model.geometry.Geometry;
 import org.geoserver.gsr.model.geometry.SpatialReferenceWKID;
 import org.junit.Test;
+import org.kordamp.json.JSON;
+import org.kordamp.json.JSONSerializer;
+import org.kordamp.json.test.JSONAssert;
 
 public class GeometryEncoderTest {
 
@@ -51,9 +51,8 @@ public class GeometryEncoderTest {
         GeometryEncoder encoder = new GeometryEncoder();
         GeoServicesJacksonJsonConverter jsonConverter = new GeoServicesJacksonJsonConverter();
 
-        String stringSource =
-                FileUtils.readFileToString(
-                        new File(getClass().getResource(filename).toURI()), "UTF-8");
+        String stringSource = FileUtils.readFileToString(
+                new File(getClass().getResource(filename).toURI()), "UTF-8");
         JSON jsonSource = JSONSerializer.toJSON(stringSource);
 
         org.locationtech.jts.geom.Geometry jtsGeom = GeometryEncoder.jsonToJtsGeometry(jsonSource);

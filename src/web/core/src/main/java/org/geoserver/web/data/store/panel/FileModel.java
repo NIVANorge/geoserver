@@ -7,23 +7,26 @@ package org.geoserver.web.data.store.panel;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.wicket.model.IModel;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.GeoServerResourceLoader;
-import org.geoserver.platform.resource.Files;
+import org.geoserver.platform.resource.FilePaths;
+import org.geoserver.platform.resource.Paths;
 import org.geotools.util.logging.Logging;
 
 /**
- * Makes sure the file path for files do start with file:// otherwise stuff like /home/user/file.shp
- * won't be recognized as valid. Also, if a path is inside the data directory it will be turned into
- * a relative path
+ * Makes sure the file path for files do start with file:// otherwise stuff like /home/user/file.shp won't be recognized
+ * as valid. Also, if a path is inside the data directory it will be turned into a relative path
  *
  * @author Andrea Aime - GeoSolutions
  */
 public class FileModel implements IModel<String> {
+    @Serial
     private static final long serialVersionUID = 3911203737278340528L;
 
     static final Logger LOGGER = Logging.getLogger(FileModel.class);
@@ -40,54 +43,31 @@ public class FileModel implements IModel<String> {
         this.rootDir = rootDir;
     }
 
-    private boolean isSubfile(File root, File selection) {
-        if (selection == null || "".equals(selection.getPath())) return false;
-        if (selection.equals(root)) return true;
-
-        return isSubfile(root, selection.getParentFile());
-    }
-
     @Override
     public String getObject() {
         Object obj = delegate.getObject();
-        if (obj instanceof URL) {
-            URL url = (URL) obj;
+        if (obj instanceof URL url) {
             return url.toExternalForm();
         }
         return (String) obj;
     }
 
     @Override
-    public void detach() {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
     public void setObject(String location) {
 
         if (location != null) {
-            File dataDirectory = canonicalize(rootDir);
-            File file = canonicalize(new File(location));
-            if (isSubfile(dataDirectory, file)) {
-                File curr = file;
-                String path = null;
-                // paranoid check to avoid infinite loops
-                while (curr != null && !curr.equals(dataDirectory)) {
-                    if (path == null) {
-                        path = curr.getName();
-                    } else {
-                        path = curr.getName() + "/" + path;
-                    }
-                    curr = curr.getParentFile();
-                }
-                location = "file:" + path;
-            } else {
-                File dataFile = Files.url(rootDir, location);
-                if (dataFile == null || dataFile.equals(file)) {
-                    // not relative to the data directory, does not need fixing
-                    location = "file://" + file.getAbsolutePath();
-                }
+            location = Paths.convert(location);
+            String locationPath;
+            try {
+                locationPath = new URL(location).getFile();
+            } catch (MalformedURLException e) {
+                locationPath = location;
+            }
+            locationPath = Paths.convert(rootDir, new File(locationPath));
+            if (FilePaths.isAbsolute(locationPath)) {
+                location = "file://" + locationPath;
+            } else if (!locationPath.equals(location)) {
+                location = "file:" + locationPath;
             }
         }
         delegate.setObject(location);

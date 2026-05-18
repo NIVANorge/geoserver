@@ -7,17 +7,20 @@ package org.geoserver.ogcapi.v1.dggs;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.jayway.jsonpath.DocumentContext;
+import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.ogcapi.OGCApiTestSupport;
-import org.geoserver.ogcapi.OpenAPIMessageConverter;
+import org.geoserver.ogcapi.SwaggerJSONAPIMessageConverter;
 import org.geoserver.platform.Service;
 import org.geotools.util.Version;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 
 public class LandingPageTest extends OGCApiTestSupport {
@@ -88,15 +91,13 @@ public class LandingPageTest extends OGCApiTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/dggs/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/dggs/v1?f=application/yaml");
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -136,9 +137,7 @@ public class LandingPageTest extends OGCApiTestSupport {
         assertEquals(12, (int) json.read("links.length()", Integer.class));
         // check landing page links
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
                 "links[?(@.type != 'application/json' && @.href =~ /.*ogc\\/dggs\\/v1\\/\\?.*/)].rel",
@@ -160,9 +159,7 @@ public class LandingPageTest extends OGCApiTestSupport {
                 "http://localhost:8080/geoserver/ogc/dggs/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0",
                 readSingle(
                         json,
-                        "links[?(@.type=='"
-                                + OpenAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE
-                                + "')].href"));
+                        "links[?(@.type=='" + SwaggerJSONAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE + "')].href"));
         // check conformance links
         assertJSONList(
                 json,
@@ -178,8 +175,23 @@ public class LandingPageTest extends OGCApiTestSupport {
                 Link.REL_DATA,
                 Link.REL_DATA);
         // check title
-        assertEquals("DGGS 1.0 server", json.read("title"));
+        assertEquals("Discrete Global Grid Systems Service", json.read("title"));
         // check description
-        assertEquals("", json.read("description"));
+        assertTrue(((String) json.read("description")).contains("OGCAPI-DGGS"));
+    }
+
+    @Test
+    public void testDisabledService() throws Exception {
+        GeoServer gs = getGeoServer();
+        DGGSInfo service = gs.getService(DGGSInfo.class);
+        service.setEnabled(false);
+        gs.save(service);
+        try {
+            MockHttpServletResponse httpServletResponse = getAsMockHttpServletResponse("ogc/dggs/v1", 404);
+            assertEquals("Service DGGS is disabled", httpServletResponse.getErrorMessage());
+        } finally {
+            service.setEnabled(true);
+            gs.save(service);
+        }
     }
 }

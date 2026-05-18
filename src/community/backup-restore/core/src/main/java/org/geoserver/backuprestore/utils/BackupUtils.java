@@ -19,7 +19,6 @@ import org.apache.commons.vfs2.FileSystemException;
 import org.apache.commons.vfs2.FileSystemManager;
 import org.apache.commons.vfs2.FileType;
 import org.apache.commons.vfs2.VFS;
-import org.codehaus.plexus.util.FileUtils;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.resource.Files;
 import org.geoserver.platform.resource.Paths;
@@ -76,8 +75,7 @@ public class BackupUtils {
     }
 
     /** Returns a random temp folder Resource inside the GeoServer Temp Directory. */
-    public static Resource geoServerTmpDir(GeoServerDataDirectory geoServerDataDirectory)
-            throws IOException {
+    public static Resource geoServerTmpDir(GeoServerDataDirectory geoServerDataDirectory) throws IOException {
         String tempPath = geoServerDataDirectory.findOrCreateDir("temp").getAbsolutePath();
 
         return createRandomResource(tempPath);
@@ -89,18 +87,15 @@ public class BackupUtils {
         Resource directory = Resources.createRandom("tmp", "", root);
 
         do {
-            FileUtils.forceDelete(directory.dir());
+            directory.delete();
         } while (Resources.exists(directory));
 
-        FileUtils.forceMkdir(directory.dir());
+        directory.dir();
 
         return Files.asResource(directory.dir());
     }
 
-    /**
-     * Extracts the archive file {@code archiveFile} to {@code targetFolder}; both shall previously
-     * exist.
-     */
+    /** Extracts the archive file {@code archiveFile} to {@code targetFolder}; both shall previously exist. */
     public static void extractTo(Resource archiveFile, Resource targetFolder) throws IOException {
         FileSystemManager manager = VFS.getManager();
         String sourceURI = resolveArchiveURI(archiveFile);
@@ -109,41 +104,34 @@ public class BackupUtils {
         if (manager.canCreateFileSystem(source)) {
             source = manager.createFileSystem(source);
         }
-        FileObject target =
-                manager.createVirtualFileSystem(
-                        manager.resolveFile(targetFolder.dir().getAbsolutePath()));
+        FileObject target = manager.createVirtualFileSystem(
+                manager.resolveFile(targetFolder.dir().getAbsolutePath()));
 
-        FileSelector selector =
-                new AllFileSelector() {
-                    @Override
-                    public boolean includeFile(FileSelectInfo fileInfo) {
-                        LOGGER.fine(
-                                "Uncompressing " + fileInfo.getFile().getName().getFriendlyURI());
-                        return true;
-                    }
-                };
+        FileSelector selector = new AllFileSelector() {
+            @Override
+            public boolean includeFile(FileSelectInfo fileInfo) {
+                LOGGER.fine("Uncompressing " + fileInfo.getFile().getName().getFriendlyURI());
+                return true;
+            }
+        };
         target.copyFrom(source, selector);
         source.close();
         target.close();
         manager.closeFileSystem(source.getFileSystem());
     }
 
-    /**
-     * Compress {@code sourceFolder} to the archive file {@code archiveFile}; both shall previously
-     * exist.
-     */
+    /** Compress {@code sourceFolder} to the archive file {@code archiveFile}; both shall previously exist. */
     public static void compressTo(Resource sourceFolder, Resource archiveFile) throws IOException {
         // See https://commons.apache.org/proper/commons-vfs/filesystems.html
         // for the supported filesystems
 
         FileSystemManager manager = VFS.getManager();
 
-        FileObject sourceDir =
-                manager.createVirtualFileSystem(
-                        manager.resolveFile(sourceFolder.dir().getAbsolutePath()));
+        FileObject sourceDir = manager.createVirtualFileSystem(
+                manager.resolveFile(sourceFolder.dir().getAbsolutePath()));
 
         try {
-            if ("zip".equalsIgnoreCase(FileUtils.getExtension(archiveFile.path()))) {
+            if ("zip".equalsIgnoreCase(Paths.extension(archiveFile.path()))) {
                 // apache VFS does not support ZIP as writable FileSystem
 
                 OutputStream fos = archiveFile.out();
@@ -191,10 +179,9 @@ public class BackupUtils {
                 writeEntry(zos, file, Paths.path(baseDir, sourceFile.getName().getBaseName()));
             }
         } else {
-            String fileName =
-                    (baseDir != null
-                            ? Paths.path(baseDir, sourceFile.getName().getBaseName())
-                            : sourceFile.getName().getBaseName());
+            String fileName = (baseDir != null
+                    ? Paths.path(baseDir, sourceFile.getName().getBaseName())
+                    : sourceFile.getName().getBaseName());
             ZipEntry zipEntry = new ZipEntry(fileName);
             InputStream is = sourceFile.getContent().getInputStream();
 

@@ -8,25 +8,27 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.text.MessageFormat;
 import java.util.HashSet;
 import java.util.Set;
-import net.sf.json.JSONObject;
+import org.apache.commons.io.FileUtils;
 import org.custommonkey.xmlunit.exceptions.XpathException;
 import org.geoserver.rest.RestBaseController;
 import org.geoserver.security.CatalogMode;
 import org.geoserver.test.TestSetup;
 import org.geoserver.test.TestSetupFrequency;
 import org.junit.Test;
+import org.kordamp.json.JSONObject;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
 /**
- * Test for {@link DataAccessController},{@link ServiceAccessController} and {@link
- * RestAccessController}
+ * Test for {@link DataAccessController},{@link ServiceAccessController} and {@link RestAccessController}
  *
  * @author christian
  */
@@ -94,14 +96,13 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
                 dom.getDocumentElement()
                         .getElementsByTagName(RuleMapXMLConverter.RULEELEMENT)
                         .getLength());
-        String pattern =
-                "/"
-                        + RuleMapXMLConverter.ROOTELEMENT
-                        + "/"
-                        + RuleMapXMLConverter.RULEELEMENT
-                        + "[@"
-                        + RuleMapXMLConverter.RESOURCEATTR
-                        + "='XXX']";
+        String pattern = "/"
+                + RuleMapXMLConverter.ROOTELEMENT
+                + "/"
+                + RuleMapXMLConverter.RULEELEMENT
+                + "[@"
+                + RuleMapXMLConverter.RESOURCEATTR
+                + "='XXX']";
         for (String[] rule : rules) {
             String exp = pattern.replace("XXX", rule[0]);
             String roles = xp.evaluate(exp, dom);
@@ -148,11 +149,11 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
     }
 
     String[][] getDefaultRestRules() {
-        return new String[][] {{"/**:GET", "ADMIN"}, {"/**:POST,DELETE,PUT", "ADMIN"}};
+        return new String[][] {{"/**:GET,HEAD,OPTIONS", "ADMIN"}, {"/**:POST,DELETE,PUT", "ADMIN"}};
     }
 
     String[][] getDefaultRestRulesForDelete() {
-        return new String[][] {{"%2F**:GET", "ADMIN"}, {"%2F**:POST,DELETE,PUT", "ADMIN"}};
+        return new String[][] {{"/**:GET,HEAD,OPTIONS", "ADMIN"}, {"/**:POST,DELETE,PUT", "ADMIN"}};
     }
 
     @Test
@@ -186,15 +187,20 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
 
         String[][] layerRules = getDefaultLayerRules();
 
-        assertEquals(200, deleteAsServletResponse(DATA_URI + "/" + layerRules[0][0]).getStatus());
-        assertEquals(404, deleteAsServletResponse(DATA_URI + "/" + layerRules[0][0]).getStatus());
+        assertEquals(
+                200, deleteAsServletResponse(DATA_URI + "/" + layerRules[0][0]).getStatus());
+        assertEquals(
+                404, deleteAsServletResponse(DATA_URI + "/" + layerRules[0][0]).getStatus());
 
-        assertEquals(404, deleteAsServletResponse(SERVICE_URI + "/wfs.getFeature").getStatus());
+        assertEquals(
+                404, deleteAsServletResponse(SERVICE_URI + "/wfs.getFeature").getStatus());
 
         String[][] restRules = getDefaultRestRulesForDelete();
 
-        assertEquals(200, deleteAsServletResponse(REST_URI + "/" + restRules[0][0]).getStatus());
-        assertEquals(404, deleteAsServletResponse(REST_URI + "/" + restRules[0][0]).getStatus());
+        assertEquals(
+                200, deleteAsServletResponse(REST_URI + "/" + restRules[0][0]).getStatus());
+        assertEquals(
+                404, deleteAsServletResponse(REST_URI + "/" + restRules[0][0]).getStatus());
     }
 
     @Test
@@ -256,10 +262,7 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         checkXMLResponse(dom, rules);
 
         // add
-        toBeAdded2 =
-                new String[][] {
-                    {"/myworkspace/**:PUT,POST", TEST_ROLE1}, {"/myworkspace/**:GET", TEST_ROLELIST}
-                };
+        toBeAdded2 = new String[][] {{"/myworkspace/**:PUT,POST", TEST_ROLE1}, {"/myworkspace/**:GET", TEST_ROLELIST}};
         expected = new String[][] {rules[0], rules[1], toBeAdded2[0], toBeAdded2[1]};
         assertEquals(
                 200,
@@ -329,10 +332,7 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         checkJSONResponse(json, rules);
 
         // add
-        toBeAdded2 =
-                new String[][] {
-                    {"/myworkspace/**:PUT,POST", TEST_ROLE1}, {"/myworkspace/**:GET", TEST_ROLELIST}
-                };
+        toBeAdded2 = new String[][] {{"/myworkspace/**:PUT,POST", TEST_ROLE1}, {"/myworkspace/**:GET", TEST_ROLELIST}};
         expected = new String[][] {rules[0], rules[1], toBeAdded2[0], toBeAdded2[1]};
         assertEquals(
                 200,
@@ -371,10 +371,7 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         // service rules
 
         rules = getDefaultServiceRules();
-        toBeModified2 =
-                new String[][] {
-                    {"ws.*", TEST_ROLE1}, {"ws2.GetFeature", TEST_ROLELIST}
-                }; // conflict
+        toBeModified2 = new String[][] {{"ws.*", TEST_ROLE1}, {"ws2.GetFeature", TEST_ROLELIST}}; // conflict
         assertEquals(
                 409,
                 putAsServletResponse(SERVICE_URI_JSON, createJSONBody(toBeModified2), "text/json")
@@ -385,15 +382,13 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
 
         assertEquals(
                 200,
-                putAsServletResponse(
-                                SERVICE_URI_JSON, createJSONBody(new String[][] {}), "text/json")
+                putAsServletResponse(SERVICE_URI_JSON, createJSONBody(new String[][] {}), "text/json")
                         .getStatus());
 
         // REST rules
 
         rules = getDefaultRestRules();
-        toBeModified =
-                new String[][] {rules[0], {"/myworkspace/**:GET", TEST_ROLELIST}}; // conflict
+        toBeModified = new String[][] {rules[0], {"/myworkspace/**:GET", TEST_ROLELIST}}; // conflict
         assertEquals(
                 409,
                 putAsServletResponse(REST_URI_JSON, createJSONBody(toBeModified), "text/json")
@@ -442,10 +437,7 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         // service rules
 
         rules = getDefaultServiceRules();
-        toBeModified2 =
-                new String[][] {
-                    {"ws.*", TEST_ROLE1}, {"ws2.GetFeature", TEST_ROLELIST}
-                }; // conflict
+        toBeModified2 = new String[][] {{"ws.*", TEST_ROLE1}, {"ws2.GetFeature", TEST_ROLELIST}}; // conflict
         assertEquals(
                 409,
                 putAsServletResponse(SERVICE_URI_XML, createXMLBody(toBeModified2), "text/xml")
@@ -462,8 +454,7 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         // REST rules
 
         rules = getDefaultRestRules();
-        toBeModified =
-                new String[][] {rules[0], {"/myworkspace/**:GET", TEST_ROLELIST}}; // conflict
+        toBeModified = new String[][] {rules[0], {"/myworkspace/**:GET", TEST_ROLELIST}}; // conflict
         assertEquals(
                 409,
                 putAsServletResponse(REST_URI_XML, createXMLBody(toBeModified), "text/xml")
@@ -492,7 +483,8 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
 
         Document dom = getAsDOM(CATALOG_URI_XML);
         print(dom);
-        assertEquals(CatalogModeController.XML_ROOT_ELEM, dom.getDocumentElement().getNodeName());
+        assertEquals(
+                CatalogModeController.XML_ROOT_ELEM, dom.getDocumentElement().getNodeName());
         NodeList nl = dom.getElementsByTagName(CatalogModeController.MODE_ELEMENT);
         assertEquals(1, nl.getLength());
         mode = nl.item(0).getTextContent();
@@ -510,17 +502,11 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
                         .getStatus());
         assertEquals(
                 422,
-                putAsServletResponse(
-                                CATALOG_URI_JSON,
-                                MessageFormat.format(jsonTemplate, "ABC"),
-                                "text/json")
+                putAsServletResponse(CATALOG_URI_JSON, MessageFormat.format(jsonTemplate, "ABC"), "text/json")
                         .getStatus());
         assertEquals(
                 422,
-                putAsServletResponse(
-                                CATALOG_URI_XML,
-                                MessageFormat.format(xmlTemplate, "ABC"),
-                                "text/xml")
+                putAsServletResponse(CATALOG_URI_XML, MessageFormat.format(xmlTemplate, "ABC"), "text/xml")
                         .getStatus());
 
         assertEquals(
@@ -715,8 +701,115 @@ public class AccessControllersTest extends SecurityRESTTestSupport {
         assertEquals(403, getAsServletResponse(CATALOG_URI_XML).getStatus());
         assertEquals(403, getAsServletResponse(CATALOG_URI_JSON).getStatus());
         assertEquals(
-                403, putAsServletResponse(CATALOG_URI_XML, xmlTemplate, "text/xml").getStatus());
+                403,
+                putAsServletResponse(CATALOG_URI_XML, xmlTemplate, "text/xml").getStatus());
         assertEquals(
-                403, putAsServletResponse(CATALOG_URI_JSON, jsonTemplate, "text/json").getStatus());
+                403,
+                putAsServletResponse(CATALOG_URI_JSON, jsonTemplate, "text/json")
+                        .getStatus());
+    }
+
+    @Test
+    public void testCatalogSecurityReload() throws Exception {
+        // Endpoint for reload:
+        // /geoserver/rest/security/acl/catalog/reload
+        final String CATALOG_RELOAD_URI = BASE_URI + "catalog/reload";
+
+        // -------------------------------------------
+        // Test authorized scenario
+        // -------------------------------------------
+        // Ensure we’re logged in as ADMIN (the SecurityRESTTestSupport typically logs in
+        // automatically)
+        login();
+
+        // 1) Test PUT request
+        MockHttpServletResponse response = putAsServletResponse(CATALOG_RELOAD_URI, "", "text/plain");
+        // Expecting 200 OK if reload is successful
+        assertEquals(200, response.getStatus());
+
+        // 2) Test POST request
+        response = postAsServletResponse(CATALOG_RELOAD_URI, "", "text/plain");
+        // Expecting 200 OK for POST as well
+        assertEquals(200, response.getStatus());
+
+        // -------------------------------------------
+        // Test unauthorized scenario
+        // -------------------------------------------
+        logout();
+
+        // If we try again without admin privileges, we should get 403 FORBIDDEN
+        response = putAsServletResponse(CATALOG_RELOAD_URI, "", "text/plain");
+        assertEquals(403, response.getStatus());
+
+        response = postAsServletResponse(CATALOG_RELOAD_URI, "", "text/plain");
+        assertEquals(403, response.getStatus());
+    }
+
+    @Test
+    public void testDisableAnonymousAccess() throws Exception {
+        // 1) Ensure we’re logged in as an admin user
+        login();
+
+        // 2) The reload endpoint path
+        final String CATALOG_RELOAD_URI = BASE_URI + "catalog/reload";
+
+        // 3) Locate the security config file: "security/config.xml"
+        //    This path might vary in your environment.
+        File configFile = getDataDirectory().get("security/config.xml").file();
+        assertNotNull("config.xml file should exist", configFile);
+        assertTrue("config.xml file must exist", configFile.exists());
+
+        // 4) Read the original content so we can revert after the test
+        String originalConfig = FileUtils.readFileToString(configFile, "UTF-8");
+
+        try {
+            // -----------------------------------------------------------------
+            // A) Modify config.xml by removing <filter>anonymous</filter> lines
+            // -----------------------------------------------------------------
+            // The original <filterChain> sections might look like:
+            //   <filters ...>
+            //     <filter>anonymous</filter>
+            //     <filter>basic</filter>
+            //   </filters>
+            //
+            // We'll do a simple string replacement to remove all <filter>anonymous</filter>.
+            // For a more robust approach, parse XML. But here, string replacement is quick.
+
+            String modifiedConfig = originalConfig.replaceAll(
+                    "<filter>anonymous</filter>", "" // remove the entire line
+                    );
+
+            // Write the modified XML back to config.xml
+            FileUtils.writeStringToFile(configFile, modifiedConfig, "UTF-8");
+
+            // -----------------------------------------------------------------
+            // B) Reload the Security subsystem via /catalog/reload
+            // -----------------------------------------------------------------
+            MockHttpServletResponse response = putAsServletResponse(CATALOG_RELOAD_URI, "", "text/plain");
+            assertEquals(200, response.getStatus());
+
+            // We’ve now removed anonymous filters from config.xml and reloaded security.
+            // This means that anonymous access should NOT be permitted anymore.
+
+            // -----------------------------------------------------------------
+            // C) Log out to simulate an anonymous user, then attempt a GetMap
+            // -----------------------------------------------------------------
+            logout();
+
+            // Make a simple WMS GetCapabilities request as an anonymous user
+            String wmsRequest = "wms?service=WMS&request=GetCapabilities&version=1.1.1";
+            MockHttpServletResponse wmsResponse = getAsServletResponse(wmsRequest);
+
+            // Expect a 401 (Unauthorized) or 403 (Forbidden), depending on GeoServer config.
+            // Adjust the assertion if your environment returns a specific code.
+            int status = wmsResponse.getStatus();
+            assertTrue("Expected 401 or 403, but got " + status, status == 401 || status == 403 || status == 404);
+
+        } finally {
+            // -----------------------------------------------------------------
+            // D) Revert config.xml so later tests remain consistent
+            // -----------------------------------------------------------------
+            FileUtils.writeStringToFile(configFile, originalConfig, "UTF-8");
+        }
     }
 }

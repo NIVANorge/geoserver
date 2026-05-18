@@ -14,13 +14,13 @@ import static org.junit.Assert.assertTrue;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
+import jakarta.servlet.ServletRequestEvent;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.servlet.ServletRequestEvent;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.security.GeoServerSecurityFilterChainProxy;
@@ -29,6 +29,7 @@ import org.geoserver.security.auth.web.WebServiceAuthenticationProvider;
 import org.geoserver.security.config.BasicAuthenticationFilterConfig;
 import org.geoserver.security.filter.GeoServerBasicAuthenticationFilter;
 import org.geoserver.security.impl.GeoServerRole;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.http.MediaType;
@@ -60,42 +61,37 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        externalHTTPService =
-                new WireMockServer(
-                        wireMockConfig()
-                                .dynamicPort()
-                                // uncomment the following to get wiremock logging
-                                .notifier(new ConsoleNotifier(true)));
+        externalHTTPService = new WireMockServer(wireMockConfig()
+                .dynamicPort()
+                // uncomment the following to get wiremock logging
+                .notifier(new ConsoleNotifier(true)));
         externalHTTPService.start();
         authService = "http://localhost:" + externalHTTPService.port();
-        externalHTTPService.stubFor(
-                WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
-                        .withHeader(
-                                "X-HTTP-AUTHORIZATION",
-                                equalTo(encode(testUserName + ":" + testPassword)))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
-                                        .withBody(VALID_RESPONSE)));
-        externalHTTPService.stubFor(
-                WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
-                        .withQueryParam("user", equalTo(TEST_USERNAME_ENC))
-                        .withQueryParam("password", equalTo(TEST_PWD_ENC))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
-                                        .withBody(VALID_RESPONSE)));
-        externalHTTPService.stubFor(
-                WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
-                        .withQueryParam("user", equalTo(TEST_NO_AUTH_USERNAME_ENC))
-                        .withQueryParam("password", equalTo(TEST_NO_AUTH_PWD_ENC))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(401)
-                                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
-                                        .withBody(NO_AUTH_RESPONSE)));
+        externalHTTPService.stubFor(WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
+                .withHeader("X-HTTP-AUTHORIZATION", equalTo(encode(testUserName + ":" + testPassword)))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
+                        .withBody(VALID_RESPONSE)));
+        externalHTTPService.stubFor(WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
+                .withQueryParam("user", equalTo(TEST_USERNAME_ENC))
+                .withQueryParam("password", equalTo(TEST_PWD_ENC))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
+                        .withBody(VALID_RESPONSE)));
+        externalHTTPService.stubFor(WireMock.get(urlPathEqualTo(AUTH_REQUEST_PATH))
+                .withQueryParam("user", equalTo(TEST_NO_AUTH_USERNAME_ENC))
+                .withQueryParam("password", equalTo(TEST_NO_AUTH_PWD_ENC))
+                .willReturn(aResponse()
+                        .withStatus(401)
+                        .withHeader("Content-Type", MediaType.TEXT_PLAIN_VALUE)
+                        .withBody(NO_AUTH_RESPONSE)));
+    }
+
+    @AfterClass
+    public static void afterClass() throws Exception {
+        externalHTTPService.stop();
     }
 
     @Override
@@ -115,8 +111,7 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
         WebAuthenticationConfig config = new WebAuthenticationConfig();
         config.setClassName(WebServiceAuthenticationProvider.class.getName());
         config.setName("webAuthProvider");
-        config.setConnectionURL(
-                authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
+        config.setConnectionURL(authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
         config.setRoleRegex("^.*?\"roles\"\\s*:\\s*\"([^\"]+)\".*$");
         config.setAllowHTTPConnection(true);
 
@@ -184,8 +179,7 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
         WebAuthenticationConfig config = new WebAuthenticationConfig();
         config.setClassName(WebServiceAuthenticationProvider.class.getName());
         config.setName(providerName);
-        config.setConnectionURL(
-                authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
+        config.setConnectionURL(authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
         config.setAuthorizationOption(WebAuthenticationConfig.AUTHORIZATION_RADIO_OPTION_SERVICE);
         config.setRoleServiceName(getSecurityManager().getActiveRoleService().getName());
         config.setAllowHTTPConnection(true);
@@ -214,8 +208,7 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
         WebAuthenticationConfig config = new WebAuthenticationConfig();
         config.setClassName(WebServiceAuthenticationProvider.class.getName());
         config.setName(providerName);
-        config.setConnectionURL(
-                authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
+        config.setConnectionURL(authService + AUTH_REQUEST_PATH + "?user={user}&password={password}");
         config.setAuthorizationOption(WebAuthenticationConfig.AUTHORIZATION_RADIO_OPTION_SERVICE);
         config.setRoleServiceName(getSecurityManager().getActiveRoleService().getName());
         config.setAllowHTTPConnection(true);
@@ -242,22 +235,22 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
             Authentication auth = getCache().deserializeAuthentication(entry.getValue());
             Object o = auth.getPrincipal();
 
-            if (o instanceof UserDetails) {
-                if (user.equals(((UserDetails) o).getUsername())) {
+            if (o instanceof UserDetails details) {
+                if (user.equals(details.getUsername())) {
                     result = auth;
                     cacheKey = entry.getKey();
                     break;
                 }
             }
-            if (o instanceof Principal) {
-                if (user.equals(((Principal) o).getName())) {
+            if (o instanceof Principal principal) {
+                if (user.equals(principal.getName())) {
                     result = auth;
                     cacheKey = entry.getKey();
                     break;
                 }
             }
-            if (o instanceof String) {
-                if (user.equals(((String) o))) {
+            if (o instanceof String string) {
+                if (user.equals(string)) {
                     result = auth;
                     cacheKey = entry.getKey();
                     break;
@@ -267,12 +260,10 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
 
         if (result != null) {
             Integer[] seconds = getCache().getExpireTimes(filterName, cacheKey);
-            if (idleTime == null)
-                assertEquals(TestingAuthenticationCache.DEFAULT_IDLE_SECS, seconds[0]);
+            if (idleTime == null) assertEquals(TestingAuthenticationCache.DEFAULT_IDLE_SECS, seconds[0]);
             else assertEquals(idleTime, seconds[0]);
 
-            if (liveTime == null)
-                assertEquals(TestingAuthenticationCache.DEFAULT_LIVE_SECS, seconds[1]);
+            if (liveTime == null) assertEquals(TestingAuthenticationCache.DEFAULT_LIVE_SECS, seconds[1]);
             else assertEquals(liveTime, seconds[1]);
         }
 
@@ -284,10 +275,9 @@ public class WebAuthProviderTest extends AbstractAuthenticationProviderTest {
     }
 
     private MockHttpServletResponse executeOnSecurityFilters(MockHttpServletRequest request)
-            throws IOException, javax.servlet.ServletException {
+            throws IOException, jakarta.servlet.ServletException {
         // for session local support in Spring
-        new RequestContextListener()
-                .requestInitialized(new ServletRequestEvent(request.getServletContext(), request));
+        new RequestContextListener().requestInitialized(new ServletRequestEvent(request.getServletContext(), request));
 
         // run on the
         MockFilterChain chain = new MockFilterChain();

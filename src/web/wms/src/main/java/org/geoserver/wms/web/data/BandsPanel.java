@@ -5,6 +5,8 @@
  */
 package org.geoserver.wms.web.data;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -19,12 +21,26 @@ import org.geoserver.web.wicket.GeoServerDataProvider;
 import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ParamResourceModel;
+import org.geotools.api.coverage.SampleDimensionType;
 import org.geotools.util.logging.Logging;
-import org.opengis.coverage.SampleDimensionType;
 
 /** Panel for listing band data of a CoverageInfo resource. */
 @SuppressWarnings("serial")
 public class BandsPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(BandsPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     static final Logger LOGGER = Logging.getLogger(BandsPanel.class);
 
     private GeoServerTablePanel<CoverageDimensionInfo> bands;
@@ -33,18 +49,14 @@ public class BandsPanel extends Panel {
         super(id, new Model<>(coverage));
 
         // the parameters table
-        bands =
-                new GeoServerTablePanel<CoverageDimensionInfo>(
-                        "bands", new CoverageDimensionsProvider(), true) {
+        bands = new GeoServerTablePanel<>("bands", new CoverageDimensionsProvider(), true) {
 
-                    @Override
-                    protected GeoServerTablePanel<CoverageDimensionInfo> getComponentForProperty(
-                            String id,
-                            IModel<CoverageDimensionInfo> itemModel,
-                            Property<CoverageDimensionInfo> property) {
-                        return null;
-                    }
-                };
+            @Override
+            protected GeoServerTablePanel<CoverageDimensionInfo> getComponentForProperty(
+                    String id, IModel<CoverageDimensionInfo> itemModel, Property<CoverageDimensionInfo> property) {
+                return null;
+            }
+        };
         bands.setFilterVisible(false);
         bands.setSortable(false);
         bands.getTopPager().setVisible(false);
@@ -62,48 +74,46 @@ public class BandsPanel extends Panel {
         protected List<Property<CoverageDimensionInfo>> getProperties() {
             List<Property<CoverageDimensionInfo>> result = new ArrayList<>();
             result.add(new BeanProperty<>("band", "name"));
-            result.add(
-                    new AbstractProperty<CoverageDimensionInfo>("dimensionType") {
+            result.add(new AbstractProperty<>("dimensionType") {
 
-                        @Override
-                        public Object getPropertyValue(CoverageDimensionInfo item) {
-                            SampleDimensionType type = item.getDimensionType();
-                            if (type == null) {
-                                return "-";
-                            } else {
-                                String name = type.name();
-                                try {
-                                    String key = BandsPanel.class.getSimpleName() + "." + name;
-                                    ParamResourceModel rm = new ParamResourceModel(key, null);
-                                    return rm.getString();
-                                } catch (Exception e) {
-                                    return name;
-                                }
+                @Override
+                public Object getPropertyValue(CoverageDimensionInfo item) {
+                    SampleDimensionType type = item.getDimensionType();
+                    if (type == null) {
+                        return "-";
+                    } else {
+                        String name = type.name();
+                        try {
+                            String key = BandsPanel.class.getSimpleName() + "." + name;
+                            ParamResourceModel rm = new ParamResourceModel(key, null);
+                            return rm.getString();
+                        } catch (Exception e) {
+                            return name;
+                        }
+                    }
+                }
+            });
+            result.add(new AbstractProperty<>("nullValues") {
+
+                @Override
+                public Object getPropertyValue(CoverageDimensionInfo item) {
+                    List<Double> values = item.getNullValues();
+                    if (values == null || values.isEmpty()) {
+                        return "-";
+                    } else {
+                        StringBuilder sb = new StringBuilder();
+                        final int size = values.size();
+                        for (int i = 0; i < size; i++) {
+                            sb.append(values.get(i));
+                            if (i < size - 1) {
+                                sb.append(", ");
                             }
                         }
-                    });
-            result.add(
-                    new AbstractProperty<CoverageDimensionInfo>("nullValues") {
 
-                        @Override
-                        public Object getPropertyValue(CoverageDimensionInfo item) {
-                            List<Double> values = item.getNullValues();
-                            if (values == null || values.isEmpty()) {
-                                return "-";
-                            } else {
-                                StringBuilder sb = new StringBuilder();
-                                final int size = values.size();
-                                for (int i = 0; i < size; i++) {
-                                    sb.append(values.get(i));
-                                    if (i < size - 1) {
-                                        sb.append(", ");
-                                    }
-                                }
-
-                                return sb.toString();
-                            }
-                        }
-                    });
+                        return sb.toString();
+                    }
+                }
+            });
             result.add(new BeanProperty<>("unit", "unit"));
             return result;
         }

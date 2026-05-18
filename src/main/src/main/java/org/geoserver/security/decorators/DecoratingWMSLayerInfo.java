@@ -22,23 +22,22 @@ import org.geoserver.catalog.StoreInfo;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WMSLayerInfo;
 import org.geoserver.catalog.WMSStoreInfo;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.style.Style;
+import org.geotools.api.util.InternationalString;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.ows.wms.Layer;
-import org.geotools.styling.Style;
 import org.geotools.util.decorate.AbstractDecorator;
-import org.opengis.feature.type.Name;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.util.InternationalString;
-import org.opengis.util.ProgressListener;
 
 /**
- * Delegates every method to the delegate wms layer info. Subclasses will override selected methods
- * to perform their "decoration" job
+ * Delegates every method to the delegate wms layer info. Subclasses will override selected methods to perform their
+ * "decoration" job
  *
  * @author Andrea Aime - GeoSolutions
  */
-public class DecoratingWMSLayerInfo extends AbstractDecorator<WMSLayerInfo>
-        implements WMSLayerInfo {
+public class DecoratingWMSLayerInfo extends AbstractDecorator<WMSLayerInfo> implements WMSLayerInfo {
 
     public DecoratingWMSLayerInfo(WMSLayerInfo delegate) {
         super(delegate);
@@ -403,6 +402,16 @@ public class DecoratingWMSLayerInfo extends AbstractDecorator<WMSLayerInfo>
     @Override
     public List<StyleInfo> getAllAvailableRemoteStyles() {
         return delegate.getAllAvailableRemoteStyles();
+    }
+
+    @Override
+    public Map<String, String> getVendorParameters() {
+        return delegate.getVendorParameters();
+    }
+
+    @Override
+    public void setVendorParameters(Map<String, String> vendorParameters) {
+        delegate.setVendorParameters(vendorParameters);
     }
 
     @Override

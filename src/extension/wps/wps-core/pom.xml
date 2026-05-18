@@ -11,7 +11,7 @@
   <parent>
     <groupId>org.geoserver.extension</groupId>
     <artifactId>gs-wps</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver.extension</groupId>
@@ -22,92 +22,87 @@
   <dependencies>
     <dependency>
       <groupId>org.geoserver</groupId>
-      <artifactId>gs-wfs</artifactId>
-      <version>${gs.version}</version>
+      <artifactId>gs-wfs-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs1_x</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs2_x</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-wcs2_0</artifactId>
-      <version>${gs.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-wcs1_1</artifactId>
-      <version>${gs.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-wcs1_0</artifactId>
-      <version>${gs.version}</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools.ogc</groupId>
       <artifactId>net.opengis.wps</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools.xsd</groupId>
       <artifactId>gt-xsd-wps</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools.xsd</groupId>
       <artifactId>gt-xsd-sld</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-process</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-process-raster</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-process-geometry</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-process-feature</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-arcgrid</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-geotiff</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-geojson-core</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.geotools.jdbc</groupId>
-      <artifactId>gt-jdbc-h2</artifactId>
-      <version>${gt.version}</version>
-      <scope>test</scope>
+      <groupId>org.eclipse.imagen</groupId>
+      <artifactId>zonal</artifactId>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-grid</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
     <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-text</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
     </dependency>
 
     <!-- test dependencies -->
@@ -122,35 +117,29 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-main</artifactId>
-      <version>${gs.version}</version>
-      <classifier>tests</classifier>
-      <scope>test</scope>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-csv</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-platform</artifactId>
-      <version>${gs.version}</version>
-      <classifier>tests</classifier>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-wcs2_0</artifactId>
-      <version>${gs.version}</version>
-      <classifier>tests</classifier>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
-      <artifactId>gt-csv</artifactId>
-      <version>${gt.version}</version>
+      <artifactId>gt-iau-wkt</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
-      <artifactId>wiremock-jre8-standalone</artifactId>
-      <version>2.33.2</version>
+      <groupId>org.geoserver.extension</groupId>
+      <artifactId>gs-wcs1_0</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver.extension</groupId>
+      <artifactId>gs-wcs1_1</artifactId>
+      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -173,20 +162,37 @@
 
   <profiles>
     <profile>
-      <id>macos-github-build</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <systemPropertyVariables>
-                <macos-github-build>true</macos-github-build>
-              </systemPropertyVariables>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
+      <id>gs-test-dependences</id>
+      <activation>
+        <property>
+          <name>!maven.test.skip</name>
+        </property>
+      </activation>
+      <dependencies>
+        <!-- isolate gs reactor test dependencies when building fresh version -->
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-main</artifactId>
+          <version>${project.version}</version>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-platform</artifactId>
+          <version>${project.version}</version>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-wcs2_0</artifactId>
+          <version>${project.version}</version>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
     </profile>
   </profiles>
+
 </project>

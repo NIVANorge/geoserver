@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.data.layer;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import java.util.logging.Level;
 import org.apache.wicket.Component;
@@ -14,12 +16,12 @@ import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
-import org.apache.wicket.markup.html.image.Image;
 import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.model.IModel;
+import org.apache.wicket.model.LoadableDetachableModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.apache.wicket.request.resource.PackageResourceReference;
+import org.apache.wicket.util.string.Strings;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.CoverageInfo;
@@ -33,6 +35,7 @@ import org.geoserver.catalog.WMSLayerInfo;
 import org.geoserver.catalog.WMSStoreInfo;
 import org.geoserver.catalog.WMTSLayerInfo;
 import org.geoserver.catalog.WMTSStoreInfo;
+import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.web.CatalogIconFactory;
 import org.geoserver.web.ComponentAuthorizer;
 import org.geoserver.web.GeoServerSecuredPage;
@@ -46,8 +49,8 @@ import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geoserver.web.wicket.Select2DropDownChoice;
 import org.geoserver.web.wicket.SimpleAjaxLink;
-import org.geotools.data.DataAccess;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.DataStore;
 import org.geotools.data.wfs.WFSDataStore;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.ows.wms.WebMapServer;
@@ -55,13 +58,15 @@ import org.geotools.ows.wmts.WebMapTileServer;
 import org.geotools.util.decorate.Wrapper;
 
 /**
- * A page listing the resources contained in a store, and whose links will bring the user to a new
- * resource configuration page
+ * A page listing the resources contained in a store, and whose links will bring the user to a new resource
+ * configuration page
  *
  * @author Andrea Aime - OpenGeo
  */
 @SuppressWarnings("serial")
 public class NewLayerPage extends GeoServerSecuredPage {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(NewLayerPage.class);
 
     String storeId;
     private NewLayerPageProvider provider;
@@ -76,12 +81,36 @@ public class NewLayerPage extends GeoServerSecuredPage {
     private WebMarkupContainer createWMSLayerImportContainer;
     private WebMarkupContainer createWMTSLayerImportContainer;
 
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the page-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     public NewLayerPage() {
         this(null);
     }
 
+    @Override
+    public PageParameters getPageParameters() {
+        PageParameters params = super.getPageParameters();
+        if (params.isEmpty() && storeId != null) {
+            StoreInfo store = getCatalog().getStore(storeId, StoreInfo.class);
+            if (store != null) {
+                return new PageParameters()
+                        .add("workspace", store.getWorkspace().getName());
+            }
+        }
+        return params;
+    }
+
     public NewLayerPage(String storeId) {
-        this.storeId = storeId;
+        this.storeId = storeId != null ? storeId : resolveStoreIdFromWorkspaceParam();
 
         // the store selector, used when no store is initially known
         Form<?> selector = new Form<>("selector");
@@ -98,7 +127,7 @@ public class NewLayerPage extends GeoServerSecuredPage {
         selectLayers.setVisible(storeId != null);
         selectLayersContainer.add(selectLayers);
 
-        selectLayers.add(storeName = new Label("storeName", new Model<String>()));
+        selectLayers.add(storeName = new Label("storeName", new Model<>()));
         if (storeId != null) {
             StoreInfo store = getCatalog().getStore(storeId, StoreInfo.class);
             storeName.setDefaultModelObject(store.getName());
@@ -107,42 +136,36 @@ public class NewLayerPage extends GeoServerSecuredPage {
         provider = new NewLayerPageProvider();
         provider.setStoreId(storeId);
         provider.setShowPublished(true);
-        layers =
-                new GeoServerTablePanel<Resource>("layers", provider) {
+        layers = new GeoServerTablePanel<>("layers", provider) {
 
-                    @Override
-                    protected Component getComponentForProperty(
-                            String id, IModel<Resource> itemModel, Property<Resource> property) {
-                        if (property == NewLayerPageProvider.NAME) {
-                            return new Label(id, property.getModel(itemModel));
-                        } else if (property == NewLayerPageProvider.PUBLISHED) {
-                            final Resource resource = itemModel.getObject();
-                            final CatalogIconFactory icons = CatalogIconFactory.get();
-                            if (resource.isPublished()) {
-                                PackageResourceReference icon = icons.getEnabledIcon();
-                                Fragment f = new Fragment(id, "iconFragment", selectLayers);
-                                f.add(new Image("layerIcon", icon));
-                                return f;
-                            } else {
-                                return new Label(id);
-                            }
-                        } else if (property == NewLayerPageProvider.ACTION) {
-                            final Resource resource = itemModel.getObject();
-                            if (resource.isPublished()) {
-                                return resourceChooserLink(
-                                        id,
-                                        itemModel,
-                                        new ParamResourceModel("publishAgain", this));
-                            } else {
-                                return resourceChooserLink(
-                                        id, itemModel, new ParamResourceModel("publish", this));
-                            }
-                        } else {
-                            throw new IllegalArgumentException(
-                                    "Don't know of property " + property.getName());
-                        }
+            @Override
+            protected Component getComponentForProperty(
+                    String id, IModel<Resource> itemModel, Property<Resource> property) {
+                if (property == NewLayerPageProvider.NAME) {
+                    return new Label(id, property.getModel(itemModel));
+                } else if (property == NewLayerPageProvider.PUBLISHED) {
+                    final Resource resource = itemModel.getObject();
+                    final CatalogIconFactory icons = CatalogIconFactory.get();
+                    if (resource.isPublished()) {
+                        String icon = icons.getEnabledIcon();
+                        Fragment f = new Fragment(id, "iconFragment", selectLayers);
+                        f.add(icons.getIcon("layerIcon", icon));
+                        return f;
+                    } else {
+                        return new Label(id);
                     }
-                };
+                } else if (property == NewLayerPageProvider.ACTION) {
+                    final Resource resource = itemModel.getObject();
+                    if (resource.isPublished()) {
+                        return resourceChooserLink(id, itemModel, new ParamResourceModel("publishAgain", this));
+                    } else {
+                        return resourceChooserLink(id, itemModel, new ParamResourceModel("publish", this));
+                    }
+                } else {
+                    throw new IllegalArgumentException("Don't know of property " + property.getName());
+                }
+            }
+        };
         layers.setFilterVisible(true);
 
         selectLayers.add(layers);
@@ -162,8 +185,7 @@ public class NewLayerPage extends GeoServerSecuredPage {
         createCoverageViewContainer.add(newCoverageViewLink());
         selectLayersContainer.add(createCoverageViewContainer);
 
-        createCascadedWFSStoredQueryContainer =
-                new WebMarkupContainer("createCascadedWFSStoredQueryContainer");
+        createCascadedWFSStoredQueryContainer = new WebMarkupContainer("createCascadedWFSStoredQueryContainer");
         createCascadedWFSStoredQueryContainer.setVisible(false);
         createCascadedWFSStoredQueryContainer.add(newCascadedWFSStoredQueryLink());
         selectLayersContainer.add(createCascadedWFSStoredQueryContainer);
@@ -185,16 +207,36 @@ public class NewLayerPage extends GeoServerSecuredPage {
         }
     }
 
+    private String resolveStoreIdFromWorkspaceParam() {
+        String workspaceName = getPageParameters().get("workspace").toOptionalString();
+        if (Strings.isEmpty(workspaceName)) {
+            return null;
+        }
+
+        Catalog catalog = getCatalog();
+        WorkspaceInfo workspace = catalog.getWorkspaceByName(workspaceName);
+        if (workspace == null) {
+            return null;
+        }
+
+        StoreInfo defaultDataStore = catalog.getDefaultDataStore(workspace);
+        if (defaultDataStore != null) {
+            return defaultDataStore.getId();
+        }
+
+        java.util.List<StoreInfo> stores = catalog.getStoresByWorkspace(workspace, StoreInfo.class);
+        return stores.isEmpty() ? null : stores.get(0).getId();
+    }
+
     Component newFeatureTypeLink() {
         return new AjaxLink<Void>("createFeatureType") {
 
             @Override
             public void onClick(AjaxRequestTarget target) {
                 DataStoreInfo ds = getCatalog().getStore(storeId, DataStoreInfo.class);
-                PageParameters pp =
-                        new PageParameters()
-                                .add("wsName", ds.getWorkspace().getName())
-                                .add("storeName", ds.getName());
+                PageParameters pp = new PageParameters()
+                        .add("workspace", ds.getWorkspace().getName())
+                        .add("storeName", ds.getName());
                 setResponsePage(NewFeatureTypePage.class, pp);
             }
         };
@@ -206,10 +248,9 @@ public class NewLayerPage extends GeoServerSecuredPage {
             @Override
             public void onClick(AjaxRequestTarget target) {
                 DataStoreInfo ds = getCatalog().getStore(storeId, DataStoreInfo.class);
-                PageParameters pp =
-                        new PageParameters()
-                                .add("wsName", ds.getWorkspace().getName())
-                                .add("storeName", ds.getName());
+                PageParameters pp = new PageParameters()
+                        .add("workspace", ds.getWorkspace().getName())
+                        .add("storeName", ds.getName());
                 setResponsePage(SQLViewNewPage.class, pp);
             }
         };
@@ -221,10 +262,9 @@ public class NewLayerPage extends GeoServerSecuredPage {
             @Override
             public void onClick(AjaxRequestTarget target) {
                 CoverageStoreInfo cs = getCatalog().getStore(storeId, CoverageStoreInfo.class);
-                PageParameters pp =
-                        new PageParameters()
-                                .add("wsName", cs.getWorkspace().getName())
-                                .add("storeName", cs.getName());
+                PageParameters pp = new PageParameters()
+                        .add("workspace", cs.getWorkspace().getName())
+                        .add("storeName", cs.getName());
                 setResponsePage(CoverageViewNewPage.class, pp);
             }
         };
@@ -236,10 +276,9 @@ public class NewLayerPage extends GeoServerSecuredPage {
             @Override
             public void onClick(AjaxRequestTarget target) {
                 DataStoreInfo ds = getCatalog().getStore(storeId, DataStoreInfo.class);
-                PageParameters pp =
-                        new PageParameters()
-                                .add("wsName", ds.getWorkspace().getName())
-                                .add("storeName", ds.getName());
+                PageParameters pp = new PageParameters()
+                        .add("workspace", ds.getWorkspace().getName())
+                        .add("storeName", ds.getName());
                 setResponsePage(CascadedWFSStoredQueryNewPage.class, pp);
             }
         };
@@ -268,55 +307,64 @@ public class NewLayerPage extends GeoServerSecuredPage {
     }
 
     private Select2DropDownChoice<StoreInfo> storesDropDown() {
-        final Select2DropDownChoice<StoreInfo> stores =
-                new Select2DropDownChoice<>(
-                        "storesDropDown",
-                        new Model<>(),
-                        new StoreListModel(),
-                        new StoreListChoiceRenderer());
-        stores.setOutputMarkupId(true);
-        stores.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
-
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        if (stores.getModelObject() != null) {
-                            StoreInfo store = stores.getModelObject();
-                            NewLayerPage.this.storeId = store.getId();
-                            provider.setStoreId(store.getId());
-                            storeName.setDefaultModelObject(store.getName());
-                            selectLayers.setVisible(true);
-
-                            // make sure we can actually list the contents, it may happen
-                            // the store is actually unreachable, in that case we
-                            // want to display an error message
-                            try {
-                                provider.getItems();
-                            } catch (Exception e) {
-                                LOGGER.log(
-                                        Level.SEVERE,
-                                        "Error retrieving layers for the specified store",
-                                        e);
-                                error(e.getMessage());
-                                selectLayers.setVisible(false);
-                            }
-
-                            updateSpecialFunctionPanels(store);
-
-                        } else {
-                            selectLayers.setVisible(false);
-                            createTypeContainer.setVisible(false);
-                        }
-                        target.add(selectLayersContainer);
-                        addFeedbackPanels(target);
+        IModel<java.util.List<StoreInfo>> storeChoices = new LoadableDetachableModel<>() {
+            @Override
+            protected java.util.List<StoreInfo> load() {
+                String workspaceName = getPageParameters().get("workspace").toOptionalString();
+                java.util.List<StoreInfo> stores;
+                if (!Strings.isEmpty(workspaceName)) {
+                    WorkspaceInfo workspace = getCatalog().getWorkspaceByName(workspaceName);
+                    if (workspace == null) {
+                        return java.util.Collections.emptyList();
                     }
-                });
+                    stores = new java.util.ArrayList<>(getCatalog().getStoresByWorkspace(workspace, StoreInfo.class));
+                    stores.sort(java.util.Comparator.comparing(StoreInfo::getName));
+                } else {
+                    stores = new StoreListModel().getObject();
+                }
+                return stores;
+            }
+        };
+        final Select2DropDownChoice<StoreInfo> stores = new Select2DropDownChoice<>(
+                "storesDropDown", new Model<>(), storeChoices, new StoreListChoiceRenderer());
+        stores.setOutputMarkupId(true);
+        stores.add(new AjaxFormComponentUpdatingBehavior("change") {
+
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                if (stores.getModelObject() != null) {
+                    StoreInfo store = stores.getModelObject();
+                    NewLayerPage.this.storeId = store.getId();
+                    provider.setStoreId(store.getId());
+                    storeName.setDefaultModelObject(store.getName());
+                    selectLayers.setVisible(true);
+
+                    // make sure we can actually list the contents, it may happen
+                    // the store is actually unreachable, in that case we
+                    // want to display an error message
+                    try {
+                        provider.getItems();
+                    } catch (Exception e) {
+                        LOGGER.log(Level.SEVERE, "Error retrieving layers for the specified store", e);
+                        error(e.getMessage());
+                        selectLayers.setVisible(false);
+                    }
+
+                    updateSpecialFunctionPanels(store);
+
+                } else {
+                    selectLayers.setVisible(false);
+                    createTypeContainer.setVisible(false);
+                }
+                target.add(selectLayersContainer);
+                addFeedbackPanels(target);
+            }
+        });
         return stores;
     }
 
-    SimpleAjaxLink<Resource> resourceChooserLink(
-            String id, IModel<Resource> itemModel, IModel<String> label) {
-        return new SimpleAjaxLink<Resource>(id, itemModel, label) {
+    SimpleAjaxLink<Resource> resourceChooserLink(String id, IModel<Resource> itemModel, IModel<String> label) {
+        return new SimpleAjaxLink<>(id, itemModel, label) {
 
             @Override
             protected void onClick(AjaxRequestTarget target) {
@@ -330,8 +378,7 @@ public class NewLayerPage extends GeoServerSecuredPage {
         // at the moment just assume every store can create types
         try {
             createTypeContainer.setVisible(
-                    store instanceof DataStoreInfo
-                            && ((DataStoreInfo) store).getDataStore(null) instanceof DataStore);
+                    store instanceof DataStoreInfo dsi && dsi.getDataStore(null) instanceof DataStore);
         } catch (IOException e) {
             LOGGER.log(Level.FINEST, e.getMessage());
         }
@@ -340,13 +387,13 @@ public class NewLayerPage extends GeoServerSecuredPage {
         // DataStoreInfo
         createSQLViewContainer.setVisible(false);
         createCascadedWFSStoredQueryContainer.setVisible(false);
-        if (store instanceof DataStoreInfo) {
+        if (store instanceof DataStoreInfo info) {
             try {
-                DataAccess<?, ?> da = ((DataStoreInfo) store).getDataStore(null);
+                DataAccess<?, ?> da = info.getDataStore(null);
 
-                if (da instanceof Wrapper) {
+                if (da instanceof Wrapper wrapper) {
                     try {
-                        da = ((Wrapper) da).unwrap(DataAccess.class);
+                        da = wrapper.unwrap(DataAccess.class);
                     } catch (IllegalArgumentException e) {
                         throw new IOException(e);
                     }
@@ -354,9 +401,8 @@ public class NewLayerPage extends GeoServerSecuredPage {
 
                 createSQLViewContainer.setVisible(da instanceof JDBCDataStore);
 
-                if (da instanceof WFSDataStore) {
-                    createCascadedWFSStoredQueryContainer.setVisible(
-                            ((WFSDataStore) da).supportsStoredQueries());
+                if (da instanceof WFSDataStore dataStore) {
+                    createCascadedWFSStoredQueryContainer.setVisible(dataStore.supportsStoredQueries());
                 }
             } catch (IOException e) {
                 LOGGER.log(Level.FINEST, e.getMessage());
@@ -373,16 +419,16 @@ public class NewLayerPage extends GeoServerSecuredPage {
         createWMSLayerImportContainer.setVisible(false);
         // WMSStoreInfo
         createWMTSLayerImportContainer.setVisible(false);
-        if (store instanceof WMTSStoreInfo) {
+        if (store instanceof WMTSStoreInfo info1) {
             try {
-                WebMapTileServer wmts = ((WMTSStoreInfo) store).getWebMapTileServer(null);
+                WebMapTileServer wmts = info1.getWebMapTileServer(null);
                 createWMTSLayerImportContainer.setVisible(wmts != null);
             } catch (IOException e) {
                 LOGGER.log(Level.FINEST, e.getMessage());
             }
-        } else if (store instanceof WMSStoreInfo) {
+        } else if (store instanceof WMSStoreInfo info) {
             try {
-                WebMapServer wms = ((WMSStoreInfo) store).getWebMapServer(null);
+                WebMapServer wms = info.getWebMapServer(null);
                 createWMSLayerImportContainer.setVisible(wms != null);
             } catch (IOException e) {
                 LOGGER.log(Level.FINEST, e.getMessage());
@@ -396,17 +442,13 @@ public class NewLayerPage extends GeoServerSecuredPage {
         StoreInfo store = catalog.getStore(getSelectedStoreId(), StoreInfo.class);
         StoreInfo expandedStore = null;
 
-        if (store instanceof DataStoreInfo) {
-            DataStoreInfo dstore = (DataStoreInfo) store;
+        if (store instanceof DataStoreInfo dstore) {
             expandedStore = getCatalog().getResourcePool().clone(dstore, true);
-        } else if (store instanceof CoverageStoreInfo) {
-            CoverageStoreInfo cstore = (CoverageStoreInfo) store;
+        } else if (store instanceof CoverageStoreInfo cstore) {
             expandedStore = getCatalog().getResourcePool().clone(cstore, true);
-        } else if (store instanceof WMSStoreInfo) {
-            WMSStoreInfo wmsInfo = (WMSStoreInfo) store;
+        } else if (store instanceof WMSStoreInfo wmsInfo) {
             expandedStore = getCatalog().getResourcePool().clone(wmsInfo, true);
-        } else if (store instanceof WMTSStoreInfo) {
-            WMTSStoreInfo wmsInfo = (WMTSStoreInfo) store;
+        } else if (store instanceof WMTSStoreInfo wmsInfo) {
             expandedStore = getCatalog().getResourcePool().clone(wmsInfo, true);
         }
 
@@ -428,22 +470,18 @@ public class NewLayerPage extends GeoServerSecuredPage {
                 return builder.buildLayer(wli);
             }
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Error occurred while building the resources for the configuration page", e);
+            throw new RuntimeException("Error occurred while building the resources for the configuration page", e);
         }
 
         // handle the case in which the store was not found anymore, or was not
         // of the expected type
-        if (expandedStore == null)
-            throw new IllegalArgumentException("Store is missing from configuration!");
-        else
-            throw new IllegalArgumentException(
-                    "Don't know how to deal with this store " + expandedStore);
+        if (expandedStore == null) throw new IllegalArgumentException("Store is missing from configuration!");
+        else throw new IllegalArgumentException("Don't know how to deal with this store " + expandedStore);
     }
 
     /**
-     * Returns the storeId provided during construction, or the one pointed by the drop down if none
-     * was provided during construction
+     * Returns the storeId provided during construction, or the one pointed by the drop down if none was provided during
+     * construction
      */
     String getSelectedStoreId() {
         // the provider is always up to date

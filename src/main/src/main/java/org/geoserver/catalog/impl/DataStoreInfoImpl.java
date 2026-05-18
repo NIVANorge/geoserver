@@ -9,10 +9,10 @@ import java.io.IOException;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.DataStoreInfo;
-import org.geotools.data.DataAccess;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.util.ProgressListener;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.util.ProgressListener;
 
 /** Default implementation of {@link DataStoreInfo}. */
 @SuppressWarnings("serial")
@@ -29,8 +29,8 @@ public class DataStoreInfoImpl extends StoreInfoImpl implements DataStoreInfo {
     }
 
     @Override
-    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(
-            ProgressListener listener) throws IOException {
+    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(ProgressListener listener)
+            throws IOException {
         return catalog.getResourcePool().getDataStore(this);
     }
 

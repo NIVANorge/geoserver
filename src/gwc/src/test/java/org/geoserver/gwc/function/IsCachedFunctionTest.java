@@ -5,7 +5,7 @@
  */
 package org.geoserver.gwc.function;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -13,11 +13,11 @@ import static org.mockito.Mockito.when;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.gwc.GWC;
 import org.geoserver.gwc.GWCSynchEnv;
+import org.geotools.api.filter.expression.Function;
 import org.geotools.filter.FilterFactoryImpl;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.filter.expression.Function;
 
 public class IsCachedFunctionTest {
 
@@ -47,7 +47,7 @@ public class IsCachedFunctionTest {
         FilterFactoryImpl ff = new FilterFactoryImpl();
 
         Function exp = ff.function("isCached", ff.property("."));
-        Object value = exp.evaluate(layerInfo);
-        assertEquals(true, value);
+        Boolean value = (Boolean) exp.evaluate(layerInfo);
+        assertTrue(value);
     }
 }

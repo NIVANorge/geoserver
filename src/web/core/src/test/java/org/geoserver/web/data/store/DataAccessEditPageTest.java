@@ -5,6 +5,9 @@
  */
 package org.geoserver.web.data.store;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -12,8 +15,10 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Properties;
 import org.apache.wicket.Component;
 import org.apache.wicket.MarkupContainer;
 import org.apache.wicket.feedback.FeedbackMessage;
@@ -27,6 +32,11 @@ import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.data.test.MockData;
+import org.geoserver.data.test.SystemTestData;
+import org.geoserver.platform.GeoServerExtensions;
+import org.geoserver.platform.resource.Resource;
+import org.geoserver.security.impl.DefaultFileAccessManager;
+import org.geoserver.security.impl.FileSandboxEnforcer;
 import org.geoserver.web.GeoServerWicketTestSupport;
 import org.geoserver.web.data.store.panel.DropDownChoiceParamPanel;
 import org.geotools.data.postgis.PostgisNGDataStoreFactory;
@@ -37,7 +47,17 @@ import org.postgresql.jdbc.SslMode;
 
 public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
 
+    private static final String ROLE_CITE = "ROLE_CITE";
     private DataStoreInfo store;
+
+    @Override
+    protected void onSetUp(SystemTestData testData) throws Exception {
+        super.onSetUp(testData);
+
+        // force creation of the FileSanboxEnforcer (beans are lazy loaded in tests, and this
+        // one registers itself on the catalog on creation)
+        GeoServerExtensions.bean(FileSandboxEnforcer.class, applicationContext);
+    }
 
     @Before
     public void init() {
@@ -65,10 +85,8 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         print(tester.getLastRenderedPage(), true, true);
 
         tester.assertLabel("dataStoreForm:storeType", "Properties");
-        tester.assertModelValue(
-                "dataStoreForm:dataStoreNamePanel:border:border_body:paramValue", "cite");
-        String expectedPath =
-                new File(getTestData().getDataDirectoryRoot(), "cite").getCanonicalPath();
+        tester.assertModelValue("dataStoreForm:dataStoreNamePanel:border:border_body:paramValue", "cite");
+        String expectedPath = new File(getTestData().getDataDirectoryRoot(), "cite").getCanonicalPath();
         tester.assertModelValue(
                 "dataStoreForm:parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue",
                 expectedPath);
@@ -114,17 +132,14 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         tester.debugComponentTrees();
         tester.assertRenderedPage(DataAccessEditPage.class);
 
-        List<String> l =
-                Lists.transform(
-                        tester.getMessages(FeedbackMessage.ERROR), input -> input.toString());
+        List<String> l = Lists.transform(tester.getMessages(FeedbackMessage.ERROR), input -> input.toString());
         assertTrue(l.contains("Field 'Data Source Name' is required."));
         // tester.assertErrorMessages(new String[] { "Field 'Data Source Name' is required." });
     }
 
     /**
-     * Test that changing a datastore's workspace updates the datastore's "namespace" parameter as
-     * well as the namespace of its previously configured resources @REVISIT: this test fails on
-     * maven but is ok on eclipse...
+     * Test that changing a datastore's workspace updates the datastore's "namespace" parameter as well as the namespace
+     * of its previously configured resources @REVISIT: this test fails on maven but is ok on eclipse...
      */
     @Test
     @Ignore
@@ -132,8 +147,7 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         final FormTester formTester = tester.newFormTester("dataStoreForm");
         print(tester.getLastRenderedPage(), true, true);
         final String wsDropdownPath = "dataStoreForm:workspacePanel:border:border_body:paramValue";
-        final String namespaceParamPath =
-                "dataStoreForm:parametersPanel:parameters:1:parameterPanel:paramValue";
+        final String namespaceParamPath = "dataStoreForm:parametersPanel:parameters:1:parameterPanel:paramValue";
         final String directoryParamPath =
                 "dataStoreForm:parametersPanel:parameters:0:parameterPanel:border:border_body:paramValue";
 
@@ -142,7 +156,8 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         // tester.assertModelValue(namespaceParamPath, getCatalog().getNamespaceByPrefix(
         // MockData.CITE_PREFIX));
         tester.assertModelValue(
-                namespaceParamPath, catalog.getNamespaceByPrefix(MockData.CITE_PREFIX).getURI());
+                namespaceParamPath,
+                catalog.getNamespaceByPrefix(MockData.CITE_PREFIX).getURI());
 
         Serializable directory = store.getConnectionParameters().get("directory");
         tester.assertModelValue(directoryParamPath, directory);
@@ -180,13 +195,9 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         assertEquals(expectedNamespace.getURI(), namespace);
 
         // was the namespace for the datastore resources updated?
-        List<FeatureTypeInfo> resourcesByStore =
-                catalog.getResourcesByStore(dataStore, FeatureTypeInfo.class);
+        List<FeatureTypeInfo> resourcesByStore = catalog.getResourcesByStore(dataStore, FeatureTypeInfo.class);
         for (FeatureTypeInfo ft : resourcesByStore) {
-            assertEquals(
-                    "Namespace for " + ft.getName() + " was not updated",
-                    expectedNamespace,
-                    ft.getNamespace());
+            assertEquals("Namespace for " + ft.getName() + " was not updated", expectedNamespace, ft.getNamespace());
         }
     }
 
@@ -204,14 +215,12 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
 
             FormTester form = tester.newFormTester("dataStoreForm");
             form.select("workspacePanel:border:border_body:paramValue", 4);
-            Component wsDropDown =
-                    tester.getComponentFromLastRenderedPage(
-                            "dataStoreForm:workspacePanel:border:border_body:paramValue");
+            Component wsDropDown = tester.getComponentFromLastRenderedPage(
+                    "dataStoreForm:workspacePanel:border:border_body:paramValue");
             tester.executeAjaxEvent(wsDropDown, "change");
             form.setValue("dataStoreNamePanel:border:border_body:paramValue", "foo");
             form.setValue(
-                    "parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue",
-                    "/foo");
+                    "parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue", "/foo");
             tester.clickLink("dataStoreForm:save", true);
             tester.assertNoErrorMessage();
             catalog.save(ds);
@@ -237,14 +246,12 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
 
             FormTester form = tester.newFormTester("dataStoreForm");
             form.select("workspacePanel:border:border_body:paramValue", 4);
-            Component wsDropDown =
-                    tester.getComponentFromLastRenderedPage(
-                            "dataStoreForm:workspacePanel:border:border_body:paramValue");
+            Component wsDropDown = tester.getComponentFromLastRenderedPage(
+                    "dataStoreForm:workspacePanel:border:border_body:paramValue");
             tester.executeAjaxEvent(wsDropDown, "change");
             form.setValue("dataStoreNamePanel:border:border_body:paramValue", "foo");
             form.setValue(
-                    "parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue",
-                    "/foo");
+                    "parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue", "/foo");
             tester.clickLink("dataStoreForm:save", true);
             tester.assertNoErrorMessage();
             catalog.save(ds);
@@ -279,20 +286,88 @@ public class DataAccessEditPageTest extends GeoServerWicketTestSupport {
         // look for the dropdown.. we cannot "identify" it but we can check there is a dropdown
         // with the properly converted enum value
         MarkupContainer container =
-                (MarkupContainer)
-                        tester.getLastRenderedPage()
-                                .get("dataStoreForm:parametersPanel:parameters");
+                (MarkupContainer) tester.getLastRenderedPage().get("dataStoreForm:parametersPanel:parameters");
         DropDownChoiceParamPanel dropDown = null;
         for (Component component : container) {
-            if (component instanceof ListItem
-                    && component.get("parameterPanel") instanceof DropDownChoiceParamPanel) {
-                DropDownChoiceParamPanel panel =
-                        (DropDownChoiceParamPanel) component.get("parameterPanel");
+            if (component instanceof ListItem && component.get("parameterPanel") instanceof DropDownChoiceParamPanel) {
+                DropDownChoiceParamPanel panel = (DropDownChoiceParamPanel) component.get("parameterPanel");
                 if (panel.getDefaultModelObject() == SslMode.DISABLE) {
                     dropDown = panel;
                 }
             }
         }
         assertNotNull(dropDown);
+    }
+
+    @Test
+    public void testDataStoreEditSandbox() throws Exception {
+        // setup sandbox on file system
+        java.io.File sandbox = new java.io.File("./target/sandbox").getCanonicalFile();
+        java.io.File citeFolder = new java.io.File(sandbox, MockData.CITE_PREFIX);
+        java.io.File toppFolder = new java.io.File(sandbox, "topp"); // this won't be allowed
+        citeFolder.mkdirs();
+        toppFolder.mkdirs();
+
+        // no need to have test data, the property data store can use an empty folder
+
+        // setup a sandbox by security config
+        Resource layerSecurity = getDataDirectory().get("security/layers.properties");
+        Properties properties = new Properties();
+        properties.put("filesystemSandbox", sandbox.getAbsolutePath());
+        properties.put("cite.*.a", ROLE_CITE);
+        try (OutputStream os = layerSecurity.out()) {
+            properties.store(os, "sandbox");
+        }
+        DefaultFileAccessManager fam = GeoServerExtensions.bean(DefaultFileAccessManager.class, applicationContext);
+        fam.reload();
+
+        // login as workspace admin (logout happens as @After in base class)
+        login("cite", "pwd", ROLE_CITE);
+        try {
+            tester.startPage(new DataAccessEditPage(store.getId()));
+
+            // cannot save, the current location is outside of the sanbox
+            FormTester form = tester.newFormTester("dataStoreForm");
+            String toppPath = toppFolder.getAbsolutePath();
+            String fileInputPath =
+                    "parametersPanel:parameters:0:parameterPanel:fileInput:border:border_body:paramValue";
+            form.setValue(fileInputPath, toppPath);
+            form.submit();
+            tester.clickLink("dataStoreForm:save", true);
+
+            List<Serializable> messages = tester.getMessages(FeedbackMessage.ERROR);
+            assertEquals(1, messages.size());
+            checkSandboxDeniedMessage(messages.get(0).toString(), toppPath);
+            tester.clearFeedbackMessages();
+
+            // the error got actually rendered
+            checkSandboxDeniedMessage(tester.getLastResponseAsString(), toppPath);
+
+            // now try within the sandbox
+            form = tester.newFormTester("dataStoreForm");
+            String citePath = citeFolder.getAbsolutePath();
+            form.setValue(fileInputPath, citePath);
+            form.submit();
+            tester.clickLink("dataStoreForm:save", true);
+
+            // no messages and save worked
+            tester.assertNoErrorMessage();
+            DataStoreInfo store = getCatalog().getDataStoreByName(MockData.CITE_PREFIX);
+            assertEquals(
+                    "file://" + citePath.replace("\\", "/"),
+                    store.getConnectionParameters().get("directory"));
+        } finally {
+            layerSecurity.delete();
+            fam.reload();
+        }
+    }
+
+    private static void checkSandboxDeniedMessage(String message, String toppPath) {
+        assertThat(
+                message,
+                allOf(
+                        containsString("Access to "),
+                        containsString(toppPath),
+                        containsString(" denied by file sandboxing")));
     }
 }

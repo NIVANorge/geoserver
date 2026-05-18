@@ -4,8 +4,6 @@
  */
 package org.geoserver.featurestemplating.builders.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.logging.Logger;
@@ -14,6 +12,8 @@ import org.geoserver.featurestemplating.readers.JSONMerger;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
 import org.geotools.util.logging.Logging;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /** Responsible for merging 2 nodes if one of the evaluates to either ${ or ${{ */
 public class DynamicMergeBuilder extends DynamicJsonBuilder {
@@ -23,11 +23,7 @@ public class DynamicMergeBuilder extends DynamicJsonBuilder {
     private boolean overlayExpression;
 
     public DynamicMergeBuilder(
-            String key,
-            String expression,
-            NamespaceSupport namespaces,
-            JsonNode node,
-            boolean overlayExpression) {
+            String key, String expression, NamespaceSupport namespaces, JsonNode node, boolean overlayExpression) {
         super(key, expression, namespaces, node);
         this.overlayExpression = overlayExpression;
     }
@@ -50,8 +46,7 @@ public class DynamicMergeBuilder extends DynamicJsonBuilder {
     }
 
     @Override
-    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         Object evaluate = evaluateDirective(context);
 
         if (!(evaluate instanceof JsonNode)) {
@@ -75,8 +70,7 @@ public class DynamicMergeBuilder extends DynamicJsonBuilder {
         }
     }
 
-    protected void writeFromNestedTree(
-            TemplateBuilderContext context, TemplateOutputWriter writer, JsonNode node)
+    protected void writeFromNestedTree(TemplateBuilderContext context, TemplateOutputWriter writer, JsonNode node)
             throws IOException {
         writer.startObject(getKey(context), getEncodingHints());
         super.iterateAndEvaluateNestedTree(context, writer, node);

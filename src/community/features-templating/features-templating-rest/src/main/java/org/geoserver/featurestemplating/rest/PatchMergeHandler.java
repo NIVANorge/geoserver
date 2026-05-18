@@ -8,44 +8,40 @@ import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.io.IOException;
-import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.geoserver.rest.RestException;
 import org.geoserver.rest.util.MediaTypeExtensions;
+import org.geoserver.wfs.xml.WFSXmlUtils;
 import org.geotools.util.Converters;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.JSONSerializer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 /**
- * Helper class to apply partial updates to object of type T, setting values coming from an XML or
- * JSON representation. Support settings null values by using <elementName xsi:nil="true"/> for XML
- * or "attribute"=null for JSON.
+ * Helper class to apply partial updates to object of type T, setting values coming from an XML or JSON representation.
+ * Support settings null values by using <elementName xsi:nil="true"/> for XML or "attribute"=null for JSON.
  *
  * @param <T> the type of the object to which apply changes.
  */
-class PatchMergeHandler<T> {
+public class PatchMergeHandler<T> {
 
     private Class<T> patchType;
 
-    PatchMergeHandler(Class<T> patchType) {
+    public PatchMergeHandler(Class<T> patchType) {
         this.patchType = patchType;
     }
 
-    <T> T applyPatch(String patch, T toPatch, String contentType) {
+    public <T> T applyPatch(String patch, T toPatch, String contentType) {
         try {
             if (isJSON(contentType)) patchJSON((JSONObject) JSONSerializer.toJSON(patch), toPatch);
             else patchXML(toXMLDocument(patch), toPatch);
@@ -60,16 +56,8 @@ class PatchMergeHandler<T> {
     }
 
     private Document toXMLDocument(String xmlString) {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-
-        DocumentBuilder builder = null;
         try {
-            // Create DocumentBuilder with default configuration
-            builder = factory.newDocumentBuilder();
-
-            // Parse the content to Document object
-            Document doc = builder.parse(new InputSource(new StringReader(xmlString)));
-            return doc;
+            return WFSXmlUtils.xmlDocument(xmlString);
         } catch (ParserConfigurationException | IOException | SAXException e) {
             throw new RestException(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -81,10 +69,10 @@ class PatchMergeHandler<T> {
         PropertyDescriptor[] descriptors = getDescriptors();
         for (Object k : keys) {
             Object o = patch.get(k);
-            if (o instanceof JSONObject) {
-                patchJSON((JSONObject) o, toPatch);
-            } else if (o instanceof JSONArray) {
-                patchJSON((JSONArray) o, toPatch);
+            if (o instanceof JSONObject object) {
+                patchJSON(object, toPatch);
+            } else if (o instanceof JSONArray array) {
+                patchJSON(array, toPatch);
             } else {
                 Optional<PropertyDescriptor> op = beanFieldFromJSON(descriptors, k);
                 if (op.isPresent()) {
@@ -105,8 +93,7 @@ class PatchMergeHandler<T> {
         return toPatch;
     }
 
-    private Optional<PropertyDescriptor> beanFieldFromJSON(
-            PropertyDescriptor[] descriptors, Object fieldName) {
+    private Optional<PropertyDescriptor> beanFieldFromJSON(PropertyDescriptor[] descriptors, Object fieldName) {
         return Stream.of(descriptors).filter(d -> d.getName().equals(fieldName)).findFirst();
     }
 

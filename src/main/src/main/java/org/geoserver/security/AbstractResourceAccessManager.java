@@ -13,7 +13,7 @@ import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.platform.GeoServerExtensions;
-import org.opengis.filter.Filter;
+import org.geotools.api.filter.Filter;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -59,8 +59,7 @@ public class AbstractResourceAccessManager implements ResourceAccessManager {
     }
 
     @Override
-    public Filter getSecurityFilter(
-            final Authentication user, final Class<? extends CatalogInfo> clazz) {
+    public Filter getSecurityFilter(final Authentication user, final Class<? extends CatalogInfo> clazz) {
         return InMemorySecurityFilter.buildUserAccessFilter(this, user);
     }
 }

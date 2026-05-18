@@ -4,6 +4,9 @@
  */
 package org.geoserver.wms.worldwind.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.logging.Logger;
@@ -23,12 +26,27 @@ import org.geoserver.wms.worldwind.BilConfig;
 import org.geotools.util.logging.Logging;
 
 /**
- * UI panel to configure a the BIL output format for a layer. This panel appears in the Publishing
- * tab of the layer configuration for a raster layer.
+ * UI panel to configure a the BIL output format for a layer. This panel appears in the Publishing tab of the layer
+ * configuration for a raster layer.
  *
  * @author Parker Abercrombie
  */
 public class BilLayerConfigPanel extends PublishedConfigurationPanel<LayerInfo> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(BilLayerConfigPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -7082211085566621848L;
 
     private static final Logger LOGGER = Logging.getLogger(BilLayerConfigPanel.class);
@@ -38,47 +56,34 @@ public class BilLayerConfigPanel extends PublishedConfigurationPanel<LayerInfo> 
 
         PropertyModel<Object> metadata = new PropertyModel<Object>(model, "resource.metadata");
 
-        add(
-                new DropDownChoice<String>(
-                        BilConfig.DEFAULT_DATA_TYPE,
-                        new MapModel(metadata, BilConfig.DEFAULT_DATA_TYPE),
-                        new ListModel<>(
-                                Arrays.asList(
-                                        "application/bil8",
-                                        "application/bil16",
-                                        "application/bil32"))));
+        add(new DropDownChoice<String>(
+                BilConfig.DEFAULT_DATA_TYPE,
+                new MapModel(metadata, BilConfig.DEFAULT_DATA_TYPE),
+                new ListModel<>(Arrays.asList("application/bil8", "application/bil16", "application/bil32"))));
 
-        add(
-                new DropDownChoice<String>(
-                        BilConfig.BYTE_ORDER,
-                        new MapModel(metadata, BilConfig.BYTE_ORDER),
-                        new ListModel<>(
-                                Arrays.asList(
-                                        ByteOrder.BIG_ENDIAN.toString(),
-                                        ByteOrder.LITTLE_ENDIAN.toString())),
-                        new ByteOrderRenderer()));
+        add(new DropDownChoice<String>(
+                BilConfig.BYTE_ORDER,
+                new MapModel(metadata, BilConfig.BYTE_ORDER),
+                new ListModel<>(Arrays.asList(ByteOrder.BIG_ENDIAN.toString(), ByteOrder.LITTLE_ENDIAN.toString())),
+                new ByteOrderRenderer()));
 
-        add(
-                new TextField<Double>(
-                        BilConfig.NO_DATA_OUTPUT,
-                        new MapModel(metadata, BilConfig.NO_DATA_OUTPUT),
-                        Double.class));
+        add(new TextField<Double>(
+                BilConfig.NO_DATA_OUTPUT, new MapModel(metadata, BilConfig.NO_DATA_OUTPUT), Double.class));
     }
 
     /** Renderer to display a localized string for the Byte Order drop down. */
     private class ByteOrderRenderer extends ChoiceRenderer<String> {
 
+        @Serial
         private static final long serialVersionUID = 9198622236589910965L;
 
         @Override
         public Object getDisplayValue(String str) {
             IStringResourceLoader loader = new GeoServerStringResourceLoader();
             if (ByteOrder.LITTLE_ENDIAN.toString().equals(str)) {
-                return new StringResourceModel("byteOrderLittleEndian", BilLayerConfigPanel.this)
-                        .getObject();
+                return new StringResourceModel("byteOrderLittleEndian", BilLayerConfigPanel.this).getObject();
             } else if (ByteOrder.BIG_ENDIAN.toString().equals(str)) {
-                return new StringResourceModel("byteOrderBigEndian", BilLayerConfigPanel.this)
-                        .getObject();
+                return new StringResourceModel("byteOrderBigEndian", BilLayerConfigPanel.this).getObject();
             }
 
             LOGGER.warning("Unknown byte order: " + str);

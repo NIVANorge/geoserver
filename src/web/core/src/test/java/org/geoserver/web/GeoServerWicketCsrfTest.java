@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNull;
 
 import java.util.Arrays;
 import java.util.Collection;
-import org.apache.wicket.markup.html.form.IFormSubmitListener;
 import org.apache.wicket.protocol.http.mock.MockHttpServletRequest;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.tester.FormTester;
@@ -30,8 +29,7 @@ public class GeoServerWicketCsrfTest extends GeoServerWicketTestSupport {
 
     @Parameters
     public static Collection<Object[]> data() {
-        return Arrays.asList(
-                new Object[][] {{"true", "foo.com"}, {"false", "geoserver.org"}, {"false", ""}});
+        return Arrays.asList(new Object[][] {{"true", "foo.com"}, {"false", "geoserver.org"}, {"false", ""}});
     }
 
     @Parameter(0)
@@ -47,8 +45,7 @@ public class GeoServerWicketCsrfTest extends GeoServerWicketTestSupport {
         // Update the Csrf properties and re-init the test app
         System.setProperty(GEOSERVER_CSRF_WHITELIST, csrfWhitelist);
         System.setProperty(GEOSERVER_CSRF_DISABLED, csrfDisabled);
-        GeoServerApplication app =
-                (GeoServerApplication) applicationContext.getBean("webApplication");
+        GeoServerApplication app = (GeoServerApplication) applicationContext.getBean("webApplication");
         tester = new WicketTester(app, false);
         app.init();
 
@@ -71,25 +68,7 @@ public class GeoServerWicketCsrfTest extends GeoServerWicketTestSupport {
     @Test
     // form succeeds if disabled, or geoserver.org
     public void testFormSubmitWhitelistedDomain() {
-        FormTester form = tester.newFormTester("form");
-
-        // Set up HTTP requst with necessary headers
-        MockHttpServletRequest request = tester.getRequest();
-
-        String relativePath =
-                form.getForm()
-                        .getRootForm()
-                        .urlFor(IFormSubmitListener.INTERFACE, new PageParameters())
-                        .toString()
-                        .substring(1);
-
-        request.setServerName("geoserver.org");
-        request.setHeader("Origin", "http://www.geoserver.org");
-        request.setHeader("Referer", "http://www.geoserver.org" + relativePath);
-
-        // try changing the URI of a workspace
-        form.setValue("tabs:panel:uri", "http://www.geoserver.org");
-        form.submit("save");
+        submitWithBaseURL("http://www.geoserver.org");
 
         if ("".equals(csrfWhitelist)) {
             // form submit should fail
@@ -105,25 +84,7 @@ public class GeoServerWicketCsrfTest extends GeoServerWicketTestSupport {
     // form fails if geoserver.org or no whitlist
     public void testFormSubmitNotWhitelistedDomain() {
 
-        FormTester form = tester.newFormTester("form");
-
-        // Set up HTTP requst with necessary headers
-        MockHttpServletRequest request = tester.getRequest();
-
-        String relativePath =
-                form.getForm()
-                        .getRootForm()
-                        .urlFor(IFormSubmitListener.INTERFACE, new PageParameters())
-                        .toString()
-                        .substring(1);
-
-        request.setServerName("geoserver.org");
-        request.setHeader("Origin", "http://www.remote.com");
-        request.setHeader("Referer", "http://www.remote.com" + relativePath);
-
-        // try changing the URI of a workspace
-        form.setValue("tabs:panel:uri", "http://www.geoserver.org");
-        form.submit("save");
+        submitWithBaseURL("http://www.remote.com");
 
         if ("true".equals(csrfDisabled)) {
             // form submit should succeed
@@ -133,5 +94,27 @@ public class GeoServerWicketCsrfTest extends GeoServerWicketTestSupport {
             // form submit should fail
             assertNull(tester.getLastRenderedPage());
         }
+    }
+
+    private static void submitWithBaseURL(String url) {
+        FormTester form = tester.newFormTester("form");
+
+        // Set up HTTP requst with necessary headers
+        MockHttpServletRequest request = tester.getRequest();
+
+        // this bit of code is taken from FormTester.submitForm (for reference in future upgrades)
+        String relativePath = form.getForm()
+                .getRootForm()
+                .urlForListener(new PageParameters())
+                .toString()
+                .substring(1);
+
+        request.setServerName("geoserver.org");
+        request.setHeader("Origin", url);
+        request.setHeader("Referer", url + relativePath);
+
+        // try changing the URI of a workspace
+        form.setValue("tabs:panel:uri", "http://www.geoserver.org");
+        form.submit("save");
     }
 }

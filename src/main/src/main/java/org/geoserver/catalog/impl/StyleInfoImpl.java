@@ -14,8 +14,9 @@ import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.SLDHandler;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WorkspaceInfo;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geoserver.config.util.patch.PatchProperty;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.util.Version;
 
 public class StyleInfoImpl implements StyleInfo {
@@ -34,6 +35,7 @@ public class StyleInfoImpl implements StyleInfo {
 
     protected String format = SLDHandler.FORMAT;
 
+    @PatchProperty("formatVersion")
     protected Version languageVersion = SLDHandler.VERSION_10;
 
     protected String filename;
@@ -47,6 +49,8 @@ public class StyleInfoImpl implements StyleInfo {
     protected Date dateCreated;
 
     protected Date dateModified;
+
+    protected String modifiedBy;
 
     protected StyleInfoImpl() {}
 
@@ -99,7 +103,7 @@ public class StyleInfoImpl implements StyleInfo {
     @Override
     public void setFormat(String language) {
         this.format = language;
-    };
+    }
 
     @Override
     public Version getFormatVersion() {
@@ -126,13 +130,18 @@ public class StyleInfoImpl implements StyleInfo {
         // for capability document request
         // remote style does not exist in local catalog
         // do not look for this style inside ResourcePool
-        if (metadata != null)
-            if (metadata.containsKey(IS_REMOTE)) return WMSLayerInfoImpl.getStyleInfo(this);
+        if (metadata != null) if (metadata.containsKey(IS_REMOTE)) return WMSLayerInfoImpl.getStyleInfo(this);
         return catalog.getResourcePool().getStyle(this);
     }
 
     @Override
     public StyledLayerDescriptor getSLD() throws IOException {
+        // to avoid NPEs in cases where the catalog or resource pool are not set
+        // this can happen when the GeoServerImpl is mocked and the style is treated as remote
+        // @see GetCapabilitiesTransformerTest
+        if (catalog == null || catalog.getResourcePool() == null) {
+            return null;
+        }
         return catalog.getResourcePool().getSld(this);
     }
 
@@ -211,11 +220,7 @@ public class StyleInfoImpl implements StyleInfo {
 
     @Override
     public String toString() {
-        return new StringBuilder(getClass().getSimpleName())
-                .append('[')
-                .append(prefixedName())
-                .append(']')
-                .toString();
+        return getClass().getSimpleName() + '[' + prefixedName() + ']';
     }
 
     @Override
@@ -263,5 +268,15 @@ public class StyleInfoImpl implements StyleInfo {
     @Override
     public void setDateModified(Date dateModified) {
         this.dateModified = dateModified;
+    }
+
+    @Override
+    public String getModifiedBy() {
+        return modifiedBy;
+    }
+
+    @Override
+    public void setModifiedBy(String userName) {
+        this.modifiedBy = userName;
     }
 }

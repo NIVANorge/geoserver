@@ -27,17 +27,17 @@ import org.geoserver.wfs.request.GetFeatureRequest;
 import org.geoserver.wfs.request.Query;
 import org.geoserver.wms.GetFeatureInfoRequest;
 import org.geoserver.wms.MapLayerInfo;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 
 /**
- * This {@link DispatcherCallback} implementation checks on operation dispatched event if a json-ld
- * path has been provided to cql_filter and evaluate it against the {@link TemplateBuilder} tree to
- * get the corresponding {@link Filter}
+ * This {@link DispatcherCallback} implementation checks on operation dispatched event if a json-ld path has been
+ * provided to cql_filter and evaluate it against the {@link TemplateBuilder} tree to get the corresponding
+ * {@link Filter}
  */
 public class TemplateCallback extends AbstractDispatcherCallback {
 
@@ -49,7 +49,7 @@ public class TemplateCallback extends AbstractDispatcherCallback {
 
     private TemplateLoader configuration;
 
-    static FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+    static FilterFactory ff = CommonFactoryFinder.getFilterFactory();
 
     public TemplateCallback(GeoServer gs, TemplateLoader configuration) {
         this.gs = gs;
@@ -59,10 +59,9 @@ public class TemplateCallback extends AbstractDispatcherCallback {
 
     @Override
     public Operation operationDispatched(Request request, Operation operation) {
-        if (request.getService().toUpperCase().contains("WFS")) {
+        if (operationSupported(operation)) {
             try {
-                GetFeatureRequest getFeature =
-                        GetFeatureRequest.adapt(operation.getParameters()[0]);
+                GetFeatureRequest getFeature = GetFeatureRequest.adapt(operation.getParameters()[0]);
                 if (getFeature != null) {
                     List<Query> queries = getFeature.getQueries();
                     if (queries != null && queries.size() > 0) {
@@ -77,12 +76,10 @@ public class TemplateCallback extends AbstractDispatcherCallback {
     }
 
     // iterate over queries to eventually handle a templates query paths
-    private void handleTemplateFilters(List<Query> queries, String outputFormat)
-            throws ExecutionException {
+    private void handleTemplateFilters(List<Query> queries, String outputFormat) throws ExecutionException {
         for (Query q : queries) {
             List<FeatureTypeInfo> featureTypeInfos = getFeatureTypeInfoFromQuery(q);
-            List<RootBuilder> rootBuilders =
-                    getRootBuildersFromFeatureTypeInfo(featureTypeInfos, outputFormat);
+            List<RootBuilder> rootBuilders = getRootBuildersFromFeatureTypeInfo(featureTypeInfos, outputFormat);
             if (rootBuilders.size() > 0) {
                 for (int i = 0; i < featureTypeInfos.size(); i++) {
                     FeatureTypeInfo fti = featureTypeInfos.get(i);
@@ -97,15 +94,13 @@ public class TemplateCallback extends AbstractDispatcherCallback {
     private List<FeatureTypeInfo> getFeatureTypeInfoFromQuery(Query q) {
         List<FeatureTypeInfo> typeInfos = new ArrayList<>();
         for (QName typeName : q.getTypeNames()) {
-            typeInfos.add(
-                    catalog.getFeatureTypeByName(
-                            new NameImpl(typeName.getPrefix(), typeName.getLocalPart())));
+            typeInfos.add(catalog.getFeatureTypeByName(new NameImpl(typeName.getPrefix(), typeName.getLocalPart())));
         }
         return typeInfos;
     }
 
-    private List<RootBuilder> getRootBuildersFromFeatureTypeInfo(
-            List<FeatureTypeInfo> typeInfos, String outputFormat) throws ExecutionException {
+    private List<RootBuilder> getRootBuildersFromFeatureTypeInfo(List<FeatureTypeInfo> typeInfos, String outputFormat)
+            throws ExecutionException {
         List<RootBuilder> rootBuilders = new ArrayList<>();
         int nullRootIndex = 0;
         for (int i = 0; i < typeInfos.size(); i++) {
@@ -117,11 +112,10 @@ public class TemplateCallback extends AbstractDispatcherCallback {
         int rootsSize = rootBuilders.size();
         if (rootsSize > 0 && rootsSize != typeInfos.size()) {
             // we are missing a template throwing exception
-            throw new RuntimeException(
-                    "No template found for feature type "
-                            + typeInfos.get(nullRootIndex).getName()
-                            + " for output format "
-                            + outputFormat);
+            throw new RuntimeException("No template found for feature type "
+                    + typeInfos.get(nullRootIndex).getName()
+                    + " for output format "
+                    + outputFormat);
         }
         return rootBuilders;
     }
@@ -142,12 +136,11 @@ public class TemplateCallback extends AbstractDispatcherCallback {
                 }
                 q.setFilter(newFilter);
                 if (newFilter.equals(old)) {
-                    LOGGER.warning(
-                            "Failed to resolve filter "
-                                    + ECQL.toCQL(old)
-                                    + " against the template. "
-                                    + "If the property name was intended to be a template path, "
-                                    + "check that the path specified in the cql filter is correct.");
+                    LOGGER.warning("Failed to resolve filter "
+                            + ECQL.toCQL(old)
+                            + " against the template. "
+                            + "If the property name was intended to be a template path, "
+                            + "check that the path specified in the cql filter is correct.");
                 }
             }
         } catch (Exception e) {
@@ -156,10 +149,9 @@ public class TemplateCallback extends AbstractDispatcherCallback {
     }
 
     @Override
-    public Response responseDispatched(
-            Request request, Operation operation, Object result, Response response) {
+    public Response responseDispatched(Request request, Operation operation, Object result, Response response) {
         Object[] params = operation.getParameters();
-        if (params.length > 0) {
+        if (operationSupported(operation) && params.length > 0) {
             Object param1 = params[0];
             Response replacer = findResponse(param1);
             if (replacer != null) response = replacer;
@@ -167,18 +159,36 @@ public class TemplateCallback extends AbstractDispatcherCallback {
         return super.responseDispatched(request, operation, result, response);
     }
 
+    /**
+     * Checks if operation is supported by features templating
+     *
+     * @param operation
+     * @return
+     */
+    private boolean operationSupported(Operation operation) {
+        String id = operation.getId();
+        String serviceId = operation.getService().getId();
+        GetFeatureRequest getFeature = operation.getParameters().length > 0
+                ? GetFeatureRequest.adapt(operation.getParameters()[0])
+                : null;
+        boolean isHits = getFeature != null && getFeature.isResultTypeHits();
+        return "GetFeatureInfo".equalsIgnoreCase(id) && "wms".equalsIgnoreCase(serviceId)
+                || "GetFeature".equalsIgnoreCase(id) && "wfs".equalsIgnoreCase(serviceId) && !isHits;
+    }
+
     private Response findResponse(Object param1) {
         Response response = null;
-        if (param1 instanceof GetFeatureInfoRequest) {
-            response = getTemplateFeatureInfoResponse((GetFeatureInfoRequest) param1);
+        if (param1 instanceof GetFeatureInfoRequest request) {
+            if (request.getInfoFormat() != null) {
+                response = getTemplateFeatureInfoResponse(request);
+            }
         } else {
             GetFeatureRequest getFeature = GetFeatureRequest.adapt(param1);
             if (getFeature != null) {
                 List<Query> queries = getFeature.getQueries();
                 for (Query q : queries) {
                     List<FeatureTypeInfo> typeInfos = getFeatureTypeInfoFromQuery(q);
-                    Response templateResponse =
-                            getTemplateFeatureResponse(typeInfos, getFeature.getOutputFormat());
+                    Response templateResponse = getTemplateFeatureResponse(typeInfos, getFeature.getOutputFormat());
                     if (templateResponse != null) response = templateResponse;
                 }
             }
@@ -186,42 +196,63 @@ public class TemplateCallback extends AbstractDispatcherCallback {
         return response;
     }
 
+    /**
+     * Helper method to find the response for a WMS GetFeatureInfo request.
+     *
+     * <p>If none of the requested layers uses a feature template for the requested info format, then we delegate on
+     * whatever is the default response for the requested info format.
+     *
+     * <p>If at least one of the requested layers uses a feature template for the requested info format, then all the
+     * requested layers need to have a matching feature template for the requested info format, otherwise an exception
+     * will be thrown.
+     */
     private Response getTemplateFeatureInfoResponse(GetFeatureInfoRequest request) {
-        List<MapLayerInfo> layerInfos = request.getQueryLayers();
         String infoFormat = request.getInfoFormat();
-        TemplateIdentifier identifier =
-                TemplateIdentifier.fromOutputFormat(request.getInfoFormat());
-        int nTemplates = 0;
-        for (MapLayerInfo li : layerInfos) {
-            if (li != null && li.getResource() instanceof FeatureTypeInfo) {
-                if (ensureTemplatesExist(li.getFeature(), identifier.getOutputFormat()) != null)
-                    nTemplates++;
+        TemplateIdentifier identifier = TemplateIdentifier.fromOutputFormat(request.getInfoFormat());
+        if (identifier == null) {
+            // features templating doesn't support the requested info type,
+            // hence we delegate on whatever is the default response
+            return null;
+        }
+        // the request info format is supported by features templating
+        // let's check if the requested layers all have a template supporting
+        // the requested info format
+        List<MapLayerInfo> layers = request.getQueryLayers();
+        int matchingTemplates = 0;
+        for (MapLayerInfo layer : layers) {
+            if (layer != null
+                    && layer.getResource() instanceof FeatureTypeInfo
+                    && ensureTemplatesExist(layer.getFeature(), identifier.getOutputFormat()) != null) {
+                matchingTemplates++;
             }
         }
-        Response result = null;
-        if (nTemplates > 0) {
-            int size = layerInfos.size();
-            if (size != nTemplates)
-                throw new ServiceException(
-                        "To get a features templating getFeatureInfo a template is needed for every FeatureType but "
-                                + (size - nTemplates)
-                                + " among the requested ones are missing a template");
-
-            result = OWSResponseFactory.getInstance().featureInfoResponse(identifier, infoFormat);
+        // no requested layer is using features templating, hence we delegate in whatever is the
+        // default info format
+        if (matchingTemplates == 0) {
+            return null;
         }
-        return result;
+        // if one of the requested layer uses a features template, then all the other need to have
+        // one too
+        int matchTemplatesDiff = layers.size() - matchingTemplates;
+        if (matchTemplatesDiff != 0) {
+            // there is at least one requested layer that doesn't have template matching the
+            // requested info format
+            // this situation is currently not supported
+            throw new ServiceException(
+                    "To get a features templating getFeatureInfo a template is needed for every FeatureType but "
+                            + matchTemplatesDiff
+                            + " among the requested ones are missing a template");
+        }
+        return OWSResponseFactory.getInstance().featureInfoResponse(identifier, infoFormat);
     }
 
-    private Response getTemplateFeatureResponse(
-            List<FeatureTypeInfo> typeInfos, String outputFormat) {
+    private Response getTemplateFeatureResponse(List<FeatureTypeInfo> typeInfos, String outputFormat) {
         Response response = null;
         try {
 
-            List<RootBuilder> rootBuilders =
-                    getRootBuildersFromFeatureTypeInfo(typeInfos, outputFormat);
+            List<RootBuilder> rootBuilders = getRootBuildersFromFeatureTypeInfo(typeInfos, outputFormat);
             if (rootBuilders.size() > 0) {
-                TemplateIdentifier templateIdentifier =
-                        TemplateIdentifier.fromOutputFormat(outputFormat);
+                TemplateIdentifier templateIdentifier = TemplateIdentifier.fromOutputFormat(outputFormat);
                 response = OWSResponseFactory.getInstance().getFeatureResponse(templateIdentifier);
             }
         } catch (Exception e) {
@@ -239,11 +270,10 @@ public class TemplateCallback extends AbstractDispatcherCallback {
             if (identifier != null) {
                 rootBuilder = configuration.getTemplate(typeInfo, identifier.getOutputFormat());
                 if (templateIsMandatory(identifier) && rootBuilder == null) {
-                    throw new RuntimeException(
-                            "No template found for feature type "
-                                    + typeInfo.getName()
-                                    + " for output format "
-                                    + outputFormat);
+                    throw new RuntimeException("No template found for feature type "
+                            + typeInfo.getName()
+                            + " for output format "
+                            + outputFormat);
                 }
             }
             return rootBuilder;
@@ -259,10 +289,8 @@ public class TemplateCallback extends AbstractDispatcherCallback {
     // without a features template. Examples JSON-LD for all operations and HTML for WFS GetFeature.
     private boolean templateIsMandatory(TemplateIdentifier identifier) {
         String requestName = Dispatcher.REQUEST.get().getRequest();
-        boolean isFeatureInfo =
-                requestName != null && requestName.equalsIgnoreCase("GetFeatureInfo");
+        boolean isFeatureInfo = requestName != null && requestName.equalsIgnoreCase("GetFeatureInfo");
         boolean mandatoryHTML = !isFeatureInfo && identifier.equals(TemplateIdentifier.HTML);
-        return identifier != null
-                && (mandatoryHTML || identifier.equals(TemplateIdentifier.JSONLD));
+        return identifier != null && (mandatoryHTML || identifier.equals(TemplateIdentifier.JSONLD));
     }
 }

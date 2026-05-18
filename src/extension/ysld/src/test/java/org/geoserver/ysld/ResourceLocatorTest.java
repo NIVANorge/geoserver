@@ -12,16 +12,17 @@ import static org.hamcrest.Matchers.instanceOf;
 
 import java.io.File;
 import java.io.PrintWriter;
-import org.geotools.styling.ExternalGraphic;
-import org.geotools.styling.PointSymbolizer;
+import org.geotools.api.style.ExternalGraphic;
+import org.geotools.api.style.PointSymbolizer;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.styling.SLD;
-import org.geotools.styling.StyledLayerDescriptor;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class ResourceLocatorTest {
-    @Rule public TemporaryFolder testFolder = new TemporaryFolder();
+    @Rule
+    public TemporaryFolder testFolder = new TemporaryFolder();
 
     @Test
     public void testRelativePathWithDefaultResourceLocator() throws Exception {
@@ -31,16 +32,18 @@ public class ResourceLocatorTest {
         File file = testFolder.newFile();
         try (PrintWriter out = new PrintWriter(file); ) {
             out.print(
-                    "feature-styles:\n"
-                            + "- name: name\n"
-                            + "  rules:\n"
-                            + "  - symbolizers:\n"
-                            + "    - point:\n"
-                            + "        size: 32\n"
-                            + "        symbols:\n"
-                            + "        - external:\n"
-                            + "            url: smileyface.png\n"
-                            + "            format: image/png\n");
+                    """
+                    feature-styles:
+                    - name: name
+                      rules:
+                      - symbolizers:
+                        - point:
+                            size: 32
+                            symbols:
+                            - external:
+                                url: smileyface.png
+                                format: image/png
+                    """);
         }
 
         // A file in the same directory

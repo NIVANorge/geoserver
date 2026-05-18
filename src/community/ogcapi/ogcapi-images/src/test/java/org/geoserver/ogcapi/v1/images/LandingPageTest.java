@@ -8,14 +8,17 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.jayway.jsonpath.DocumentContext;
+import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.platform.Service;
 import org.geotools.util.Version;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 public class LandingPageTest extends ImagesTestSupport {
 
@@ -68,16 +71,14 @@ public class LandingPageTest extends ImagesTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/images/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/images/v1?f=application/yaml");
         // System.out.println(yaml);
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -106,17 +107,14 @@ public class LandingPageTest extends ImagesTestSupport {
                 readSingle(
                         json,
                         "links[?(@.rel=='http://www.opengis.net/def/rel/ogc/1.0/data' && @.type=='application/json')].href"),
-                equalTo(
-                        "http://localhost:8080/geoserver/gs/ogc/images/v1/collections?f=application%2Fjson"));
+                equalTo("http://localhost:8080/geoserver/gs/ogc/images/v1/collections?f=application%2Fjson"));
     }
 
     void checkJSONLandingPage(DocumentContext json) {
         assertEquals(12, (int) json.read("links.length()", Integer.class));
         // check landing page links
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
                 "links[?(@.type != 'application/json' && @.href =~ /.*ogc\\/images\\/v1\\/\\?.*/)].rel",
@@ -148,8 +146,23 @@ public class LandingPageTest extends ImagesTestSupport {
                 Link.REL_DATA_URI,
                 Link.REL_DATA_URI);
         // check title
-        assertEquals("Image mosaicks discovery and management interface", json.read("title"));
+        assertEquals("Testbed Experiments", json.read("title"));
         // check description
-        assertEquals("", json.read("description"));
+        assertTrue(((String) json.read("description")).contains("OGCAPI Testbed"));
+    }
+
+    @Test
+    public void testDisabledService() throws Exception {
+        GeoServer gs = getGeoServer();
+        ImagesServiceInfo service = gs.getService(ImagesServiceInfo.class);
+        service.setEnabled(false);
+        gs.save(service);
+        try {
+            MockHttpServletResponse httpServletResponse = getAsMockHttpServletResponse("ogc/images/v1", 404);
+            assertEquals("Service Images is disabled", httpServletResponse.getErrorMessage());
+        } finally {
+            service.setEnabled(true);
+            gs.save(service);
+        }
     }
 }

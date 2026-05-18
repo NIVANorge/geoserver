@@ -5,6 +5,7 @@
  */
 package org.geoserver.web.data.store.shape;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
 import static org.geotools.data.shapefile.ShapefileDataStoreFactory.CACHE_MEMORY_MAPS;
 import static org.geotools.data.shapefile.ShapefileDataStoreFactory.CREATE_SPATIAL_INDEX;
 import static org.geotools.data.shapefile.ShapefileDataStoreFactory.DBFCHARSET;
@@ -34,50 +35,54 @@ import org.geoserver.web.wicket.browser.ExtensionFileFilter;
 @SuppressWarnings("serial")
 public class ShapefileStoreEditPanel extends StoreEditPanel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ShapefileStoreEditPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     public ShapefileStoreEditPanel(final String componentId, final Form storeEditForm) {
         super(componentId, storeEditForm);
 
         final IModel model = storeEditForm.getModel();
         setDefaultModel(model);
 
-        final IModel<Map<String, Object>> paramsModel =
-                new PropertyModel<>(model, "connectionParameters");
+        final IModel<Map<String, Object>> paramsModel = new PropertyModel<>(model, "connectionParameters");
 
         Panel file = buildFileParamPanel(paramsModel);
         add(file);
 
-        add(
-                new CharsetPanel(
-                        "charset",
-                        new MapModel<>(paramsModel, DBFCHARSET.key),
-                        new ParamResourceModel("charset", this),
-                        false));
+        add(new CharsetPanel(
+                "charset",
+                new MapModel<>(paramsModel, DBFCHARSET.key),
+                new ParamResourceModel("charset", this),
+                false));
 
-        add(
-                new CheckBoxParamPanel(
-                        "memoryMapped",
-                        new MapModel<>(paramsModel, MEMORY_MAPPED.key),
-                        new ParamResourceModel("memoryMapped", this)));
-        add(
-                new CheckBoxParamPanel(
-                        "cacheMemoryMaps",
-                        new MapModel<>(paramsModel, CACHE_MEMORY_MAPS.key),
-                        new ParamResourceModel("cacheMemoryMaps", this)));
+        add(new CheckBoxParamPanel(
+                "memoryMapped",
+                new MapModel<>(paramsModel, MEMORY_MAPPED.key),
+                new ParamResourceModel("memoryMapped", this)));
+        add(new CheckBoxParamPanel(
+                "cacheMemoryMaps",
+                new MapModel<>(paramsModel, CACHE_MEMORY_MAPS.key),
+                new ParamResourceModel("cacheMemoryMaps", this)));
 
-        add(
-                new CheckBoxParamPanel(
-                        "spatialIndex",
-                        new MapModel<>(paramsModel, CREATE_SPATIAL_INDEX.key),
-                        new ParamResourceModel("spatialIndex", this)));
+        add(new CheckBoxParamPanel(
+                "spatialIndex",
+                new MapModel<>(paramsModel, CREATE_SPATIAL_INDEX.key),
+                new ParamResourceModel("spatialIndex", this)));
     }
 
     protected Panel buildFileParamPanel(final IModel<Map<String, Object>> paramsModel) {
-        FileParamPanel file =
-                new FileParamPanel(
-                        "url",
-                        new MapModel<>(paramsModel, URLP.key),
-                        new ParamResourceModel("shapefile", this),
-                        true);
+        FileParamPanel file = new FileParamPanel(
+                "url", new MapModel<>(paramsModel, URLP.key), new ParamResourceModel("shapefile", this), true);
         file.setFileFilter(new Model<>(new ExtensionFileFilter(".shp")));
         file.getFormComponent().add(new FileExistsValidator());
         return file;

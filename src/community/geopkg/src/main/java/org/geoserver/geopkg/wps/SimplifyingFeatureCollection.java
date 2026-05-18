@@ -6,6 +6,9 @@ package org.geoserver.geopkg.wps;
 
 import java.util.NoSuchElementException;
 import java.util.function.Function;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.collection.DecoratingSimpleFeatureCollection;
@@ -18,9 +21,6 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.simplify.DouglasPeuckerSimplifier;
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
 
 /** Wraps a feature collection, generalizing it geometry */
 class SimplifyingFeatureCollection extends DecoratingSimpleFeatureCollection {
@@ -32,8 +32,7 @@ class SimplifyingFeatureCollection extends DecoratingSimpleFeatureCollection {
         Function<Geometry, Geometry> simplifier;
         if (Point.class.isAssignableFrom(binding) || MultiPoint.class.isAssignableFrom(binding)) {
             return fc;
-        } else if (LineString.class.isAssignableFrom(binding)
-                || MultiLineString.class.isAssignableFrom(binding)) {
+        } else if (LineString.class.isAssignableFrom(binding) || MultiLineString.class.isAssignableFrom(binding)) {
             simplifier = g -> DouglasPeuckerSimplifier.simplify(g, distance);
         } else {
             simplifier = g -> TopologyPreservingSimplifier.simplify(g, distance);
@@ -44,8 +43,7 @@ class SimplifyingFeatureCollection extends DecoratingSimpleFeatureCollection {
 
     Function<Geometry, Geometry> simplifier;
 
-    public SimplifyingFeatureCollection(
-            SimpleFeatureCollection fc, Function<Geometry, Geometry> simplifier) {
+    public SimplifyingFeatureCollection(SimpleFeatureCollection fc, Function<Geometry, Geometry> simplifier) {
         super(fc);
         this.simplifier = simplifier;
     }

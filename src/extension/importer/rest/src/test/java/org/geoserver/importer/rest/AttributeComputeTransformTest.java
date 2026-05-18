@@ -11,19 +11,18 @@ import static org.junit.Assert.fail;
 
 import java.util.Date;
 import org.geoserver.importer.transform.AttributeComputeTransform;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.util.Converters;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
 
 public class AttributeComputeTransformTest extends TransformTestSupport {
 
     @Test
     public void testTransformLiteral() throws Exception {
-        AttributeComputeTransform tx =
-                new AttributeComputeTransform("theDate", Date.class, "2012-05-03T12:00:00Z");
+        AttributeComputeTransform tx = new AttributeComputeTransform("theDate", Date.class, "2012-05-03T12:00:00Z");
 
         // reference
         // riverType = DataUtilities.createType(namespace+".river",
@@ -40,15 +39,12 @@ public class AttributeComputeTransformTest extends TransformTestSupport {
         SimpleFeature targetFeature =
                 SimpleFeatureBuilder.build(transformedType, riverFeature.getAttributes(), "theId");
         SimpleFeature transformed = tx.apply(null, null, riverFeature, targetFeature);
-        assertEquals(
-                Converters.convert("2012-05-03T12:00:00Z", Date.class),
-                transformed.getAttribute("theDate"));
+        assertEquals(Converters.convert("2012-05-03T12:00:00Z", Date.class), transformed.getAttribute("theDate"));
     }
 
     @Test
     public void testTransformExpression() throws Exception {
-        AttributeComputeTransform tx =
-                new AttributeComputeTransform("flowSquared", Double.class, "flow * flow");
+        AttributeComputeTransform tx = new AttributeComputeTransform("flowSquared", Double.class, "flow * flow");
 
         // reference
         // riverType = DataUtilities.createType(namespace+".river",

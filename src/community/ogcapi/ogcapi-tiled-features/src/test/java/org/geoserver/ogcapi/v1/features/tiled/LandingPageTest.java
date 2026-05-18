@@ -37,6 +37,7 @@ public class LandingPageTest extends TiledFeaturesTestSupport {
                         "getConformanceDeclaration",
                         "getFeature",
                         "getFeatures",
+                        "searchFeatures",
                         "getLandingPage",
                         "getQueryables",
                         "getFunctions",
@@ -45,7 +46,8 @@ public class LandingPageTest extends TiledFeaturesTestSupport {
                         "describeTileset",
                         "describeTilesets",
                         "getTile",
-                        "getTilesMetadata"));
+                        "getTilesMetadata",
+                        "getJSONFGSchemas"));
     }
 
     @Test

@@ -6,6 +6,8 @@
 
 package org.geoserver.wps;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -35,7 +37,10 @@ public class CDataEncoderDelegate implements EncoderDelegate {
     @Override
     public void encode(ContentHandler output) throws Exception {
         ((LexicalHandler) output).startCDATA();
-        try (OutputStream os = new WriterOutputStream(new ContentHandlerWriter(output), "UTF-8")) {
+        try (OutputStream os = WriterOutputStream.builder()
+                .setWriter(new ContentHandlerWriter(output))
+                .setCharset(UTF_8)
+                .get()) {
             ppio.encode(object, os);
         }
         ((LexicalHandler) output).endCDATA();
@@ -43,6 +48,10 @@ public class CDataEncoderDelegate implements EncoderDelegate {
 
     public void encode(OutputStream os) throws Exception {
         ppio.encode(object, os);
+    }
+
+    public CDataPPIO getPPIO() {
+        return ppio;
     }
 
     static class ContentHandlerWriter extends Writer {

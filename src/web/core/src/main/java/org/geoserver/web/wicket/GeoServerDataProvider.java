@@ -5,9 +5,7 @@
  */
 package org.geoserver.web.wicket;
 
-import static org.geoserver.catalog.Predicates.acceptAll;
-import static org.geoserver.catalog.Predicates.or;
-
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,13 +13,13 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.beanutils.NestedNullException;
 import org.apache.commons.beanutils.PropertyUtils;
+import org.apache.commons.lang3.stream.Streams;
 import org.apache.wicket.extensions.markup.html.repeater.util.SortParam;
 import org.apache.wicket.extensions.markup.html.repeater.util.SortableDataProvider;
 import org.apache.wicket.model.IModel;
@@ -30,19 +28,29 @@ import org.apache.wicket.model.PropertyModel;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.Predicates;
 import org.geoserver.web.GeoServerApplication;
+import org.geotools.api.filter.Filter;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
 
 /**
- * GeoServer specific data provider. In addition to the services provided by a SortableDataProvider
- * it can perform keyword based filtering, enum the model properties used for display and sorting.
+ * GeoServer specific data provider. In addition to the services provided by a SortableDataProvider it can perform
+ * keyword based filtering, enum the model properties used for display and sorting.
  *
- * <p>Implementors of providers for editable tables need to remember to raise the {@link #editable}
- * flag.
+ * <p>Implementors of providers for editable tables need to remember to raise the {@link #editable} flag.
  *
  * @param <T>
  */
 public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, Object> {
+
+    /**
+     * Matches a search keyword term enclosed by either double or single quotes.
+     *
+     * <p>The first matching group captures either a double quote (<code>"</code>) or a single quote (<code>'</code>).
+     * The "keyword" named capturing group matches any sequence of one or more characters. The backreference (<code>\\1
+     * </code>) ensures that the start and end quotes are the same, maintaining balance.
+     */
+    private static final Pattern EXACT_TERM_KEYWORD_PATTERN = Pattern.compile("^([\"'])(?<keyword>.+)\\1$");
+
+    @Serial
     private static final long serialVersionUID = -6876929036365601443L;
 
     static final Logger LOGGER = Logging.getLogger(GeoServerDataProvider.class);
@@ -54,18 +62,15 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     private transient Matcher[] matchers;
 
     /**
-     * A cache used to avoid recreating models over and over, this make it possible to make {@link
-     * GeoServerTablePanel} editable
+     * A cache used to avoid recreating models over and over, this make it possible to make {@link GeoServerTablePanel}
+     * editable
      */
-    Map<T, IModel<T>> modelCache = new IdentityHashMap<>();
+    IdentityHashMap<T, IModel<T>> modelCache = new IdentityHashMap<>();
 
     /** Sets the data provider as editable, in that case the models should be preserved */
     boolean editable = false;
 
-    /**
-     * Returns true if this data provider is setup for editing (it will reuse models). Defaults to
-     * false
-     */
+    /** Returns true if this data provider is setup for editing (it will reuse models). Defaults to false */
     public boolean isEditable() {
         return editable;
     }
@@ -86,7 +91,29 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         this.matchers = null;
     }
 
-    /** @return a regex matcher for each search keyword */
+    /**
+     * Returns the context filter, or {@code null} if none has been overridden.
+     *
+     * <p>The filter is referred to as "context" because it is used to contextualize the data provider based on specific
+     * content. It primarily stores filtering criteria originating from URL query parameters, such as {@code workspace},
+     * {@code layer}, and {@code group}, scoping the view to that specific context.
+     *
+     * @return the active context filter, or {@code null} if no filter is applied
+     */
+    protected Filter getContextFilter() {
+        return null;
+    }
+
+    /**
+     * This method returns an array of regex matchers based on the defined {@link #keywords}, if any. If no keywords are
+     * defined, an empty array is returned.
+     *
+     * <p>If a keyword is enclosed in quotes or double-quotes, the regex for that specific search keyword is created for
+     * an exact match (word-bound).
+     *
+     * @return an array containing a regex matcher for each search keyword. If no keywords are present, an empty array
+     *     is returned.
+     */
     protected Matcher[] getMatchers() {
         if (matchers != null) {
             return matchers;
@@ -96,7 +123,7 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
             return new Matcher[0];
         }
 
-        // build the case insensitive regex patterns
+        // build the case-insensitive regex patterns
         matchers = new Matcher[keywords.length];
 
         String keyword;
@@ -104,12 +131,21 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         Pattern pattern;
         for (int i = 0; i < keywords.length; i++) {
             keyword = keywords[i];
-            regex = ".*" + escape(keyword) + ".*";
+            regex = composeRegex(keyword);
             pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
             matchers[i] = pattern.matcher("");
         }
 
         return matchers;
+    }
+
+    private String composeRegex(String keyword) {
+        Matcher exactTermKeywordMatcher = EXACT_TERM_KEYWORD_PATTERN.matcher(keyword);
+        if (exactTermKeywordMatcher.matches()) {
+            return ".*\\b" + escape(exactTermKeywordMatcher.group("keyword")) + "\\b.*";
+        } else {
+            return ".*" + escape(keyword) + ".*";
+        }
     }
 
     /** Escape any character that's special for the regex api */
@@ -154,10 +190,8 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     protected GeoServerApplication getApplication() {
         return GeoServerApplication.get();
     }
-    /**
-     * Provides catalog access for the provider (cannot be stored as a field, this class is going to
-     * be serialized)
-     */
+
+    /** Provides catalog access for the provider (cannot be stored as a field, this class is going to be serialized) */
     protected Catalog getCatalog() {
         return getApplication().getCatalog();
     }
@@ -183,8 +217,8 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     }
 
     /**
-     * Returns a filtered list of items. Subclasses can override if they have a more efficient way
-     * of filtering than in memory keyword comparison
+     * Returns a filtered list of items. Subclasses can override if they have a more efficient way of filtering than in
+     * memory keyword comparison
      */
     protected List<T> getFilteredItems() {
         List<T> items = getItems();
@@ -252,9 +286,8 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     }
 
     /**
-     * Returns the list of properties served by this provider. The property keys are used to
-     * establish the layer sorting, whilst the Property itself is used to extract the value of the
-     * property from the item.
+     * Returns the list of properties served by this provider. The property keys are used to establish the layer
+     * sorting, whilst the Property itself is used to extract the value of the property from the item.
      */
     protected abstract List<Property<T>> getProperties();
 
@@ -289,9 +322,10 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         }
         return null;
     }
+
     /**
-     * This implementation uses the {@link #modelCache} to avoid recreating over and over different
-     * models for the various items, this allows the grid panel to be editable
+     * This implementation uses the {@link #modelCache} to avoid recreating over and over different models for the
+     * various items, this allows the grid panel to be editable
      *
      * @see org.apache.wicket.markup.repeater.data.IDataProvider#model(java.lang.Object)
      */
@@ -310,42 +344,45 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     }
 
     /**
-     * This method returns a filter based on the defined keywords.
+     * This method returns a filter based on the defined {@link #keywords} if any, combined with the contextFilter if it
+     * is present. Otherwise a {@link Filter#INCLUDE} is returned.
      *
-     * @return a {@link Filter} which uses the defined Keywords. If no keyword is present
-     *     Filter.INCLUDE is returned
+     * <p>Multiple keywords are joined with the <i>OR</i> operator. If a keyword is contained in quotes or
+     * double-quotes, the filter for that specific search term is created for the exact match.
+     *
+     * @return a {@link Filter} which uses the defined {@link #keywords} and context. If neither is present,
+     *     {@link Filter#INCLUDE} is returned.
      */
     protected Filter getFilter() {
-        final String[] keywords = getKeywords();
-        Filter filter = acceptAll();
-        if (null != keywords) {
-            for (String keyword : keywords) {
-                Filter propContains = Predicates.fullTextSearch(keyword);
-                // chain the filters together
-                if (Filter.INCLUDE == filter) {
-                    filter = propContains;
-                } else {
-                    filter = or(filter, propContains);
-                }
-            }
+        Filter keywordFilter = Streams.of(getKeywords())
+                .map(this::computeKeywordFilter)
+                .reduce(Predicates::or)
+                .orElseGet(Predicates::acceptAll);
+        Filter contextFilter = getContextFilter();
+        if (contextFilter != null) {
+            return Predicates.and(keywordFilter, contextFilter);
         }
-
-        return filter;
+        return keywordFilter;
     }
 
-    /**
-     * Simply wraps the object into a Model assuming the Object is serializable. Subclasses can
-     * override this
-     */
+    private Filter computeKeywordFilter(String keyword) {
+        Matcher exactTermKeywordMatcher = EXACT_TERM_KEYWORD_PATTERN.matcher(keyword);
+        if (exactTermKeywordMatcher.matches()) {
+            return Predicates.exactTermSearch(exactTermKeywordMatcher.group("keyword"));
+        } else {
+            return Predicates.fullTextSearch(keyword);
+        }
+    }
+
+    /** Simply wraps the object into a Model assuming the Object is serializable. Subclasses can override this */
     @SuppressWarnings("unchecked")
     protected IModel<T> newModel(T object) {
         return (IModel<T>) new Model<>((Serializable) object);
     }
 
     /**
-     * Simply models the concept of a property in this provider. A property has a key, that
-     * identifies it and can be used for i18n, and can return the value of the property given an
-     * item served by the {@link GeoServerDataProvider}
+     * Simply models the concept of a property in this provider. A property has a key, that identifies it and can be
+     * used for i18n, and can return the value of the property given an item served by the {@link GeoServerDataProvider}
      *
      * @author Andrea Aime - OpenGeo
      * @param <T>
@@ -369,12 +406,11 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         public boolean isSearchable();
     }
 
-    /**
-     * Base property class. Assumes T is serializable, if it's not, manually override the getModel()
-     * method
-     */
+    /** Base property class. Assumes T is serializable, if it's not, manually override the getModel() method */
     public abstract static class AbstractProperty<T> implements Property<T> {
+        @Serial
         private static final long serialVersionUID = 6286992721731224988L;
+
         String name;
         boolean visible;
 
@@ -393,15 +429,15 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         }
 
         /**
-         * Returns a model based on the getPropertyValue(...) result. Mind, this is not suitable for
-         * editable tables, if you need to make one you'll have to roll your own getModel()
-         * implementation ( {@link BeanProperty} provides a good example)
+         * Returns a model based on the getPropertyValue(...) result. Mind, this is not suitable for editable tables, if
+         * you need to make one you'll have to roll your own getModel() implementation ( {@link BeanProperty} provides a
+         * good example)
          */
         @Override
         public IModel<?> getModel(IModel<T> itemModel) {
             Object value = getPropertyValue(itemModel.getObject());
-            if (value instanceof IModel) {
-                return (IModel<?>) value;
+            if (value instanceof IModel<?> model) {
+                return model;
             } else {
                 return new Model<>((Serializable) value);
             }
@@ -435,7 +471,9 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
      * @param <T>
      */
     public static class BeanProperty<T> extends AbstractProperty<T> {
+        @Serial
         private static final long serialVersionUID = 5532661316457341748L;
+
         String propertyPath;
 
         public BeanProperty(String key) {
@@ -456,9 +494,9 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
         }
 
         /**
-         * Overrides the base class {@link #getModel(IModel)} to allow for editable tables: uses a
-         * property model against the bean so that writes will hit the bean instead of the possibly
-         * immutable values contained in it (think a String property)
+         * Overrides the base class {@link #getModel(IModel)} to allow for editable tables: uses a property model
+         * against the bean so that writes will hit the bean instead of the possibly immutable values contained in it
+         * (think a String property)
          */
         @Override
         public IModel<T> getModel(IModel<T> itemModel) {
@@ -475,8 +513,7 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
             } catch (NestedNullException nne) {
                 return null;
             } catch (Exception e) {
-                throw new RuntimeException(
-                        "Could not find property " + propertyPath + " in " + bean.getClass(), e);
+                throw new RuntimeException("Could not find property " + propertyPath + " in " + bean.getClass(), e);
             }
         }
 
@@ -487,15 +524,16 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     }
 
     /**
-     * Placeholder for a column that does not contain a real property (for example, a column
-     * containing commands instead of data). Will return the item model as the model, and as the
-     * property value.
+     * Placeholder for a column that does not contain a real property (for example, a column containing commands instead
+     * of data). Will return the item model as the model, and as the property value.
      *
      * @author Andrea Aime
      * @param <T>
      */
     public static class PropertyPlaceholder<T> implements Property<T> {
+        @Serial
         private static final long serialVersionUID = -6605207892648199453L;
+
         String name;
 
         public PropertyPlaceholder(String name) {
@@ -541,8 +579,7 @@ public abstract class GeoServerDataProvider<T> extends SortableDataProvider<T, O
     }
 
     /**
-     * Uses {@link Property} to extract the values, and then compares them assuming they are {@link
-     * Comparable}
+     * Uses {@link Property} to extract the values, and then compares them assuming they are {@link Comparable}
      *
      * @param <T>
      */

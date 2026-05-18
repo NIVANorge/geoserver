@@ -4,7 +4,11 @@
  */
 package org.geoserver.web.system.status;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -23,7 +27,6 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
-import org.apache.wicket.util.time.Duration;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.system.status.MetricValue;
 import org.geoserver.system.status.Metrics;
@@ -34,6 +37,20 @@ import org.geotools.util.logging.Logging;
 /** Panel displaying system resources monitoring values that is refreshed periodically. */
 public class RefreshedPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(RefreshedPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -5616622546856772557L;
 
     public static final String datePattern = "yyyy-MM-dd HH:mm:ss.SSS";
@@ -45,21 +62,17 @@ public class RefreshedPanel extends Panel {
          * Configure panel
          */
 
-        final SystemInfoCollector systemInfoCollector =
-                GeoServerExtensions.bean(SystemInfoCollector.class);
+        final SystemInfoCollector systemInfoCollector = GeoServerExtensions.bean(SystemInfoCollector.class);
         final IModel<List<MetricValue>> metricMdl = Model.ofList(Collections.emptyList());
-        final IModel<Boolean> statisticsIModel =
-                Model.of(systemInfoCollector.getStatisticsStatus());
+        final IModel<Boolean> statisticsIModel = Model.of(systemInfoCollector.getStatisticsStatus());
 
         final CheckBox statisticsCheckBox = new CheckBox("statistics", statisticsIModel);
-        statisticsCheckBox.add(
-                new AjaxFormComponentUpdatingBehavior("click") {
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget ajaxRequestTarget) {
-                        systemInfoCollector.setStatisticsStatus(
-                                statisticsCheckBox.getModelObject());
-                    }
-                });
+        statisticsCheckBox.add(new AjaxFormComponentUpdatingBehavior("click") {
+            @Override
+            protected void onUpdate(AjaxRequestTarget ajaxRequestTarget) {
+                systemInfoCollector.setStatisticsStatus(statisticsCheckBox.getModelObject());
+            }
+        });
         statisticsCheckBox.setOutputMarkupId(true);
         add(statisticsCheckBox);
 
@@ -67,39 +80,36 @@ public class RefreshedPanel extends Panel {
         time.setOutputMarkupId(true);
         add(time);
 
-        ListView<MetricValue> list =
-                new ListView<MetricValue>("metrics", metricMdl) {
-                    private static final long serialVersionUID = -5654700538264617274L;
+        ListView<MetricValue> list = new ListView<>("metrics", metricMdl) {
+            @Serial
+            private static final long serialVersionUID = -5654700538264617274L;
 
-                    private int counter;
+            private int counter;
 
-                    @Override
-                    protected void onBeforeRender() {
-                        super.onBeforeRender();
-                        counter = 0;
-                    }
+            @Override
+            protected void onBeforeRender() {
+                super.onBeforeRender();
+                counter = 0;
+            }
 
-                    @Override
-                    protected void populateItem(ListItem<MetricValue> item) {
-                        item.add(
-                                new Label(
-                                        "info",
-                                        new PropertyModel<MetricValue>(
-                                                new MetricValueI18nDescriptionWrapper(
-                                                        item.getModel().getObject(), this),
-                                                "description")),
-                                new Label(
-                                        "value",
-                                        new PropertyModel<MetricValue>(
-                                                item.getModel(), "valueUnit")));
-                        if (counter % 2 == 0) {
-                            item.add(new AttributeModifier("class", "odd"));
-                        } else {
-                            item.add(new AttributeModifier("class", "even"));
-                        }
-                        counter++;
-                    }
-                };
+            @Override
+            protected void populateItem(ListItem<MetricValue> item) {
+                item.add(
+                        new Label(
+                                "info",
+                                new PropertyModel<>(
+                                        new MetricValueI18nDescriptionWrapper(
+                                                item.getModel().getObject(), this),
+                                        "description")),
+                        new Label("value", new PropertyModel<>(item.getModel(), "valueUnit")));
+                if (counter % 2 == 0) {
+                    item.add(new AttributeModifier("class", "odd"));
+                } else {
+                    item.add(new AttributeModifier("class", "even"));
+                }
+                counter++;
+            }
+        };
         list.setOutputMarkupId(true);
         add(list);
 
@@ -108,29 +118,31 @@ public class RefreshedPanel extends Panel {
         systemInfoCollector.retrieveAllSystemInfo();
         long complete = System.currentTimeMillis();
         long sampleTime = complete - start;
-        Duration updateInternval = Duration.milliseconds(Math.max(5000, sampleTime * 5));
+        Duration updateInterval = Duration.ofMillis(Math.max(5000, sampleTime * 5));
 
         /*
          * Refresh every seconds
          */
-        this.add(
-                new AjaxSelfUpdatingTimerBehavior(updateInternval) {
-                    private static final long serialVersionUID = -7009847252782601466L;
+        this.add(new AjaxSelfUpdatingTimerBehavior(updateInterval) {
+            @Serial
+            private static final long serialVersionUID = -7009847252782601466L;
 
-                    @Override
-                    public void onConfigure(Component component) {
-                        Metrics metrics = systemInfoCollector.retrieveAllSystemInfo();
-                        metricMdl.setObject(metrics.getMetrics());
-                        time.setDefaultModel(Model.of(new Date()));
-                    }
-                });
+            @Override
+            public void onConfigure(Component component) {
+                super.onConfigure(component);
+                Metrics metrics = systemInfoCollector.retrieveAllSystemInfo();
+                metricMdl.setObject(metrics.getMetrics());
+                time.setDefaultModel(Model.of(new Date()));
+            }
+        });
     }
 
     /** An internal wrapper for getting optional localization string on description values. */
     private static class MetricValueI18nDescriptionWrapper implements Serializable {
+        @Serial
         private static final long serialVersionUID = 1L;
-        private static final Logger LOGGER =
-                Logging.getLogger(MetricValueI18nDescriptionWrapper.class);
+
+        private static final Logger LOGGER = Logging.getLogger(MetricValueI18nDescriptionWrapper.class);
 
         private final MetricValue value;
         private final Component component;
@@ -144,11 +156,9 @@ public class RefreshedPanel extends Panel {
         public String getDescription() {
             String keyValue = formatKeyValue(value);
             LOGGER.log(
-                    Level.FINE,
-                    "Getting localized name for {0} -> {1}",
-                    new Object[] {keyValue, value.getDescription()});
-            final String localizedValue =
-                    component.getString(keyValue, null, value.getDescription());
+                    Level.FINE, "Getting localized name for {0} -> {1}", new Object[] {keyValue, value.getDescription()
+                    });
+            final String localizedValue = component.getString(keyValue, null, value.getDescription());
             return localizedValue;
         }
 

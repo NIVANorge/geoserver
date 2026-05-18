@@ -9,7 +9,6 @@ import static org.junit.Assert.assertEquals;
 import com.jayway.jsonpath.DocumentContext;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.ogcapi.APIException;
-import org.jsoup.nodes.Document;
 import org.junit.Test;
 
 public class SortablesTest extends STACTestSupport {
@@ -32,9 +31,7 @@ public class SortablesTest extends STACTestSupport {
     @Test
     public void testCollectionSortables() throws Exception {
         DocumentContext json = getAsJSONPath("ogc/stac/v1/collections/SENTINEL2/sortables", 200);
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2/sortables",
-                json.read("$.$id"));
+        assertEquals("http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2/sortables", json.read("$.$id"));
 
         // check a couple properties, more in depth tests are found in STACSortableMapperTest
         checkSortableProperties(json);
@@ -49,22 +46,20 @@ public class SortablesTest extends STACTestSupport {
 
     @Test
     public void testSearchSortablesHTML() throws Exception {
-        Document html = getAsJSoup("ogc/stac/v1/sortables?f=html");
+        getAsJSoup("ogc/stac/v1/sortables?f=html");
         // TODO: add checks, for now it just verifies the template is producing HTML
     }
 
     @Test
     public void testCollectionSortablesHTML() throws Exception {
-        Document html = getAsJSoup("ogc/stac/v1/collections/SENTINEL2/sortables?f=html");
+        getAsJSoup("ogc/stac/v1/collections/SENTINEL2/sortables?f=html");
         // TODO: add checks, for now it just verifies the template is producing HTML
     }
 
     @Test
     public void testLandsat8Sortables() throws Exception {
         DocumentContext json = getAsJSONPath("ogc/stac/v1/collections/LANDSAT8/sortables", 200);
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1/collections/LANDSAT8/sortables",
-                json.read("$.$id"));
+        assertEquals("http://localhost:8080/geoserver/ogc/stac/v1/collections/LANDSAT8/sortables", json.read("$.$id"));
 
         // checks the common properties
         checkSortableProperties(json);
@@ -72,7 +67,7 @@ public class SortablesTest extends STACTestSupport {
         // check the one custom sortables added in LANDSAT8 template
         DocumentContext orbit = readContext(json, "properties.landsat:orbit");
         assertEquals("integer", orbit.read("type"));
-        assertEquals("integer", orbit.read("description"));
+        assertEquals("integer", orbit.read("title"));
     }
 
     private void checkSortableProperties(DocumentContext json) {

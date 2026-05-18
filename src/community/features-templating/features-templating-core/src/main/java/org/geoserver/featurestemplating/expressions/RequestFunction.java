@@ -7,14 +7,11 @@ package org.geoserver.featurestemplating.expressions;
 import java.util.logging.Logger;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.capability.FunctionName;
 
-/**
- * Abstract function that evaluate against a {@link Request} object. Subclasses must implement
- * evaluate internal.
- */
+/** Abstract function that evaluate against a {@link Request} object. Subclasses must implement evaluate internal. */
 public abstract class RequestFunction extends FunctionExpressionImpl {
 
     private static final Logger LOGGER = Logging.getLogger(RequestFunction.class);
@@ -26,7 +23,7 @@ public abstract class RequestFunction extends FunctionExpressionImpl {
     @Override
     public Object evaluate(Object object) {
         Request request;
-        if (object != null && object instanceof Request) request = (Request) object;
+        if (object != null && object instanceof Request request1) request = request1;
         else request = Dispatcher.REQUEST.get();
         if (request == null) {
             LOGGER.info("Found a null Request object. Returning null");

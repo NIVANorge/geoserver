@@ -27,7 +27,7 @@ import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.rest.RestBaseController;
 import org.geoserver.test.GeoServerSystemTestSupport;
-import org.geotools.styling.Style;
+import org.geotools.api.style.Style;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.http.MediaType;
@@ -46,7 +46,7 @@ public class CssStyleControllerTest extends GeoServerSystemTestSupport {
 
         catalog = getCatalog();
 
-        namespaceContext = new org.springframework.util.xml.SimpleNamespaceContext();
+        namespaceContext = new SimpleNamespaceContext();
         namespaceContext.bindNamespaceUri("sld", "http://www.opengis.net/sld");
         namespaceContext.bindNamespaceUri("ogc", "http://www.opengis.net/ogc");
 
@@ -74,12 +74,10 @@ public class CssStyleControllerTest extends GeoServerSystemTestSupport {
 
     @Test
     public void getGetAsCSS() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        RestBaseController.ROOT_PATH
-                                + "/workspaces/"
-                                + catalog.getDefaultWorkspace().getName()
-                                + "/styles/test.css");
+        MockHttpServletResponse response = getAsServletResponse(RestBaseController.ROOT_PATH
+                + "/workspaces/"
+                + catalog.getDefaultWorkspace().getName()
+                + "/styles/test.css");
         assertEquals(200, response.getStatus());
         assertEquals(CssHandler.MIME_TYPE, response.getContentType());
         String content = response.getContentAsString();
@@ -88,66 +86,46 @@ public class CssStyleControllerTest extends GeoServerSystemTestSupport {
 
     @Test
     public void getGetAsSLD10() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        RestBaseController.ROOT_PATH
-                                + "/workspaces/"
-                                + catalog.getDefaultWorkspace().getName()
-                                + "/styles/test.sld");
+        MockHttpServletResponse response = getAsServletResponse(RestBaseController.ROOT_PATH
+                + "/workspaces/"
+                + catalog.getDefaultWorkspace().getName()
+                + "/styles/test.sld");
         assertEquals(200, response.getStatus());
         assertEquals(SLDHandler.MIMETYPE_10, response.getContentType());
         Document dom = dom(new ByteArrayInputStream(response.getContentAsByteArray()));
         assertThat(
                 dom,
-                hasXPath(
-                        "//sld:LineSymbolizer/sld:Stroke/sld:CssParameter",
-                        namespaceContext,
-                        equalTo("#ff0000")));
+                hasXPath("//sld:LineSymbolizer/sld:Stroke/sld:CssParameter", namespaceContext, equalTo("#ff0000")));
     }
 
     @Test
     public void getGetMultiLayerAsSLD10() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        RestBaseController.ROOT_PATH
-                                + "/workspaces/"
-                                + catalog.getDefaultWorkspace().getName()
-                                + "/styles/multilayer.sld");
+        MockHttpServletResponse response = getAsServletResponse(RestBaseController.ROOT_PATH
+                + "/workspaces/"
+                + catalog.getDefaultWorkspace().getName()
+                + "/styles/multilayer.sld");
         assertEquals(200, response.getStatus());
         assertEquals(SLDHandler.MIMETYPE_10, response.getContentType());
         Document dom = dom(new ByteArrayInputStream(response.getContentAsByteArray()));
-        // css generates a single UserStyle with multiple feature type styles
-        assertThat(
-                dom,
-                hasXPath(
-                        "//sld:FeatureTypeStyle[1]/sld:FeatureTypeName",
-                        namespaceContext,
-                        equalTo("states")));
-        assertThat(
-                dom,
-                hasXPath(
-                        "//sld:FeatureTypeStyle[2]/sld:FeatureTypeName",
-                        namespaceContext,
-                        equalTo("roads")));
+        // css generates multiple NamedLayer
+        assertThat(dom, hasXPath("//sld:NamedLayer[1]/sld:Name", namespaceContext, equalTo("states")));
+        assertThat(dom, hasXPath("//sld:NamedLayer[2]/sld:Name", namespaceContext, equalTo("roads")));
     }
 
     @Test
     public void getGetAsHTML() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        RestBaseController.ROOT_PATH
-                                + "/workspaces/"
-                                + catalog.getDefaultWorkspace().getName()
-                                + "/styles/test.html");
+        MockHttpServletResponse response = getAsServletResponse(RestBaseController.ROOT_PATH
+                + "/workspaces/"
+                + catalog.getDefaultWorkspace().getName()
+                + "/styles/test.html");
         assertEquals(200, response.getStatus());
         assertEquals(MediaType.TEXT_HTML_VALUE, response.getContentType());
         String content = response.getContentAsString();
         assertThat(
                 content,
-                containsString(
-                        "<a href=\"http://localhost:8080/geoserver/rest/workspaces/"
-                                + catalog.getDefaultWorkspace().getName()
-                                + "/styles/test.css\">test.css</a>"));
+                containsString("<a href=\"http://localhost:8080/geoserver/rest/workspaces/"
+                        + catalog.getDefaultWorkspace().getName()
+                        + "/styles/test.css\">test.css</a>"));
     }
 
     @Test
@@ -157,13 +135,8 @@ public class CssStyleControllerTest extends GeoServerSystemTestSupport {
         assertNull("foo not available", cat.getStyleByName("foo"));
 
         String xml =
-                "<style>"
-                        + "<name>foo</name>"
-                        + "<format>css</format>"
-                        + "<filename>foo.css</filename>"
-                        + "</style>";
-        MockHttpServletResponse response =
-                postAsServletResponse(RestBaseController.ROOT_PATH + "/styles", xml);
+                "<style>" + "<name>foo</name>" + "<format>css</format>" + "<filename>foo.css</filename>" + "</style>";
+        MockHttpServletResponse response = postAsServletResponse(RestBaseController.ROOT_PATH + "/styles", xml);
         assertEquals(201, response.getStatus());
         assertNotNull(cat.getStyleByName("foo"));
 
@@ -225,14 +198,9 @@ public class CssStyleControllerTest extends GeoServerSystemTestSupport {
         assertNull(cat.getStyleByName("bar"));
 
         String xml =
-                "<style>"
-                        + "<name>bar</name>"
-                        + "<format>css</format>"
-                        + "<filename>bar.css</filename>"
-                        + "</style>";
+                "<style>" + "<name>bar</name>" + "<format>css</format>" + "<filename>bar.css</filename>" + "</style>";
 
-        MockHttpServletResponse response =
-                postAsServletResponse(RestBaseController.ROOT_PATH + "/styles", xml);
+        MockHttpServletResponse response = postAsServletResponse(RestBaseController.ROOT_PATH + "/styles", xml);
         assertEquals(201, response.getStatus());
         assertNotNull(cat.getStyleByName("bar"));
 

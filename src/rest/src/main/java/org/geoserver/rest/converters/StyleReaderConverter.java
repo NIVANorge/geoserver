@@ -7,8 +7,8 @@ package org.geoserver.rest.converters;
 import java.io.IOException;
 import org.geoserver.catalog.StyleHandler;
 import org.geoserver.catalog.Styles;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.util.Version;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.MediaType;
@@ -24,8 +24,7 @@ public class StyleReaderConverter extends BaseMessageConverter<Style> {
 
     private final EntityResolver entityResolver;
 
-    public StyleReaderConverter(
-            String mimeType, Version version, StyleHandler handler, EntityResolver entityResolver) {
+    public StyleReaderConverter(String mimeType, Version version, StyleHandler handler, EntityResolver entityResolver) {
         super(MediaType.valueOf(mimeType));
         this.handler = handler;
         this.version = version;
@@ -43,8 +42,7 @@ public class StyleReaderConverter extends BaseMessageConverter<Style> {
     @Override
     public Style readInternal(Class<? extends Style> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
-        StyledLayerDescriptor sld =
-                handler.parse(inputMessage.getBody(), version, null, entityResolver);
+        StyledLayerDescriptor sld = handler.parse(inputMessage.getBody(), version, null, entityResolver);
         return Styles.style(sld);
     }
 

@@ -17,9 +17,9 @@ import org.junit.After;
 import org.junit.Before;
 
 /**
- * Base class for {@link ThreadLocalTransfer} tests. Just implement a ThreadLocalTransferCallable
- * and call {@link #testThreadLocalTransfer(ThreadLocalTransferCallable)} to have the thread local
- * transfer be tested for proper transfer and cleanup.
+ * Base class for {@link ThreadLocalTransfer} tests. Just implement a ThreadLocalTransferCallable and call
+ * {@link #testThreadLocalTransfer(ThreadLocalTransferCallable)} to have the thread local transfer be tested for proper
+ * transfer and cleanup.
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -59,14 +59,14 @@ public abstract class AbstractThreadLocalTransferTest {
 
         @Override
         public Void call() throws Exception {
-            // this is the the main thread, we are actually running inside the thread pool
+            // this is the main thread, we are actually running inside the thread pool
             assertNotEquals(originalThread, Thread.currentThread());
 
             // apply the thread local, check it has been applied correctly
             transfer.apply(storage);
             assertThreadLocalApplied();
 
-            // clean up, check the therad local is now empty
+            // clean up, check the thread local is now empty
             transfer.cleanup();
             assertThreadLocalCleaned();
 
@@ -76,5 +76,5 @@ public abstract class AbstractThreadLocalTransferTest {
         abstract void assertThreadLocalCleaned();
 
         abstract void assertThreadLocalApplied();
-    };
+    }
 }

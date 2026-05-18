@@ -4,12 +4,12 @@
  */
 package org.geoserver.gsr.translate.renderer;
 
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.PropertyIsBetween;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.util.NumberRange;
-import org.opengis.filter.Filter;
-import org.opengis.filter.PropertyIsBetween;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.PropertyName;
 
 public class BetweenExtractor implements PropertyRangeExtractor {
 
@@ -35,7 +35,6 @@ public class BetweenExtractor implements PropertyRangeExtractor {
         }
         Double maxAsDouble = max.evaluate(null, double.class);
 
-        return new PropertyRange(
-                propertyName, new NumberRange(Double.class, minAsDouble, maxAsDouble));
+        return new PropertyRange(propertyName, new NumberRange(Double.class, minAsDouble, maxAsDouble));
     }
 }

@@ -15,14 +15,12 @@ import java.io.Serializable;
 import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import net.sf.json.JSONObject;
-import net.sf.json.util.JSONBuilder;
+import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.custommonkey.xmlunit.SimpleNamespaceContext;
@@ -41,11 +39,13 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.geoserver.util.IOUtils;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
 import org.geotools.util.logging.Logging;
 import org.junit.After;
 import org.junit.Before;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.util.JSONBuilder;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 
@@ -53,16 +53,12 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
 
     static Logger LOGGER = Logging.getLogger(ImporterTestSupport.class);
 
-    static final Set<String> DEFAULT_STYLEs =
-            new HashSet<String>() {
-                {
-                    add(StyleInfo.DEFAULT_POINT);
-                    add(StyleInfo.DEFAULT_LINE);
-                    add(StyleInfo.DEFAULT_GENERIC);
-                    add(StyleInfo.DEFAULT_POLYGON);
-                    add(StyleInfo.DEFAULT_RASTER);
-                }
-            };
+    static final Set<String> DEFAULT_STYLEs = Set.of(
+            StyleInfo.DEFAULT_POINT,
+            StyleInfo.DEFAULT_LINE,
+            StyleInfo.DEFAULT_GENERIC,
+            StyleInfo.DEFAULT_POLYGON,
+            StyleInfo.DEFAULT_RASTER);
 
     protected Importer importer;
 
@@ -90,9 +86,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
         File importerConfigLocation = dd.findOrCreateDir("importer");
         File importerConfigProps = new File(importerConfigLocation, "importer.properties");
         IOUtils.copy(
-                ImporterTestSupport.class
-                        .getClassLoader()
-                        .getResourceAsStream("importer.properties"),
+                ImporterTestSupport.class.getClassLoader().getResourceAsStream("importer.properties"),
                 importerConfigProps);
     }
 
@@ -128,11 +122,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
             }
         } catch (Exception e) {
             LOGGER.log(
-                    Level.WARNING,
-                    "Could not remove System ENV variable {"
-                            + ImporterInfoDAO.UPLOAD_ROOT_KEY
-                            + "}",
-                    e);
+                    Level.WARNING, "Could not remove System ENV variable {" + ImporterInfoDAO.UPLOAD_ROOT_KEY + "}", e);
         }
     }
 
@@ -142,8 +132,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
     }
 
     /**
-     * Override this method in case a subclass has other @Before that need to run after {@link
-     * #setupImporterField()}
+     * Override this method in case a subclass has other @Before that need to run after {@link #setupImporterField()}
      */
     protected void setupImporterFieldInternal() {
         importer = (Importer) applicationContext.getBean("importer");
@@ -178,7 +167,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
 
     protected void runChecks(String layerName) throws Exception {
         LayerInfo layer = getCatalog().getLayerByName(layerName);
-        assertNotNull(layer);
+        assertNotNull(getCatalog().getLayers().stream().map(l -> l.getName()).collect(Collectors.joining(", ")), layer);
         assertNotNull(layer.getDefaultStyle());
         assertNotNull(layer.getResource().getProjectionPolicy());
 
@@ -188,8 +177,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
             assertTrue(source.getCount(Query.ALL) > 0);
 
             // do a wfs request
-            Document dom =
-                    getAsDOM("wfs?request=getFeature&typename=" + featureType.prefixedName());
+            Document dom = getAsDOM("wfs?request=getFeature&typename=" + featureType.prefixedName());
             assertEquals("wfs:FeatureCollection", dom.getDocumentElement().getNodeName());
             assertEquals(
                     source.getCount(Query.ALL),
@@ -202,20 +190,19 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
         assertEquals("image/png", response.getContentType());
     }
 
-    protected DataStoreInfo createH2DataStore(String wsName, String dsName) {
+    protected DataStoreInfo creatGeopkgDataStore(String wsName, String dsName) {
         // create a datastore to import into
         Catalog cat = getCatalog();
 
-        WorkspaceInfo ws =
-                wsName != null ? cat.getWorkspaceByName(wsName) : cat.getDefaultWorkspace();
+        WorkspaceInfo ws = wsName != null ? cat.getWorkspaceByName(wsName) : cat.getDefaultWorkspace();
         DataStoreInfo ds = cat.getFactory().createDataStore();
         ds.setWorkspace(ws);
         ds.setName(dsName);
-        ds.setType("H2");
+        ds.setType("GeoPackage");
 
         Map<String, Serializable> params = new HashMap<>();
-        params.put("database", getTestData().getDataDirectoryRoot().getPath() + "/" + dsName);
-        params.put("dbtype", "h2");
+        params.put("database", getTestData().getDataDirectoryRoot().getPath() + "/" + dsName + ".gpkg");
+        params.put("dbtype", "geopkg");
         ds.getConnectionParameters().putAll(params);
         ds.setEnabled(true);
         cat.add(ds);
@@ -235,7 +222,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
         // store the database location in case it's a H2 store
         Map<String, Serializable> params = store.getConnectionParameters();
         String databaseLocation = null;
-        if ("h2".equals(params.get("dbtype"))) {
+        if ("geopkg".equals(params.get("dbtype"))) {
             databaseLocation = (String) params.get("database");
         }
 
@@ -246,8 +233,7 @@ public abstract class ImporterTestSupport extends GeoServerSystemTestSupport {
         if (databaseLocation != null) {
             final File dbFile = new File(databaseLocation);
             File container = dbFile.getParentFile();
-            File[] dbFiles =
-                    container.listFiles((dir, name1) -> name1.startsWith(dbFile.getName()));
+            File[] dbFiles = container.listFiles((dir, name1) -> name1.startsWith(dbFile.getName()));
             for (File f : dbFiles) {
                 assertTrue("Failed to remove file " + f.getPath(), FileUtils.deleteQuietly(f));
             }

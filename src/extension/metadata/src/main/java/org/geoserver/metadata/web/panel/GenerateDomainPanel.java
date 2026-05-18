@@ -4,8 +4,11 @@
  */
 package org.geoserver.metadata.web.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import com.google.common.collect.Lists;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,15 +28,29 @@ import org.apache.wicket.model.StringResourceModel;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.metadata.data.service.impl.DomainGenerator;
 import org.geoserver.metadata.web.layer.MetadataTabPanel;
-import org.geotools.data.DataAccess;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.feature.type.PropertyDescriptor;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.feature.type.PropertyDescriptor;
 
 public class GenerateDomainPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(GenerateDomainPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -4252512711183089841L;
 
     private static final Logger LOGGER = Logging.getLogger(MetadataTabPanel.class);
@@ -41,7 +58,7 @@ public class GenerateDomainPanel extends Panel {
     private FeatureTypeInfo fti;
 
     public GenerateDomainPanel(String id, FeatureTypeInfo fti) {
-        super(id, new Model<>(new HashMap<String, Object>()));
+        super(id, new Model<>(new HashMap<>()));
         this.fti = fti;
     }
 
@@ -49,36 +66,32 @@ public class GenerateDomainPanel extends Panel {
     public void onInitialize() {
         super.onInitialize();
 
-        DataAccess<? extends FeatureType, ? extends Feature> dataAccess =
-                DomainGenerator.getDataAccess(fti);
+        DataAccess<? extends FeatureType, ? extends Feature> dataAccess = DomainGenerator.getDataAccess(fti);
 
-        DropDownChoice<Boolean> methodChoice =
-                new DropDownChoice<>(
-                        "method",
-                        new PropertyModel<Boolean>(getDefaultModel(), "method"),
-                        Lists.newArrayList(false, true),
-                        new IChoiceRenderer<Boolean>() {
-                            private static final long serialVersionUID = 1966992066973104491L;
+        DropDownChoice<Boolean> methodChoice = new DropDownChoice<>(
+                "method",
+                new PropertyModel<>(getDefaultModel(), "method"),
+                Lists.newArrayList(false, true),
+                new IChoiceRenderer<>() {
+                    @Serial
+                    private static final long serialVersionUID = 1966992066973104491L;
 
-                            @Override
-                            public Object getDisplayValue(Boolean object) {
-                                return new StringResourceModel(
-                                                "RepeatableComplexAttributesTablePanel.method."
-                                                        + object)
-                                        .getString();
-                            }
+                    @Override
+                    public Object getDisplayValue(Boolean object) {
+                        return new StringResourceModel("RepeatableComplexAttributesTablePanel.method." + object)
+                                .getString();
+                    }
 
-                            @Override
-                            public String getIdValue(Boolean object, int index) {
-                                return object.toString();
-                            }
+                    @Override
+                    public String getIdValue(Boolean object, int index) {
+                        return object.toString();
+                    }
 
-                            @Override
-                            public Boolean getObject(
-                                    String id, IModel<? extends List<? extends Boolean>> choices) {
-                                return Boolean.valueOf(id);
-                            }
-                        });
+                    @Override
+                    public Boolean getObject(String id, IModel<? extends List<? extends Boolean>> choices) {
+                        return Boolean.valueOf(id);
+                    }
+                });
         methodChoice.setDefaultModelObject(false);
         add(methodChoice);
 
@@ -87,65 +100,60 @@ public class GenerateDomainPanel extends Panel {
             try {
                 names.addAll(dataAccess.getNames());
             } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "Failed to retrieve table names", e);
+                LOGGER.log(Level.WARNING, "Failed to retrieve table names", e);
             }
         }
         methodChoice.setEnabled(!names.isEmpty());
 
         DropDownChoice<Name> tableNameChoice =
-                new DropDownChoice<>(
-                        "tableName", new PropertyModel<>(getDefaultModel(), "tableName"), names);
+                new DropDownChoice<>("tableName", new PropertyModel<>(getDefaultModel(), "tableName"), names);
         add(tableNameChoice.setNullValid(false).setEnabled(false).setOutputMarkupId(true));
 
         DropDownChoice<Name> valueAttributeNameChoice = new DropDownChoice<>("valueAttributeName");
-        valueAttributeNameChoice.setModel(
-                new PropertyModel<>(getDefaultModel(), "valueAttributeName"));
+        valueAttributeNameChoice.setModel(new PropertyModel<>(getDefaultModel(), "valueAttributeName"));
         add(valueAttributeNameChoice.setNullValid(false).setEnabled(false).setOutputMarkupId(true));
 
         DropDownChoice<Name> defAttributeNameChoice = new DropDownChoice<>("defAttributeName");
         defAttributeNameChoice.setModel(new PropertyModel<>(getDefaultModel(), "defAttributeName"));
         add(defAttributeNameChoice.setNullValid(false).setEnabled(false).setOutputMarkupId(true));
 
-        methodChoice.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
-                    private static final long serialVersionUID = 6321014584689914438L;
+        methodChoice.add(new AjaxFormComponentUpdatingBehavior("change") {
+            @Serial
+            private static final long serialVersionUID = 6321014584689914438L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        tableNameChoice.setEnabled(methodChoice.getModelObject());
-                        valueAttributeNameChoice.setEnabled(methodChoice.getModelObject());
-                        defAttributeNameChoice.setEnabled(methodChoice.getModelObject());
-                        tableNameChoice.setRequired(methodChoice.getModelObject());
-                        valueAttributeNameChoice.setRequired(methodChoice.getModelObject());
-                        defAttributeNameChoice.setRequired(methodChoice.getModelObject());
-                        target.add(tableNameChoice);
-                        target.add(valueAttributeNameChoice);
-                        target.add(defAttributeNameChoice);
-                    }
-                });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                tableNameChoice.setEnabled(methodChoice.getModelObject());
+                valueAttributeNameChoice.setEnabled(methodChoice.getModelObject());
+                defAttributeNameChoice.setEnabled(methodChoice.getModelObject());
+                tableNameChoice.setRequired(methodChoice.getModelObject());
+                valueAttributeNameChoice.setRequired(methodChoice.getModelObject());
+                defAttributeNameChoice.setRequired(methodChoice.getModelObject());
+                target.add(tableNameChoice);
+                target.add(valueAttributeNameChoice);
+                target.add(defAttributeNameChoice);
+            }
+        });
 
-        tableNameChoice.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
-                    private static final long serialVersionUID = 6321014584689914438L;
+        tableNameChoice.add(new AjaxFormComponentUpdatingBehavior("change") {
+            @Serial
+            private static final long serialVersionUID = 6321014584689914438L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        List<Name> attributes = getAttributeNames(tableNameChoice.getModelObject());
-                        defAttributeNameChoice.setChoices(attributes);
-                        valueAttributeNameChoice.setChoices(attributes);
-                        target.add(valueAttributeNameChoice);
-                        target.add(defAttributeNameChoice);
-                    }
-                });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                List<Name> attributes = getAttributeNames(tableNameChoice.getModelObject());
+                defAttributeNameChoice.setChoices(attributes);
+                valueAttributeNameChoice.setChoices(attributes);
+                target.add(valueAttributeNameChoice);
+                target.add(defAttributeNameChoice);
+            }
+        });
 
-        add(
-                new FeedbackPanel("generateFeedback", new ContainerFeedbackMessageFilter(this))
-                        .setOutputMarkupId(true));
+        add(new FeedbackPanel("generateFeedback", new ContainerFeedbackMessageFilter(this)).setOutputMarkupId(true));
     }
 
     private List<Name> getAttributeNames(Name tableName) {
-        DataAccess<? extends FeatureType, ? extends Feature> dataAccess =
-                DomainGenerator.getDataAccess(fti);
+        DataAccess<? extends FeatureType, ? extends Feature> dataAccess = DomainGenerator.getDataAccess(fti);
         List<Name> attributeNames = new ArrayList<>();
         if (dataAccess != null) {
             try {
@@ -154,7 +162,7 @@ public class GenerateDomainPanel extends Panel {
                     attributeNames.add(descriptor.getName());
                 }
             } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "Failed to retrieve attributenames", e);
+                LOGGER.log(Level.WARNING, "Failed to retrieve attributenames", e);
             }
         }
         return attributeNames;

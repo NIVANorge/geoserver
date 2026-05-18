@@ -11,6 +11,7 @@ import static org.geoserver.catalog.Predicates.equal;
 import static org.geoserver.catalog.Predicates.isNull;
 
 import com.google.common.base.Preconditions;
+import jakarta.annotation.Nonnull;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.rmi.server.UID;
@@ -19,7 +20,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.geoserver.catalog.Info;
@@ -38,8 +38,8 @@ import org.geoserver.ows.util.ClassProperties;
 import org.geoserver.ows.util.OwsUtils;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.resource.ResourceStore;
+import org.geotools.api.filter.Filter;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
 
 @ParametersAreNonnullByDefault
 public class JDBCGeoServerFacade implements GeoServerFacade {
@@ -77,23 +77,23 @@ public class JDBCGeoServerFacade implements GeoServerFacade {
             if (realLogInfo == null) {
                 return;
             }
-            LoggingInfo startLogInfo =
-                    LoggingStartupContextListener.getLogging(
-                            ddResourceStore == null ? resourceLoader : ddResourceStore);
+            LoggingInfo startLogInfo = LoggingStartupContextListener.getLogging(
+                    ddResourceStore == null ? resourceLoader : ddResourceStore);
 
             // Doing this reflectively so that if LoggingInfo gets new properties, this should still
             // work. KS
 
             ClassProperties properties = OwsUtils.getClassProperties(LoggingInfo.class);
 
-            List<String> propertyNames = new ArrayList<String>(properties.properties().size());
-            List<Object> newValues = new ArrayList<Object>(properties.properties().size());
-            List<Object> oldValues = new ArrayList<Object>(properties.properties().size());
+            List<String> propertyNames =
+                    new ArrayList<String>(properties.properties().size());
+            List<Object> newValues =
+                    new ArrayList<Object>(properties.properties().size());
+            List<Object> oldValues =
+                    new ArrayList<Object>(properties.properties().size());
 
             final Level propertyTableLevel = Level.FINE;
-            LOGGER.log(
-                    propertyTableLevel,
-                    "Checking Logging configuration in case it neeeds to be reinitialized");
+            LOGGER.log(propertyTableLevel, "Checking Logging configuration in case it neeeds to be reinitialized");
             for (String propName : properties.properties()) {
 
                 // Don't care about the return type
@@ -102,22 +102,19 @@ public class JDBCGeoServerFacade implements GeoServerFacade {
                 Object newVal = read.invoke(realLogInfo);
                 Object oldVal = read.invoke(startLogInfo);
 
-                if ((newVal == null && oldVal == null)
-                        || (newVal != null && newVal.equals(oldVal))) {
+                if ((newVal == null && oldVal == null) || (newVal != null && newVal.equals(oldVal))) {
                     // Values the same
-                    LOGGER.log(
-                            propertyTableLevel,
-                            "=== {0} (logging.xml: {1}, JDBCConfig: {2})",
-                            new Object[] {read.getName(), oldVal, newVal});
+                    LOGGER.log(propertyTableLevel, "=== {0} (logging.xml: {1}, JDBCConfig: {2})", new Object[] {
+                        read.getName(), oldVal, newVal
+                    });
                 } else {
                     // Values different
                     propertyNames.add(propName);
                     newValues.add(newVal);
                     oldValues.add(oldVal);
-                    LOGGER.log(
-                            propertyTableLevel,
-                            "=/= {0} (logging.xml: {1}, JDBCConfig: {2})",
-                            new Object[] {read.getName(), oldVal, newVal});
+                    LOGGER.log(propertyTableLevel, "=/= {0} (logging.xml: {1}, JDBCConfig: {2})", new Object[] {
+                        read.getName(), oldVal, newVal
+                    });
                 }
             }
             // If there's a difference other than the ID
@@ -127,12 +124,9 @@ public class JDBCGeoServerFacade implements GeoServerFacade {
                         Level.WARNING,
                         "Start up logging config does not match that in JDBCConfig.  Reconfiguring now.  Logs preceding this message may reflect a different configuration.");
 
+                // Log location only from GEOSERVER_LOG_LOCATION property (GeoServer 3.0+)
                 LoggingUtils.initLogging(
-                        resourceLoader,
-                        realLogInfo.getLevel(),
-                        !realLogInfo.isStdOutLogging(),
-                        false,
-                        realLogInfo.getLocation());
+                        resourceLoader, realLogInfo.getLevel(), !realLogInfo.isStdOutLogging(), false, null);
             }
         } catch (Exception ex) {
             // If something bad happens, log it and keep going with the wrong logging config
@@ -318,8 +312,7 @@ public class JDBCGeoServerFacade implements GeoServerFacade {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T extends ServiceInfo> T getService(
-            final WorkspaceInfo workspace, final Class<T> clazz) {
+    public <T extends ServiceInfo> T getService(final WorkspaceInfo workspace, final Class<T> clazz) {
         return (T) db.getService(workspace, clazz);
     }
 
@@ -341,9 +334,7 @@ public class JDBCGeoServerFacade implements GeoServerFacade {
     }
 
     private <T extends Info> T findByName(
-            @Nonnull final String name,
-            @Nullable final WorkspaceInfo workspace,
-            @Nonnull final Class<T> clazz)
+            @Nonnull final String name, @Nullable final WorkspaceInfo workspace, @Nonnull final Class<T> clazz)
             throws AssertionError {
 
         Filter filter = equal("name", name);

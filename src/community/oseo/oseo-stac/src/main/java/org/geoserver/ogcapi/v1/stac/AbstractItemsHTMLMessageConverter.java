@@ -11,15 +11,16 @@ import java.util.HashMap;
 import java.util.Map;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.APIRequestInfo;
-import org.geoserver.ogcapi.AbstractHTMLMessageConverter;
+import org.geoserver.ogcapi.AbstractServiceHTMLMessageConverter;
 import org.geoserver.ogcapi.FreemarkerTemplateSupport;
 import org.geoserver.opensearch.eo.OSEOInfo;
+import org.geotools.util.SuppressFBWarnings;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 
 /** Renders a list of items in HTML. */
 public abstract class AbstractItemsHTMLMessageConverter<T extends AbstractItemsResponse>
-        extends AbstractHTMLMessageConverter<T> {
+        extends AbstractServiceHTMLMessageConverter<T> {
 
     public AbstractItemsHTMLMessageConverter(
             Class<T> clazz, FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
@@ -27,6 +28,7 @@ public abstract class AbstractItemsHTMLMessageConverter<T extends AbstractItemsR
     }
 
     @Override
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected void writeInternal(T value, HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
         Template header = getHeaderTemplate();
@@ -36,13 +38,12 @@ public abstract class AbstractItemsHTMLMessageConverter<T extends AbstractItemsR
 
         Map<String, Object> model = new HashMap<>();
         model.put("baseURL", APIRequestInfo.get().getBaseURL());
-        if (value instanceof ItemsResponse) {
-            model.put("collection", ((ItemsResponse) value).getCollectionId());
+        if (value instanceof ItemsResponse response) {
+            model.put("collection", response.getCollectionId());
         }
         addLinkFunctions(APIRequestInfo.get().getBaseURL(), model);
 
-        try (OutputStreamWriter osw =
-                new OutputStreamWriter(outputMessage.getBody(), getDefaultCharset())) {
+        try (OutputStreamWriter osw = new OutputStreamWriter(outputMessage.getBody(), getDefaultCharset())) {
             templateSupport.processTemplate(header, model, osw, getDefaultCharset());
 
             // process content template for all feature collections found

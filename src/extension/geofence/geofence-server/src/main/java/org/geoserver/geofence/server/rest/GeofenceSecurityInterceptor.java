@@ -4,8 +4,8 @@
  */
 package org.geoserver.geofence.server.rest;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.geoserver.security.impl.GeoServerRole;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,8 +15,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class GeofenceSecurityInterceptor implements HandlerInterceptor {
 
     @Override
-    public boolean preHandle(
-            HttpServletRequest request, HttpServletResponse response, Object handler)
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
         if (request.getServletPath().equalsIgnoreCase("/geofence")) {
             if (!SecurityContextHolder.getContext()

@@ -31,13 +31,12 @@ public class CachingExtendedCapabilitiesProviderTest extends GeoServerSystemTest
         super.onSetUp(testData);
 
         GeoServerInfo global = getGeoServer().getGlobal();
-        global.getSettings().setProxyBaseUrl("../wms/src/test/resources/geoserver");
+        global.getSettings().setProxyBaseUrl("../wms1_1/src/test/resources/geoserver");
         getGeoServer().save(global);
     }
 
     @Test
     public void testCapabilitiesContributedInternalDTD() throws Exception {
-
         GWC.get().getConfig().setDirectWMSIntegrationEnabled(false);
 
         Document dom = dom(get("wms?request=getCapabilities&version=1.1.1&tiled=true"), false);
@@ -47,9 +46,7 @@ public class CachingExtendedCapabilitiesProviderTest extends GeoServerSystemTest
         assertEquals("WMT_MS_Capabilities", doctype.getName());
 
         String systemId = doctype.getSystemId();
-        assertEquals(
-                "../wms/src/test/resources/geoserver/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd",
-                systemId);
+        assertEquals("../wms1_1/src/test/resources/geoserver/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd", systemId);
 
         String internalSubset = doctype.getInternalSubset();
         assertTrue(internalSubset == null || !internalSubset.contains("TileSet"));
@@ -61,16 +58,12 @@ public class CachingExtendedCapabilitiesProviderTest extends GeoServerSystemTest
         assertEquals("WMT_MS_Capabilities", doctype.getName());
         systemId = doctype.getSystemId();
 
-        assertEquals(
-                "../wms/src/test/resources/geoserver/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd",
-                systemId);
+        assertEquals("../wms1_1/src/test/resources/geoserver/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd", systemId);
 
         internalSubset = doctype.getInternalSubset();
 
         assertNotNull(internalSubset);
-        assertTrue(
-                internalSubset,
-                internalSubset.trim().startsWith("<!ELEMENT VendorSpecificCapabilities"));
+        assertTrue(internalSubset, internalSubset.trim().startsWith("<!ELEMENT VendorSpecificCapabilities"));
         assertTrue(internalSubset, internalSubset.contains("(TileSet*)"));
         assertTrue(
                 internalSubset,
@@ -144,8 +137,7 @@ public class CachingExtendedCapabilitiesProviderTest extends GeoServerSystemTest
     @Test
     public void testLocalWorkspaceIntegration() throws Exception {
 
-        final String tileSetPath =
-                "//WMT_MS_Capabilities/Capability/VendorSpecificCapabilities/TileSet";
+        final String tileSetPath = "//WMT_MS_Capabilities/Capability/VendorSpecificCapabilities/TileSet";
         final String localName = MockData.BASIC_POLYGONS.getLocalPart();
         final String qualifiedName = super.getLayerId(MockData.BASIC_POLYGONS);
 

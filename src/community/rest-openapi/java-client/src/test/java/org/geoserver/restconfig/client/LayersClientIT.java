@@ -34,11 +34,17 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.RuleChain;
 import org.junit.rules.TestName;
 
 public class LayersClientIT {
 
-    public static @ClassRule IntegrationTestSupport support = new IntegrationTestSupport();
+    private static GeoServerContainer geoserverContainer = new GeoServerContainer();
+
+    private static IntegrationTestSupport support = new IntegrationTestSupport(geoserverContainer);
+
+    @ClassRule
+    public static RuleChain chain = RuleChain.outerRule(geoserverContainer).around(support);
 
     public @Rule TestName testName = new TestName();
     public @Rule ExpectedException ex = ExpectedException.none();
@@ -64,8 +70,7 @@ public class LayersClientIT {
         DataStoresClient dataStores = support.client().dataStores();
         FeatureTypesClient featureTyes = support.client().featureTypes();
         this.layers = support.client().layers();
-        String wsname =
-                String.format("%s-ws1-%d", testName.getMethodName(), rnd.nextInt((int) 1e6));
+        String wsname = "%s-ws1-%d".formatted(testName.getMethodName(), rnd.nextInt((int) 1e6));
 
         workspaces.create(wsname);
         this.ws = workspaces.findByName(wsname).get();
@@ -81,16 +86,11 @@ public class LayersClientIT {
 
         // 2.15.2 fails if nativeName is not set, gets it deserialized as the literal
         // string "null"
-        roadsFT =
-                new FeatureTypeInfo()
-                        .name("roads")
-                        .nativeName("roads")
-                        .store(new DataStoreInfo().name("roadsStore"));
-        streamsFT =
-                new FeatureTypeInfo()
-                        .name("streams")
-                        .nativeName("streams")
-                        .store(new DataStoreInfo().name("streamsStore"));
+        roadsFT = new FeatureTypeInfo().name("roads").nativeName("roads").store(new DataStoreInfo().name("roadsStore"));
+        streamsFT = new FeatureTypeInfo()
+                .name("streams")
+                .nativeName("streams")
+                .store(new DataStoreInfo().name("streamsStore"));
 
         featureTyes.create(ws.getName(), roadsFT);
         featureTyes.create(ws.getName(), streamsFT);
@@ -106,8 +106,7 @@ public class LayersClientIT {
         List<NamedLink> list = layers.getLayers(ws.getName());
         assertNotNull(list);
         assertEquals(2, list.size());
-        List<String> layerNames =
-                list.stream().map(NamedLink::getName).collect(Collectors.toList());
+        List<String> layerNames = list.stream().map(NamedLink::getName).collect(Collectors.toList());
         assertTrue(layerNames.toString(), layerNames.contains(roadsFT.getName()));
         assertTrue(layerNames.toString(), layerNames.contains(streamsFT.getName()));
     }
@@ -133,29 +132,31 @@ public class LayersClientIT {
     public @Test void updateLayerSetDefaultStyle() throws IOException {
         StylesClient styles = support.client().styles();
         String styleBody =
-                "{\n"
-                        + "  \"version\": 8,\n"
-                        + "  \"name\": \"violet polygon\",\n"
-                        + "  \"layers\": [\n"
-                        + "      {\n"
-                        + "          \"id\": \"violet polygon\",\n"
-                        + "          \"type\": \"fill\",\n"
-                        + "          \"source-layer\": \"roads\",\n"
-                        + "          \"paint\": {\n"
-                        + "              \"fill-color\": \"#3300ff\",\n"
-                        + "              \"fill-outline-color\":\"#000000\"\n"
-                        + "          }\n"
-                        + "      }, {\n"
-                        + "          \"id\": \"red polygon\",\n"
-                        + "          \"type\": \"fill\",\n"
-                        + "          \"source-layer\": \"roads\",\n"
-                        + "          \"paint\": {\n"
-                        + "              \"fill-color\": \"#aa0000\",\n"
-                        + "              \"fill-outline-color\":\"#000000\"\n"
-                        + "          }\n"
-                        + "      }\n"
-                        + "  ]\n"
-                        + "}";
+                """
+                {
+                  "version": 8,
+                  "name": "violet polygon",
+                  "layers": [
+                      {
+                          "id": "violet polygon",
+                          "type": "fill",
+                          "source-layer": "roads",
+                          "paint": {
+                              "fill-color": "#3300ff",
+                              "fill-outline-color":"#000000"
+                          }
+                      }, {
+                          "id": "red polygon",
+                          "type": "fill",
+                          "source-layer": "roads",
+                          "paint": {
+                              "fill-color": "#aa0000",
+                              "fill-outline-color":"#000000"
+                          }
+                      }
+                  ]
+                }\
+                """;
         StyleInfo style = styles.createMapboxStyle(ws.getName(), "roads-style", styleBody);
 
         LayerInfo info = new LayerInfo();
@@ -170,9 +171,7 @@ public class LayersClientIT {
     }
 
     public @Test void updateLayerSetAttribution() throws IOException {
-        Layer layerResponse =
-                layers.getLayer(ws.getName(), roadsFT.getName())
-                        .orElseThrow(NoSuchElementException::new);
+        Layer layerResponse = layers.getLayer(ws.getName(), roadsFT.getName()).orElseThrow(NoSuchElementException::new);
 
         LayerInfo info = new LayerInfo();
         info.setName(layerResponse.getName());
@@ -202,9 +201,7 @@ public class LayersClientIT {
     }
 
     public @Test void updateLayerMetadatamap() throws IOException {
-        Layer layerResponse =
-                layers.getLayer(ws.getName(), roadsFT.getName())
-                        .orElseThrow(NoSuchElementException::new);
+        Layer layerResponse = layers.getLayer(ws.getName(), roadsFT.getName()).orElseThrow(NoSuchElementException::new);
 
         assertNull(layerResponse.getMetadata());
 

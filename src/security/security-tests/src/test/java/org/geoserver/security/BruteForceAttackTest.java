@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import jakarta.servlet.Filter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -20,7 +21,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import javax.servlet.Filter;
 import org.apache.commons.codec.binary.Base64;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.security.config.BruteForcePreventionConfig;
@@ -34,8 +34,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 public class BruteForceAttackTest extends GeoServerSystemTestSupport {
 
-    private static final String HELLO_GET_REQUEST =
-            "ows?service=hello&request=hello&message=Hello_World";
+    private static final String HELLO_GET_REQUEST = "ows?service=hello&request=hello&message=Hello_World";
 
     @Override
     protected void setUpSpring(List<String> springContextLocations) {
@@ -63,8 +62,7 @@ public class BruteForceAttackTest extends GeoServerSystemTestSupport {
 
     @Before
     public void resetBruteForceAttackConfig() throws Exception {
-        GeoServerSecurityManager manager =
-                applicationContext.getBean(GeoServerSecurityManager.class);
+        GeoServerSecurityManager manager = applicationContext.getBean(GeoServerSecurityManager.class);
         final SecurityManagerConfig securityConfig = manager.getSecurityConfig();
         BruteForcePreventionConfig bruteForceConfig = securityConfig.getBruteForcePrevention();
         bruteForceConfig.setEnabled(true);
@@ -97,8 +95,7 @@ public class BruteForceAttackTest extends GeoServerSystemTestSupport {
     @Test
     public void testTooManyBlockedThreads() throws Exception {
         // configure it to allow only one thread in the wait list
-        GeoServerSecurityManager manager =
-                applicationContext.getBean(GeoServerSecurityManager.class);
+        GeoServerSecurityManager manager = applicationContext.getBean(GeoServerSecurityManager.class);
         final SecurityManagerConfig securityConfig = manager.getSecurityConfig();
         BruteForcePreventionConfig bruteForceConfig = securityConfig.getBruteForcePrevention();
         bruteForceConfig.setMaxBlockedThreads(1);
@@ -108,49 +105,42 @@ public class BruteForceAttackTest extends GeoServerSystemTestSupport {
         testParallelLogin("Unauthorized", i -> "foo" + i);
     }
 
-    private void testParallelLogin(
-            String expectedMessage, Function<Integer, String> userNameGenerator)
+    private void testParallelLogin(String expectedMessage, Function<Integer, String> userNameGenerator)
             throws InterruptedException, ExecutionException {
         // idea, setup several threads to do the same failing auth in parallel,
         // ensuring they are all ready to go at the same time using a latch
         final int NTHREADS = 32;
-        ExecutorService service = Executors.newFixedThreadPool(NTHREADS);
         CountDownLatch latch = new CountDownLatch(NTHREADS);
         AtomicInteger concurrentLoginsPrevented = new AtomicInteger(0);
         List<Future<?>> futures = new ArrayList<>();
         long start = System.currentTimeMillis();
+        ExecutorService service = Executors.newFixedThreadPool(NTHREADS);
         for (int i = 0; i < NTHREADS; i++) {
             final int idx = i;
-            Future<?> future =
-                    service.submit(
-                            () -> {
-                                // mark and ready and wait for others
-                                latch.countDown();
-                                latch.await();
+            Future<?> future = service.submit(() -> {
+                // mark and ready and wait for others
+                latch.countDown();
+                latch.await();
 
-                                // execute request timing how long it took
-                                MockHttpServletRequest request = createRequest(HELLO_GET_REQUEST);
-                                request.setMethod(RequestMethod.GET.toString());
-                                request.setContent(new byte[] {});
-                                String userName = userNameGenerator.apply(idx);
-                                String token = userName + ":foobar";
-                                request.addHeader(
-                                        "Authorization",
-                                        "Basic "
-                                                + new String(
-                                                        Base64.encodeBase64(token.getBytes())));
-                                MockHttpServletResponse response = dispatch(request, "UTF-8");
+                // execute request timing how long it took
+                MockHttpServletRequest request = createRequest(HELLO_GET_REQUEST);
+                request.setMethod(RequestMethod.GET.toString());
+                request.setContent(new byte[] {});
+                String userName = userNameGenerator.apply(idx);
+                String token = userName + ":foobar";
+                request.addHeader("Authorization", "Basic " + new String(Base64.encodeBase64(token.getBytes())));
+                MockHttpServletResponse response = dispatch(request, "UTF-8");
 
-                                // check the response and see the error message
-                                assertEquals(401, response.getStatus());
-                                final String message = response.getErrorMessage();
-                                // System.out.println(message);
-                                if (message.contains(expectedMessage)) {
-                                    concurrentLoginsPrevented.incrementAndGet();
-                                }
+                // check the response and see the error message
+                assertEquals(401, response.getStatus());
+                final String message = response.getErrorMessage();
+                // System.out.println(message);
+                if (message.contains(expectedMessage)) {
+                    concurrentLoginsPrevented.incrementAndGet();
+                }
 
-                                return null;
-                            });
+                return null;
+            });
             futures.add(future);
         }
 

@@ -4,6 +4,8 @@
  */
 package org.geoserver.web.data.resource;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.MarkupContainer;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
@@ -16,10 +18,22 @@ import org.apache.wicket.model.StringResourceModel;
 import org.geoserver.web.InternationalStringPanel;
 
 /**
- * A reusable component for title and abstract. It adds both the normal string fields and the
- * internationalized ones.
+ * A reusable component for title and abstract. It adds both the normal string fields and the internationalized ones.
  */
 public class TitleAndAbstractPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(TitleAndAbstractPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     /**
      * @param id the wicket:id
@@ -34,16 +48,7 @@ public class TitleAndAbstractPanel extends Panel {
             String titleLabelProperty,
             String abstractLabelProperty,
             MarkupContainer labelProvider) {
-        this(
-                id,
-                model,
-                null,
-                null,
-                null,
-                null,
-                titleLabelProperty,
-                abstractLabelProperty,
-                labelProvider);
+        this(id, model, null, null, null, null, titleLabelProperty, abstractLabelProperty, labelProvider);
     }
 
     /**
@@ -93,22 +98,15 @@ public class TitleAndAbstractPanel extends Panel {
         titleProperty = titleProperty != null ? titleProperty : "title";
         abstractProperty = abstractProperty != null ? abstractProperty : "abstract";
         internationalTitleProperty =
-                internationalTitleProperty != null
-                        ? internationalTitleProperty
-                        : "internationalTitle";
+                internationalTitleProperty != null ? internationalTitleProperty : "internationalTitle";
         internationalAbstractProperty =
-                internationalAbstractProperty != null
-                        ? internationalAbstractProperty
-                        : "internationalAbstract";
-        titleLabelContainer.add(
-                new Label(
-                        "titleLabel", new StringResourceModel(titleLabelProperty, labelProvider)));
+                internationalAbstractProperty != null ? internationalAbstractProperty : "internationalAbstract";
+        titleLabelContainer.add(new Label("titleLabel", new StringResourceModel(titleLabelProperty, labelProvider)));
         add(titleLabelContainer);
-        TextField<String> title =
-                new TextField<>("title", new PropertyModel<>(model, titleProperty));
+        TextField<String> title = new TextField<>("title", new PropertyModel<>(model, titleProperty));
         add(title);
         InternationalStringPanel<TextField<String>> internationalStringPanelTitle =
-                new InternationalStringPanel<TextField<String>>(
+                new InternationalStringPanel<>(
                         "internationalTitle",
                         new PropertyModel<>(model, internationalTitleProperty),
                         title,
@@ -122,15 +120,12 @@ public class TitleAndAbstractPanel extends Panel {
 
         WebMarkupContainer abstractLabelContainer = new WebMarkupContainer("abstractLabel");
         abstractLabelContainer.add(
-                new Label(
-                        "abstractLabel",
-                        new StringResourceModel(abstractLabelProperty, labelProvider)));
+                new Label("abstractLabel", new StringResourceModel(abstractLabelProperty, labelProvider)));
         add(abstractLabelContainer);
-        TextArea<String> area =
-                new TextArea<>("abstract", new PropertyModel<>(model, abstractProperty));
+        TextArea<String> area = new TextArea<>("abstract", new PropertyModel<>(model, abstractProperty));
         add(area);
         InternationalStringPanel<TextArea<String>> internationalStringPanelAbstract =
-                new InternationalStringPanel<TextArea<String>>(
+                new InternationalStringPanel<>(
                         "internationalAbstract",
                         new PropertyModel<>(model, internationalAbstractProperty),
                         area,

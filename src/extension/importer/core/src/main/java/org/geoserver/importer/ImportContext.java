@@ -10,11 +10,13 @@ import static org.geoserver.importer.ImporterUtils.resolve;
 import com.google.common.collect.Iterables;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.catalog.Catalog;
@@ -38,14 +40,15 @@ import org.geotools.util.logging.Logging;
 public class ImportContext implements Serializable {
 
     /** serialVersionUID */
+    @Serial
     private static final long serialVersionUID = 8790675013874051197L;
 
     static final Logger LOGGER = Logging.getLogger(ImportContext.class);
 
     public static enum State {
         /**
-         * Context is ready to be initialized, but still misses tasks. Used to create a context
-         * while planning for an asynchronous initialization
+         * Context is ready to be initialized, but still misses tasks. Used to create a context while planning for an
+         * asynchronous initialization
          */
         INIT,
         /** Context init failed */
@@ -82,7 +85,7 @@ public class ImportContext implements Serializable {
     List<ImportTransform> defaultTransforms = new ArrayList<>();
 
     /** id generator for task */
-    int taskid = 0;
+    AtomicInteger taskid = new AtomicInteger(0);
 
     /** date import was created */
     Date created;
@@ -94,11 +97,11 @@ public class ImportContext implements Serializable {
     String user;
 
     /**
-     * flag to control whether imported files (indirect) should be archived after import JD: this
-     * used to be true by default, now false since by default importing a shapefile directly from
-     * the local file system would result in the shapefile, and its parent directory being deleted
+     * flag to control whether imported files (indirect) should be archived after import JD: this used to be true by
+     * default, now false since by default importing a shapefile directly from the local file system would result in the
+     * shapefile, and its parent directory being deleted
      */
-    boolean archive = false;
+    volatile boolean archive = false;
 
     /** Used for error messages */
     String message;
@@ -184,17 +187,18 @@ public class ImportContext implements Serializable {
     }
 
     public void addTask(ImportTask task) {
-        task.setId(taskid++);
+        task.setId(taskid.getAndAdd(1));
         task.setContext(this);
         this.tasks.add(task);
 
         // apply the default transformations
-        TransformChain chain = task.getTransform();
+        TransformChain<? extends ImportTransform> chain = task.getTransform();
         for (ImportTransform tx : defaultTransforms) {
-            if (chain instanceof RasterTransformChain && tx instanceof RasterTransform) {
-                ((RasterTransformChain) chain).add((RasterTransform) tx);
-            } else if (chain instanceof VectorTransformChain && tx instanceof VectorTransform) {
-                ((VectorTransformChain) chain).add((VectorTransform) tx);
+            if (chain instanceof RasterTransformChain transformChain1 && tx instanceof RasterTransform transform1) {
+                transformChain1.add(transform1);
+            } else if (chain instanceof VectorTransformChain transformChain
+                    && tx instanceof VectorTransform transform) {
+                transformChain.add(transform);
             }
         }
     }
@@ -212,10 +216,7 @@ public class ImportContext implements Serializable {
         return null;
     }
 
-    /**
-     * Returns a live list with the default transform, can be modified directly to add/remove the
-     * default transforms
-     */
+    /** Returns a live list with the default transform, can be modified directly to add/remove the default transforms */
     public List<ImportTransform> getDefaultTransforms() {
         return defaultTransforms;
     }
@@ -271,8 +272,8 @@ public class ImportContext implements Serializable {
     /**
      * We are going to scan all the Import Context Tasks and return "true" if any "isDirect".
      *
-     * <p>"isDirect" means that the Importer will rely on uploaded data position to create the
-     * Store. The uploaded data should be preserved, otherwise the Layer will be broken.
+     * <p>"isDirect" means that the Importer will rely on uploaded data position to create the Store. The uploaded data
+     * should be preserved, otherwise the Layer will be broken.
      *
      * @return boolean
      */
@@ -282,35 +283,30 @@ public class ImportContext implements Serializable {
     }
 
     /**
-     * We are going to scan all the Import Context Tasks and return "true" if all of them do not
-     * have a configured Layer on the Catalog.
+     * We are going to scan all the Import Context Tasks and return "true" if all of them do not have a configured Layer
+     * on the Catalog.
      *
-     * <p>That means that the user has removed the Layers from the Catalog and therefore we are safe
-     * to wipe out the uploaded data.
+     * <p>That means that the user has removed the Layers from the Catalog and therefore we are safe to wipe out the
+     * uploaded data.
      *
      * @return boolean
      */
     public boolean isEmpty() {
-        boolean noLayersAvailable =
-                Iterables.all(
-                        getTasks(),
-                        input -> {
-                            final StoreInfo store = input != null ? input.getStore() : null;
-                            final Catalog catalog = store != null ? store.getCatalog() : null;
-                            final LayerInfo layer =
-                                    catalog != null
-                                            ? catalog.getLayer(input.getLayer().getId())
-                                            : null;
-                            return (layer == null);
-                        });
+        boolean noLayersAvailable = Iterables.all(getTasks(), input -> {
+            final StoreInfo store = input != null ? input.getStore() : null;
+            final Catalog catalog = store != null ? store.getCatalog() : null;
+            final LayerInfo layer =
+                    catalog != null ? catalog.getLayer(input.getLayer().getId()) : null;
+            return (layer == null);
+        });
         return noLayersAvailable;
     }
 
     /**
      * This method will write an empty ".locking" file into the uploaded data unique directory.
      *
-     * <p>Whenever a ".locking" file is present, the scheduler won't wipe out the directory.
-     * Otherwise the folder will be completely removed.
+     * <p>Whenever a ".locking" file is present, the scheduler won't wipe out the directory. Otherwise the folder will
+     * be completely removed.
      */
     public void lockUploadFolder(Directory directory) throws IOException {
         if (directory != null) {
@@ -324,8 +320,8 @@ public class ImportContext implements Serializable {
     /**
      * This method will delete any ".locking" file present into the uploaded data unique directory.
      *
-     * <p>Whenever a ".locking" file is present, the scheduler won't wipe out the directory.
-     * Otherwise the folder will be completely removed.
+     * <p>Whenever a ".locking" file is present, the scheduler won't wipe out the directory. Otherwise the folder will
+     * be completely removed.
      */
     public void unlockUploadFolder(Directory directory) {
         if (directory != null) {
@@ -339,9 +335,7 @@ public class ImportContext implements Serializable {
                     } catch (IOException e) {
                         LOGGER.log(
                                 Level.WARNING,
-                                "It was not possible to set the directory '"
-                                        + directory
-                                        + "' eligible for cleaning!",
+                                "It was not possible to set the directory '" + directory + "' eligible for cleaning!",
                                 e);
                     }
                 }
@@ -373,8 +367,8 @@ public class ImportContext implements Serializable {
                 if (task.getData() instanceof Directory) {
                     directory = (Directory) task.getData();
                 } else if (task.getData() instanceof SpatialFile) {
-                    directory =
-                            new Directory(((SpatialFile) task.getData()).getFile().getParentFile());
+                    directory = new Directory(
+                            ((SpatialFile) task.getData()).getFile().getParentFile());
                 }
             }
         }

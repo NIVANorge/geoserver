@@ -4,11 +4,8 @@
  */
 package org.geoserver.featurestemplating.builders.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.logging.Logger;
 import org.geoserver.featurestemplating.builders.JSONFieldSupport;
 import org.geoserver.featurestemplating.builders.TemplateBuilder;
@@ -17,21 +14,22 @@ import org.geoserver.featurestemplating.readers.JSONMerger;
 import org.geoserver.featurestemplating.readers.JSONTemplateReader;
 import org.geoserver.featurestemplating.readers.TemplateReaderConfiguration;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.feature.Feature;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.Feature;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
- * A builder able to evaluate an $includeFlat directive. The json property will be merged with the
- * including node to handle eventually duplicate fields.
+ * A builder able to evaluate an $includeFlat directive. The json property will be merged with the including node to
+ * handle eventually duplicate fields.
  */
 public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
 
     private static Logger LOGGER = Logging.getLogger(DynamicIncludeFlatBuilder.class);
 
-    public DynamicIncludeFlatBuilder(
-            String expression, NamespaceSupport namespaces, JsonNode node) {
+    public DynamicIncludeFlatBuilder(String expression, NamespaceSupport namespaces, JsonNode node) {
         // key is null since the $includeFlat key should not appear
         super(null, expression, namespaces, node);
     }
@@ -41,8 +39,7 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
     }
 
     @Override
-    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         if (canWrite(context)) {
             ObjectNode finalNode = getFinalJSON(context);
 
@@ -75,14 +72,11 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
         return finalNode;
     }
 
-    private void doIncludeFlat(
-            ObjectNode finalNode, TemplateBuilderContext context, TemplateOutputWriter writer)
+    private void doIncludeFlat(ObjectNode finalNode, TemplateBuilderContext context, TemplateOutputWriter writer)
             throws IOException {
         if (hasDynamic(finalNode)) {
-            LOGGER.fine(
-                    () ->
-                            "Included Json object has property interpolation or expression."
-                                    + "Going to build a nested TemplateBuilder tree.");
+            LOGGER.fine(() -> "Included Json object has property interpolation or expression."
+                    + "Going to build a nested TemplateBuilder tree.");
             iterateAndEvaluateNestedTree(context, writer, finalNode);
         } else {
             LOGGER.fine(() -> "Writing the included flat Json Node.");
@@ -101,12 +95,9 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
      * @param context the template context.
      * @throws IOException
      */
-    protected void iterateAndWrite(
-            ObjectNode objectNode, TemplateOutputWriter writer, TemplateBuilderContext context)
+    protected void iterateAndWrite(ObjectNode objectNode, TemplateOutputWriter writer, TemplateBuilderContext context)
             throws IOException {
-        Iterator<String> names = objectNode.fieldNames();
-        while (names != null && names.hasNext()) {
-            String name = names.next();
+        for (String name : objectNode.propertyNames()) {
             writeValue(name, writer, objectNode.findValue(name), context);
         }
     }
@@ -122,9 +113,8 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
     }
 
     /**
-     * Returns the overlay builder created from the sample feature. Can be used to inspect the
-     * structure of a template builder, assuming other features in the lot will have a similar
-     * structure.
+     * Returns the overlay builder created from the sample feature. Can be used to inspect the structure of a template
+     * builder, assuming other features in the lot will have a similar structure.
      */
     public TemplateBuilder getIncludeFlatBuilder(String key, Feature sample) {
         // perform dynamic expansion against the sample feature, if possible
@@ -136,20 +126,17 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
         } else if (cql != null) {
             evaluate = cql.evaluate(sample);
         }
-        if (evaluate instanceof Attribute)
-            evaluate = JSONFieldSupport.parseWhenJSON(null, null, evaluate);
+        if (evaluate instanceof Attribute) evaluate = JSONFieldSupport.parseWhenJSON(null, null, evaluate);
         if (!(evaluate instanceof JsonNode)) return null;
 
         return getBuilderFromNode(key, (JsonNode) evaluate);
     }
 
     private TemplateBuilder getBuilderFromNode(String key, JsonNode node) {
-        TemplateReaderConfiguration configuration =
-                new TemplateReaderConfiguration(getNamespaces());
+        TemplateReaderConfiguration configuration = new TemplateReaderConfiguration(getNamespaces());
         TemplateBuilderMaker maker = configuration.getBuilderMaker();
         maker.namespaces(configuration.getNamespaces());
-        JSONTemplateReader jsonTemplateReader =
-                new JSONTemplateReader(node, configuration, new ArrayList<>());
+        JSONTemplateReader jsonTemplateReader = new JSONTemplateReader(node, configuration, new ArrayList<>());
 
         CompositeBuilder result = new CompositeBuilder(key, getNamespaces(), false);
         jsonTemplateReader.getBuilderFromJson(null, node, result, maker);
@@ -157,8 +144,8 @@ public class DynamicIncludeFlatBuilder extends DynamicJsonBuilder {
     }
 
     /**
-     * Returns a TemplateBuilder representing the including node of this dynamic include flat
-     * builder, or null, if the including node is not an object.
+     * Returns a TemplateBuilder representing the including node of this dynamic include flat builder, or null, if the
+     * including node is not an object.
      *
      * @param key
      * @return

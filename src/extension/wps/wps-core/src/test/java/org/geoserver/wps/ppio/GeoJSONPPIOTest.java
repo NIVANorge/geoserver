@@ -19,26 +19,27 @@ package org.geoserver.wps.ppio;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.GeoServerInfo;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.wps.WPSTestSupport;
+import org.geotools.api.filter.Filter;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.filter.text.cql2.CQL;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.JSONSerializer;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.io.WKTReader;
-import org.opengis.filter.Filter;
 
 public class GeoJSONPPIOTest extends WPSTestSupport {
     private InputStream is;
@@ -64,6 +65,19 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
     }
 
     @Test
+    public void testDecodeGeometries() throws Exception {
+        GeoJSONPPIO ppio = new GeoJSONPPIO.Geometries(getGeoServer());
+        String string = "{\"type\":\"Point\",\"coordinates\":[1.123456789,2]}";
+        Point point1 = (Point) ppio.decode(string);
+        assertEquals(1.123456789, point1.getX(), EPS);
+        assertEquals(2.0, point1.getY(), EPS);
+        ByteArrayInputStream input = new ByteArrayInputStream(string.getBytes());
+        Point point2 = (Point) ppio.decode(input);
+        assertEquals(1.123456789, point2.getX(), EPS);
+        assertEquals(2.0, point2.getY(), EPS);
+    }
+
+    @Test
     public void testEncodeGeometries() throws Exception {
         WKTReader reader = new WKTReader();
         Point point = (Point) reader.read("POINT(1.123456789 2.0)");
@@ -73,7 +87,7 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
         ByteArrayOutputStream os = new ByteArrayOutputStream(1024);
         new GeoJSONPPIO.Geometries(gs).encode(point, os);
         String output = os.toString();
-        assertEquals(output, "{\"type\":\"Point\",\"coordinates\":[1.12345679,2]}");
+        assertEquals("{\"type\":\"Point\",\"coordinates\":[1.12345679,2]}", output);
 
         int dec = global.getSettings().getNumDecimals();
         global.getSettings().setNumDecimals(4);
@@ -82,7 +96,7 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
         ByteArrayOutputStream os2 = new ByteArrayOutputStream(1024);
         new GeoJSONPPIO.Geometries(gs).encode(point, os2);
         String output2 = os2.toString();
-        assertEquals(output2, "{\"type\":\"Point\",\"coordinates\":[1.1235,2]}");
+        assertEquals("{\"type\":\"Point\",\"coordinates\":[1.1235,2]}", output2);
 
         global.getSettings().setNumDecimals(dec);
         getGeoServer().save(global);
@@ -91,8 +105,7 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
     /** Test method for {@link WFSPPIO#decode(InputStream)}. */
     @Test
     public void testDecodeInputStream() throws Exception {
-        SimpleFeatureCollection states =
-                (SimpleFeatureCollection) new GeoJSONPPIO.FeatureCollections().decode(is);
+        SimpleFeatureCollection states = (SimpleFeatureCollection) new GeoJSONPPIO.FeatureCollections().decode(is);
 
         assertEquals("Wrong number of states", 49, states.size());
         assertEquals("Wrong number of columns", 23, states.getSchema().getAttributeCount());
@@ -106,8 +119,7 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
 
     @Test
     public void testEncodeOutputStream() throws Exception {
-        SimpleFeatureCollection states =
-                (SimpleFeatureCollection) new GeoJSONPPIO.FeatureCollections().decode(is);
+        SimpleFeatureCollection states = (SimpleFeatureCollection) new GeoJSONPPIO.FeatureCollections().decode(is);
 
         assertEquals("Wrong number of states", 49, states.size());
 
@@ -121,11 +133,10 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
         JSONArray features = fc.getJSONArray("features");
         JSONObject state0 = features.getJSONObject(0);
         // random tests on the first state ordinates ...
-        JSONArray state0Ordinates =
-                state0.getJSONObject("geometry")
-                        .getJSONArray("coordinates")
-                        .getJSONArray(0)
-                        .getJSONArray(0);
+        JSONArray state0Ordinates = state0.getJSONObject("geometry")
+                .getJSONArray("coordinates")
+                .getJSONArray(0)
+                .getJSONArray(0);
         assertEquals(-88.087883, state0Ordinates.getJSONArray(1).getDouble(0), EPS);
         assertEquals(-88.311707, state0Ordinates.getJSONArray(2).getDouble(0), EPS);
         assertEquals(37.420292, state0Ordinates.getJSONArray(4).getDouble(1), EPS);
@@ -158,11 +169,10 @@ public class GeoJSONPPIOTest extends WPSTestSupport {
             JSONObject fc2 = (JSONObject) JSONSerializer.toJSON(json2);
             JSONArray features2 = fc2.getJSONArray("features");
             state0 = features2.getJSONObject(0);
-            state0Ordinates =
-                    state0.getJSONObject("geometry")
-                            .getJSONArray("coordinates")
-                            .getJSONArray(0)
-                            .getJSONArray(0);
+            state0Ordinates = state0.getJSONObject("geometry")
+                    .getJSONArray("coordinates")
+                    .getJSONArray(0)
+                    .getJSONArray(0);
             assertEquals(-88.09, state0Ordinates.getJSONArray(1).getDouble(0), EPS);
             assertEquals(-88.31, state0Ordinates.getJSONArray(2).getDouble(0), EPS);
             assertEquals(37.42, state0Ordinates.getJSONArray(4).getDouble(1), EPS);

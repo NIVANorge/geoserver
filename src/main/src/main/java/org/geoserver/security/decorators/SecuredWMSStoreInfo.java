@@ -10,8 +10,8 @@ import org.geoserver.catalog.WMSStoreInfo;
 import org.geoserver.security.AccessLevel;
 import org.geoserver.security.SecureCatalogImpl;
 import org.geoserver.security.WrapperPolicy;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wms.WebMapServer;
-import org.opengis.util.ProgressListener;
 
 public class SecuredWMSStoreInfo extends DecoratingWMSStoreInfo {
 
@@ -26,8 +26,7 @@ public class SecuredWMSStoreInfo extends DecoratingWMSStoreInfo {
     public WebMapServer getWebMapServer(ProgressListener listener) throws IOException {
         WebMapServer wms = super.getWebMapServer(null);
         if (wms == null) return null;
-        else if (policy.level == AccessLevel.METADATA)
-            throw SecureCatalogImpl.unauthorizedAccess(this.getName());
+        else if (policy.level == AccessLevel.METADATA) throw SecureCatalogImpl.unauthorizedAccess(this.getName());
         else return SecuredObjects.secure(wms, policy);
     }
 }

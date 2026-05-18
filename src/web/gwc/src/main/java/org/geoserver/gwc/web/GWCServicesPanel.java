@@ -6,14 +6,32 @@
 package org.geoserver.gwc.web;
 
 import static org.geoserver.gwc.web.GWCSettingsPage.checkbox;
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
 
+import java.io.Serial;
+import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.PropertyModel;
+import org.apache.wicket.validation.validator.RangeValidator;
 import org.geoserver.gwc.config.GWCConfig;
 
 public class GWCServicesPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(GWCServicesPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public GWCServicesPanel(final String id, final IModel<GWCConfig> gwcConfigModel) {
@@ -25,25 +43,21 @@ public class GWCServicesPanel extends Panel {
                 new PropertyModel<>(gwcConfigModel, "requireTiledParameter");
         final IModel<Boolean> wmsCEnabledModel = new PropertyModel<>(gwcConfigModel, "WMSCEnabled");
         final IModel<Boolean> tmsEnabledModel = new PropertyModel<>(gwcConfigModel, "TMSEnabled");
-        final IModel<Boolean> securityEnabledModel =
-                new PropertyModel<>(gwcConfigModel, "securityEnabled");
+        final IModel<Boolean> securityEnabledModel = new PropertyModel<>(gwcConfigModel, "securityEnabled");
 
-        add(
-                checkbox(
-                        "enableWMSIntegration",
-                        wmsIntegrationEnabledModel,
-                        "GWCSettingsPage.enableWMSIntegration.title"));
-        add(
-                checkbox(
-                        "requireTiledParameter",
-                        requiredTiledParamEnabledModel,
-                        "GWCSettingsPage.requireTiledParameter.title"));
+        add(checkbox("enableWMSIntegration", wmsIntegrationEnabledModel, "GWCSettingsPage.enableWMSIntegration.title"));
+        add(checkbox(
+                "requireTiledParameter",
+                requiredTiledParamEnabledModel,
+                "GWCSettingsPage.requireTiledParameter.title"));
         add(checkbox("enableWMSC", wmsCEnabledModel, "GWCSettingsPage.enableWMSC.title"));
         add(checkbox("enableTMS", tmsEnabledModel, "GWCSettingsPage.enableTMS.title"));
-        add(
-                checkbox(
-                        "enableSecurity",
-                        securityEnabledModel,
-                        "GWCSettingsPage.enableSecurity.title"));
+        add(checkbox("enableSecurity", securityEnabledModel, "GWCSettingsPage.enableSecurity.title"));
+
+        IModel<Integer> metaTilingThreads = new PropertyModel<>(gwcConfigModel, "metaTilingThreads");
+        TextField<Integer> metaTilingThreadsTextField = new TextField<>("metaTilingThreads", metaTilingThreads);
+        metaTilingThreadsTextField.setRequired(false);
+        metaTilingThreadsTextField.add(RangeValidator.minimum(0));
+        add(metaTilingThreadsTextField);
     }
 }

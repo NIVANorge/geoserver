@@ -28,6 +28,11 @@ import org.geoserver.kml.iterator.IteratorList;
 import org.geoserver.kml.iterator.WFSFeatureIteratorFactory;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.util.EntityResolverProvider;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.store.ReprojectingFeatureCollection;
@@ -41,11 +46,6 @@ import org.geotools.util.logging.Logging;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.StreamingParser;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /** PPIO for KML 2.2. */
 public class KMLPPIO extends CDataPPIO {
@@ -75,7 +75,7 @@ public class KMLPPIO extends CDataPPIO {
         this.type = b.buildFeatureType();
     }
 
-    private static final Map<Name, Class<?>> getSignature(SimpleFeature f) {
+    private static Map<Name, Class<?>> getSignature(SimpleFeature f) {
         Map<Name, Class<?>> ftype = new HashMap<>();
         Collection<Property> properties = f.getProperties();
         for (Property p : properties) {
@@ -106,8 +106,7 @@ public class KMLPPIO extends CDataPPIO {
 
     @Override
     public Object decode(InputStream input) throws Exception {
-        StreamingParser parser =
-                new StreamingParser(new KMLConfiguration(), input, SimpleFeature.class);
+        StreamingParser parser = new StreamingParser(new KMLConfiguration(), input, SimpleFeature.class);
         parser.setEntityResolver(resolverProvider.getEntityResolver());
         SimpleFeature f;
         ListFeatureCollection features = null;
@@ -143,11 +142,10 @@ public class KMLPPIO extends CDataPPIO {
 
     @Override
     public void encode(Object obj, OutputStream os) throws Exception {
-        LOGGER.info(
-                "KMLPPIO::encode: obj is of class "
-                        + obj.getClass().getName()
-                        + ", handler is of class "
-                        + os.getClass().getName());
+        LOGGER.info("KMLPPIO::encode: obj is of class "
+                + obj.getClass().getName()
+                + ", handler is of class "
+                + os.getClass().getName());
 
         // prepare the encoding context
         KMLEncoder encoder = new KMLEncoder();
@@ -172,9 +170,7 @@ public class KMLPPIO extends CDataPPIO {
             document = (Document) decorator.decorate(document, context);
             if (document == null) {
                 throw new ServiceException(
-                        "Coding error in decorator "
-                                + decorator
-                                + ", document objects cannot be set to null");
+                        "Coding error in decorator " + decorator + ", document objects cannot be set to null");
             }
         }
 

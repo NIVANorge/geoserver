@@ -5,7 +5,6 @@
 
     <bean id="hzHomePageContentProvider" 
           class="org.geoserver.cluster.hazelcast.web.HazelcastHomePageContentProvider">
-      <constructor-arg ref="hzCluster"/>
     </bean>
 
    <bean id="hzSynchronizerInitializer" 
@@ -26,13 +25,6 @@
       <property name="resourceNotificationDispatcher" ref="hzResourceNotificationDispatcher"/>
    </bean>
 
-<!--    <bean id="hzCacheProvider" class="org.geoserver.cluster.hazelcast.HzCacheProvider">
-      <constructor-arg ref="xstreamPersisterFactory"/>
-   </bean> 
-   
-   <bean id="hzExtensionFilter" class="org.geoserver.cluster.hazelcast.HzExtensionFilter">
-   </bean> -->
-
    <bean id="hzLockProvider" class="org.geoserver.cluster.hazelcast.HzLockProvider">
       <property name="cluster" ref="hzCluster"/>
    </bean>
@@ -44,6 +36,11 @@
                 <prop key="webApplication.defaultIsRedirect">false</prop>
             </props>
         </property>
-    </bean>    
+    </bean>
+
+    <bean id="hazelcastSessionStoreInitializer"
+             class="org.geoserver.cluster.hazelcast.web.HazelcastSessionStoreInitializer">
+        <constructor-arg ref="hzCluster"/>
+    </bean>
    
 </beans>

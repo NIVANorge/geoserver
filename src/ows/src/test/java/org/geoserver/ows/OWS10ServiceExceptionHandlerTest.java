@@ -7,7 +7,6 @@ package org.geoserver.ows;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -15,7 +14,9 @@ import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.apache.xpath.XPathAPI;
+import org.custommonkey.xmlunit.SimpleNamespaceContext;
+import org.custommonkey.xmlunit.XMLUnit;
+import org.custommonkey.xmlunit.XpathEngine;
 import org.geoserver.platform.Service;
 import org.geoserver.platform.ServiceException;
 import org.geotools.util.Version;
@@ -26,7 +27,6 @@ import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 
 public class OWS10ServiceExceptionHandlerTest {
 
@@ -37,10 +37,11 @@ public class OWS10ServiceExceptionHandlerTest {
 
     private static final String XML_TYPE_TEXT = "text/xml";
 
+    private XpathEngine xpath;
+
     @BeforeClass
     public static void setupClass()
-            throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException,
-                    SecurityException {
+            throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, SecurityException {
         // Playing with System.Properties and Static boolean fields can raises issues
         // when running Junit tests via Maven, due to initialization orders.
         // So let's change the fields via reflections for these tests
@@ -57,20 +58,14 @@ public class OWS10ServiceExceptionHandlerTest {
     @Before
     public void setUp() throws Exception {
         HelloWorld helloWorld = new HelloWorld();
-        Service service =
-                new Service(
-                        "hello",
-                        helloWorld,
-                        new Version("1.0.0"),
-                        Collections.singletonList("hello"));
+        Service service = new Service("hello", helloWorld, new Version("1.0.0"), Collections.singletonList("hello"));
 
-        request =
-                new MockHttpServletRequest() {
-                    @Override
-                    public int getServerPort() {
-                        return 8080;
-                    }
-                };
+        request = new MockHttpServletRequest() {
+            @Override
+            public int getServerPort() {
+                return 8080;
+            }
+        };
 
         request.setScheme("http");
         request.setServerName("localhost");
@@ -86,6 +81,9 @@ public class OWS10ServiceExceptionHandlerTest {
         requestInfo.setHttpResponse(response);
         requestInfo.setService(service.getId());
         requestInfo.setVersion(service.getVersion().toString());
+        xpath = XMLUnit.newXpathEngine();
+        xpath.setNamespaceContext(
+                new SimpleNamespaceContext(Collections.singletonMap("ows", "http://www.opengis.net/ows")));
     }
 
     @Test
@@ -96,7 +94,8 @@ public class OWS10ServiceExceptionHandlerTest {
         exception.getExceptionText().add("helloText");
         handler.handleServiceException(exception, requestInfo);
 
-        InputStream input = new ByteArrayInputStream(response.getContentAsString().getBytes());
+        InputStream input =
+                new ByteArrayInputStream(response.getContentAsString().getBytes());
 
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setNamespaceAware(true);
@@ -114,21 +113,18 @@ public class OWS10ServiceExceptionHandlerTest {
 
         handler.handleServiceException(exception, requestInfo);
 
-        InputStream input = new ByteArrayInputStream(response.getContentAsString().getBytes());
+        InputStream input =
+                new ByteArrayInputStream(response.getContentAsString().getBytes());
 
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setNamespaceAware(true);
 
         Document doc = docBuilderFactory.newDocumentBuilder().parse(input);
 
-        Node exceptionText =
-                XPathAPI.selectSingleNode(
-                        doc, "ows:ExceptionReport/ows:Exception/ows:ExceptionText/text()");
-        assertNotNull(exceptionText);
         assertEquals(
                 "round-tripped through character entities",
                 message,
-                exceptionText.getTextContent());
+                xpath.evaluate("ows:ExceptionReport/ows:Exception/ows:ExceptionText", doc));
     }
 
     @Test
@@ -142,29 +138,25 @@ public class OWS10ServiceExceptionHandlerTest {
 
         handler.handleServiceException(exception, requestInfo);
 
-        InputStream input = new ByteArrayInputStream(response.getContentAsString().getBytes());
+        InputStream input =
+                new ByteArrayInputStream(response.getContentAsString().getBytes());
 
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setNamespaceAware(true);
 
         Document doc = docBuilderFactory.newDocumentBuilder().parse(input);
 
-        Node exceptionText =
-                XPathAPI.selectSingleNode(
-                        doc, "ows:ExceptionReport/ows:Exception/ows:ExceptionText/text()");
-        assertNotNull(exceptionText);
         String message = message1 + "\n" + message2;
         assertEquals(
                 "round-tripped through character entities",
                 message,
-                exceptionText.getTextContent());
+                xpath.evaluate("ows:ExceptionReport/ows:Exception/ows:ExceptionText", doc));
     }
 
     @Test
     public void testHandleServiceExceptionCauses() throws Exception {
         // create a stack of three exceptions
-        IllegalArgumentException illegalArgument =
-                new IllegalArgumentException("Illegal argument here");
+        IllegalArgumentException illegalArgument = new IllegalArgumentException("Illegal argument here");
         IOException ioException = new IOException("I/O exception here");
         ioException.initCause(illegalArgument);
         ServiceException serviceException = new ServiceException("hello service exception");
@@ -174,18 +166,16 @@ public class OWS10ServiceExceptionHandlerTest {
         serviceException.initCause(ioException);
         handler.handleServiceException(serviceException, requestInfo);
 
-        InputStream input = new ByteArrayInputStream(response.getContentAsString().getBytes());
+        InputStream input =
+                new ByteArrayInputStream(response.getContentAsString().getBytes());
 
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setNamespaceAware(true);
 
         Document doc = docBuilderFactory.newDocumentBuilder().parse(input);
-        Node exceptionTextNode =
-                XPathAPI.selectSingleNode(
-                        doc, "ows:ExceptionReport/ows:Exception/ows:ExceptionText/text()");
-        assertNotNull(exceptionTextNode);
         // normalise whitespace
-        String exceptionText = exceptionTextNode.getNodeValue().replaceAll("\\s+", " ");
+        String exceptionText = xpath.evaluate("ows:ExceptionReport/ows:Exception/ows:ExceptionText", doc)
+                .replaceAll("\\s+", " ");
         assertNotEquals(exceptionText.indexOf(illegalArgument.getMessage()), -1);
         assertNotEquals(exceptionText.indexOf(ioException.getMessage()), -1);
         assertNotEquals(exceptionText.indexOf(serviceException.getMessage()), -1);
@@ -202,18 +192,16 @@ public class OWS10ServiceExceptionHandlerTest {
         serviceException.initCause(npe);
         handler.handleServiceException(serviceException, requestInfo);
 
-        InputStream input = new ByteArrayInputStream(response.getContentAsString().getBytes());
+        InputStream input =
+                new ByteArrayInputStream(response.getContentAsString().getBytes());
 
         DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
         docBuilderFactory.setNamespaceAware(true);
 
         Document doc = docBuilderFactory.newDocumentBuilder().parse(input);
-        Node exceptionTextNode =
-                XPathAPI.selectSingleNode(
-                        doc, "ows:ExceptionReport/ows:Exception/ows:ExceptionText/text()");
-        assertNotNull(exceptionTextNode);
         // normalise whitespace
-        String exceptionText = exceptionTextNode.getNodeValue().replaceAll("\\s+", " ");
+        String exceptionText = xpath.evaluate("ows:ExceptionReport/ows:Exception/ows:ExceptionText", doc)
+                .replaceAll("\\s+", " ");
         // used to contain an extra " null" at the end
         assertEquals("hello service exception NullPointerException", exceptionText);
     }

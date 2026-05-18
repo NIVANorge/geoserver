@@ -6,6 +6,8 @@ package org.geoserver.taskmanager.data;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Collections;
@@ -25,11 +27,14 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class TaskManagerDataTest extends AbstractTaskManagerTest {
 
-    @Autowired private TaskManagerDao dao;
+    @Autowired
+    private TaskManagerDao dao;
 
-    @Autowired private TaskManagerFactory fac;
+    @Autowired
+    private TaskManagerFactory fac;
 
-    @Autowired private TaskManagerDataUtil util;
+    @Autowired
+    private TaskManagerDataUtil util;
 
     private Configuration config;
 
@@ -63,9 +68,7 @@ public class TaskManagerDataTest extends AbstractTaskManagerTest {
 
     @Test
     public void testBatchElement() {
-        assertEquals(
-                Collections.singletonList(config.getTasks().get("task")),
-                dao.getTasksAvailableForBatch(batch));
+        assertEquals(Collections.singletonList(config.getTasks().get("task")), dao.getTasksAvailableForBatch(batch));
 
         Task task = config.getTasks().get("task");
         BatchElement el = util.addBatchElement(batch, task);
@@ -79,9 +82,7 @@ public class TaskManagerDataTest extends AbstractTaskManagerTest {
         dao.remove(el);
         batch = dao.init(batch);
         assertTrue(batch.getElements().isEmpty());
-        assertEquals(
-                Collections.singletonList(config.getTasks().get("task")),
-                dao.getTasksAvailableForBatch(batch));
+        assertEquals(Collections.singletonList(config.getTasks().get("task")), dao.getTasksAvailableForBatch(batch));
 
         BatchElement el2 = util.addBatchElement(batch, task);
         assertEquals(el.getId(), el2.getId());
@@ -94,7 +95,7 @@ public class TaskManagerDataTest extends AbstractTaskManagerTest {
         batch = dao.init(batch);
         assertTrue(batch.getElements().isEmpty());
         el2 = util.addBatchElement(batch, task);
-        assertFalse(el.getId().equals(el2.getId()));
+        assertNotEquals(el.getId(), el2.getId());
     }
 
     @Test
@@ -107,7 +108,7 @@ public class TaskManagerDataTest extends AbstractTaskManagerTest {
         config = dao.init(config);
         task = config.getTasks().get("task");
         assertEquals(1, task.getBatchElements().size());
-        assertEquals(dao.reload(el), task.getBatchElements().get(0));
+        assertEquals(el, task.getBatchElements().get(0));
 
         Configuration config2 = dao.copyConfiguration("my_config");
         config2.setName("my_config2");
@@ -126,6 +127,28 @@ public class TaskManagerDataTest extends AbstractTaskManagerTest {
         task = config2.getTasks().get("task");
         assertEquals(1, task.getBatchElements().size());
         assertFalse(config2.getBatches().get("my_batch").isEnabled());
+
+        dao.delete(config2);
+
+        BatchRun br = fac.createBatchRun();
+        br.setBatch(batch);
+        Run run = fac.createRun();
+        run.setBatchRun(br);
+        run.setStart(new Date(3000));
+        run.setEnd(new Date(4000));
+        run.setStatus(Status.COMMITTED);
+        run.setBatchElement(el);
+        br.getRuns().add(run);
+        dao.save(br);
+        batch = dao.initHistory(dao.getBatch(batch.getId()));
+        assertEquals(1, batch.getBatchRuns().size());
+
+        config2 = dao.copyConfiguration("my_config");
+        config2.setName("my_config2");
+        config2 = dao.save(config2);
+        Batch batch2 = config2.getBatches().get("my_batch");
+        assertEquals(0, batch2.getBatchRuns().size());
+        assertNull(batch2.getLatestBatchRun());
 
         dao.delete(config2);
     }

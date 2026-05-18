@@ -14,9 +14,11 @@ import org.geoserver.config.ContactInfo;
 import org.geoserver.config.CoverageAccessInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.GeoServerInfo;
-import org.geoserver.config.JAIInfo;
+import org.geoserver.config.ImageProcessingInfo;
 import org.geoserver.config.ResourceErrorHandling;
 import org.geoserver.config.SettingsInfo;
+import org.geoserver.config.UserDetailsDisplaySettingsInfo;
+import org.geoserver.config.util.patch.PatchProperty;
 import org.geoserver.filters.LoggingFilter;
 
 public class GeoServerInfoImpl implements GeoServerInfo {
@@ -27,7 +29,7 @@ public class GeoServerInfoImpl implements GeoServerInfo {
 
     protected SettingsInfo settings = new SettingsInfoImpl();
 
-    protected JAIInfo jai = new JAIInfoImpl();
+    protected ImageProcessingInfo imageProcessing = new ImageProcessingInfoImpl();
 
     protected CoverageAccessInfo coverageAccess = new CoverageAccessInfoImpl();
 
@@ -44,19 +46,21 @@ public class GeoServerInfoImpl implements GeoServerInfo {
 
     protected Boolean globalServices = true;
 
+    @PatchProperty("useHeadersProxyURLRaw")
     protected Boolean useHeadersProxyURL = false;
 
     protected transient GeoServer geoServer;
 
     protected Integer xmlPostRequestLogBufferSize = LoggingFilter.REQUEST_LOG_BUFFER_SIZE_DEFAULT;
 
-    protected Boolean xmlExternalEntitiesEnabled = Boolean.FALSE;
-
     protected Boolean trailingSlashMatch = getDefaultTrailingSlashMatch();
 
     protected String lockProviderName;
 
     protected WebUIMode webUIMode = WebUIMode.DEFAULT;
+
+    @PatchProperty("userDetailsDisplaySettings")
+    protected UserDetailsDisplaySettingsInfo userDetailsDisplaySettingsInfo = new UserDetailsDisplaySettingsInfoImpl();
 
     protected Boolean allowStoredQueriesPerWorkspace = true;
 
@@ -111,13 +115,13 @@ public class GeoServerInfoImpl implements GeoServerInfo {
     }
 
     @Override
-    public JAIInfo getJAI() {
-        return jai;
+    public ImageProcessingInfo getImageProcessing() {
+        return imageProcessing;
     }
 
     @Override
-    public void setJAI(JAIInfo jai) {
-        this.jai = jai;
+    public void setImageProcessing(ImageProcessingInfo imagen) {
+        this.imageProcessing = imagen;
     }
 
     @Override
@@ -268,21 +272,27 @@ public class GeoServerInfoImpl implements GeoServerInfo {
     }
 
     /**
-     * If true it enables evaluation of XML entities contained in XML files received in a service
-     * (WMS, WFS, ...) request. Default is FALSE. Enabling this feature is a security risk.
+     * If true it enables unrestricted evaluation of XML entities contained in XML files received in a service (WMS,
+     * WFS, ...) request. Default is FALSE. Enabling this feature is a security risk.
+     *
+     * @deprecated use the {@code ENTITY_RESOLUTION_UNRESTRICTED} system property
      */
+    @Deprecated
     @Override
     public void setXmlExternalEntitiesEnabled(Boolean xmlExternalEntitiesEnabled) {
-        this.xmlExternalEntitiesEnabled = xmlExternalEntitiesEnabled;
+        // do nothing
     }
 
     /**
-     * If true it enables evaluation of XML entities contained in XML files received in a service
-     * (WMS, WFS, ...) request. Default is FALSE. Enabling this feature is a security risk.
+     * If true it enables unrestricted evaluation of XML entities contained in XML files received in a service (WMS,
+     * WFS, ...) request. Default is FALSE. Enabling this feature is a security risk.
+     *
+     * @deprecated use the {@code ENTITY_RESOLUTION_UNRESTRICTED} system property
      */
+    @Deprecated
     @Override
     public Boolean isXmlExternalEntitiesEnabled() {
-        return this.xmlExternalEntitiesEnabled;
+        return null;
     }
 
     @Override
@@ -332,9 +342,7 @@ public class GeoServerInfoImpl implements GeoServerInfo {
 
     @Override
     public Boolean isAllowStoredQueriesPerWorkspace() {
-        return allowStoredQueriesPerWorkspace == null
-                ? Boolean.TRUE
-                : allowStoredQueriesPerWorkspace;
+        return allowStoredQueriesPerWorkspace == null ? Boolean.TRUE : allowStoredQueriesPerWorkspace;
     }
 
     @Override
@@ -347,6 +355,8 @@ public class GeoServerInfoImpl implements GeoServerInfo {
         final int prime = 31;
         int result = 1;
         result = prime * result + ((settings == null) ? 0 : settings.hashCode());
+        result = prime * result
+                + ((userDetailsDisplaySettingsInfo == null) ? 0 : userDetailsDisplaySettingsInfo.hashCode());
         result = prime * result + ((adminPassword == null) ? 0 : adminPassword.hashCode());
         result = prime * result + ((adminUsername == null) ? 0 : adminUsername.hashCode());
         result = prime * result + ((clientProperties == null) ? 0 : clientProperties.hashCode());
@@ -355,9 +365,7 @@ public class GeoServerInfoImpl implements GeoServerInfo {
         result = prime * result + Long.valueOf(updateSequence).hashCode();
         result = prime * result + (globalServices ? 1231 : 1237);
         result = prime * result + xmlPostRequestLogBufferSize;
-        result =
-                prime * result
-                        + ((resourceErrorHandling == null) ? 0 : resourceErrorHandling.hashCode());
+        result = prime * result + ((resourceErrorHandling == null) ? 0 : resourceErrorHandling.hashCode());
         result = prime * result + ((lockProviderName == null) ? 0 : lockProviderName.hashCode());
         return result;
     }
@@ -379,6 +387,9 @@ public class GeoServerInfoImpl implements GeoServerInfo {
         if (settings == null) {
             if (other.getSettings() != null) return false;
         } else if (!settings.equals(other.getSettings())) return false;
+        if (userDetailsDisplaySettingsInfo == null) {
+            if (other.getUserDetailsDisplaySettings() != null) return false;
+        } else if (!userDetailsDisplaySettingsInfo.equals(other.getUserDetailsDisplaySettings())) return false;
         if (id == null) {
             if (other.getId() != null) return false;
         } else if (!id.equals(other.getId())) return false;
@@ -430,6 +441,9 @@ public class GeoServerInfoImpl implements GeoServerInfo {
         }
         if (this.settings == null) {
             this.settings = new SettingsInfoImpl();
+        }
+        if (this.userDetailsDisplaySettingsInfo == null) {
+            this.userDetailsDisplaySettingsInfo = new UserDetailsDisplaySettingsInfoImpl();
         }
 
         // handle deprecated members, forward values onto the setter methods
@@ -495,6 +509,16 @@ public class GeoServerInfoImpl implements GeoServerInfo {
     @Override
     public void setWebUIMode(WebUIMode webUIMode) {
         this.webUIMode = webUIMode;
+    }
+
+    @Override
+    public UserDetailsDisplaySettingsInfo getUserDetailsDisplaySettings() {
+        return userDetailsDisplaySettingsInfo;
+    }
+
+    @Override
+    public void setUserDetailsDisplaySettings(UserDetailsDisplaySettingsInfo userDetailsDisplaySettings) {
+        this.userDetailsDisplaySettingsInfo = userDetailsDisplaySettings;
     }
 
     public Boolean getUseHeadersProxyURLRaw() {

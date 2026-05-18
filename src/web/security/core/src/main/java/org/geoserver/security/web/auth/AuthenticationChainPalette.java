@@ -19,8 +19,7 @@ import org.apache.wicket.model.ResourceModel;
 import org.geoserver.web.GeoServerApplication;
 
 /**
- * Palette widget for the authentication chain, allowing for setting active providers and defining
- * chain order.
+ * Palette widget for the authentication chain, allowing for setting active providers and defining chain order.
  *
  * @author Justin Deoliveira, OpenGeo
  */
@@ -34,13 +33,12 @@ public class AuthenticationChainPalette extends Palette<String> {
         this(id, null, model);
     }
 
-    public AuthenticationChainPalette(
-            String id, IModel<List<String>> model, IModel<List<String>> choicesModel) {
+    public AuthenticationChainPalette(String id, IModel<List<String>> model, IModel<List<String>> choicesModel) {
         super(
                 id,
                 model,
                 choicesModel,
-                new ChoiceRenderer<String>() {
+                new ChoiceRenderer<>() {
                     @Override
                     public String getIdValue(String object, int index) {
                         return (String) getDisplayValue(object);
@@ -62,17 +60,10 @@ public class AuthenticationChainPalette extends Palette<String> {
         public List<String> getObject() {
             try {
                 return new ArrayList<>(
-                        GeoServerApplication.get()
-                                .getSecurityManager()
-                                .listAuthenticationProviders());
+                        GeoServerApplication.get().getSecurityManager().listAuthenticationProviders());
             } catch (IOException e) {
                 throw new WicketRuntimeException(e);
             }
-        }
-
-        @Override
-        public void detach() {
-            // do nothing
         }
 
         @Override
@@ -83,14 +74,12 @@ public class AuthenticationChainPalette extends Palette<String> {
     /** Override otherwise the header is not i18n'ized */
     @Override
     public Component newSelectedHeader(final String componentId) {
-        return new Label(
-                componentId, new ResourceModel("AuthenticationChainPalette.selectedHeader"));
+        return new Label(componentId, new ResourceModel("AuthenticationChainPalette.selectedHeader"));
     }
 
     /** Override otherwise the header is not i18n'ized */
     @Override
     public Component newAvailableHeader(final String componentId) {
-        return new Label(
-                componentId, new ResourceModel("AuthenticationChainPalette.availableHeader"));
+        return new Label(componentId, new ResourceModel("AuthenticationChainPalette.availableHeader"));
     }
 }

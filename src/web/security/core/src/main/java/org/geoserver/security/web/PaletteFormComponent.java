@@ -5,6 +5,8 @@
  */
 package org.geoserver.security.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +26,19 @@ import org.apache.wicket.model.ResourceModel;
 
 public class PaletteFormComponent<T extends Serializable> extends FormComponentPanel<T> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(PaletteFormComponent.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     /** the palette */
     protected Palette<T> palette;
 
@@ -31,57 +46,45 @@ public class PaletteFormComponent<T extends Serializable> extends FormComponentP
     List<Behavior> toAdd = new ArrayList<>();
 
     public PaletteFormComponent(
-            String id,
-            IModel<List<T>> model,
-            IModel<List<T>> choicesModel,
-            ChoiceRenderer<T> renderer) {
+            String id, IModel<List<T>> model, IModel<List<T>> choicesModel, ChoiceRenderer<T> renderer) {
         super(id, new Model<>());
 
         add(
-                palette =
-                        new Palette<T>("palette", model, choicesModel, renderer, 10, false) {
-                            @Override
-                            protected Recorder<T> newRecorderComponent() {
-                                Recorder<T> rec = super.newRecorderComponent();
+                palette = new Palette<>("palette", model, choicesModel, renderer, 10, false) {
+                    @Override
+                    protected Recorder<T> newRecorderComponent() {
+                        Recorder<T> rec = super.newRecorderComponent();
 
-                                // add any behaviors that need to be added
-                                rec.add(toAdd.toArray(new Behavior[toAdd.size()]));
-                                toAdd.clear();
-                                return rec;
-                            }
+                        // add any behaviors that need to be added
+                        rec.add(toAdd.toArray(new Behavior[toAdd.size()]));
+                        toAdd.clear();
+                        return rec;
+                    }
 
-                            /** Override otherwise the header is not i18n'ized */
-                            @Override
-                            public Component newSelectedHeader(final String componentId) {
+                    /** Override otherwise the header is not i18n'ized */
+                    @Override
+                    public Component newSelectedHeader(final String componentId) {
 
-                                return new Label(
-                                        componentId,
-                                        new ResourceModel(getSelectedHeaderPropertyKey()));
-                            }
+                        return new Label(componentId, new ResourceModel(getSelectedHeaderPropertyKey()));
+                    }
 
-                            /** Override otherwise the header is not i18n'ized */
-                            @Override
-                            public Component newAvailableHeader(final String componentId) {
-                                return new Label(
-                                        componentId,
-                                        new ResourceModel(getAvaliableHeaderPropertyKey()));
-                            }
-                        });
+                    /** Override otherwise the header is not i18n'ized */
+                    @Override
+                    public Component newAvailableHeader(final String componentId) {
+                        return new Label(componentId, new ResourceModel(getAvailableHeaderPropertyKey()));
+                    }
+                });
         palette.add(new DefaultTheme());
         palette.setOutputMarkupId(true);
     }
 
-    /**
-     * @return the default key, subclasses may override, if "Selected" is not illustrative enough
-     */
+    /** @return the default key, subclasses may override, if "Selected" is not illustrative enough */
     protected String getSelectedHeaderPropertyKey() {
         return "PaletteFormComponent.selectedHeader";
     }
 
-    /**
-     * @return the default key, subclasses may override, if "Available" is not illustrative enough
-     */
-    protected String getAvaliableHeaderPropertyKey() {
+    /** @return the default key, subclasses may override, if "Available" is not illustrative enough */
+    protected String getAvailableHeaderPropertyKey() {
         return "PaletteFormComponent.availableHeader";
     }
 

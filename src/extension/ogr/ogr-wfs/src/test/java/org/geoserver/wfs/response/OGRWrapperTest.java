@@ -20,14 +20,12 @@ public class OGRWrapperTest {
     @Before
     public void setUp() throws Exception {
         Assume.assumeTrue(Ogr2OgrTestUtil.isOgrAvailable());
-        ogr =
-                new OGRWrapper(
-                        Ogr2OgrTestUtil.getOgr2Ogr(),
-                        Collections.singletonMap("GDAL_DATA", Ogr2OgrTestUtil.getGdalData()));
+        ogr = new OGRWrapper(
+                Ogr2OgrTestUtil.getOgr2Ogr(), Collections.singletonMap("GDAL_DATA", Ogr2OgrTestUtil.getGdalData()));
     }
 
     @Test
-    public void testAvaialable() {
+    public void testAvailable() {
         // kind of a smoke test, since ogr2ogrtestutil uses the same command!
         ogr.isAvailable();
     }

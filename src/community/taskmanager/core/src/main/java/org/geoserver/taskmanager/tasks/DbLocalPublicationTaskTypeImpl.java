@@ -4,10 +4,10 @@
  */
 package org.geoserver.taskmanager.tasks;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.CatalogFactory;
@@ -28,10 +28,10 @@ import org.geoserver.taskmanager.schedule.TaskException;
 import org.geoserver.taskmanager.schedule.TaskResult;
 import org.geoserver.taskmanager.schedule.TaskType;
 import org.geoserver.taskmanager.util.SqlUtil;
+import org.geotools.api.feature.type.Name;
 import org.geotools.feature.NameImpl;
 import org.geotools.jdbc.JDBCDataStoreFactory;
 import org.geotools.util.decorate.Wrapper;
-import org.opengis.feature.type.Name;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -48,12 +48,13 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
 
     public static final String PARAM_TABLE_NAME = "table-name";
 
-    protected final Map<String, ParameterInfo> paramInfo =
-            new LinkedHashMap<String, ParameterInfo>();
+    protected final Map<String, ParameterInfo> paramInfo = new LinkedHashMap<String, ParameterInfo>();
 
-    @Autowired protected ExtTypes extTypes;
+    @Autowired
+    protected ExtTypes extTypes;
 
-    @Autowired protected Catalog catalog;
+    @Autowired
+    protected Catalog catalog;
 
     @Override
     public String getName() {
@@ -65,15 +66,11 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
         ParameterInfo dbInfo = new ParameterInfo(PARAM_DB_NAME, extTypes.dbName, true);
         paramInfo.put(PARAM_DB_NAME, dbInfo);
         paramInfo.put(
-                PARAM_TABLE_NAME,
-                new ParameterInfo(PARAM_TABLE_NAME, extTypes.tableName, true).dependsOn(dbInfo));
-        ParameterInfo paramWorkspace =
-                new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
+                PARAM_TABLE_NAME, new ParameterInfo(PARAM_TABLE_NAME, extTypes.tableName, true).dependsOn(dbInfo));
+        ParameterInfo paramWorkspace = new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
         paramInfo.put(PARAM_WORKSPACE, paramWorkspace);
         paramInfo.put(
-                PARAM_LAYER,
-                new ParameterInfo(PARAM_LAYER, extTypes.name, true)
-                        .dependsOn(false, paramWorkspace));
+                PARAM_LAYER, new ParameterInfo(PARAM_LAYER, extTypes.name, true).dependsOn(false, paramWorkspace));
     }
 
     @Override
@@ -85,34 +82,22 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
     public TaskResult run(TaskContext ctx) throws TaskException {
         final Name layerName = (Name) ctx.getParameterValues().get(PARAM_LAYER);
         final DbSource db = (DbSource) ctx.getParameterValues().get(PARAM_DB_NAME);
-        final DbTable table =
-                (DbTable)
-                        ctx.getBatchContext()
-                                .get(
-                                        ctx.getParameterValues().get(PARAM_TABLE_NAME),
-                                        new BatchContext.Dependency() {
-                                            @Override
-                                            public void revert() throws TaskException {
-                                                FeatureTypeInfo resource =
-                                                        catalog.getResourceByName(
-                                                                layerName, FeatureTypeInfo.class);
-                                                DbTable table =
-                                                        (DbTable)
-                                                                ctx.getBatchContext()
-                                                                        .get(
-                                                                                ctx.getParameterValues()
-                                                                                        .get(
-                                                                                                PARAM_TABLE_NAME));
-                                                resource.setNativeName(
-                                                        SqlUtil.notQualified(table.getTableName()));
-                                                catalog.save(resource);
-                                            }
-                                        });
+        final DbTable table = (DbTable) ctx.getBatchContext()
+                .get(ctx.getParameterValues().get(PARAM_TABLE_NAME), new BatchContext.Dependency() {
+                    @Override
+                    public void revert() throws TaskException {
+                        FeatureTypeInfo resource = catalog.getResourceByName(layerName, FeatureTypeInfo.class);
+                        DbTable table = (DbTable) ctx.getBatchContext()
+                                .get(ctx.getParameterValues().get(PARAM_TABLE_NAME));
+                        resource.setNativeName(SqlUtil.notQualified(table.getTableName()));
+                        catalog.save(resource);
+                    }
+                });
 
         CatalogFactory catalogFac = new CatalogFactoryImpl(catalog);
 
         final NamespaceInfo ns = catalog.getNamespaceByURI(layerName.getNamespaceURI());
-        final WorkspaceInfo ws = catalog.getWorkspaceByName(ns.getName());
+        final WorkspaceInfo ws = getWorkspace(ctx, ns);
 
         final boolean createLayer = catalog.getLayerByName(layerName) == null;
         final boolean createStore;
@@ -126,8 +111,7 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
             String schema = SqlUtil.schema(table.getTableName());
             String dbName = schema == null ? db.getName() : (db.getName() + "_" + schema);
             final DataStoreInfo _store = catalog.getStoreByName(ws, dbName, DataStoreInfo.class);
-            final FeatureTypeInfo _resource =
-                    catalog.getResourceByName(layerName, FeatureTypeInfo.class);
+            final FeatureTypeInfo _resource = catalog.getResourceByName(layerName, FeatureTypeInfo.class);
             createStore = _store == null;
             createResource = _resource == null;
 
@@ -135,12 +119,10 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
                 store = catalogFac.createDataStore();
                 store.setWorkspace(ws);
                 store.setName(dbName);
-                store.getConnectionParameters()
-                        .put(JDBCDataStoreFactory.NAMESPACE.getName(), ns.getURI());
+                store.getConnectionParameters().put(JDBCDataStoreFactory.NAMESPACE.getName(), ns.getURI());
                 store.getConnectionParameters().putAll(db.getParameters());
                 if (schema != null) {
-                    store.getConnectionParameters()
-                            .put(JDBCDataStoreFactory.SCHEMA.getName(), schema);
+                    store.getConnectionParameters().put(JDBCDataStoreFactory.SCHEMA.getName(), schema);
                 }
                 store.setEnabled(true);
                 catalog.add(store);
@@ -152,9 +134,7 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
             if (createResource) {
                 builder.setStore(store);
                 try {
-                    resource =
-                            builder.buildFeatureType(
-                                    new NameImpl(SqlUtil.notQualified(table.getTableName())));
+                    resource = builder.buildFeatureType(new NameImpl(SqlUtil.notQualified(table.getTableName())));
                     builder.setupBounds(resource);
                 } catch (Exception e) {
                     if (createStore) {
@@ -195,8 +175,7 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
             @Override
             public void commit() throws TaskException {
                 if (createLayer) {
-                    ResourceInfo editResource =
-                            catalog.getResource(resource.getId(), ResourceInfo.class);
+                    ResourceInfo editResource = catalog.getResource(resource.getId(), ResourceInfo.class);
                     editResource.setAdvertised(true);
                     catalog.save(editResource);
                 }
@@ -217,20 +196,28 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
         };
     }
 
+    private WorkspaceInfo getWorkspace(TaskContext ctx, NamespaceInfo ns) throws TaskException {
+        WorkspaceInfo ws = (WorkspaceInfo) ctx.getParameterValues().get(PARAM_WORKSPACE);
+        if (ws == null) {
+            ws = catalog.getWorkspaceByName(ns.getName());
+        }
+        return ws;
+    }
+
     @Override
     public void cleanup(TaskContext ctx) throws TaskException {
         final DbSource db = (DbSource) ctx.getParameterValues().get(PARAM_DB_NAME);
         final Name layerName = (Name) ctx.getParameterValues().get(PARAM_LAYER);
-        final String workspace = catalog.getNamespaceByURI(layerName.getNamespaceURI()).getPrefix();
+
+        final WorkspaceInfo ws = getWorkspace(ctx, catalog.getNamespaceByURI(layerName.getNamespaceURI()));
 
         final DbTable table = (DbTable) ctx.getParameterValues().get(PARAM_TABLE_NAME);
         String schema = SqlUtil.schema(table.getTableName());
         String dbName = schema == null ? db.getName() : (db.getName() + "_" + schema);
 
         final LayerInfo layer = catalog.getLayerByName(layerName);
-        final DataStoreInfo store = catalog.getStoreByName(workspace, dbName, DataStoreInfo.class);
-        final FeatureTypeInfo resource =
-                catalog.getResourceByName(layerName, FeatureTypeInfo.class);
+        final DataStoreInfo store = catalog.getStoreByName(ws.getName(), dbName, DataStoreInfo.class);
+        final FeatureTypeInfo resource = catalog.getResourceByName(layerName, FeatureTypeInfo.class);
 
         catalog.remove(layer);
         catalog.remove(resource);
@@ -240,8 +227,8 @@ public class DbLocalPublicationTaskTypeImpl implements TaskType {
     }
 
     private static <T> T unwrap(T o, Class<T> clazz) {
-        if (o instanceof Wrapper) {
-            return ((Wrapper) o).unwrap(clazz);
+        if (o instanceof Wrapper wrapper) {
+            return wrapper.unwrap(clazz);
         } else {
             return o;
         }

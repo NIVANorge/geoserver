@@ -26,17 +26,19 @@ import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.security.AccessMode;
 import org.geoserver.security.CatalogMode;
+import org.geoserver.util.SortedProperties;
 import org.geotools.feature.NameImpl;
 import org.geotools.util.logging.Logging;
 
 /**
- * Allows one to manage the rules used by the per layer security subsystem TODO: consider splitting
- * the persistence of properties into two strategies, and in memory one, and a file system one (this
- * class is so marginal that I did not do so right away, in memory access is mostly handy for
- * testing)
+ * Allows one to manage the rules used by the per layer security subsystem TODO: consider splitting the persistence of
+ * properties into two strategies, and in memory one, and a file system one (this class is so marginal that I did not do
+ * so right away, in memory access is mostly handy for testing)
  */
 public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
 
+    public static final String KEY_MODE = "mode";
+    private static final String KEY_SANDBOX = "filesystemSandbox";
     private static Pattern DOT = Pattern.compile("\\.");
 
     private static final Logger LOGGER = Logging.getLogger(DataAccessRuleDAO.class);
@@ -49,6 +51,8 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
 
     /** Default to the highest security mode */
     CatalogMode catalogMode = CatalogMode.HIDE;
+
+    String filesystemSandbox;
 
     /** Returns the instanced contained in the Spring context for the UI to use */
     public static DataAccessRuleDAO get() {
@@ -78,31 +82,29 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
     protected void loadRules(Properties props) {
         SortedSet<DataAccessRule> result = new ConcurrentSkipListSet<>();
         CatalogMode catalogMode = CatalogMode.HIDE;
+        this.filesystemSandbox = null;
         for (Map.Entry<Object, Object> entry : props.entrySet()) {
             String ruleKey = (String) entry.getKey();
             String ruleValue = (String) entry.getValue();
 
             // check for the mode
-            if ("mode".equalsIgnoreCase(ruleKey)) {
+            if (KEY_MODE.equalsIgnoreCase(ruleKey)) {
                 try {
                     catalogMode = CatalogMode.valueOf(ruleValue.toUpperCase());
                 } catch (Exception e) {
-                    LOGGER.warning(
-                            "Invalid security mode "
-                                    + ruleValue
-                                    + " acceptable values are "
-                                    + Arrays.asList(CatalogMode.values()));
+                    LOGGER.warning("Invalid security mode "
+                            + ruleValue
+                            + " acceptable values are "
+                            + Arrays.asList(CatalogMode.values()));
                 }
+            } else if (KEY_SANDBOX.equalsIgnoreCase(ruleKey)) {
+                filesystemSandbox = ruleValue;
             } else {
                 DataAccessRule rule = parseDataAccessRule(ruleKey, ruleValue);
                 if (rule != null) {
                     if (result.contains(rule))
                         LOGGER.warning(
-                                "Rule "
-                                        + ruleKey
-                                        + "."
-                                        + ruleValue
-                                        + " overwrites another rule on the same path");
+                                "Rule " + ruleKey + "." + ruleValue + " overwrites another rule on the same path");
                     result.add(rule);
                 }
             }
@@ -118,10 +120,7 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
         this.rules = result;
     }
 
-    /**
-     * Parses a single layer.properties line into a {@link DataAccessRule}, returns false if the
-     * rule is not valid
-     */
+    /** Parses a single layer.properties line into a {@link DataAccessRule}, returns false if the rule is not valid */
     DataAccessRule parseDataAccessRule(String ruleKey, String ruleValue) {
         final String rule = ruleKey + "=" + ruleValue;
 
@@ -166,25 +165,18 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
         // check the access mode sanity
         AccessMode mode = AccessMode.getByAlias(modeAlias);
         if (mode == null) {
-            LOGGER.warning(
-                    "Unknown access mode "
-                            + modeAlias
-                            + " in "
-                            + ruleKey
-                            + ", skipping rule "
-                            + rule);
+            LOGGER.warning("Unknown access mode " + modeAlias + " in " + ruleKey + ", skipping rule " + rule);
             return null;
         }
 
         // check ANY usage sanity
         if (ANY.equals(root)) {
             if (!ANY.equals(layerName)) {
-                LOGGER.warning(
-                        "Invalid rule "
-                                + rule
-                                + ", when namespace "
-                                + "is * then also layer must be *. Skipping rule "
-                                + rule);
+                LOGGER.warning("Invalid rule "
+                        + rule
+                        + ", when namespace "
+                        + "is * then also layer must be *. Skipping rule "
+                        + rule);
                 return null;
             }
         }
@@ -192,11 +184,10 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
         // check admin access only applied globally to workspace
         if (mode == AccessMode.ADMIN && !ANY.equals(layerName)) {
             // TODO: should this throw an exception instead of ignore rule?
-            LOGGER.warning(
-                    "Invalid rule "
-                            + rule
-                            + ", admin (a) privileges may only be applied "
-                            + "globally to a workspace, layer must be *, skipping rule");
+            LOGGER.warning("Invalid rule "
+                    + rule
+                    + ", admin (a) privileges may only be applied "
+                    + "globally to a workspace, layer must be *, skipping rule");
             return null;
         }
 
@@ -207,11 +198,13 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
     /** Turns the rules list into a property bag */
     @Override
     protected Properties toProperties() {
-        Properties props = new Properties();
-        props.put("mode", catalogMode.toString());
+        SortedProperties props = new SortedProperties();
+        props.put(KEY_MODE, catalogMode.toString());
+        if (filesystemSandbox != null) {
+            props.put(KEY_SANDBOX, filesystemSandbox);
+        }
         for (DataAccessRule rule : rules) {
-            StringBuilder sbKey =
-                    new StringBuilder(DOT.matcher(rule.getRoot()).replaceAll("\\\\."));
+            StringBuilder sbKey = new StringBuilder(DOT.matcher(rule.getRoot()).replaceAll("\\\\."));
             if (!rule.isGlobalGroupRule()) {
                 sbKey.append(".").append(DOT.matcher(rule.getLayer()).replaceAll("\\\\."));
             }
@@ -258,5 +251,23 @@ public class DataAccessRuleDAO extends AbstractAccessRuleDAO<DataAccessRule> {
         SortedSet<DataAccessRule> result = new TreeSet<>();
         for (DataAccessRule rule : getRules()) if (rule.getRoles().contains(role)) result.add(rule);
         return result;
+    }
+
+    /** Returns the file system sandbox configured in <code>layers.properties</code>, if set, or null otherwise. */
+    public String getFilesystemSandbox() {
+        return filesystemSandbox;
+    }
+
+    /**
+     * Sets the file system sandbox to be used by the file access manager.
+     *
+     * @param filesystemSandbox the file system sandbox to be used by the file access manager, or null if the sandbox
+     *     should be removed
+     */
+    public void setFilesystemSandbox(String filesystemSandbox) {
+        // sanitize in case a store-like path has ben provided
+        if (filesystemSandbox != null && filesystemSandbox.startsWith("file://"))
+            filesystemSandbox = filesystemSandbox.substring("file://".length());
+        this.filesystemSandbox = filesystemSandbox;
     }
 }

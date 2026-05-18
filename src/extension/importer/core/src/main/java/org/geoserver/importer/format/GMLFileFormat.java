@@ -4,6 +4,7 @@
  */
 package org.geoserver.importer.format;
 
+import static java.util.Map.entry;
 import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 
 import java.io.File;
@@ -40,7 +41,12 @@ import org.geoserver.importer.transform.ReprojectTransform;
 import org.geoserver.importer.transform.TransformChain;
 import org.geoserver.importer.transform.VectorTransform;
 import org.geoserver.importer.transform.VectorTransformChain;
-import org.geotools.data.FeatureReader;
+import org.geotools.api.data.FeatureReader;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.feature.AttributeTypeBuilder;
 import org.geotools.feature.FeatureTypes;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
@@ -54,11 +60,6 @@ import org.geotools.wfs.v1_0.WFSConfiguration_1_0;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.PullParser;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * Supports reading GML simple features from a file with ".gml" extension
@@ -71,25 +72,14 @@ public class GMLFileFormat extends VectorFormat {
         Integer.class, Long.class, Double.class, Boolean.class, Date.class
     };
 
-    private static final HashSet<Class<?>> VALID_ATTRIBUTE_TYPES =
-            new HashSet<>(
-                    Arrays.asList(
-                            (Class<?>) Geometry.class,
-                            Number.class,
-                            Date.class,
-                            Boolean.class,
-                            String.class));
+    private static final HashSet<Class<?>> VALID_ATTRIBUTE_TYPES = new HashSet<>(
+            Arrays.asList((Class<?>) Geometry.class, Number.class, Date.class, Boolean.class, String.class));
 
-    private static final List<String> GML_ATTRIBUTES =
-            Arrays.asList("name", "description", "boundedBy", "location");
+    private static final List<String> GML_ATTRIBUTES = Arrays.asList("name", "description", "boundedBy", "location");
 
-    private static final Map<Class<?>, Class<?>> TYPE_PROMOTIONS =
-            new HashMap<Class<?>, Class<?>>() {
-                {
-                    put(Integer.class, Long.class);
-                    put(Long.class, Double.class);
-                }
-            };
+    private static final Map<Class<?>, Class<?>> TYPE_PROMOTIONS = Map.ofEntries(
+            entry(Integer.class, Long.class), //
+            entry(Long.class, Double.class));
 
     private static final String GML_VERSION_KEY = "version";
 
@@ -110,7 +100,7 @@ public class GMLFileFormat extends VectorFormat {
         public Configuration getConfiguration() {
             return configuration;
         }
-    };
+    }
 
     @Override
     public FeatureReader read(ImportData data, ImportTask task) throws IOException {
@@ -137,8 +127,7 @@ public class GMLFileFormat extends VectorFormat {
     }
 
     @Override
-    public List<ImportTask> list(ImportData data, Catalog catalog, ProgressMonitor monitor)
-            throws IOException {
+    public List<ImportTask> list(ImportData data, Catalog catalog, ProgressMonitor monitor) throws IOException {
         File file = getFileFromData(data);
         SimpleFeatureType featureType = getSchema(file);
         CatalogFactory factory = catalog.getFactory();
@@ -230,9 +219,7 @@ public class GMLFileFormat extends VectorFormat {
                 }
             }
 
-            String location =
-                    parser.getAttributeValue(
-                            "http://www.w3.org/2001/XMLSchema-instance", "schemaLocation");
+            String location = parser.getAttributeValue("http://www.w3.org/2001/XMLSchema-instance", "schemaLocation");
             hasSchema = location != null;
 
             String gmlNamespace = parser.getNamespaceURI("gml");
@@ -264,8 +251,7 @@ public class GMLFileFormat extends VectorFormat {
         Map<String, AttributeDescriptor> guessedTypes = new HashMap<>();
         SimpleFeatureType result = null;
         try (FileInputStream fis = new FileInputStream(file)) {
-            PullParser parser =
-                    new PullParser(version.getConfiguration(), fis, SimpleFeature.class);
+            PullParser parser = new PullParser(version.getConfiguration(), fis, SimpleFeature.class);
             SimpleFeature sf = (SimpleFeature) parser.parse();
             while (sf != null) {
                 if (hasSchema) {
@@ -275,8 +261,7 @@ public class GMLFileFormat extends VectorFormat {
                     if (result.getCoordinateReferenceSystem() == null) {
                         Geometry g = (Geometry) sf.getDefaultGeometry();
                         if (g != null && g.getUserData() instanceof CoordinateReferenceSystem) {
-                            CoordinateReferenceSystem crs =
-                                    (CoordinateReferenceSystem) g.getUserData();
+                            CoordinateReferenceSystem crs = (CoordinateReferenceSystem) g.getUserData();
                             result = FeatureTypes.transform(result, crs);
                         }
                     }
@@ -345,8 +330,7 @@ public class GMLFileFormat extends VectorFormat {
         return result;
     }
 
-    private void updateSimpleTypeGuess(
-            String name, Object value, Map<String, AttributeDescriptor> guessedTypes) {
+    private void updateSimpleTypeGuess(String name, Object value, Map<String, AttributeDescriptor> guessedTypes) {
         if (value == null) {
             return;
         }
@@ -362,11 +346,10 @@ public class GMLFileFormat extends VectorFormat {
             return;
         }
 
-        if (value instanceof Geometry) {
+        if (value instanceof Geometry g) {
             // for geometries, special case as we need to handle the CRS and we basically
             // have no promotions, either all equal, or all Geometry.class
             if (target == null) {
-                Geometry g = (Geometry) value;
                 AttributeTypeBuilder typeBuilder = new AttributeTypeBuilder();
                 typeBuilder.setName(name);
                 typeBuilder.setBinding(value.getClass());
@@ -435,8 +418,7 @@ public class GMLFileFormat extends VectorFormat {
     }
 
     @Override
-    public StoreInfo createStore(ImportData data, WorkspaceInfo workspace, Catalog catalog)
-            throws IOException {
+    public StoreInfo createStore(ImportData data, WorkspaceInfo workspace, Catalog catalog) throws IOException {
         // no store support for GML
         return null;
     }

@@ -15,20 +15,20 @@ import java.util.List;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestHandler;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.FormComponent;
+import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.markup.repeater.Item;
 import org.apache.wicket.markup.repeater.data.DataView;
 import org.apache.wicket.util.tester.FormTester;
 import org.geoserver.security.GeoServerSecurityManager;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.junit.Before;
 
-public abstract class AbstractSecurityNamedServicePanelTest
-        extends AbstractSecurityWicketTestSupport {
+public abstract class AbstractSecurityNamedServicePanelTest extends AbstractSecurityWicketTestSupport {
 
     public static final String FIRST_COLUM_PATH = "itemProperties:0:component:link";
     public static final String CHECKBOX_PATH = "selectItemContainer:selectItem";
@@ -99,8 +99,7 @@ public abstract class AbstractSecurityNamedServicePanelTest
 
     @SuppressWarnings("unchecked")
     protected DataView<SecurityNamedServiceConfig> getDataView() {
-        return (DataView<SecurityNamedServiceConfig>)
-                basePage.get(basePanelId + ":table:listContainer:items");
+        return (DataView<SecurityNamedServiceConfig>) basePage.get(basePanelId + ":table:listContainer:items");
     }
 
     protected long countItems() {
@@ -142,8 +141,7 @@ public abstract class AbstractSecurityNamedServicePanelTest
         AbstractSecurityPage testPage = (AbstractSecurityPage) tester.getLastRenderedPage();
 
         if (serviceNames.length == 0) {
-            String selectAllPath =
-                    basePanelId + ":table:listContainer:selectAllContainer:selectAll";
+            String selectAllPath = basePanelId + ":table:listContainer:selectAllContainer:selectAll";
             tester.assertComponent(selectAllPath, CheckBox.class);
 
             FormComponent selectAllPathComponent =
@@ -173,17 +171,16 @@ public abstract class AbstractSecurityNamedServicePanelTest
 
         tester.assertNoErrorMessage();
 
-        tester.assertComponent(basePanelId + ":dialog:dialog", ModalWindow.class);
-        ModalWindow w = (ModalWindow) testPage.get(basePanelId + ":dialog:dialog");
-        /*(ModalWindow) testPage.get(
+        tester.assertComponent(basePanelId + ":dialog:dialog", GSModalWindow.class);
+        GSModalWindow w = (GSModalWindow) testPage.get(basePanelId + ":dialog:dialog");
+        /*(GSModalWindow) testPage.get(
         testPage.getWicketPath() + ":dialog:dialog");*/
 
         assertFalse(w.isShown());
         tester.clickLink(basePanelId + ":remove", true);
         assertTrue(w.isShown());
 
-        ((GeoServerDialog) w.getParent())
-                .submit(new AjaxRequestHandler(tester.getLastRenderedPage()));
+        ((GeoServerDialog) w.getParent()).submit(new AjaxRequestHandler(tester.getLastRenderedPage()));
         // simulateDeleteSubmit();
         // executeModalWindowCloseButtonCallback(w);
     }
@@ -205,25 +202,23 @@ public abstract class AbstractSecurityNamedServicePanelTest
         return formTester.getForm().get("config.className").getDefaultModelObjectAsString();
     }
 
-    @SuppressWarnings("deprecation")
-    protected <T extends SecurityNamedServicePanelInfo> void setSecurityConfigClassName(
-            Class<T> clazz) {
+    @SuppressWarnings("unchecked")
+    protected <T extends SecurityNamedServicePanelInfo> void setSecurityConfigClassName(Class<T> clazz)
+            throws Exception {
         ListView list = (ListView) tester.getLastRenderedPage().get("servicesContainer:services");
-        int toClick = -1;
-        for (int i = 0; i < list.getList().size(); i++) {
-            if (clazz.isInstance(list.getList().get(i))) {
-                toClick = i;
-                break;
+        list.forEach(i -> {
+            if (i instanceof ListItem<? extends Object> listItem) {
+                if (clazz.isInstance(listItem.getModelObject())) {
+                    listItem.forEach(action -> {
+                        if (action instanceof AjaxLink link) {
+                            if (link.isEnabled()) {
+                                tester.executeAjaxEvent(link, "click");
+                            }
+                        }
+                    });
+                }
             }
-        }
-        AjaxLink link = (AjaxLink) list.get(toClick).get("link");
-        if (link.isEnabled()) {
-            tester.executeAjaxEvent(link, "click");
-        }
-        //        formTester.select("config.className", index);
-        //
-        // tester.executeAjaxEvent(formTester.getForm().getPageRelativePath()+":config.className",
-        // "change");
+        });
     }
 
     protected void clickSave() {

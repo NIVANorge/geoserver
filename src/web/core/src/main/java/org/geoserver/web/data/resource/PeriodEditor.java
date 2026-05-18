@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.data.resource;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.math.BigDecimal;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
 import org.apache.wicket.markup.html.form.TextField;
@@ -19,6 +21,19 @@ import org.apache.wicket.validation.validator.RangeValidator;
  */
 @SuppressWarnings("serial")
 public class PeriodEditor extends FormComponentPanel<BigDecimal> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(PeriodEditor.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     static final long yearMS = 31536000000L;
 
@@ -97,20 +112,17 @@ public class PeriodEditor extends FormComponentPanel<BigDecimal> {
 
     @Override
     public void convertInput() {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).processInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).processInput();
+        });
 
-        long time =
-                seconds * secondMS
-                        + minutes * minuteMS
-                        + hours * hourMS
-                        + days * dayMS
-                        + weeks * weekMS
-                        + months * monthMS
-                        + years * yearMS;
+        long time = seconds * secondMS
+                + minutes * minuteMS
+                + hours * hourMS
+                + days * dayMS
+                + weeks * weekMS
+                + months * monthMS
+                + years * yearMS;
         setConvertedInput(new BigDecimal(time));
     }
 
@@ -119,10 +131,8 @@ public class PeriodEditor extends FormComponentPanel<BigDecimal> {
         // when the client programmatically changed the model, update the fields
         // so that the textfields will change too
         updateFields();
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).clearInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).clearInput();
+        });
     }
 }

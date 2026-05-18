@@ -6,7 +6,7 @@
 
 package org.geoserver.security.filter;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * J2EE Authentication Filter
@@ -16,6 +16,8 @@ import javax.servlet.http.HttpServletRequest;
 public class GeoServerJ2eeAuthenticationFilter extends GeoServerJ2eeBaseAuthenticationFilter {
     @Override
     protected String getPreAuthenticatedPrincipalName(HttpServletRequest request) {
-        return request.getUserPrincipal() == null ? null : request.getUserPrincipal().getName();
+        return request.getUserPrincipal() == null
+                ? null
+                : request.getUserPrincipal().getName();
     }
 }

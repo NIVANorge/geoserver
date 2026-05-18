@@ -14,13 +14,13 @@ import java.util.Set;
 import org.geoserver.security.Response;
 import org.geoserver.security.SecureCatalogImpl;
 import org.geoserver.security.WrapperPolicy;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureStore;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
 
 /**
  * The secure version of {@link SecuredFeatureStore}
@@ -50,8 +50,7 @@ public class SecuredSimpleFeatureStore extends SecuredFeatureStore<SimpleFeature
     }
 
     @Override
-    public void modifyFeatures(String name, Object attributeValue, Filter filter)
-            throws IOException {
+    public void modifyFeatures(String name, Object attributeValue, Filter filter) throws IOException {
         modifyFeatures(new String[] {name}, new Object[] {attributeValue}, filter);
     }
 
@@ -62,8 +61,7 @@ public class SecuredSimpleFeatureStore extends SecuredFeatureStore<SimpleFeature
         if (writeQuery == Query.ALL) {
             ((SimpleFeatureStore) storeDelegate).modifyFeatures(names, values, filter);
             return;
-        } else if (writeQuery.getFilter() == Filter.EXCLUDE
-                || writeQuery.getPropertyNames() == Query.NO_NAMES) {
+        } else if (writeQuery.getFilter() == Filter.EXCLUDE || writeQuery.getPropertyNames() == Query.NO_NAMES) {
             throw unsupportedOperation();
         }
 

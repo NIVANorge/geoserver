@@ -7,18 +7,18 @@ package org.geoserver.function;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.catalog.Predicates;
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.ExpressionVisitor;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.VolatileFunction;
 import org.geotools.filter.capability.FunctionNameImpl;
 import org.geotools.util.Converters;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.ExpressionVisitor;
-import org.opengis.filter.expression.Function;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.VolatileFunction;
 
 /**
- * This class implements the {@link Function} interface and can be used for checking if an object is
- * an instance of the provided input class.
+ * This class implements the {@link Function} interface and can be used for checking if an object is an instance of the
+ * provided input class.
  *
  * <p>Users can call this function using the {@link Predicates} class:
  *
@@ -30,10 +30,7 @@ public class IsInstanceOf implements VolatileFunction, Function {
 
     /** Function name and related parameters */
     public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "isInstanceOf",
-                    Boolean.class,
-                    FunctionNameImpl.parameter("class", Class.class));
+            new FunctionNameImpl("isInstanceOf", Boolean.class, FunctionNameImpl.parameter("class", Class.class));
 
     /** Function parameters */
     private List<Expression> parameters;

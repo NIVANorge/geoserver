@@ -9,13 +9,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.jayway.jsonpath.DocumentContext;
+import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.Link;
-import org.geoserver.ogcapi.OpenAPIMessageConverter;
+import org.geoserver.ogcapi.SwaggerJSONAPIMessageConverter;
 import org.geoserver.platform.Service;
+import org.geoserver.wcs.WCSInfo;
 import org.geotools.util.Version;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 public class LandingPageTest extends CoveragesTestSupport {
 
@@ -64,16 +67,16 @@ public class LandingPageTest extends CoveragesTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/coverages/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/coverages/v1?f=application/yaml");
         // System.out.println(yaml);
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
                 json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/coverages\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/coverages\\/v1\\/\\?.*/)].rel",
                 "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/coverages\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/coverages\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -134,9 +137,7 @@ public class LandingPageTest extends CoveragesTestSupport {
                 "http://localhost:8080/geoserver/ogc/coverages/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0",
                 readSingle(
                         json,
-                        "links[?(@.type=='"
-                                + OpenAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE
-                                + "')].href"));
+                        "links[?(@.type=='" + SwaggerJSONAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE + "')].href"));
         // check conformance links
         assertJSONList(
                 json,
@@ -155,5 +156,20 @@ public class LandingPageTest extends CoveragesTestSupport {
         assertEquals("Coverages 1.0 server", json.read("title"));
         // check description
         assertEquals("", json.read("description"));
+    }
+
+    @Test
+    public void testDisabledService() throws Exception {
+        GeoServer gs = getGeoServer();
+        WCSInfo service = gs.getService(WCSInfo.class);
+        service.setEnabled(false);
+        gs.save(service);
+        try {
+            MockHttpServletResponse httpServletResponse = getAsMockHttpServletResponse("ogc/coverages/v1", 404);
+            assertEquals("Service Coverages is disabled", httpServletResponse.getErrorMessage());
+        } finally {
+            service.setEnabled(true);
+            gs.save(service);
+        }
     }
 }

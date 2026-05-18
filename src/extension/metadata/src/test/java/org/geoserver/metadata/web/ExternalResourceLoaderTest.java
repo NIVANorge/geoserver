@@ -19,7 +19,6 @@ import org.geoserver.metadata.web.resource.WicketResourceResourceLoader;
 import org.geoserver.platform.resource.Files;
 import org.geoserver.web.data.resource.ResourceConfigurationPage;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -33,7 +32,9 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
     private Locale originalLocale;
 
     @Before
-    public void before() throws IOException {
+    @Override
+    public void start() throws Exception {
+        super.start();
         login();
 
         originalLocale = Session.get().getLocale();
@@ -45,10 +46,12 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
     }
 
     @After
-    public void after() throws Exception {
+    @Override
+    public void stop() throws Exception {
         logout();
 
         Session.get().setLocale(originalLocale);
+        super.stop();
     }
 
     @Test
@@ -58,15 +61,12 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
                 new WicketResourceResourceLoader(Files.asResource(metadata), "metadata.properties");
 
         String actual =
-                loader.loadStringResource(
-                        tester.getLastRenderedPage(), "metadata.generated.form.identifier-single");
-        Assert.assertEquals("identifier single field", actual);
+                loader.loadStringResource(tester.getLastRenderedPage(), "metadata.generated.form.identifier-single");
+        assertEquals("identifier single field", actual);
 
         Session.get().setLocale(new Locale("nl"));
-        actual =
-                loader.loadStringResource(
-                        tester.getLastRenderedPage(), "metadata.generated.form.identifier-single");
-        Assert.assertEquals("identifier single field", actual);
+        actual = loader.loadStringResource(tester.getLastRenderedPage(), "metadata.generated.form.identifier-single");
+        assertEquals("identifier single field", actual);
     }
 
     @Test
@@ -76,10 +76,8 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
         WicketResourceResourceLoader loader =
                 new WicketResourceResourceLoader(Files.asResource(metadata), "metadata.properties");
 
-        String actual =
-                loader.loadStringResource(
-                        tester.getLastRenderedPage(), "metadata.generated.form.number-field");
-        Assert.assertEquals("Getal veld", actual);
+        String actual = loader.loadStringResource(tester.getLastRenderedPage(), "metadata.generated.form.number-field");
+        assertEquals("Getal veld", actual);
     }
 
     @Test
@@ -89,8 +87,7 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
         LayerInfo layer = geoServer.getCatalog().getLayerByName("mylayer");
         ResourceConfigurationPage page = new ResourceConfigurationPage(layer, false);
         tester.startPage(page);
-        ((TabbedPanel<?>) tester.getComponentFromLastRenderedPage("publishedinfo:tabs"))
-                .setSelectedTab(4);
+        ((TabbedPanel<?>) tester.getComponentFromLastRenderedPage("publishedinfo:tabs")).setSelectedTab(4);
         tester.submitForm("publishedinfo");
         tester.assertComponent("publishedinfo:tabs:panel:metadataPanel", MetadataPanel.class);
 
@@ -108,11 +105,9 @@ public class ExternalResourceLoaderTest extends AbstractWicketMetadataTest {
                 "Het code veld");
 
         @SuppressWarnings("unchecked")
-        DropDownChoice<String> choice =
-                (DropDownChoice<String>)
-                        tester.getComponentFromLastRenderedPage(
-                                "publishedinfo:tabs:panel:metadataPanel:attributesPanel:attributesTablePanel:listContainer:items:4:itemProperties:1:component:dropdown");
-        assertEquals(
-                "The Final Choice", choice.getChoiceRenderer().getDisplayValue("the-final-choice"));
+        DropDownChoice<String> choice = (DropDownChoice<String>)
+                tester.getComponentFromLastRenderedPage(
+                        "publishedinfo:tabs:panel:metadataPanel:attributesPanel:attributesTablePanel:listContainer:items:4:itemProperties:1:component:dropdown");
+        assertEquals("The Final Choice", choice.getChoiceRenderer().getDisplayValue("the-final-choice"));
     }
 }

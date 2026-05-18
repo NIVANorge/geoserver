@@ -6,23 +6,21 @@ package org.geoserver.schemalessfeatures.mongodb.response;
  */
 
 import java.util.List;
+import org.geoserver.json.ComplexGeoJsonWriterOptions;
 import org.geoserver.schemalessfeatures.type.DynamicFeatureType;
-import org.geoserver.wfs.json.ComplexGeoJsonWriterOptions;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.ComplexType;
+import org.geotools.api.feature.type.FeatureType;
 import org.geotools.feature.FeatureCollection;
-import org.opengis.feature.type.ComplexType;
 
 public class MongoComplexGeoJsonWriterOptions implements ComplexGeoJsonWriterOptions {
 
     @Override
-    public boolean canHandle(List<FeatureCollection> features) {
+    public <T extends FeatureType, F extends Feature> boolean canHandle(List<FeatureCollection<T, F>> features) {
         boolean result = false;
         if (features != null && !features.isEmpty())
-            result =
-                    features.stream()
-                            .allMatch(
-                                    f ->
-                                            f.getSchema() != null
-                                                    && f.getSchema() instanceof DynamicFeatureType);
+            result = features.stream()
+                    .allMatch(f -> f.getSchema() != null && f.getSchema() instanceof DynamicFeatureType);
         return result;
     }
 

@@ -6,16 +6,16 @@
 
 package org.geoserver.security.filter;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.security.GeoServerSecurityManager;
 import org.geoserver.security.config.BasicAuthenticationFilterConfig;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
@@ -60,8 +60,7 @@ public class GeoServerBasicAuthenticationFilter extends GeoServerCompositeFilter
 
         if (authConfig.isUseRememberMe()) {
             filter.setRememberMeServices(securityManager.getRememberMeService());
-            GeoServerWebAuthenticationDetailsSource s =
-                    new GeoServerWebAuthenticationDetailsSource();
+            GeoServerWebAuthenticationDetailsSource s = new GeoServerWebAuthenticationDetailsSource();
             filter.setAuthenticationDetailsSource(s);
         }
         filter.afterPropertiesSet();
@@ -114,10 +113,7 @@ public class GeoServerBasicAuthenticationFilter extends GeoServerCompositeFilter
             try {
                 MessageDigest md = (MessageDigest) digest.clone();
                 digestString =
-                        new String(
-                                Hex.encode(
-                                        md.digest(
-                                                buff.toString().getBytes(StandardCharsets.UTF_8))));
+                        String.valueOf(Hex.encode(md.digest(buff.toString().getBytes(StandardCharsets.UTF_8))));
             } catch (CloneNotSupportedException e) {
                 throw new RuntimeException(e);
             }

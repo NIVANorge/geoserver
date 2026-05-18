@@ -5,13 +5,14 @@
  */
 package org.geoserver.importer.transform;
 
+import java.io.Serial;
 import org.geoserver.importer.ImportTask;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
 import org.geotools.feature.AttributeTypeBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
 
 /**
  * Attribute that maps an attribute from one type to another.
@@ -20,6 +21,7 @@ import org.opengis.feature.type.AttributeDescriptor;
  */
 public class AttributeRemapTransform extends AbstractTransform implements InlineVectorTransform {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /** field to remap */
@@ -52,8 +54,8 @@ public class AttributeRemapTransform extends AbstractTransform implements Inline
     }
 
     @Override
-    public SimpleFeatureType apply(
-            ImportTask task, DataStore dataStore, SimpleFeatureType featureType) throws Exception {
+    public SimpleFeatureType apply(ImportTask task, DataStore dataStore, SimpleFeatureType featureType)
+            throws Exception {
         // remap the type
         SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
         builder.init(featureType);
@@ -61,11 +63,7 @@ public class AttributeRemapTransform extends AbstractTransform implements Inline
         int index = featureType.indexOf(field);
         if (index < 0) {
             throw new Exception(
-                    "FeatureType "
-                            + featureType.getName()
-                            + " does not have attribute named '"
-                            + field
-                            + "'");
+                    "FeatureType " + featureType.getName() + " does not have attribute named '" + field + "'");
         }
 
         // remap the attribute to type date and ensure schema ordering is the same
@@ -80,8 +78,7 @@ public class AttributeRemapTransform extends AbstractTransform implements Inline
     }
 
     @Override
-    public SimpleFeature apply(
-            ImportTask task, DataStore dataStore, SimpleFeature oldFeature, SimpleFeature feature)
+    public SimpleFeature apply(ImportTask task, DataStore dataStore, SimpleFeature oldFeature, SimpleFeature feature)
             throws Exception {
         return feature;
     }

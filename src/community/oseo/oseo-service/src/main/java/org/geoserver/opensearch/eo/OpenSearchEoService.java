@@ -6,14 +6,11 @@ package org.geoserver.opensearch.eo;
 
 import java.io.IOException;
 import java.util.Collection;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
 
 public interface OpenSearchEoService {
 
-    /**
-     * Returns the request for the response object to produce either the global or the collection
-     * specific response
-     */
+    /** Returns the request for the response object to produce either the global or the collection specific response */
     public OSEODescription description(OSEODescriptionRequest request) throws IOException;
 
     /** Searches either collection or products, returned as complex features */

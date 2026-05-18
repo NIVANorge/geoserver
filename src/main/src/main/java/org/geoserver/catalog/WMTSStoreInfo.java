@@ -5,8 +5,8 @@
 package org.geoserver.catalog;
 
 import java.io.IOException;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wmts.WebMapTileServer;
-import org.opengis.util.ProgressListener;
 
 /**
  * A store backed by a {@link WebMapTileServer}, allows for WMTS cascading
@@ -19,11 +19,10 @@ public interface WMTSStoreInfo extends HTTPStoreInfo {
     /**
      * Returns the underlying {@link WebMapTileServer}.
      *
-     * <p>This method does I/O and is potentially blocking. The <tt>listener</tt> may be used to
-     * report the progress of loading the datastore and also to report any errors or warnings that
-     * occur.
+     * <p>This method does I/O and is potentially blocking. The <tt>listener</tt> may be used to report the progress of
+     * loading the datastore and also to report any errors or warnings that occur.
      *
-     * @param listener A progress listener, may be <code>null</code>.
+     * @param listener A progress listener, may be {@code null}.
      * @return The datastore.
      * @throws IOException Any I/O problems.
      */
@@ -36,4 +35,10 @@ public interface WMTSStoreInfo extends HTTPStoreInfo {
     String getHeaderValue();
 
     void setHeaderValue(String headerValue);
+
+    @Override
+    String getAuthKey();
+
+    @Override
+    void setAuthKey(String authKey);
 }

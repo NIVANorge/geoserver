@@ -15,7 +15,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -26,16 +25,16 @@ import org.apache.commons.io.IOUtils;
 import org.geoserver.catalog.SLDHandler;
 import org.geoserver.catalog.StyleHandler;
 import org.geoserver.catalog.StyleType;
-import org.geoserver.catalog.Styles;
+import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.ModuleStatus;
 import org.geoserver.platform.resource.FileSystemResourceStore;
 import org.geoserver.platform.resource.Resource;
-import org.geotools.styling.ResourceLocator;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geotools.api.style.ResourceLocator;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.styling.css.CssParser;
 import org.geotools.styling.css.CssTranslator;
 import org.geotools.styling.css.Stylesheet;
+import org.geotools.styling.zoom.ZoomContextFinder;
 import org.geotools.util.Version;
 import org.geotools.util.factory.GeoTools;
 import org.xml.sax.EntityResolver;
@@ -53,34 +52,31 @@ public class CssHandler extends StyleHandler implements ModuleStatus {
         try {
             TEMPLATES.put(
                     StyleType.POINT,
-                    IOUtils.toString(
-                            CssHandler.class.getResourceAsStream("template_point.css"), UTF_8));
+                    IOUtils.toString(CssHandler.class.getResourceAsStream("template_point.css"), UTF_8));
             TEMPLATES.put(
                     StyleType.POLYGON,
-                    IOUtils.toString(
-                            CssHandler.class.getResourceAsStream("template_polygon.css"), UTF_8));
+                    IOUtils.toString(CssHandler.class.getResourceAsStream("template_polygon.css"), UTF_8));
             TEMPLATES.put(
-                    StyleType.LINE,
-                    IOUtils.toString(
-                            CssHandler.class.getResourceAsStream("template_line.css"), UTF_8));
+                    StyleType.LINE, IOUtils.toString(CssHandler.class.getResourceAsStream("template_line.css"), UTF_8));
             TEMPLATES.put(
                     StyleType.RASTER,
-                    IOUtils.toString(
-                            CssHandler.class.getResourceAsStream("template_raster.css"), UTF_8));
+                    IOUtils.toString(CssHandler.class.getResourceAsStream("template_raster.css"), UTF_8));
             TEMPLATES.put(
                     StyleType.GENERIC,
-                    IOUtils.toString(
-                            CssHandler.class.getResourceAsStream("template_generic.css"), UTF_8));
+                    IOUtils.toString(CssHandler.class.getResourceAsStream("template_generic.css"), UTF_8));
         } catch (IOException e) {
             throw new RuntimeException("Error loading up the css style templates", e);
         }
     }
 
+    private final List<ZoomContextFinder> zoomContextFinders;
+
     private SLDHandler sldHandler;
 
-    protected CssHandler(SLDHandler sldHandler) {
+    public CssHandler(GeoServerExtensions extensions, SLDHandler sldHandler) {
         super("CSS", FORMAT);
         this.sldHandler = sldHandler;
+        this.zoomContextFinders = extensions.extensions(ZoomContextFinder.class);
     }
 
     @Override
@@ -100,29 +96,20 @@ public class CssHandler extends StyleHandler implements ModuleStatus {
 
     @Override
     public StyledLayerDescriptor parse(
-            Object input,
-            Version version,
-            ResourceLocator resourceLocator,
-            EntityResolver entityResolver)
+            Object input, Version version, ResourceLocator resourceLocator, EntityResolver entityResolver)
             throws IOException {
         // see if we can use the SLD cache, some conversions are expensive.
-        if (input instanceof File) {
+        if (input instanceof File cssFile) {
             // convert to resource, to avoid code duplication (the code for file would be very
             // similar to the resource one, but unfortunately using an unrelated set of classes
-            File cssFile = (File) input;
             input = new FileSystemResourceStore(cssFile.getParentFile()).get(cssFile.getName());
         }
 
-        if (input instanceof Resource) {
-            Resource cssResource = (Resource) input;
-            Resource sldResource =
-                    cssResource
-                            .parent()
-                            .get(FilenameUtils.getBaseName(cssResource.name()) + ".sld");
+        if (input instanceof Resource cssResource) {
+            Resource sldResource = cssResource.parent().get(FilenameUtils.getBaseName(cssResource.name()) + ".sld");
             if (sldResource.getType() != Resource.Type.UNDEFINED
                     && sldResource.lastmodified() > cssResource.lastmodified()) {
-                return sldHandler.parse(
-                        sldResource, SLDHandler.VERSION_10, resourceLocator, entityResolver);
+                return sldHandler.parse(sldResource, SLDHandler.VERSION_10, resourceLocator, entityResolver);
             } else {
                 // otherwise convert and write the cache
                 try (Reader reader = toReader(input)) {
@@ -133,16 +120,14 @@ public class CssHandler extends StyleHandler implements ModuleStatus {
                     // be consistent, have the SLD always be generated from and SLD parse,
                     // different code paths could result in different defaults/results due
                     // to inconsistencies/bugs happening over time
-                    return sldHandler.parse(
-                            sldResource, SLDHandler.VERSION_10, resourceLocator, entityResolver);
+                    return sldHandler.parse(sldResource, SLDHandler.VERSION_10, resourceLocator, entityResolver);
                 }
             }
         }
 
         // in this case, just do a plain on the fly conversion
-        try (Reader reader = toReader(input)) {
-            StyledLayerDescriptor sld = convertToSLD(toReader(input));
-            return sld;
+        try (Reader unusedReader = toReader(input)) {
+            return convertToSLD(toReader(input));
         }
     }
 
@@ -152,27 +137,26 @@ public class CssHandler extends StyleHandler implements ModuleStatus {
 
     private StyledLayerDescriptor convertToSLD(Reader cssReader) throws IOException {
         Stylesheet styleSheet = CssParser.parse(IOUtils.toString(cssReader));
-        Style style = (Style) new CssTranslator().translate(styleSheet);
-        StyledLayerDescriptor sld = Styles.sld(style);
+        CssTranslator translator = new CssTranslator();
+        translator.setZoomContextFinders(zoomContextFinders);
+        StyledLayerDescriptor sld = translator.translateMultilayer(styleSheet);
         return sld;
     }
 
     @Override
-    public void encode(
-            StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
+    public void encode(StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
             throws IOException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver)
-            throws IOException {
-        try (Reader reader = toReader(input)) {
+    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver) throws IOException {
+        try (Reader unusedReader = toReader(input)) {
             // full parse to perform the validation
             convertToSLD(toReader(input));
             return Collections.emptyList();
         } catch (Exception e) {
-            return Arrays.asList(e);
+            return List.of(e);
         }
     }
 
@@ -228,5 +212,10 @@ public class CssHandler extends StyleHandler implements ModuleStatus {
     @Override
     public Optional<String> getDocumentation() {
         return Optional.of("https://docs.geoserver.org/latest/en/user/styling/css/index.html");
+    }
+
+    @Override
+    public Category getCategory() {
+        return Category.EXTENSION;
     }
 }

@@ -14,6 +14,7 @@ import static org.geoserver.gwc.web.layer.CachedLayerProvider.QUOTA_LIMIT;
 import static org.geoserver.gwc.web.layer.CachedLayerProvider.QUOTA_USAGE;
 import static org.geoserver.gwc.web.layer.CachedLayerProvider.TYPE;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,15 +22,14 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.io.IOUtils;
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.behavior.AttributeAppender;
+import org.apache.wicket.markup.head.IHeaderResponse;
+import org.apache.wicket.markup.head.JavaScriptReferenceHeaderItem;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.markup.html.image.Image;
 import org.apache.wicket.markup.html.link.BookmarkablePageLink;
 import org.apache.wicket.markup.html.link.ExternalLink;
 import org.apache.wicket.markup.html.panel.Fragment;
@@ -38,19 +38,20 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.ResourceModel;
 import org.apache.wicket.model.StringResourceModel;
-import org.apache.wicket.request.resource.DynamicImageResource;
+import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.request.resource.PackageResourceReference;
+import org.apache.wicket.util.string.StringValue;
 import org.geoserver.gwc.GWC;
 import org.geoserver.gwc.layer.GeoServerTileLayer;
 import org.geoserver.gwc.web.GWCIconFactory;
 import org.geoserver.ows.URLMangler.URLType;
 import org.geoserver.ows.util.ResponseUtils;
+import org.geoserver.web.CatalogIconFactory;
 import org.geoserver.web.GeoServerSecuredPage;
 import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ParamResourceModel;
-import org.geoserver.web.wicket.SimpleAjaxLink;
 import org.geotools.image.io.ImageIOExt;
 import org.geotools.util.logging.Logging;
 import org.geowebcache.diskquota.storage.Quota;
@@ -66,9 +67,35 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
     private static Logger log = Logging.getLogger(CachedLayersPage.class);
 
+    @Serial
     private static final long serialVersionUID = -6795610175856538774L;
 
-    private CachedLayerProvider provider = new CachedLayerProvider();
+    private static final PackageResourceReference JS_FILE =
+            new PackageResourceReference(CachedLayersPage.class, "CachedLayersPage.js");
+
+    private String targetWorkspaceStr = null;
+
+    private CachedLayerProvider provider = new CachedLayerProvider() {
+        @Override
+        protected List<TileLayer> getItems() {
+            List<TileLayer> base = super.getItems();
+            if (targetWorkspaceStr == null || targetWorkspaceStr.isEmpty()) {
+                return base;
+            }
+            List<TileLayer> filtered = new ArrayList<>();
+            for (TileLayer layer : base) {
+                String name = layer.getName();
+                int idx = name.indexOf(':');
+                if (idx > 0) {
+                    String wsPrefix = name.substring(0, idx);
+                    if (targetWorkspaceStr.equals(wsPrefix)) {
+                        filtered.add(layer);
+                    }
+                }
+            }
+            return filtered;
+        }
+    };
 
     private GeoServerTablePanel<TileLayer> table;
 
@@ -76,65 +103,65 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
     private CachedLayerSelectionRemovalLink removal;
 
-    public CachedLayersPage() {
+    public CachedLayersPage(PageParameters parameters) {
+        StringValue wsParam = parameters.get("workspace");
+        if (!wsParam.isEmpty()) {
+            this.targetWorkspaceStr = wsParam.toString();
+        }
+        table = new GeoServerTablePanel<>("table", provider, true) {
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-        table =
-                new GeoServerTablePanel<TileLayer>("table", provider, true) {
-                    private static final long serialVersionUID = 1L;
+            @SuppressWarnings({"unchecked"})
+            @Override
+            protected Component getComponentForProperty(
+                    String id, IModel<TileLayer> itemModel, Property<TileLayer> property) {
 
-                    @SuppressWarnings({"unchecked"})
-                    @Override
-                    protected Component getComponentForProperty(
-                            String id, IModel<TileLayer> itemModel, Property<TileLayer> property) {
-
-                        if (property == TYPE) {
-                            Fragment f = new Fragment(id, "iconFragment", CachedLayersPage.this);
-                            DynamicImageResource dynamicImage =
-                                    new DelayedImageResource(itemModel, property);
-                            f.add(new Image("layerIcon", dynamicImage));
-                            return f;
-                        } else if (property == NAME) {
-                            return nameLink(id, itemModel);
-                        } else if (property == QUOTA_LIMIT) {
-                            IModel<Quota> quotaLimitModel =
-                                    (IModel<Quota>) property.getModel(itemModel);
-                            return quotaLink(id, quotaLimitModel);
-                        } else if (property == QUOTA_USAGE) {
-                            IModel<Quota> quotaUsageModel =
-                                    (IModel<Quota>) property.getModel(itemModel);
-                            return quotaLink(id, quotaUsageModel);
-                        } else if (property == ENABLED) {
-                            TileLayer layerInfo = itemModel.getObject();
-                            boolean enabled = layerInfo.isEnabled();
-                            PackageResourceReference icon;
-                            if (enabled) {
-                                icon = GWCIconFactory.getEnabledIcon();
-                            } else {
-                                icon = GWCIconFactory.getDisabledIcon();
-                            }
-                            Fragment f = new Fragment(id, "iconFragment", CachedLayersPage.this);
-                            f.add(new Image("layerIcon", icon));
-                            return f;
-                        } else if (property == PREVIEW_LINKS) {
-                            return previewLinks(id, itemModel);
-                        } else if (property == ACTIONS) {
-                            return actionsLinks(id, itemModel);
-                        } else if (property == BLOBSTORE) {
-                            return null;
-                        }
-
-                        throw new IllegalArgumentException(
-                                "Don't know a property named " + property.getName());
+                if (property == TYPE) {
+                    Fragment f = new Fragment(id, "iconFragment", CachedLayersPage.this);
+                    TileLayer layer = itemModel.getObject();
+                    String layerIcon = GWCIconFactory.getSpecificLayerIcon(layer);
+                    f.add(CatalogIconFactory.get().getIcon("layerIcon", layerIcon));
+                    return f;
+                } else if (property == NAME) {
+                    return nameLink(id, itemModel);
+                } else if (property == QUOTA_LIMIT) {
+                    IModel<Quota> quotaLimitModel = (IModel<Quota>) property.getModel(itemModel);
+                    return quotaLink(id, quotaLimitModel);
+                } else if (property == QUOTA_USAGE) {
+                    IModel<Quota> quotaUsageModel = (IModel<Quota>) property.getModel(itemModel);
+                    return quotaLink(id, quotaUsageModel);
+                } else if (property == ENABLED) {
+                    TileLayer layerInfo = itemModel.getObject();
+                    boolean enabled = layerInfo.isEnabled();
+                    String iconReference;
+                    if (enabled) {
+                        iconReference = GWCIconFactory.getEnabledIcon();
+                    } else {
+                        iconReference = GWCIconFactory.getDisabledIcon();
                     }
+                    Fragment f = new Fragment(id, "iconFragment", CachedLayersPage.this);
+                    f.add(CatalogIconFactory.get().getIcon("layerIcon", iconReference));
+                    return f;
+                } else if (property == PREVIEW_LINKS) {
+                    return previewLinks(id, itemModel);
+                } else if (property == ACTIONS) {
+                    return actionsLinks(id, itemModel);
+                } else if (property == BLOBSTORE) {
+                    return null;
+                }
 
-                    @Override
-                    protected void onSelectionUpdate(AjaxRequestTarget target) {
-                        removal.setEnabled(table.getSelection().size() > 0);
-                        target.add(removal);
-                    }
-                };
-        table.setOutputMarkupId(true);
-        add(table);
+                throw new IllegalArgumentException("Don't know a property named " + property.getName());
+            }
+
+            @Override
+            protected void onSelectionUpdate(AjaxRequestTarget target) {
+                removal.setEnabled(!table.getSelection().isEmpty());
+                target.add(removal);
+            }
+        };
+        table.setTableChangeJS("CachedLayersPage_SetOnChange();");
+        add(table.setOutputMarkupId(true));
 
         // the confirm dialog
         add(dialog = new GeoServerDialog("dialog"));
@@ -144,10 +171,19 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
         Long imageIOFileCachingThreshold = ImageIOExt.getFilesystemThreshold();
         if (null == imageIOFileCachingThreshold || 0L >= imageIOFileCachingThreshold.longValue()) {
-            String warningMsg =
-                    new ResourceModel("GWC.ImageIOFileCachingThresholdUnsetWarning").getObject();
+            String warningMsg = new ResourceModel("GWC.ImageIOFileCachingThresholdUnsetWarning").getObject();
             super.warn(warningMsg);
         }
+    }
+
+    public CachedLayersPage() {
+        this(new PageParameters());
+    }
+
+    @Override
+    public void renderHead(IHeaderResponse response) {
+        super.renderHead(response);
+        response.render(JavaScriptReferenceHeaderItem.forReference(JS_FILE));
     }
 
     private Component quotaLink(String id, IModel<Quota> quotaModel) {
@@ -182,84 +218,80 @@ public class CachedLayersPage extends GeoServerSecuredPage {
         final String baseURL = ResponseUtils.baseURL(getGeoServerApplication().servletRequest());
         // Since we're working with an absolute URL, build the URL this way to ensure proxy
         // mangling is applied.
-        final String href =
-                ResponseUtils.buildURL(baseURL, "gwc/rest/seed/" + name, null, URLType.EXTERNAL);
+        final String href = ResponseUtils.buildURL(baseURL, "gwc/rest/seed/" + name, null, URLType.EXTERNAL);
 
         // openlayers preview
         Fragment f = new Fragment(id, "actionsFragment", this);
-        f.add(
-                new ExternalLink(
-                        "seedLink", href, new ResourceModel("CachedLayersPage.seed").getObject()));
+        String seedLabel = new ResourceModel("CachedLayersPage.seed").getObject();
+        ExternalLink seedLink = new ExternalLink("seedLink", href);
+        seedLink.setBody(Model.of("<i class=\"gs-icon gs-icon-add\"></i> " + seedLabel));
+        seedLink.setEscapeModelStrings(false);
+        f.add(seedLink);
         f.add(truncateLink("truncateLink", tileLayerNameModel));
         return f;
     }
 
-    private SimpleAjaxLink<String> truncateLink(
-            final String id, IModel<TileLayer> tileLayerNameModel) {
+    private AjaxLink<String> truncateLink(final String id, IModel<TileLayer> tileLayerNameModel) {
 
         String layerName = tileLayerNameModel.getObject().getName();
         IModel<String> model = new Model<>(layerName);
-        IModel<String> labelModel = new ResourceModel("truncate");
+        IModel<String> labelModel = new ResourceModel("CachedLayersPage.truncate");
 
-        SimpleAjaxLink<String> link =
-                new SimpleAjaxLink<String>(id, model, labelModel) {
+        AjaxLink<String> link = new AjaxLink<>(id, model) {
+            @Serial
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+
+                dialog.setTitle(new ParamResourceModel("confirmTruncateTitle", CachedLayersPage.this));
+                dialog.setDefaultModel(getDefaultModel());
+
+                dialog.showOkCancel(target, new GeoServerDialog.DialogDelegate() {
+                    @Serial
                     private static final long serialVersionUID = 1L;
 
                     @Override
-                    protected void onClick(AjaxRequestTarget target) {
+                    protected Component getContents(final String id) {
+                        final String layerName = getDefaultModelObjectAsString();
 
-                        dialog.setTitle(
-                                new ParamResourceModel(
-                                        "confirmTruncateTitle", CachedLayersPage.this));
-                        dialog.setDefaultModel(getDefaultModel());
-
-                        dialog.showOkCancel(
-                                target,
-                                new GeoServerDialog.DialogDelegate() {
-                                    private static final long serialVersionUID = 1L;
-
-                                    @Override
-                                    protected Component getContents(final String id) {
-                                        final String layerName = getDefaultModelObjectAsString();
-
-                                        // show a confirmation panel for all the objects we have to
-                                        // remove
-                                        final GWC gwcFacade = GWC.get();
-                                        Quota usedQuota = gwcFacade.getUsedQuota(layerName);
-                                        if (usedQuota == null) {
-                                            usedQuota = new Quota();
-                                        }
-                                        final String usedQuotaStr = usedQuota.toNiceString();
-                                        IModel<String> model =
-                                                new ParamResourceModel(
-                                                        "CachedLayersPage.confirmTruncateMessage",
-                                                        CachedLayersPage.this,
-                                                        layerName,
-                                                        usedQuotaStr);
-                                        Label confirmLabel = new Label(id, model);
-                                        confirmLabel.setEscapeModelStrings(
-                                                false); // allow some html inside, like
-                                        // <b></b>, etc
-                                        return confirmLabel;
-                                    }
-
-                                    @Override
-                                    protected boolean onSubmit(
-                                            final AjaxRequestTarget target,
-                                            final Component contents) {
-                                        final String layerName = getDefaultModelObjectAsString();
-                                        GWC facade = GWC.get();
-                                        facade.truncate(layerName);
-                                        return true;
-                                    }
-
-                                    @Override
-                                    public void onClose(final AjaxRequestTarget target) {
-                                        target.add(table);
-                                    }
-                                });
+                        // show a confirmation panel for all the objects we have to
+                        // remove
+                        final GWC gwcFacade = GWC.get();
+                        Quota usedQuota = gwcFacade.getUsedQuota(layerName);
+                        if (usedQuota == null) {
+                            usedQuota = new Quota();
+                        }
+                        final String usedQuotaStr = usedQuota.toNiceString();
+                        IModel<String> model = new ParamResourceModel(
+                                "CachedLayersPage.confirmTruncateMessage",
+                                CachedLayersPage.this,
+                                layerName,
+                                usedQuotaStr);
+                        Label confirmLabel = new Label(id, model);
+                        confirmLabel.setEscapeModelStrings(false); // allow some html inside, like
+                        // <b></b>, etc
+                        return confirmLabel;
                     }
-                };
+
+                    @Override
+                    protected boolean onSubmit(final AjaxRequestTarget target, final Component contents) {
+                        final String layerName = getDefaultModelObjectAsString();
+                        GWC facade = GWC.get();
+                        facade.truncate(layerName);
+                        return true;
+                    }
+
+                    @Override
+                    public void onClose(final AjaxRequestTarget target) {
+                        target.add(table);
+                    }
+                });
+            }
+        };
+        String truncateLabel = labelModel.getObject();
+        link.setBody(Model.of("<i class=\"gs-icon gs-icon-clear-cache\"></i> " + truncateLabel));
+        link.setEscapeModelStrings(false);
 
         return link;
     }
@@ -280,19 +312,6 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
         RepeatingView previewLinks = new RepeatingView("previewLink");
 
-        int i = 0;
-        for (String gridSetId : gridSubsets) {
-            for (MimeType mimeType : mimeTypes) {
-                String label = gridSetId + " / " + mimeType.getFileExtension();
-                // build option with text and value
-                Label format = new Label(String.valueOf(i++), label);
-                String value = "gridSet=" + gridSetId + "&format=" + mimeType.getFormat();
-                format.add(new AttributeModifier("value", new Model<>(value)));
-                previewLinks.add(format);
-            }
-        }
-        menu.add(previewLinks);
-
         // build the wms request, redirect to it in a new window, reset the selection
         final String baseURL = ResponseUtils.baseURL(getGeoServerApplication().servletRequest());
         // Since we're working with an absolute URL, build the URL this way to ensure proxy
@@ -304,18 +323,21 @@ public class CachedLayersPage extends GeoServerSecuredPage {
             workspaceName = layer.getName().substring(0, layer.getName().indexOf(":")) + "/";
         }
         final String demoURL =
-                "'"
-                        + ResponseUtils.buildURL(
-                                baseURL + workspaceName,
-                                "gwc/demo/" + layer.getName(),
-                                null,
-                                URLType.EXTERNAL)
-                        + "?' + this.options[this.selectedIndex].value";
-        menu.add(
-                new AttributeAppender(
-                        "onchange",
-                        new Model<>("window.open(" + demoURL + ");this.selectedIndex=0"),
-                        ";"));
+                ResponseUtils.buildURL(baseURL + workspaceName, "gwc/demo/" + layer.getName(), null, URLType.EXTERNAL)
+                        + "?gridSet=";
+
+        int i = 0;
+        for (String gridSetId : gridSubsets) {
+            for (MimeType mimeType : mimeTypes) {
+                String label = gridSetId + " / " + mimeType.getFileExtension();
+                // build option with text and value
+                Label format = new Label(String.valueOf(i++), label);
+                String value = demoURL + gridSetId + "&format=" + mimeType.getFormat();
+                format.add(new AttributeModifier("value", new Model<>(value)));
+                previewLinks.add(format);
+            }
+        }
+        menu.add(previewLinks);
 
         f.add(menu);
         return f;
@@ -325,7 +347,7 @@ public class CachedLayersPage extends GeoServerSecuredPage {
         Fragment header = new Fragment(HEADER_PANEL, "header", this);
 
         // the add button
-        header.add(new BookmarkablePageLink<String>("addNew", NewCachedLayerPage.class));
+        header.add(new BookmarkablePageLink<>("addNew", NewCachedLayerPage.class));
 
         // the removal button
         header.add(removal = new CachedLayerSelectionRemovalLink("removeSelected"));
@@ -338,33 +360,7 @@ public class CachedLayersPage extends GeoServerSecuredPage {
         return header;
     }
 
-    private static class DelayedImageResource extends DynamicImageResource {
-        private static final long serialVersionUID = 657353636149402818L;
-        private final IModel<TileLayer> itemModel;
-        private final Property<TileLayer> property;
-
-        public DelayedImageResource(IModel<TileLayer> itemModel, Property<TileLayer> property) {
-            super("image/png");
-            this.itemModel = itemModel;
-            this.property = property;
-        }
-
-        @Override
-        protected byte[] getImageData(Attributes attributes) {
-            TileLayer layer = itemModel.getObject();
-            PackageResourceReference layerIcon = GWCIconFactory.getSpecificLayerIcon(layer);
-            try {
-                return IOUtils.toByteArray(
-                        layerIcon.getResource().getResourceStream().getInputStream());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     private class CachedLayerSelectionRemovalLink extends AjaxLink<TileLayer> {
-
-        private static final long serialVersionUID = 1L;
 
         public CachedLayerSelectionRemovalLink(String string) {
             super(string);
@@ -386,61 +382,53 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
             // if there is something to cancel, let's warn the user about what
             // could go wrong, and if the user accepts, let's delete what's needed
-            dialog.showOkCancel(
-                    target,
-                    new GeoServerDialog.DialogDelegate() {
-                        private static final long serialVersionUID = 1L;
+            dialog.showOkCancel(target, new GeoServerDialog.DialogDelegate() {
+                @Serial
+                private static final long serialVersionUID = 1L;
 
-                        @Override
-                        protected Component getContents(final String id) {
-                            // show a confirmation panel for all the objects we have to remove
-                            final GWC gwcFacade = GWC.get();
-                            Quota totalQuota = new Quota();
-                            for (String layerName : selectedNames) {
-                                Quota usedQuota = gwcFacade.getUsedQuota(layerName);
-                                if (usedQuota != null) {
-                                    totalQuota.add(usedQuota);
-                                }
-                            }
-                            final String usedQuotaStr = totalQuota.toNiceString();
-                            final Integer selectedLayerCount = selectedNames.size();
-
-                            IModel<String> model =
-                                    new StringResourceModel(
-                                                    "CachedLayersPage.confirmSelectionRemoval",
-                                                    CachedLayerSelectionRemovalLink.this)
-                                            .setParameters(
-                                                    new Object[] {
-                                                        selectedLayerCount.toString(), usedQuotaStr
-                                                    });
-                            Label confirmLabel = new Label(id, model);
-                            confirmLabel.setEscapeModelStrings(
-                                    false); // allow some html inside, like
-                            // <b></b>, etc
-                            return confirmLabel;
+                @Override
+                protected Component getContents(final String id) {
+                    // show a confirmation panel for all the objects we have to remove
+                    final GWC gwcFacade = GWC.get();
+                    Quota totalQuota = new Quota();
+                    for (String layerName : selectedNames) {
+                        Quota usedQuota = gwcFacade.getUsedQuota(layerName);
+                        if (usedQuota != null) {
+                            totalQuota.add(usedQuota);
                         }
+                    }
+                    final String usedQuotaStr = totalQuota.toNiceString();
+                    final Integer selectedLayerCount = selectedNames.size();
 
-                        @Override
-                        protected boolean onSubmit(
-                                final AjaxRequestTarget target, final Component contents) {
-                            GWC facade = GWC.get();
-                            facade.removeTileLayers(selectedNames);
-                            table.clearSelection();
-                            return true;
-                        }
+                    IModel<String> model = new StringResourceModel(
+                                    "CachedLayersPage.confirmSelectionRemoval", CachedLayerSelectionRemovalLink.this)
+                            .setParameters(new Object[] {selectedLayerCount.toString(), usedQuotaStr});
+                    Label confirmLabel = new Label(id, model);
+                    confirmLabel.setEscapeModelStrings(false); // allow some html inside, like
+                    // <b></b>, etc
+                    return confirmLabel;
+                }
 
-                        @Override
-                        public void onClose(final AjaxRequestTarget target) {
-                            // if the selection has been cleared out it's sign a deletion
-                            // occurred, so refresh the table
-                            List<TileLayer> selection = table.getSelection();
-                            if (selection.isEmpty()) {
-                                setEnabled(false);
-                                target.add(CachedLayerSelectionRemovalLink.this);
-                                target.add(table);
-                            }
-                        }
-                    });
+                @Override
+                protected boolean onSubmit(final AjaxRequestTarget target, final Component contents) {
+                    GWC facade = GWC.get();
+                    facade.removeTileLayers(selectedNames);
+                    table.clearSelection();
+                    return true;
+                }
+
+                @Override
+                public void onClose(final AjaxRequestTarget target) {
+                    // if the selection has been cleared out it's sign a deletion
+                    // occurred, so refresh the table
+                    List<TileLayer> selection = table.getSelection();
+                    if (selection.isEmpty()) {
+                        setEnabled(false);
+                        target.add(CachedLayerSelectionRemovalLink.this);
+                        target.add(table);
+                    }
+                }
+            });
         }
     }
 
@@ -452,58 +440,49 @@ public class CachedLayersPage extends GeoServerSecuredPage {
 
         @Override
         public void onClick(AjaxRequestTarget target) {
-            dialog.setTitle(
-                    new ParamResourceModel("confirmGwcTruncateTitle", CachedLayersPage.this));
+            dialog.setTitle(new ParamResourceModel("confirmGwcTruncateTitle", CachedLayersPage.this));
             dialog.setDefaultModel(getDefaultModel());
 
-            GeoServerDialog.DialogDelegate delegate =
-                    new GeoServerDialog.DialogDelegate() {
-                        private static final long serialVersionUID1 = 1L;
-                        private TruncateAllRequest truncateAllRequest;
+            GeoServerDialog.DialogDelegate delegate = new GeoServerDialog.DialogDelegate() {
+                private TruncateAllRequest truncateAllRequest;
 
-                        @Override
-                        protected Component getContents(final String id) {
-                            Label confirmLabel =
-                                    new Label(
-                                            id,
-                                            new ParamResourceModel(
-                                                    "confirmGWCClean", CachedLayersPage.this));
-                            confirmLabel.setEscapeModelStrings(
-                                    false); // allow some html inside, like
-                            // <b></b>, etc
-                            return confirmLabel;
-                        }
+                @Override
+                protected Component getContents(final String id) {
+                    Label confirmLabel =
+                            new Label(id, new ParamResourceModel("confirmGWCClean", CachedLayersPage.this));
+                    confirmLabel.setEscapeModelStrings(false); // allow some html inside, like
+                    // <b></b>, etc
+                    return confirmLabel;
+                }
 
-                        @Override
-                        protected boolean onSubmit(
-                                final AjaxRequestTarget target1, final Component contents) {
+                @Override
+                protected boolean onSubmit(final AjaxRequestTarget target1, final Component contents) {
 
-                            GWC facade = GWC.get();
-                            try {
-                                truncateAllRequest = facade.truncateAll();
-                            } catch (Exception e) {
-                                error(message("confirmGWCClean"));
-                                log.log(Level.SEVERE, "An Error while clearing GWC cache", e);
-                                return false;
-                            }
-                            return true;
-                        }
+                    GWC facade = GWC.get();
+                    try {
+                        truncateAllRequest = facade.truncateAll();
+                    } catch (Exception e) {
+                        error(message("confirmGWCClean"));
+                        log.log(Level.SEVERE, "An Error while clearing GWC cache", e);
+                        return false;
+                    }
+                    return true;
+                }
 
-                        private String message(String key) {
-                            return new ParamResourceModel(key, CachedLayersPage.this).getString();
-                        }
+                private String message(String key) {
+                    return new ParamResourceModel(key, CachedLayersPage.this).getString();
+                }
 
-                        @Override
-                        public void onClose(final AjaxRequestTarget target) {
-                            target.add(table);
-                            if (truncateAllRequest != null)
-                                if (truncateAllRequest.getTrucatedLayers().length() == 0)
-                                    warn(message("warnGWCClean"));
-                                else info(message("confirmGWCCleanInfo"));
-                            else error(message("errorGWCClean2"));
-                            setResponsePage(getPage());
-                        }
-                    };
+                @Override
+                public void onClose(final AjaxRequestTarget target) {
+                    target.add(table);
+                    if (truncateAllRequest != null)
+                        if (truncateAllRequest.getTrucatedLayers().length() == 0) warn(message("warnGWCClean"));
+                        else info(message("confirmGWCCleanInfo"));
+                    else error(message("errorGWCClean2"));
+                    setResponsePage(getPage());
+                }
+            };
             dialog.showOkCancel(target, delegate);
         }
     }

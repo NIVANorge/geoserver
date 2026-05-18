@@ -14,7 +14,7 @@ import org.geoserver.catalog.Predicates;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.util.CloseableIterator;
 import org.geoserver.web.GeoServerApplication;
-import org.opengis.filter.Filter;
+import org.geotools.api.filter.Filter;
 
 /**
  * Layers and LayerGroups, filtered by workspaceInfo prefix if available.
@@ -36,8 +36,7 @@ public class PublishedInfosModel extends LoadableDetachableModel<List<PublishedI
         Catalog catalog = GeoServerApplication.get().getCatalog();
         List<PublishedInfo> layers = new ArrayList<>();
 
-        try (CloseableIterator<PublishedInfo> iterator =
-                catalog.list(PublishedInfo.class, getFilter())) {
+        try (CloseableIterator<PublishedInfo> iterator = catalog.list(PublishedInfo.class, getFilter())) {
             iterator.forEachRemaining(layers::add);
         }
         Collections.sort(layers, Comparator.comparing(PublishedInfo::prefixedName));

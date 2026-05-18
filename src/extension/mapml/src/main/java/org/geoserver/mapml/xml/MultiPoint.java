@@ -8,13 +8,13 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlType;
 import java.util.ArrayList;
 import java.util.List;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlList;
-import javax.xml.bind.annotation.XmlType;
 
 /**
  * Java class for anonymous complex type.
@@ -35,23 +35,20 @@ import javax.xml.bind.annotation.XmlType;
 @XmlType(
         name = "",
         propOrder = {"coordinates"})
-public class MultiPoint {
+@XmlRootElement(name = "map-multipoint", namespace = "http://www.w3.org/1999/xhtml")
+public class MultiPoint implements MapMLElement {
 
-    @XmlList
-    @XmlElement(
-            required = true,
-            name = "map-coordinates",
-            namespace = "http://www.w3.org/1999/xhtml")
-    protected List<String> coordinates;
+    @XmlElement(name = "map-coordinates", namespace = "http://www.w3.org/1999/xhtml")
+    protected List<Coordinates> coordinates;
 
     /**
-     * Gets the value of the map-coordinates property. Exception Description: The property or field
-     * coordinates on the class org.geoserver.mapml.xml.MultiPoint is required to be included in the
-     * propOrder element of the XmlType annotation.]
+     * Gets the value of the map-coordinates property. Exception Description: The property or field coordinates on the
+     * class org.geoserver.mapml.xml.MultiPoint is required to be included in the propOrder element of the XmlType
+     * annotation.]
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the map-coordinates property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the map-coordinates property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -63,7 +60,7 @@ public class MultiPoint {
      *
      * @return list of coordinates strings
      */
-    public List<String> getCoordinates() {
+    public List<Coordinates> getCoordinates() {
         if (coordinates == null) {
             coordinates = new ArrayList<>();
         }

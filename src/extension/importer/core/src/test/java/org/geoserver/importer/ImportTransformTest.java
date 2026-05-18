@@ -27,13 +27,13 @@ import org.geoserver.importer.transform.DateFormatTransform;
 import org.geoserver.importer.transform.IntegerFieldToDateTransform;
 import org.geoserver.importer.transform.NumberFormatTransform;
 import org.geoserver.importer.transform.ReprojectTransform;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.referencing.CRS;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 public class ImportTransformTest extends ImporterTestSupport {
 
@@ -46,11 +46,11 @@ public class ImportTransformTest extends ImporterTestSupport {
         store = cat.getFactory().createDataStore();
         store.setWorkspace(cat.getDefaultWorkspace());
         store.setName("spearfish");
-        store.setType("H2");
+        store.setType("GeoPackage");
 
         Map<String, Serializable> params = new HashMap<>();
-        params.put("database", getTestData().getDataDirectoryRoot().getPath() + "/spearfish");
-        params.put("dbtype", "h2");
+        params.put("database", getTestData().getDataDirectoryRoot().getPath() + "/spearfish.gpkg");
+        params.put("dbtype", "geopkg");
         store.getConnectionParameters().putAll(params);
         store.setEnabled(true);
         cat.add(store);
@@ -168,9 +168,8 @@ public class ImportTransformTest extends ImporterTestSupport {
         assertNotNull(ft);
 
         SimpleFeatureType schema = (SimpleFeatureType) ft.getFeatureType();
-        assertTrue(
-                Date.class.isAssignableFrom(
-                        schema.getDescriptor("timestamp").getType().getBinding()));
+        assertTrue(Date.class.isAssignableFrom(
+                schema.getDescriptor("timestamp").getType().getBinding()));
 
         try (FeatureIterator it = ft.getFeatureSource(null, null).getFeatures().features()) {
             assertTrue(it.hasNext());
@@ -194,9 +193,8 @@ public class ImportTransformTest extends ImporterTestSupport {
         assertEquals(ImportContext.State.COMPLETE, context.getState());
 
         LayerInfo l1 = context.getTasks().get(0).getLayer();
-        assertTrue(
-                CRS.equalsIgnoreMetadata(
-                        CRS.decode("EPSG:26713"), l1.getResource().getNativeCRS()));
+        assertTrue(CRS.equalsIgnoreMetadata(
+                CRS.decode("EPSG:26713"), l1.getResource().getNativeCRS()));
         assertEquals("EPSG:26713", l1.getResource().getSRS());
 
         dir = unpack("shape/archsites_epsg_prj.zip");
@@ -212,19 +210,18 @@ public class ImportTransformTest extends ImporterTestSupport {
         assertEquals(ImportContext.State.COMPLETE, context.getState());
 
         LayerInfo l2 = context.getTasks().get(0).getLayer();
-        assertTrue(
-                CRS.equalsIgnoreMetadata(CRS.decode("EPSG:4326"), l2.getResource().getNativeCRS()));
+        assertTrue(CRS.equalsIgnoreMetadata(
+                CRS.decode("EPSG:4326"), l2.getResource().getNativeCRS()));
         assertEquals("EPSG:4326", l2.getResource().getSRS());
 
         assertNotEquals(
                 l1.getResource().getNativeBoundingBox(), l2.getResource().getNativeBoundingBox());
-        assertTrue(
-                CRS.equalsIgnoreMetadata(
-                        l2.getResource().getNativeCRS(),
-                        l2.getResource().getNativeBoundingBox().getCoordinateReferenceSystem()));
+        assertTrue(CRS.equalsIgnoreMetadata(
+                l2.getResource().getNativeCRS(),
+                l2.getResource().getNativeBoundingBox().getCoordinateReferenceSystem()));
 
-        assertTrue(
-                CRS.equalsIgnoreMetadata(CRS.decode("EPSG:4326"), l2.getResource().getNativeCRS()));
+        assertTrue(CRS.equalsIgnoreMetadata(
+                CRS.decode("EPSG:4326"), l2.getResource().getNativeCRS()));
         assertEquals("EPSG:4326", l2.getResource().getSRS());
     }
 }

@@ -33,11 +33,7 @@ public class LoggingController extends AbstractGeoServerController {
     }
 
     @GetMapping(
-            produces = {
-                MediaType.APPLICATION_JSON_VALUE,
-                MediaType.APPLICATION_XML_VALUE,
-                MediaType.TEXT_HTML_VALUE
-            })
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE, MediaType.TEXT_HTML_VALUE})
     public RestWrapper<LoggingInfo> settingsGet() {
         return wrapObject(geoServer.getLogging(), LoggingInfo.class);
     }
@@ -51,15 +47,15 @@ public class LoggingController extends AbstractGeoServerController {
             })
     public void settingsPut(@RequestBody LoggingInfo loggingInfo) {
         LoggingInfo original = geoServer.getLogging();
+        // Log location can only be set via GEOSERVER_LOG_LOCATION property (GeoServer 3.0+).
+        // The location field is not on the LoggingInfo interface, so OwsUtils.copy won't touch it.
         OwsUtils.copy(loggingInfo, original, LoggingInfo.class);
         geoServer.save(original);
     }
 
     @Override
     public boolean supports(
-            MethodParameter methodParameter,
-            Type targetType,
-            Class<? extends HttpMessageConverter<?>> converterType) {
+            MethodParameter methodParameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) {
         return LoggingInfo.class.isAssignableFrom(methodParameter.getParameterType());
     }
 }

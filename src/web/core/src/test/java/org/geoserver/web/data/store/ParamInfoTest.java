@@ -6,7 +6,7 @@ package org.geoserver.web.data.store;
 
 import static org.junit.Assert.assertEquals;
 
-import org.geotools.data.DataAccessFactory.Param;
+import org.geotools.api.data.DataAccessFactory.Param;
 import org.geotools.data.property.PropertyDataStoreFactory;
 import org.geotools.util.SimpleInternationalString;
 import org.junit.Test;
@@ -15,17 +15,16 @@ public class ParamInfoTest {
 
     @Test
     public void testTitle() {
-        Param param =
-                new Param(
-                        "abc",
-                        String.class,
-                        new SimpleInternationalString("the title"),
-                        new SimpleInternationalString("the description"),
-                        true,
-                        1,
-                        1,
-                        null,
-                        null);
+        Param param = new Param(
+                "abc",
+                String.class,
+                new SimpleInternationalString("the title"),
+                new SimpleInternationalString("the description"),
+                true,
+                1,
+                1,
+                null,
+                null);
         ParamInfo pi = new ParamInfo(param);
         assertEquals("the title", pi.getTitle());
     }

@@ -34,9 +34,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class ExtTypesTest extends AbstractTaskManagerTest {
 
-    @Autowired ExtTypes extTypes;
+    @Autowired
+    ExtTypes extTypes;
 
-    @Autowired private Catalog catalog;
+    @Autowired
+    private Catalog catalog;
 
     @Override
     protected boolean setupDataDirectory() throws Exception {
@@ -109,8 +111,7 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
 
         final String tableName = "grondwaterlichamen_new";
 
-        assertTrue(
-                extTypes.tableName.validate("doesntexist", Collections.singletonList("myjndidb")));
+        assertTrue(extTypes.tableName.validate("doesntexist", Collections.singletonList("myjndidb")));
         assertTrue(extTypes.tableName.validate(tableName, Collections.singletonList("myjndidb")));
 
         DbSource source = (DbSource) extTypes.dbName.parse("myjndidb", null);
@@ -123,22 +124,21 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
         }
         assertTrue(domain.contains(tableName));
 
-        assertTrue(
-                extTypes.tableName.parse(tableName, Collections.singletonList("myjndidb"))
-                        instanceof DbTable);
-        assertTrue(
-                extTypes.tableName.parse("doesntexist", Collections.singletonList("myjndidb"))
-                        instanceof DbTable);
+        assertTrue(extTypes.tableName.parse(tableName, Collections.singletonList("myjndidb")) instanceof DbTable);
+        assertTrue(extTypes.tableName.parse("doesntexist", Collections.singletonList("myjndidb")) instanceof DbTable);
     }
 
     @Test
     public void testExtGeoserver() {
         List<String> domain = extTypes.extGeoserver.getDomain(null);
-        assertEquals(1, domain.size());
-        assertEquals("mygs", domain.get(0));
+        assertEquals(2, domain.size());
+        assertTrue(domain.contains("mygs"));
+        assertTrue(domain.contains("keycloakgs"));
         assertTrue(extTypes.extGeoserver.validate("mygs", null));
         assertFalse(extTypes.extGeoserver.validate("doesntexist", null));
+        assertTrue(extTypes.extGeoserver.validate("keycloakgs", null));
         assertTrue(extTypes.extGeoserver.parse("mygs", null) instanceof ExternalGS);
+        assertTrue(extTypes.extGeoserver.parse("keycloakgs", null) instanceof ExternalGS);
         assertNull(extTypes.extGeoserver.parse("doesntexist", null));
     }
 
@@ -152,10 +152,8 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
         assertTrue(extTypes.workspace.validate("gs", Collections.emptyList()));
         assertTrue(extTypes.workspace.validate("wcs", Collections.emptyList()));
         assertFalse(extTypes.workspace.validate("doesntexist", Collections.emptyList()));
-        assertTrue(
-                extTypes.workspace.parse("gs", Collections.emptyList()) instanceof WorkspaceInfo);
-        assertTrue(
-                extTypes.workspace.parse("wcs", Collections.emptyList()) instanceof WorkspaceInfo);
+        assertTrue(extTypes.workspace.parse("gs", Collections.emptyList()) instanceof WorkspaceInfo);
+        assertTrue(extTypes.workspace.parse("wcs", Collections.emptyList()) instanceof WorkspaceInfo);
         assertNull(extTypes.internalLayer.parse("doesntexist", Collections.emptyList()));
     }
 
@@ -163,26 +161,20 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
     public void testInternalLayer() {
         // without workspace
         List<String> domain = extTypes.internalLayer.getDomain(Collections.emptyList());
-        assertEquals(6, domain.size());
+        assertEquals(9, domain.size());
         assertEquals("Tazbyte", domain.get(0));
         assertEquals("gs:Tazbyte", domain.get(1));
         assertEquals("wcs:BlueMarble", domain.get(2));
         assertEquals("wcs:DEM", domain.get(3));
-        assertEquals("wcs:RotatedCad", domain.get(4));
-        assertEquals("wcs:World", domain.get(5));
+        assertEquals("wcs:RotatedCad", domain.get(6));
+        assertEquals("wcs:World", domain.get(7));
         assertTrue(extTypes.internalLayer.validate("Tazbyte", Collections.emptyList()));
         assertTrue(extTypes.internalLayer.validate("gs:Tazbyte", Collections.emptyList()));
         assertTrue(extTypes.internalLayer.validate("wcs:BlueMarble", Collections.emptyList()));
         assertFalse(extTypes.internalLayer.validate("doesntexist", Collections.emptyList()));
-        assertTrue(
-                extTypes.internalLayer.parse("Tazbyte", Collections.emptyList())
-                        instanceof LayerInfo);
-        assertTrue(
-                extTypes.internalLayer.parse("gs:Tazbyte", Collections.emptyList())
-                        instanceof LayerInfo);
-        assertTrue(
-                extTypes.internalLayer.parse("wcs:BlueMarble", Collections.emptyList())
-                        instanceof LayerInfo);
+        assertTrue(extTypes.internalLayer.parse("Tazbyte", Collections.emptyList()) instanceof LayerInfo);
+        assertTrue(extTypes.internalLayer.parse("gs:Tazbyte", Collections.emptyList()) instanceof LayerInfo);
+        assertTrue(extTypes.internalLayer.parse("wcs:BlueMarble", Collections.emptyList()) instanceof LayerInfo);
         assertNull(extTypes.internalLayer.parse("doesntexist", Collections.emptyList()));
 
         // with workspace
@@ -190,9 +182,7 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
         assertEquals(1, domain.size());
         assertEquals("Tazbyte", domain.get(0));
         assertTrue(extTypes.internalLayer.validate("Tazbyte", Lists.newArrayList("gs")));
-        assertTrue(
-                extTypes.internalLayer.parse("Tazbyte", Lists.newArrayList("gs"))
-                        instanceof LayerInfo);
+        assertTrue(extTypes.internalLayer.parse("Tazbyte", Lists.newArrayList("gs")) instanceof LayerInfo);
         assertFalse(extTypes.internalLayer.validate("wcs:BlueMarble", Lists.newArrayList("gs")));
         assertNull(extTypes.internalLayer.parse("wcs:BlueMarble", Lists.newArrayList("gs")));
     }
@@ -203,15 +193,10 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
         assertTrue(extTypes.name.validate("gs:bla", null));
         assertTrue(extTypes.name.validate("bla", Lists.newArrayList("gs")));
         assertFalse(extTypes.name.validate("doesntexist:bla", null));
+        assertEquals(new NameImpl("http://geoserver.org", "bla"), extTypes.name.parse("bla", Collections.emptyList()));
         assertEquals(
-                new NameImpl("http://geoserver.org", "bla"),
-                extTypes.name.parse("bla", Collections.emptyList()));
-        assertEquals(
-                new NameImpl("http://geoserver.org", "bla"),
-                extTypes.name.parse("gs:bla", Collections.emptyList()));
-        assertEquals(
-                new NameImpl("http://geoserver.org", "bla"),
-                extTypes.name.parse("bla", Lists.newArrayList("gs")));
+                new NameImpl("http://geoserver.org", "bla"), extTypes.name.parse("gs:bla", Collections.emptyList()));
+        assertEquals(new NameImpl("http://geoserver.org", "bla"), extTypes.name.parse("bla", Lists.newArrayList("gs")));
     }
 
     @Test
@@ -233,31 +218,20 @@ public class ExtTypesTest extends AbstractTaskManagerTest {
             service.create("temp", is);
         }
 
+        assertTrue(extTypes.file(true, false).validate("temp", Collections.singletonList("data-directory")));
+        assertTrue(extTypes.file(true, false).validate("doesntexist", Collections.singletonList("data-directory")));
         assertTrue(
-                extTypes.file(true, false)
-                        .validate("temp", Collections.singletonList("data-directory")));
-        assertTrue(
-                extTypes.file(true, false)
-                        .validate("doesntexist", Collections.singletonList("data-directory")));
-        assertTrue(
-                extTypes.file(true, false)
-                                .parse("temp", Collections.singletonList("data-directory"))
+                extTypes.file(true, false).parse("temp", Collections.singletonList("data-directory"))
                         instanceof FileReference);
-        assertNull(
-                extTypes.file(true, false)
-                        .parse("doesntexist", Collections.singletonList("data-directory")));
+        assertNull(extTypes.file(true, false).parse("doesntexist", Collections.singletonList("data-directory")));
         assertTrue(
-                extTypes.file(false, false)
-                                .parse("doesntexist", Collections.singletonList("data-directory"))
+                extTypes.file(false, false).parse("doesntexist", Collections.singletonList("data-directory"))
                         instanceof FileReference);
 
         assertEquals(
                 "temp.1",
                 ((FileReference)
-                                extTypes.file(false, false)
-                                        .parse(
-                                                "temp",
-                                                Lists.newArrayList("data-directory", "true")))
+                                extTypes.file(false, false).parse("temp", Lists.newArrayList("data-directory", "true")))
                         .getNextVersion());
     }
 }

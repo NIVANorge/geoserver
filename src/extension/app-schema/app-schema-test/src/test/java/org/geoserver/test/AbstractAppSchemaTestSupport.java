@@ -6,6 +6,7 @@
 
 package org.geoserver.test;
 
+import static java.util.Map.entry;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -21,7 +22,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringWriter;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +33,6 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import net.sf.json.JSON;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.custommonkey.xmlunit.SimpleNamespaceContext;
 import org.custommonkey.xmlunit.XMLAssert;
 import org.custommonkey.xmlunit.XMLUnit;
@@ -44,10 +41,12 @@ import org.custommonkey.xmlunit.exceptions.XpathException;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.util.IOUtils;
 import org.geoserver.wfs.WFSInfo;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.appschema.jdbc.NestedFilterToSQL;
 import org.geotools.appschema.resolver.xml.AppSchemaValidator;
 import org.geotools.appschema.resolver.xml.AppSchemaXSDRegistry;
-import org.geotools.data.DataAccess;
 import org.geotools.data.complex.AppSchemaDataAccess;
 import org.geotools.data.complex.AppSchemaDataAccessRegistry;
 import org.geotools.data.complex.DataAccessRegistry;
@@ -64,52 +63,44 @@ import org.geotools.jdbc.SQLDialect;
 import org.geotools.xml.resolver.SchemaCache;
 import org.geotools.xml.resolver.SchemaCatalog;
 import org.geotools.xml.resolver.SchemaResolver;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeatureType;
+import org.kordamp.json.JSON;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
 /**
- * Abstract base class for WFS (and WMS) test cases that test integration of {@link
- * AppSchemaDataAccess} with GeoServer.
+ * Abstract base class for WFS (and WMS) test cases that test integration of {@link AppSchemaDataAccess} with GeoServer.
  *
- * <p>The implementation takes care to ensure that private {@link XMLUnit} namespace contexts are
- * used for each mock data instance, to avoid collisions. Use of static {@link XMLAssert} methods
- * risks collisions in the static namespace context. This class avoids such problems by providing
- * its own instance methods like those in XMLAssert.
+ * <p>The implementation takes care to ensure that private {@link XMLUnit} namespace contexts are used for each mock
+ * data instance, to avoid collisions. Use of static {@link XMLAssert} methods risks collisions in the static namespace
+ * context. This class avoids such problems by providing its own instance methods like those in XMLAssert.
  *
  * @author Ben Caradoc-Davies, CSIRO Exploration and Mining
  */
 public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSupport {
 
     /**
-     * The namespace URI used internally in the DOM to qualify the name of an "xmlns:" attribute.
-     * Note that "xmlns:" attributes are not accessible via XMLUnit XPathEngine, so testing these
-     * can only be performed by examining the DOM.
+     * The namespace URI used internally in the DOM to qualify the name of an "xmlns:" attribute. Note that "xmlns:"
+     * attributes are not accessible via XMLUnit XPathEngine, so testing these can only be performed by examining the
+     * DOM.
      *
      * @see <a href="http://www.w3.org/2000/xmlns/">http://www.w3.org/2000/xmlns/</a>
      */
     protected static final String XMLNS = "http://www.w3.org/2000/xmlns/";
 
     /** WFS namespaces, for use by XMLUnit. A seen in WFSTestSupport, plus xlink. */
-    @SuppressWarnings("serial")
-    private final Map<String, String> WFS_NAMESPACES =
-            Collections.unmodifiableMap(
-                    new HashMap<String, String>() {
-                        {
-                            put("wfs", "http://www.opengis.net/wfs");
-                            put("ows", "http://www.opengis.net/ows");
-                            put("ogc", "http://www.opengis.net/ogc");
-                            put("xs", "http://www.w3.org/2001/XMLSchema");
-                            put("xsd", "http://www.w3.org/2001/XMLSchema");
-                            put("gml", "http://www.opengis.net/gml");
-                            put("xlink", "http://www.w3.org/1999/xlink");
-                            put("xsi", "http://www.w3.org/2001/XMLSchema-instance");
-                            put(
-                                    "wms",
-                                    "http://www.opengis.net/wms"); // NC - wms added for wms tests
-                        }
-                    });
+    private final Map<String, String> WFS_NAMESPACES = Map.ofEntries(
+            entry("wfs", "http://www.opengis.net/wfs"),
+            entry("ows", "http://www.opengis.net/ows"),
+            entry("ogc", "http://www.opengis.net/ogc"),
+            entry("xs", "http://www.w3.org/2001/XMLSchema"),
+            entry("xsd", "http://www.w3.org/2001/XMLSchema"),
+            entry("gml", "http://www.opengis.net/gml"),
+            entry("xlink", "http://www.w3.org/1999/xlink"),
+            entry("xsi", "http://www.w3.org/2001/XMLSchema-instance"),
+            entry("wms", "http://www.opengis.net/wms") // NC - wms added for wms tests
+            );
 
     /** The XpathEngine to be used for this namespace context. */
     private XpathEngine xpathEngine;
@@ -130,9 +121,9 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     /**
      * Configure WFS to encode canonical schema location and use featureMember.
      *
-     * <p>FIXME: These settings should go in wfs.xml for the mock data when tests migrated to new
-     * data directory format. Have to do it programmatically for now. To do this insert in wfs.xml
-     * just after the <tt>featureBounding</tt> setting:
+     * <p>FIXME: These settings should go in wfs.xml for the mock data when tests migrated to new data directory format.
+     * Have to do it programmatically for now. To do this insert in wfs.xml just after the <tt>featureBounding</tt>
+     * setting:
      *
      * <ul>
      *   <li><tt>&lt;canonicalSchemaLocation&gt;true&lt;/canonicalSchemaLocation&gt;<tt>
@@ -150,15 +141,13 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     }
 
-    /**
-     * Unregister all data access from registry to avoid stale data access being used by other unit
-     * tests.
-     */
+    /** Unregister all data access from registry to avoid stale data access being used by other unit tests. */
     @Override
     protected void onTearDown(SystemTestData testData) throws Exception {
         DataAccessRegistry.unregisterAndDisposeAll();
         AppSchemaDataAccessRegistry.clearAppSchemaProperties();
         AppSchemaXSDRegistry.getInstance().dispose();
+        SchemaCache.enableAutomaticConfiguration(); // reset default behavior
         catalog = null;
     }
 
@@ -225,8 +214,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Return the response for a POST request to a path (typically "wfs"). The request XML is a
-     * String.
+     * Return the response for a POST request to a path (typically "wfs"). The request XML is a String.
      *
      * <p>Override to remove checked exception.
      *
@@ -242,13 +230,11 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Return the response for a POST request to a path (typically "wfs"). The request XML is a
-     * String.
+     * Return the response for a POST request to a path (typically "wfs"). The request XML is a String.
      *
      * <p>Override to remove checked exception.
      *
-     * @see org.geoserver.test.GeoServerAbstractTestSupport#postAsDOM(java.lang.String,
-     *     java.lang.String)
+     * @see org.geoserver.test.GeoServerAbstractTestSupport#postAsDOM(java.lang.String, java.lang.String)
      */
     @Override
     protected Document postAsDOM(String path, String xml) {
@@ -262,8 +248,8 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     /**
      * Return the XpathEngine, configured for this namespace context.
      *
-     * <p>Note that the engine is configured lazily, to ensure that the mock data has been created
-     * and is ready to report data namespaces, which are then put into the namespace context.
+     * <p>Note that the engine is configured lazily, to ensure that the mock data has been created and is ready to
+     * report data namespaces, which are then put into the namespace context.
      *
      * @return configured XpathEngine
      */
@@ -285,8 +271,8 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
      */
     private SchemaCatalog getSchemaCatalog() {
         if (catalog == null) {
-            if (testData instanceof AbstractAppSchemaMockData) {
-                catalog = ((AbstractAppSchemaMockData) testData).getSchemaCatalog();
+            if (testData instanceof AbstractAppSchemaMockData data) {
+                catalog = data.getSchemaCatalog();
             }
         }
         return catalog;
@@ -323,8 +309,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Assertion that the flattened value of an XPath expression in document is equal to the
-     * expected value.
+     * Assertion that the flattened value of an XPath expression in document is equal to the expected value.
      *
      * @param expected expected value of expression
      * @param xpath XPath expression
@@ -346,8 +331,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Assert that the flattened value of an XPath expression in a document matches a regular
-     * expression.
+     * Assert that the flattened value of an XPath expression in a document matches a regular expression.
      *
      * @param regex regular expression that must be matched
      * @param xpath XPath expression
@@ -358,8 +342,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Assert that the flattened value of an XPath expression in a document doe not match a regular
-     * expression.
+     * Assert that the flattened value of an XPath expression in a document doe not match a regular expression.
      *
      * @param regex regular expression that must not be matched
      * @param xpath XPath expression
@@ -398,8 +381,8 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Find the first file matching the supplied path, starting from the supplied root. This doesn't
-     * support multiple matching files.
+     * Find the first file matching the supplied path, starting from the supplied root. This doesn't support multiple
+     * matching files.
      *
      * @param path Supplied path
      * @param root Directory to start searching from
@@ -424,12 +407,12 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Schema-validate the response for a GET request for a path (starts with "wfs?"). Validation is
-     * against schemas found on the classpath. See {@link
-     * SchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for URL-to-classpath convention.
+     * Schema-validate the response for a GET request for a path (starts with "wfs?"). Validation is against schemas
+     * found on the classpath. See {@link SchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for URL-to-classpath
+     * convention.
      *
-     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the
-     * failure messages. The failure messages are also logged.
+     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the failure messages. The
+     * failure messages are also logged.
      *
      * @param path GET request (starts with "wfs?")
      * @throws RuntimeException if validation fails
@@ -444,12 +427,12 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Schema-validate the response for a POST request to a path (typically "wfs"). Validation is
-     * against schemas found on the classpath. See {@link
-     * SchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for URL-to-classpath convention.
+     * Schema-validate the response for a POST request to a path (typically "wfs"). Validation is against schemas found
+     * on the classpath. See {@link SchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for URL-to-classpath
+     * convention.
      *
-     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the
-     * failure messages. The failure messages are also logged.
+     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the failure messages. The
+     * failure messages are also logged.
      *
      * @param path request path (typically "wfs")
      * @param xml the request XML document
@@ -465,12 +448,11 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Schema-validate an XML instance document in a string. Validation is against schemas found on
-     * the classpath. See {@link AppSchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for
-     * URL-to-classpath convention.
+     * Schema-validate an XML instance document in a string. Validation is against schemas found on the classpath. See
+     * {@link AppSchemaResolver#getSimpleHttpResourcePath(java.net.URI)} for URL-to-classpath convention.
      *
-     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the
-     * failure messages. The failure messages are also logged.
+     * <p>If validation fails, a {@link RuntimeException} is thrown with detail containing the failure messages. The
+     * failure messages are also logged.
      *
      * @param path request path (typically "wfs")
      * @param xml the XML instance document
@@ -488,8 +470,8 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     /**
      * For WMS tests.
      *
-     * <p>Asserts that the image is not blank, in the sense that there must be pixels different from
-     * the passed background color.
+     * <p>Asserts that the image is not blank, in the sense that there must be pixels different from the passed
+     * background color.
      *
      * @param testName the name of the test to throw meaningfull messages if something goes wrong
      * @param image the imgage to check it is not "blank"
@@ -502,16 +484,15 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Checks that the identifiers of the features in the provided collection match the specified
-     * ids.
+     * Checks that the identifiers of the features in the provided collection match the specified ids.
      *
      * <p>Note that:
      *
      * <ul>
      *   <li>The method considers that feature identifiers follow the convention <code>
      *       [type name].[ID]</code> and only matches the ID part.
-     *   <li>If the feature collection contains a feature whose identifier does not match any of the
-     *       passed ids, the check will fail
+     *   <li>If the feature collection contains a feature whose identifier does not match any of the passed ids, the
+     *       check will fail
      * </ul>
      *
      * @param featureSet the feature collection to check
@@ -545,8 +526,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
      * <p>If the method returns <code>false</code> the test should be skipped.
      *
      * @param rootMapping the feature type being queried
-     * @return <code>true</code> if nested filters encoding can be tested, <code>false</code>
-     *     otherwise.
+     * @return <code>true</code> if nested filters encoding can be tested, <code>false</code> otherwise.
      */
     protected boolean shouldTestNestedFiltersEncoding(FeatureTypeMapping rootMapping) {
         if (!(rootMapping.getSource().getDataStore() instanceof JDBCDataStore)) return false;
@@ -556,11 +536,11 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
     }
 
     /**
-     * Creates a properly configured {@link NestedFilterToSQL} instance to enable testing the SQL
-     * encoding of filters on nested attributes.
+     * Creates a properly configured {@link NestedFilterToSQL} instance to enable testing the SQL encoding of filters on
+     * nested attributes.
      *
-     * <p>Note: before calling this method, clients should verify that nested filters encoding is
-     * enabled by calling {@link #shouldTestNestedFiltersEncoding(FeatureTypeMapping)}.
+     * <p>Note: before calling this method, clients should verify that nested filters encoding is enabled by calling
+     * {@link #shouldTestNestedFiltersEncoding(FeatureTypeMapping)}.
      *
      * @param mapping the feature type being queried
      * @return nested filter encoder
@@ -574,10 +554,10 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
         JDBCDataStore store = (JDBCDataStore) source;
         SQLDialect dialect = store.getSQLDialect();
         FilterToSQL original = null;
-        if (dialect instanceof BasicSQLDialect) {
-            original = ((BasicSQLDialect) dialect).createFilterToSQL();
-        } else if (dialect instanceof PreparedStatementSQLDialect) {
-            original = ((PreparedStatementSQLDialect) dialect).createPreparedFilterToSQL();
+        if (dialect instanceof BasicSQLDialect lDialect1) {
+            original = lDialect1.createFilterToSQL();
+        } else if (dialect instanceof PreparedStatementSQLDialect lDialect) {
+            original = lDialect.createPreparedFilterToSQL();
             // disable prepared statements to have literals actually encoded in the SQL
             ((PreparedFilterToSQL) original).setPrepareEnabled(false);
         }
@@ -610,11 +590,10 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
      * @return the content of the resource as text
      */
     protected String readResource(String resourcePath) {
-        try (InputStream input =
-                NormalizedMultiValuesTest.class.getResourceAsStream(resourcePath)) {
+        try (InputStream input = NormalizedMultiValuesTest.class.getResourceAsStream(resourcePath)) {
             return IOUtils.toString(input);
         } catch (Exception exception) {
-            throw new RuntimeException(String.format("Error reading resource '%s'.", resourcePath));
+            throw new RuntimeException("Error reading resource '%s'.".formatted(resourcePath));
         }
     }
 
@@ -630,10 +609,7 @@ public abstract class AbstractAppSchemaTestSupport extends GeoServerSystemTestSu
         return curr;
     }
 
-    /**
-     * Helper method that just extracts \ looks for a station in the provided GeoJSON response based
-     * on its ID.
-     */
+    /** Helper method that just extracts \ looks for a station in the provided GeoJSON response based on its ID. */
     protected JSONObject getFeaturePropertiesById(JSON geoJson, String id) {
         assertThat(geoJson, instanceOf(JSONObject.class));
         JSONObject json = (JSONObject) geoJson;

@@ -19,17 +19,17 @@ import org.geoserver.opensearch.eo.OpenSearchAccessProvider;
 import org.geoserver.opensearch.eo.OseoEvent;
 import org.geoserver.opensearch.eo.OseoEventListener;
 import org.geoserver.opensearch.eo.store.Indexable;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.feature.type.PropertyDescriptor;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.NilExpression;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.LiteralExpressionImpl;
 import org.geotools.filter.function.JsonPointerFunction;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.NilExpression;
-import org.opengis.filter.expression.PropertyName;
 import org.springframework.stereotype.Component;
 
 /**
@@ -90,20 +90,16 @@ public class STACOseoListener implements OseoEventListener {
         try {
             return accessProvider.getOpenSearchAccess().getIndexNames(tableName);
         } catch (IOException e) {
-            LOGGER.warning(
-                    "Error while getting index list for " + tableName + " " + e.getMessage());
+            LOGGER.warning("Error while getting index list for " + tableName + " " + e.getMessage());
             return Collections.emptyList();
         }
     }
 
     private void handleCollectionsDeleteEvent(String collectionName) {
         try {
-            accessProvider
-                    .getOpenSearchAccess()
-                    .updateIndexes(collectionName, Collections.emptyList());
+            accessProvider.getOpenSearchAccess().updateIndexes(collectionName, Collections.emptyList());
         } catch (IOException e) {
-            LOGGER.warning(
-                    "Error while updating indexes for " + collectionName + " " + e.getMessage());
+            LOGGER.warning("Error while updating indexes for " + collectionName + " " + e.getMessage());
         }
     }
 
@@ -114,29 +110,19 @@ public class STACOseoListener implements OseoEventListener {
             if (sampleFeature == null) return;
 
             Map<String, Expression> expressionMap = getQueryablesMap(collectionName);
-            List<Indexable> indexables =
-                    expressionMap.entrySet().stream()
-                            .map(
-                                    entry ->
-                                            new Indexable(
-                                                    entry.getKey(),
-                                                    entry.getValue(),
-                                                    getFieldType(sampleFeature, entry.getValue())))
-                            .collect(Collectors.toList());
+            List<Indexable> indexables = expressionMap.entrySet().stream()
+                    .map(entry -> new Indexable(
+                            entry.getKey(), entry.getValue(), getFieldType(sampleFeature, entry.getValue())))
+                    .collect(Collectors.toList());
             accessProvider.getOpenSearchAccess().updateIndexes(collectionName, indexables);
         } catch (IOException e) {
-            LOGGER.warning(
-                    "Error while getting creating index for "
-                            + collectionName
-                            + " "
-                            + e.getMessage());
+            LOGGER.warning("Error while getting creating index for " + collectionName + " " + e.getMessage());
         }
     }
 
     private Indexable.FieldType getFieldType(Feature sampleFeature, Expression expression) {
         if (!(expression instanceof JsonPointerFunction)) {
-            if (isGeometry(expression, sampleFeature.getType()))
-                return Indexable.FieldType.Geometry;
+            if (isGeometry(expression, sampleFeature.getType())) return Indexable.FieldType.Geometry;
             else if (isArray(expression, sampleFeature.getType())) return Indexable.FieldType.Array;
             return Indexable.FieldType.Other;
         }
@@ -145,7 +131,7 @@ public class STACOseoListener implements OseoEventListener {
         Object evaluated = expression.evaluate(sampleFeature);
         if (evaluated instanceof NilExpression
                 || evaluated == null
-                || (evaluated instanceof Literal && ((Literal) evaluated).getValue() == null)) {
+                || (evaluated instanceof Literal literal && literal.getValue() == null)) {
             // if sample returns null try your best with text
             return Indexable.FieldType.JsonString;
         }
@@ -172,29 +158,25 @@ public class STACOseoListener implements OseoEventListener {
 
     private boolean isNumeric(String test) {
         boolean out = false;
-        List<String> list =
-                Arrays.asList(
-                        new String[] {
-                            Short.class.getSimpleName(),
-                            Integer.class.getSimpleName(),
-                            Long.class.getSimpleName(),
-                            Float.class.getSimpleName(),
-                            Double.class.getSimpleName(),
-                            BigInteger.class.getSimpleName(),
-                            BigDecimal.class.getSimpleName(),
-                            Double.class.getSimpleName()
-                        });
+        List<String> list = Arrays.asList(new String[] {
+            Short.class.getSimpleName(),
+            Integer.class.getSimpleName(),
+            Long.class.getSimpleName(),
+            Float.class.getSimpleName(),
+            Double.class.getSimpleName(),
+            BigInteger.class.getSimpleName(),
+            BigDecimal.class.getSimpleName(),
+            Double.class.getSimpleName()
+        });
         if (list.contains(test)) {
             return true;
         }
         return out;
     }
 
-    private void checkAndFixJsonPointerWithoutLeadingSlash(
-            JsonPointerFunction jsonPointerFunction) {
+    private void checkAndFixJsonPointerWithoutLeadingSlash(JsonPointerFunction jsonPointerFunction) {
         Object secondArg = jsonPointerFunction.getParameters().get(1);
-        if (secondArg instanceof LiteralExpressionImpl) {
-            LiteralExpressionImpl literalExpression = (LiteralExpressionImpl) secondArg;
+        if (secondArg instanceof LiteralExpressionImpl literalExpression) {
             String path = (String) literalExpression.getValue();
             if (!path.startsWith("/")) {
                 literalExpression.setValue("/" + path);
@@ -203,14 +185,13 @@ public class STACOseoListener implements OseoEventListener {
     }
 
     private Map<String, Expression> getQueryablesMap(String layerName) throws IOException {
-        STACQueryablesBuilder stacQueryablesBuilder =
-                new STACQueryablesBuilder(
-                        null,
-                        templates.getItemTemplate(layerName),
-                        sampleFeatures.getSchema(),
-                        sampleFeatures.getSample(layerName),
-                        collectionsCache.getCollection(layerName),
-                        geoServer.getService(OSEOInfo.class));
+        STACQueryablesBuilder stacQueryablesBuilder = new STACQueryablesBuilder(
+                null,
+                templates.getItemTemplate(layerName),
+                sampleFeatures.getSchema(),
+                sampleFeatures.getSample(layerName),
+                collectionsCache.getCollection(layerName),
+                geoServer.getService(OSEOInfo.class));
         return stacQueryablesBuilder.getExpressionMap();
     }
 }

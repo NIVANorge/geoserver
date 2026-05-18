@@ -12,7 +12,7 @@ import org.geoserver.catalog.util.CloseableIterator;
 import org.geoserver.ogcapi.AbstractDocument;
 import org.geoserver.ogcapi.StyleDocument;
 import org.geoserver.platform.ServiceException;
-import org.opengis.filter.Filter;
+import org.geotools.api.filter.Filter;
 
 /** Contains the list of styles for the "/styles" endpoint */
 @JsonPropertyOrder({"styles", "links"})
@@ -29,7 +29,7 @@ public class StylesDocument extends AbstractDocument {
     public Iterator<StyleDocument> getStyles() {
         // full scan (we might add paging/filtering later)
         CloseableIterator<StyleInfo> styles = catalog.list(StyleInfo.class, Filter.INCLUDE);
-        return new Iterator<StyleDocument>() {
+        return new Iterator<>() {
 
             StyleDocument next;
 
@@ -53,8 +53,7 @@ public class StylesDocument extends AbstractDocument {
                         return true;
                     } catch (Exception e) {
                         styles.close();
-                        throw new ServiceException(
-                                "Failed to iterate over the feature types in the catalog", e);
+                        throw new ServiceException("Failed to iterate over the feature types in the catalog", e);
                     }
                 }
             }

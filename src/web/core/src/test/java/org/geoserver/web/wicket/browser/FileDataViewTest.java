@@ -9,6 +9,7 @@ import static org.geoserver.web.GeoServerWicketTestSupport.initResourceSettings;
 import static org.junit.Assert.assertEquals;
 
 import java.io.File;
+import java.util.Optional;
 import org.apache.commons.io.FileUtils;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.markup.repeater.data.DataView;
@@ -48,18 +49,13 @@ public class FileDataViewTest {
 
         fileProvider = new FileProvider(root);
 
-        tester.startPage(
-                new FormTestPage(
-                        (ComponentBuilder)
-                                id ->
-                                        new FileDataView(id, fileProvider) {
+        tester.startPage(new FormTestPage((ComponentBuilder) id -> new FileDataView(id, fileProvider) {
 
-                                            @Override
-                                            protected void linkNameClicked(
-                                                    File file, AjaxRequestTarget target) {
-                                                lastClicked = file;
-                                            }
-                                        }));
+            @Override
+            protected void linkNameClicked(File file, Optional<AjaxRequestTarget> target) {
+                lastClicked = file;
+            }
+        }));
 
         // WicketHierarchyPrinter.print(tester.getLastRenderedPage(), true, true);
     }
@@ -69,19 +65,16 @@ public class FileDataViewTest {
         tester.assertRenderedPage(FormTestPage.class);
         tester.assertNoErrorMessage();
 
-        tester.assertLabel("form:panel:fileTable:fileContent:files:1:nameLink:name", "one.txt");
-        tester.assertLabel("form:panel:fileTable:fileContent:files:2:nameLink:name", "two.sld");
+        tester.assertLabel("form:panel:fileContent:fileTable:files:1:nameLink:name", "one.txt");
+        tester.assertLabel("form:panel:fileContent:fileTable:files:2:nameLink:name", "two.sld");
         assertEquals(
                 2,
-                ((DataView)
-                                tester.getComponentFromLastRenderedPage(
-                                        "form:panel:fileTable:fileContent:files"))
-                        .size());
+                ((DataView) tester.getComponentFromLastRenderedPage("form:panel:fileContent:fileTable:files")).size());
     }
 
     @Test
     public void testClick() throws Exception {
-        tester.clickLink("form:panel:fileTable:fileContent:files:1:nameLink");
+        tester.clickLink("form:panel:fileContent:fileTable:files:1:nameLink");
         tester.assertRenderedPage(FormTestPage.class);
         tester.assertNoErrorMessage();
         assertEquals(one, lastClicked);
@@ -91,24 +84,21 @@ public class FileDataViewTest {
     public void testFilter() throws Exception {
         fileProvider.setFileFilter(new Model<>(new ExtensionFileFilter(".txt")));
         tester.startPage(tester.getLastRenderedPage());
-        tester.assertLabel("form:panel:fileTable:fileContent:files:3:nameLink:name", "one.txt");
+        tester.assertLabel("form:panel:fileContent:fileTable:files:3:nameLink:name", "one.txt");
         assertEquals(
                 1,
-                ((DataView)
-                                tester.getComponentFromLastRenderedPage(
-                                        "form:panel:fileTable:fileContent:files"))
-                        .size());
+                ((DataView) tester.getComponentFromLastRenderedPage("form:panel:fileContent:fileTable:files")).size());
     }
 
     @Test
     public void testSortByName() throws Exception {
 
         // order by inverse name
-        tester.clickLink("form:panel:fileTable:nameHeader:orderByLink", true);
-        tester.clickLink("form:panel:fileTable:nameHeader:orderByLink", true);
+        tester.clickLink("form:panel:fileContent:fileTable:nameHeader:orderByLink", true);
+        tester.clickLink("form:panel:fileContent:fileTable:nameHeader:orderByLink", true);
         tester.assertRenderedPage(FormTestPage.class);
 
-        tester.assertLabel("form:panel:fileTable:fileContent:files:5:nameLink:name", "two.sld");
-        tester.assertLabel("form:panel:fileTable:fileContent:files:6:nameLink:name", "one.txt");
+        tester.assertLabel("form:panel:fileContent:fileTable:files:5:nameLink:name", "two.sld");
+        tester.assertLabel("form:panel:fileContent:fileTable:files:6:nameLink:name", "one.txt");
     }
 }

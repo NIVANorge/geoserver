@@ -18,14 +18,13 @@ import java.util.logging.Logger;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.gsr.model.map.AbstractLayerOrTable;
 import org.geoserver.gsr.translate.feature.FeatureEncoder;
-import org.geotools.data.FeatureStore;
-import org.opengis.feature.type.FeatureType;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.feature.type.FeatureType;
 
 /** Layer model for features */
 public class FeatureLayer extends AbstractLayerOrTable {
 
-    private static final Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger(FeatureLayer.class);
+    private static final Logger LOGGER = org.geotools.util.logging.Logging.getLogger(FeatureLayer.class);
 
     // editFieldsInfo - skipped we are not editable
     // ownershipBasedAccessControlForFeatures - skipped we are not doing ownership
@@ -67,8 +66,7 @@ public class FeatureLayer extends AbstractLayerOrTable {
             try {
                 FeatureType schema = featureTypeInfo.getFeatureType();
                 if (schema.getGeometryDescriptor() != null) {
-                    boolean editable =
-                            featureTypeInfo.getFeatureSource(null, null) instanceof FeatureStore;
+                    boolean editable = featureTypeInfo.getFeatureSource(null, null) instanceof FeatureStore;
                     geometryField = FeatureEncoder.field(schema.getGeometryDescriptor(), editable);
                 }
             } catch (IOException e) {

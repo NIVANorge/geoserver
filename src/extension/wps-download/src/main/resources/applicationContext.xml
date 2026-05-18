@@ -13,6 +13,11 @@
 	
 	<context:component-scan base-package="org.geoserver.wps.gs.download.rest"/>
 
+	<bean id="wpsDownloadExtension" class="org.geoserver.platform.ModuleStatusImpl">
+		<constructor-arg index="0" value="gs-wps-download"/>
+		<constructor-arg index="1" value="GeoServer WPS Download Process"/>
+		<property name="category" value="EXTENSION"/>
+	</bean>
 	<!--
     ====================================================================
 -->
@@ -45,6 +50,8 @@
 		<constructor-arg index="0" ref="downloadMapProcess"/>
 		<constructor-arg index="1" ref="wpsResourceManager"/>
 		<constructor-arg index="2" ref="downloadServiceConfigurationWatcher" />
+		<constructor-arg index="3" ref="httpWarningAppender"/>
+		<constructor-arg index="4" ref="rasterCleaner" />
 	</bean>
 	
 	<bean id="animationMetadataPPIO" class="org.geoserver.wps.gs.download.AnimationMetadataPPIO"/>
@@ -72,6 +79,8 @@
 	
 	<bean id="geopkgVectorPPIO" class="org.geoserver.wps.gs.download.GeopkgVectorPPIO"/>
 	<bean id="geopkgRasterPPIO" class="org.geoserver.wps.gs.download.GeopkgRasterPPIO"/>
+
+	<bean id="slicerThreadLocalCleaner" class="org.geoserver.wps.gs.download.SpatioTemporalCoverageSlicer.SlicerCleanupListener"/>
 
 	<bean id="verticalCrsConfigPanel"
 		  class="org.geoserver.web.data.resource.ResourceConfigurationPanelInfo">

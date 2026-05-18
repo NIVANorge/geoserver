@@ -5,16 +5,17 @@
  */
 package org.geoserver.web.demo;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * Holds on the properties used as arguments for the TestWfsPost servlet
+ * Holds on the properties used as arguments for the Demo Request
  *
  * @author Gabriel Roldan (TOPP)
- * @version $Id$
  * @since 2.0.x
  */
 public class DemoRequest implements Serializable {
+    @Serial
     private static final long serialVersionUID = -6605104556907827822L;
 
     /** The directory containing the demo files */
@@ -29,6 +30,9 @@ public class DemoRequest implements Serializable {
     private String userName;
 
     private String password;
+
+    private boolean prettyXML = true;
+    private boolean openNewWindow = false;
 
     public DemoRequest(final String demoDir) {
         this.demoDir = demoDir;
@@ -76,5 +80,21 @@ public class DemoRequest implements Serializable {
 
     public String getDemoDir() {
         return demoDir;
+    }
+
+    public boolean isPrettyXML() {
+        return prettyXML;
+    }
+
+    public void setPrettyXML(boolean prettyXML) {
+        this.prettyXML = prettyXML;
+    }
+
+    public boolean isOpenNewWindow() {
+        return openNewWindow;
+    }
+
+    public void setOpenNewWindow(boolean openNewWindow) {
+        this.openNewWindow = openNewWindow;
     }
 }

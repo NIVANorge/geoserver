@@ -13,9 +13,12 @@
       </#list>
       </ul>
       </li>
+      <#if collection.extent.temporal??>
+            <#assign temporal = collection.extent.temporal>
+            <li id="${collection.htmlId}_temporal"><b>Temporal extent</b>: ${temporal.minValue}/${temporal.maxValue}</li>
+      </#if>
       <li> <a id="html_${collection.htmlId}_link" href="${collection.getLinkUrl('styles', 'text/html')!}">Map styles</a>.
                  
-      <#-- TODO when upgrading Freemaker add ?no_esc to avoid html escaping --> 
-      ${htmlExtensions(collection)}
+      ${htmlExtensions(collection)?no_esc}
       </ul>
       

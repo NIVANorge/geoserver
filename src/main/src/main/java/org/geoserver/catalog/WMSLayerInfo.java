@@ -7,11 +7,12 @@ package org.geoserver.catalog;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.geotools.api.style.Style;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wms.Layer;
-import org.geotools.styling.Style;
-import org.opengis.util.ProgressListener;
 
 public interface WMSLayerInfo extends ResourceInfo {
 
@@ -69,4 +70,8 @@ public interface WMSLayerInfo extends ResourceInfo {
     public void setMetadataBBoxRespected(boolean metadataBBoxRespected);
 
     public List<StyleInfo> getAllAvailableRemoteStyles();
+
+    public Map<String, String> getVendorParameters();
+
+    public void setVendorParameters(Map<String, String> vendorParameters);
 }

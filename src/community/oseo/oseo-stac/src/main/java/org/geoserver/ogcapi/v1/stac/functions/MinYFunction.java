@@ -6,16 +6,15 @@ package org.geoserver.ogcapi.v1.stac.functions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.FunctionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.filter.capability.FunctionName;
 
 /** Returns the minimum Y value of the given geometry */
 public class MinYFunction extends FunctionImpl {
 
-    public static FunctionName NAME =
-            new FunctionNameImpl("miny", Double.class, parameter("geometry", Geometry.class));
+    public static FunctionName NAME = new FunctionNameImpl("miny", Double.class, parameter("geometry", Geometry.class));
 
     public MinYFunction() {
         this.functionName = NAME;

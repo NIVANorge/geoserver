@@ -31,15 +31,15 @@ import org.apache.wicket.core.util.resource.locator.ResourceStreamLocator;
 import org.apache.wicket.util.resource.AbstractResourceStream;
 import org.apache.wicket.util.resource.IResourceStream;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
+import org.geoserver.util.SortedProperties;
 import org.geotools.util.logging.Logging;
 
 /**
- * A custom resource stream locator which supports loading i18n properties files on a single file
- * per module basis. It also works around https://issues.apache.org/jira/browse/WICKET-2534.
+ * A custom resource stream locator which supports loading i18n properties files on a single file per module basis. It
+ * also works around https://issues.apache.org/jira/browse/WICKET-2534.
  *
- * <p>This class also tries to optimize resource lookups (which are slower with the wicket 7
- * upgrade) by skipping the mechanism that looks up static files (markup, css, etc...) with the
- * locale specific prefixes.
+ * <p>This class also tries to optimize resource lookups (which are slower with the wicket 7 upgrade) by skipping the
+ * mechanism that looks up static files (markup, css, etc...) with the locale specific prefixes.
  */
 public class GeoServerResourceStreamLocator extends ResourceStreamLocator {
     public static Logger LOGGER = Logging.getLogger("org.geoserver.web");
@@ -68,9 +68,7 @@ public class GeoServerResourceStreamLocator extends ResourceStreamLocator {
                         // Java .properties files are encoded in ISO-8859-1
                         // Support wicket .utf8.properties convention indicating UTF8 encoding
                         Charset charset =
-                                p.endsWith(".utf8.properties")
-                                        ? StandardCharsets.UTF_8
-                                        : StandardCharsets.ISO_8859_1;
+                                p.endsWith(".utf8.properties") ? StandardCharsets.UTF_8 : StandardCharsets.ISO_8859_1;
 
                         try (InputStream in = url.openStream()) {
                             try (Reader reader = new InputStreamReader(in, charset)) {
@@ -81,7 +79,9 @@ public class GeoServerResourceStreamLocator extends ResourceStreamLocator {
 
                     // transform the properties to a stream
                     final ByteArrayOutputStream out = new ByteArrayOutputStream();
-                    properties.store(out, "");
+                    SortedProperties sortedProps = new SortedProperties();
+                    sortedProps.putAll(properties);
+                    sortedProps.store(out, "");
 
                     return new AbstractResourceStream() {
                         @Override
@@ -119,12 +119,7 @@ public class GeoServerResourceStreamLocator extends ResourceStreamLocator {
 
     @Override
     public IResourceNameIterator newResourceNameIterator(
-            String path,
-            Locale locale,
-            String style,
-            String variation,
-            String extension,
-            boolean strict) {
+            String path, Locale locale, String style, String variation, String extension, boolean strict) {
 
         Iterable<String> extensions = null;
 
@@ -146,10 +141,7 @@ public class GeoServerResourceStreamLocator extends ResourceStreamLocator {
             // ensure the path doesn't contain the extension, sometimes this method is called with
             // extension == null,
             // in which case the extension is usually in the path
-            path =
-                    FilenameUtils.getPathNoEndSeparator(path)
-                            + "/"
-                            + FilenameUtils.getBaseName(path);
+            path = FilenameUtils.getPathNoEndSeparator(path) + "/" + FilenameUtils.getBaseName(path);
             return new ResourceNameIterator(path, style, variation, null, extensions, false);
         }
 

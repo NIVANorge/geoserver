@@ -12,22 +12,21 @@ import org.geoserver.security.Response;
 import org.geoserver.security.SecureCatalogImpl;
 import org.geoserver.security.VectorAccessLimits;
 import org.geoserver.security.WrapperPolicy;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.FeatureWriter;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.FeatureWriter;
-import org.geotools.data.Transaction;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
 
 /**
- * Given a {@link DataStore} subclass makes sure no write operations can be performed through it.
- * Regardless of the policy the store is kept read only as services are supposed to perform writes
- * via {@link FeatureStore} instances returned by {@link FeatureTypeInfo} and not via direct data
- * store access.
+ * Given a {@link DataStore} subclass makes sure no write operations can be performed through it. Regardless of the
+ * policy the store is kept read only as services are supposed to perform writes via {@link FeatureStore} instances
+ * returned by {@link FeatureTypeInfo} and not via direct data store access.
  *
  * @author Andrea Aime - TOPP
  */
@@ -66,8 +65,7 @@ public class ReadOnlyDataStore extends org.geotools.data.store.DecoratingDataSto
         } else {
             final AccessLimits limits = policy.getLimits();
             VectorAccessLimits vectorLimits =
-                    new VectorAccessLimits(
-                            limits.getMode(), null, Filter.INCLUDE, null, Filter.EXCLUDE);
+                    new VectorAccessLimits(limits.getMode(), null, Filter.INCLUDE, null, Filter.EXCLUDE);
             childPolicy = this.policy.derive(vectorLimits);
         }
         return childPolicy;
@@ -80,8 +78,8 @@ public class ReadOnlyDataStore extends org.geotools.data.store.DecoratingDataSto
     }
 
     @Override
-    public FeatureWriter<SimpleFeatureType, SimpleFeature> getFeatureWriter(
-            String typeName, Transaction transaction) throws IOException {
+    public FeatureWriter<SimpleFeatureType, SimpleFeature> getFeatureWriter(String typeName, Transaction transaction)
+            throws IOException {
         throw notifyUnsupportedOperation();
     }
 
@@ -117,10 +115,9 @@ public class ReadOnlyDataStore extends org.geotools.data.store.DecoratingDataSto
     }
 
     /**
-     * Notifies the caller the requested operation is not supported, using a plain {@link
-     * UnsupportedOperationException} in case we have to conceal the fact the data is actually
-     * writable, using an Spring security exception otherwise to force an authentication from the
-     * user
+     * Notifies the caller the requested operation is not supported, using a plain {@link UnsupportedOperationException}
+     * in case we have to conceal the fact the data is actually writable, using an Spring security exception otherwise
+     * to force an authentication from the user
      */
     protected RuntimeException notifyUnsupportedOperation() {
         if (policy.response == Response.CHALLENGE) {

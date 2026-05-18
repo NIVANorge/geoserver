@@ -6,6 +6,7 @@
 package org.geoserver.catalog.impl;
 
 import static com.google.common.collect.Sets.newHashSet;
+import static java.util.Objects.requireNonNull;
 import static org.geoserver.catalog.Predicates.acceptAll;
 import static org.geoserver.catalog.Predicates.asc;
 import static org.geoserver.catalog.Predicates.contains;
@@ -21,9 +22,11 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -85,15 +88,16 @@ import org.geoserver.security.SecuredResourceNameChangeListener;
 import org.geoserver.security.impl.DataAccessRule;
 import org.geoserver.security.impl.DataAccessRuleDAO;
 import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.MultiValuedFilter.MatchAction;
+import org.geotools.api.filter.sort.SortBy;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.util.logging.Logging;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.MultiValuedFilter.MatchAction;
-import org.opengis.filter.sort.SortBy;
 
 public class CatalogImplTest extends GeoServerSystemTestSupport {
 
@@ -376,16 +380,14 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
             assertThat(foundNamespace2.getURI(), is("http://www.isolated_namespace.com"));
             assertThat(foundNamespace2.isIsolated(), is(true));
             // retrieve the namespace by URI, the non isolated one should be returned
-            NamespaceInfo foundNamespace3 =
-                    catalog.getNamespaceByURI("http://www.isolated_namespace.com");
+            NamespaceInfo foundNamespace3 = catalog.getNamespaceByURI("http://www.isolated_namespace.com");
             assertThat(foundNamespace3.getPrefix(), is("isolated_namespace_1"));
             assertThat(foundNamespace3.getURI(), is("http://www.isolated_namespace.com"));
             assertThat(foundNamespace3.isIsolated(), is(false));
             // remove the non isolated namespace
             catalog.remove(foundNamespace1);
             // retrieve the namespace by URI, NULL should be returned
-            NamespaceInfo foundNamespace4 =
-                    catalog.getNamespaceByURI("http://www.isolated_namespace.com");
+            NamespaceInfo foundNamespace4 = catalog.getNamespaceByURI("http://www.isolated_namespace.com");
             assertThat(foundNamespace4, nullValue());
         } finally {
             // remove the namespaces
@@ -513,7 +515,8 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals("defaultNamespace", l.modified.get(0).getPropertyNames().get(0));
         assertEquals(1, l.postModified.size());
         assertEquals(catalog, l.postModified.get(0).getSource());
-        assertEquals("defaultNamespace", l.postModified.get(0).getPropertyNames().get(0));
+        assertEquals(
+                "defaultNamespace", l.postModified.get(0).getPropertyNames().get(0));
 
         ns = catalog.getNamespaceByPrefix("ns2Prefix");
         ns.setURI("changed");
@@ -748,7 +751,8 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(catalog, l.modified.get(0).getSource());
         assertEquals("defaultWorkspace", l.modified.get(0).getPropertyNames().get(0));
         assertEquals(catalog, l.postModified.get(0).getSource());
-        assertEquals("defaultWorkspace", l.postModified.get(0).getPropertyNames().get(0));
+        assertEquals(
+                "defaultWorkspace", l.postModified.get(0).getPropertyNames().get(0));
 
         ws = catalog.getWorkspaceByName("ws2");
         ws.setName("changed");
@@ -1350,6 +1354,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(1, catalog.getLayers().size());
 
         LayerInfo l2 = catalog.getFactory().createLayer();
+        ((LayerInfoImpl) l2).setId("foobar");
         try {
             catalog.add(l2);
             fail("adding with no name should throw exception");
@@ -1554,14 +1559,12 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         catalog.removeListener(listener);
     }
 
-    private boolean layerHasSecurityRule(
-            DataAccessRuleDAO dao, final String ruleRoot, String ruleLayer) {
+    private boolean layerHasSecurityRule(DataAccessRuleDAO dao, final String ruleRoot, String ruleLayer) {
         Objects.requireNonNull(ruleRoot);
         Objects.requireNonNull(ruleLayer);
         List<DataAccessRule> rules = dao.getRules();
         for (DataAccessRule rule : rules) {
-            if (rule.getRoot().equalsIgnoreCase(ruleRoot)
-                    && ruleLayer.equalsIgnoreCase(rule.getLayer())) {
+            if (rule.getRoot().equalsIgnoreCase(ruleRoot) && ruleLayer.equalsIgnoreCase(rule.getLayer())) {
                 return true;
             }
         }
@@ -1665,12 +1668,12 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(1, tl.modified.size());
         assertEquals(l2, tl.modified.get(0).getSource());
         assertTrue(tl.modified.get(0).getPropertyNames().contains("path"));
-        assertTrue(tl.modified.get(0).getOldValues().contains(null));
+        assertTrue(tl.modified.get(0).getOldValues().contains((String) null));
         assertTrue(tl.modified.get(0).getNewValues().contains("newPath"));
         assertEquals(1, tl.postModified.size());
         assertEquals(l2, tl.postModified.get(0).getSource());
         assertTrue(tl.postModified.get(0).getPropertyNames().contains("path"));
-        assertTrue(tl.postModified.get(0).getOldValues().contains(null));
+        assertTrue(tl.postModified.get(0).getOldValues().contains((String) null));
         assertTrue(tl.postModified.get(0).getNewValues().contains("newPath"));
 
         assertTrue(tl.removed.isEmpty());
@@ -2070,8 +2073,8 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
     private static final int GET_LAYER_BY_ID_WITH_CONCURRENT_ADD_THREAD_COUNT = 10;
 
     /**
-     * This test cannot work, the catalog subsystem is not thread safe, that's why we have the
-     * configuration locks. Re-enable when the catalog subsystem is made thread safe.
+     * This test cannot work, the catalog subsystem is not thread safe, that's why we have the configuration locks.
+     * Re-enable when the catalog subsystem is made thread safe.
      */
     @Test
     @Ignore
@@ -2086,8 +2089,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         catalog.add(layer);
         String id = layer.getId();
 
-        CountDownLatch ready =
-                new CountDownLatch(GET_LAYER_BY_ID_WITH_CONCURRENT_ADD_THREAD_COUNT + 1);
+        CountDownLatch ready = new CountDownLatch(GET_LAYER_BY_ID_WITH_CONCURRENT_ADD_THREAD_COUNT + 1);
         CountDownLatch done = new CountDownLatch(GET_LAYER_BY_ID_WITH_CONCURRENT_ADD_THREAD_COUNT);
 
         List<RunnerBase> runners = new ArrayList<>();
@@ -2192,9 +2194,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         catalog.add(ws2);
         catalog.setDefaultWorkspace(ws2);
 
-        assertNull(
-                "layerGroup2 is not global, should not be found",
-                catalog.getLayerGroupByName("layerGroup2"));
+        assertNull("layerGroup2 is not global, should not be found", catalog.getLayerGroupByName("layerGroup2"));
         assertNotNull(catalog.getLayerGroupByName(ws.getName() + ":layerGroup2"));
         assertNotNull(catalog.getLayerGroupByName(ws, "layerGroup2"));
         assertNull(catalog.getLayerGroupByName("cite", "layerGroup2"));
@@ -2202,8 +2202,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
 
     @Test
     public void testRenameResourceRenamesAssociatedDataRules() throws IOException {
-        CatalogListener listener =
-                new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
+        CatalogListener listener = new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
         addFeatureType();
         ft = catalog.getFeatureType(ft.getId());
 
@@ -2228,8 +2227,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
 
     @Test
     public void testRenameWorkspaceRenamesAssociatedDataRules() throws IOException {
-        CatalogListener listener =
-                new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
+        CatalogListener listener = new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
 
         lg.setWorkspace(ws);
         addLayerGroup();
@@ -2257,8 +2255,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
 
     @Test
     public void testRenameRootLayerGroupRenamesAssociatedDataRules() throws IOException {
-        CatalogListener listener =
-                new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
+        CatalogListener listener = new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
         addLayerGroup();
         lg = catalog.getLayerGroup(lg.getId());
         addLayerAccessRule(lg.getName(), null, AccessMode.WRITE, "*");
@@ -2352,22 +2349,19 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
     }
 
     /**
-     * A {@link DataAccessRule} for a global layer group is created with the rule's root as the
-     * layergroup's name, and the rule's layer to {@code null}; while a workspace rule has the
-     * workspace name as root, and a non-null layer (it's either a layer(/group) name or the
-     * {@literal *} glob.
+     * A {@link DataAccessRule} for a global layer group is created with the rule's root as the layergroup's name, and
+     * the rule's layer to {@code null}; while a workspace rule has the workspace name as root, and a non-null layer
+     * (it's either a layer(/group) name or the {@literal *} glob.
      *
-     * <p>Since a global layer group and a workspace may have the same name, make sure they don't
-     * get confused. More specifically, {@code SecuredResourceNameChangeListener}'s {@link
-     * SecuredResourceNameChangeListener#handleRemoveEvent handleRemoveEvent} and {@link
-     * SecuredResourceNameChangeListener#handlePostModifyEvent handlePostModifyEvent} correctly
-     * resolve which rules to work on based on the event's {@link CatalogEvent#getSource() source}.
+     * <p>Since a global layer group and a workspace may have the same name, make sure they don't get confused. More
+     * specifically, {@code SecuredResourceNameChangeListener}'s
+     * {@link SecuredResourceNameChangeListener#handleRemoveEvent handleRemoveEvent} and
+     * {@link SecuredResourceNameChangeListener#handlePostModifyEvent handlePostModifyEvent} correctly resolve which
+     * rules to work on based on the event's {@link CatalogEvent#getSource() source}.
      */
     @Test
-    public void testRootLayerGroupAndWorkspaceDataRulesDontCollideWhenHandlingEvents()
-            throws IOException {
-        final CatalogListener listener =
-                new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
+    public void testRootLayerGroupAndWorkspaceDataRulesDontCollideWhenHandlingEvents() throws IOException {
+        final CatalogListener listener = new SecuredResourceNameChangeListener(catalog, DataAccessRuleDAO.get());
 
         // workspace and global layer group shared name
         final String sharedName = "osm";
@@ -2443,10 +2437,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         catalog.remove(workspace);
 
         assertEquals(0, count(workspaceFilter(sharedName)));
-        assertEquals(
-                "lg rule should have not been deleted",
-                1,
-                count(globalLayerGroupFilter(sharedName)));
+        assertEquals("lg rule should have not been deleted", 1, count(globalLayerGroupFilter(sharedName)));
 
         catalog.removeListener(listener);
     }
@@ -2466,8 +2457,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
 
         // lg is not global, should not be found at least we specify a prefixed name
         assertNull(
-                "MyFakeWorkspace:layerGroup is not global, should not be found",
-                catalog.getLayerGroupByName(lgName));
+                "MyFakeWorkspace:layerGroup is not global, should not be found", catalog.getLayerGroupByName(lgName));
 
         assertEquals(lg, catalog.getLayerGroupByName(ws.getName(), lgName));
         assertEquals(lg, catalog.getLayerGroupByName(ws, lgName));
@@ -2890,7 +2880,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
                 catalog.add(layer);
             }
         }
-    };
+    }
 
     @Test
     public void testGet() {
@@ -3000,8 +2990,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         Filter filter = acceptAll();
 
         Set<? extends CatalogInfo> expected = Sets.newHashSet(ft1, ft2, ft3);
-        Set<? extends CatalogInfo> actual =
-                Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
+        Set<? extends CatalogInfo> actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(3, actual.size());
         assertEquals(expected, actual);
 
@@ -3044,8 +3033,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(expected, actual);
 
         filter = acceptAll();
-        ArrayList<LayerInfo> naturalOrder =
-                Lists.newArrayList(catalog.list(LayerInfo.class, filter));
+        ArrayList<LayerInfo> naturalOrder = Lists.newArrayList(catalog.list(LayerInfo.class, filter));
         assertEquals(3, naturalOrder.size());
 
         int offset = 0, limit = 2;
@@ -3064,9 +3052,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
                 Lists.newArrayList(catalog.list(LayerInfo.class, filter, offset, limit, null)));
     }
 
-    /**
-     * This tests more advanced filters: multi-valued filters, opposite equations, field equations
-     */
+    /** This tests more advanced filters: multi-valued filters, opposite equations, field equations */
     @Test
     public void testListPredicateExtended() {
         addDataStore();
@@ -3099,8 +3085,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         // opposite equality
         Filter filter = factory.equal(factory.literal(ft1.getId()), factory.property("id"), true);
         Set<? extends CatalogInfo> expected = Sets.newHashSet(ft1);
-        Set<? extends CatalogInfo> actual =
-                Sets.newHashSet(catalog.list(ResourceInfo.class, filter));
+        Set<? extends CatalogInfo> actual = Sets.newHashSet(catalog.list(ResourceInfo.class, filter));
         assertEquals(expected, actual);
 
         // match case
@@ -3122,72 +3107,36 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(expected, actual);
 
         // match action
-        filter =
-                factory.equal(
-                        factory.literal(new Keyword("keyword1")),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ANY);
+        filter = factory.equal(
+                factory.literal(new Keyword("keyword1")), factory.property("keywords"), true, MatchAction.ANY);
         expected = Sets.newHashSet(ft1, ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
 
-        filter =
-                factory.equal(
-                        factory.literal(new Keyword("keyword1")),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ALL);
+        filter = factory.equal(
+                factory.literal(new Keyword("keyword1")), factory.property("keywords"), true, MatchAction.ALL);
         expected = Sets.newHashSet(ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
 
-        filter =
-                factory.equal(
-                        factory.literal(new Keyword("keyword1")),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ONE);
+        filter = factory.equal(
+                factory.literal(new Keyword("keyword1")), factory.property("keywords"), true, MatchAction.ONE);
         expected = Sets.newHashSet(ft1);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
 
         // match action - like
-        filter =
-                factory.like(
-                        factory.property("keywords"),
-                        "key*d1",
-                        "*",
-                        "?",
-                        "\\",
-                        true,
-                        MatchAction.ANY);
+        filter = factory.like(factory.property("keywords"), "key*d1", "*", "?", "\\", true, MatchAction.ANY);
         expected = Sets.newHashSet(ft1, ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
 
-        filter =
-                factory.like(
-                        factory.property("keywords"),
-                        "key*d1",
-                        "*",
-                        "?",
-                        "\\",
-                        true,
-                        MatchAction.ALL);
+        filter = factory.like(factory.property("keywords"), "key*d1", "*", "?", "\\", true, MatchAction.ALL);
         expected = Sets.newHashSet(ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
 
-        filter =
-                factory.like(
-                        factory.property("keywords"),
-                        "key*d1",
-                        "*",
-                        "?",
-                        "\\",
-                        true,
-                        MatchAction.ONE);
+        filter = factory.like(factory.property("keywords"), "key*d1", "*", "?", "\\", true, MatchAction.ONE);
         expected = Sets.newHashSet(ft1);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3196,12 +3145,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         List<String> strValues = new ArrayList<>();
         strValues.add("ft1");
         strValues.add("ft2");
-        filter =
-                factory.equal(
-                        factory.literal(strValues),
-                        factory.property("name"),
-                        true,
-                        MatchAction.ANY);
+        filter = factory.equal(factory.literal(strValues), factory.property("name"), true, MatchAction.ANY);
         expected = Sets.newHashSet(ft1, ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3209,12 +3153,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         strValues = new ArrayList<>();
         strValues.add("ft1");
         strValues.add("ft1");
-        filter =
-                factory.equal(
-                        factory.literal(strValues),
-                        factory.property("name"),
-                        true,
-                        MatchAction.ALL);
+        filter = factory.equal(factory.literal(strValues), factory.property("name"), true, MatchAction.ALL);
         expected = Sets.newHashSet(ft1);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3222,12 +3161,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         strValues = new ArrayList<>();
         strValues.add("ft1");
         strValues.add("ft2");
-        filter =
-                factory.equal(
-                        factory.literal(strValues),
-                        factory.property("name"),
-                        true,
-                        MatchAction.ALL);
+        filter = factory.equal(factory.literal(strValues), factory.property("name"), true, MatchAction.ALL);
         expected = Sets.newHashSet();
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3236,12 +3170,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         strValues.add("ft1");
         strValues.add("ft1");
         strValues.add("ft2");
-        filter =
-                factory.equal(
-                        factory.literal(strValues),
-                        factory.property("name"),
-                        true,
-                        MatchAction.ONE);
+        filter = factory.equal(factory.literal(strValues), factory.property("name"), true, MatchAction.ONE);
         expected = Sets.newHashSet(ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3251,12 +3180,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         List<Keyword> keywords = new ArrayList<>();
         keywords.add(new Keyword("keyword1"));
         keywords.add(new Keyword("keyword2"));
-        filter =
-                factory.equal(
-                        factory.literal(keywords),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ANY);
+        filter = factory.equal(factory.literal(keywords), factory.property("keywords"), true, MatchAction.ANY);
         expected = Sets.newHashSet(ft1, ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3264,12 +3188,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         keywords = new ArrayList<>();
         keywords.add(new Keyword("keyword1"));
         keywords.add(new Keyword("keyword1"));
-        filter =
-                factory.equal(
-                        factory.literal(keywords),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ALL);
+        filter = factory.equal(factory.literal(keywords), factory.property("keywords"), true, MatchAction.ALL);
         expected = Sets.newHashSet(ft2);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3277,12 +3196,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         keywords = new ArrayList<>();
         keywords.add(new Keyword("keyword1"));
         keywords.add(new Keyword("blah"));
-        filter =
-                factory.equal(
-                        factory.literal(keywords),
-                        factory.property("keywords"),
-                        true,
-                        MatchAction.ONE);
+        filter = factory.equal(factory.literal(keywords), factory.property("keywords"), true, MatchAction.ONE);
         expected = Sets.newHashSet(ft1);
         actual = Sets.newHashSet(catalog.list(FeatureTypeInfo.class, filter));
         assertEquals(expected, actual);
@@ -3355,12 +3269,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
     }
 
     private <T extends CatalogInfo> void testOrderBy(
-            Class<T> clazz,
-            Filter filter,
-            Integer offset,
-            Integer limit,
-            SortBy sortOrder,
-            List<T> expected) {
+            Class<T> clazz, Filter filter, Integer offset, Integer limit, SortBy sortOrder, List<T> expected) {
 
         CatalogPropertyAccessor pe = new CatalogPropertyAccessor();
 
@@ -3513,6 +3422,175 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         assertEquals(newHashSet(lproxy), asSet(catalog.list(LayerInfo.class, filter)));
     }
 
+    @Test
+    public void testExactTermSearch() {
+        ft.setName("airTemp");
+        cv.setName("dewPoint");
+
+        ft.setDescription("Air_Temperature");
+        cv.setDescription("Dew_Point");
+
+        l.setResource(ft);
+        l.setTitle("Global");
+
+        addLayer();
+
+        LayerInfo l2 = newLayer(cv, s);
+        l2.setTitle("Global");
+
+        catalog.add(cs);
+        catalog.add(cv);
+        catalog.add(l2);
+
+        Filter filter = Predicates.exactTermSearch("global");
+        assertEquals(newHashSet(ft, cv), asSet(catalog.list(ResourceInfo.class, filter)));
+        assertEquals(newHashSet(ft), asSet(catalog.list(FeatureTypeInfo.class, filter)));
+        assertEquals(newHashSet(cv), asSet(catalog.list(CoverageInfo.class, filter)));
+
+        assertEquals(newHashSet(l, l2), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("airtemp");
+        assertEquals(newHashSet(l), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("dewpoint");
+        assertEquals(newHashSet(l2), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("Global");
+        assertEquals(newHashSet(l, l2), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("air_temperature");
+        assertEquals(newHashSet(l), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("dew_point");
+        assertEquals(newHashSet(l2), asSet(catalog.list(LayerInfo.class, filter)));
+    }
+
+    @Test
+    public void testExactTermSearchLayerGroupTitle() {
+        addLayer();
+        lg.setTitle("LayerGroupTitle");
+        catalog.add(lg);
+
+        Filter filter = Predicates.exactTermSearch("layergrouptitle");
+        assertEquals(newHashSet(lg), asSet(catalog.list(LayerGroupInfo.class, filter)));
+    }
+
+    @Test
+    public void testExactTermSearchLayerGroupName() {
+        addLayer();
+        lg.setName("LayerGroupName");
+        catalog.add(lg);
+        Filter filter = Predicates.exactTermSearch("layergroupname");
+        assertEquals(newHashSet(lg), asSet(catalog.list(LayerGroupInfo.class, filter)));
+    }
+
+    @Test
+    public void testExactTermSearchLayerGroupAbstract() {
+        addLayer();
+        lg.setAbstract("GeoServerOpenSourceGIS");
+        catalog.add(lg);
+        Filter filter = Predicates.exactTermSearch("geoserveropensourcegis");
+        assertEquals(newHashSet(lg), asSet(catalog.list(LayerGroupInfo.class, filter)));
+    }
+
+    @Test
+    public void testExactTermSearchKeywords() {
+        ft.getKeywords().add(new Keyword("air_temp"));
+        ft.getKeywords().addAll(List.of(new Keyword("temperature"), new Keyword("Air")));
+        cv.getKeywords().add(new Keyword("dwpt_dprs"));
+        cv.getKeywords().addAll(List.of(new Keyword("temperature"), new Keyword("DewpointDepression")));
+
+        l.setResource(ft);
+        addLayer();
+        catalog.add(cs);
+        catalog.add(cv);
+        LayerInfo l2 = newLayer(cv, s);
+        catalog.add(l2);
+
+        Filter filter = Predicates.exactTermSearch("temperature");
+        assertEquals(newHashSet(l, l2), asSet(catalog.list(LayerInfo.class, filter)));
+        assertEquals(newHashSet(ft, cv), asSet(catalog.list(ResourceInfo.class, filter)));
+        assertEquals(newHashSet(ft), asSet(catalog.list(FeatureTypeInfo.class, filter)));
+        assertEquals(newHashSet(cv), asSet(catalog.list(CoverageInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("air");
+        assertEquals(newHashSet(l), asSet(catalog.list(LayerInfo.class, filter)));
+        assertEquals(newHashSet(ft), asSet(catalog.list(ResourceInfo.class, filter)));
+        assertEquals(newHashSet(ft), asSet(catalog.list(FeatureTypeInfo.class, filter)));
+        assertThat(asSet(catalog.list(CoverageInfo.class, filter)), Matchers.empty());
+
+        filter = Predicates.exactTermSearch("dewpointdepression");
+        assertEquals(newHashSet(l2), asSet(catalog.list(LayerInfo.class, filter)));
+        assertEquals(newHashSet(cv), asSet(catalog.list(ResourceInfo.class, filter)));
+        assertThat(asSet(catalog.list(FeatureTypeInfo.class, filter)), Matchers.empty());
+        assertEquals(newHashSet(cv), asSet(catalog.list(CoverageInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("pressure");
+        assertThat(asSet(catalog.list(LayerInfo.class, filter)), Matchers.empty());
+        assertThat(asSet(catalog.list(ResourceInfo.class, filter)), Matchers.empty());
+        assertThat(asSet(catalog.list(FeatureTypeInfo.class, filter)), Matchers.empty());
+        assertThat(asSet(catalog.list(CoverageInfo.class, filter)), Matchers.empty());
+    }
+
+    @Test
+    public void testExactTermSearchAddedKeyword() {
+        ft.getKeywords().add(new Keyword("air_temp"));
+        ft.getKeywords().add(new Keyword("temperatureAir"));
+
+        l.setResource(ft);
+        addLayer();
+
+        LayerInfo lproxy = catalog.getLayer(l.getId());
+        FeatureTypeInfo ftproxy = (FeatureTypeInfo) lproxy.getResource();
+
+        ftproxy.getKeywords().add(new Keyword("newKeyword"));
+        catalog.save(ftproxy);
+
+        Filter filter = Predicates.exactTermSearch("newKeyword");
+        assertEquals(newHashSet(ftproxy), asSet(catalog.list(FeatureTypeInfo.class, filter)));
+        assertEquals(newHashSet(lproxy), asSet(catalog.list(LayerInfo.class, filter)));
+    }
+
+    @Test
+    public void testExactTermSearchKeywordMiss() {
+        ft.getKeywords().add(new Keyword("air_temp"));
+        ft.getKeywords().add(new Keyword("temperatureAir"));
+
+        Filter filter = Predicates.exactTermSearch("newKeyword");
+        assertThat(asSet(catalog.list(FeatureTypeInfo.class, filter)), Matchers.empty());
+    }
+
+    @Test
+    public void testExclusiveExactTermSearch() {
+        ft.setName("water");
+        l.setResource(ft);
+
+        cv.setName("waterways");
+
+        addLayer();
+        catalog.add(cs);
+        catalog.add(cv);
+
+        LayerInfo l2 = newLayer(cv, s);
+        catalog.add(l2);
+
+        Filter filter = Predicates.exactTermSearch("water");
+        assertEquals(newHashSet(ft), asSet(catalog.list(ResourceInfo.class, filter)));
+        assertEquals(newHashSet(ft), asSet(catalog.list(FeatureTypeInfo.class, filter)));
+        assertThat(asSet(catalog.list(CoverageInfo.class, filter)), Matchers.empty());
+
+        assertEquals(newHashSet(l), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("waterways");
+        assertEquals(newHashSet(l2), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("water");
+        assertEquals(newHashSet(l), asSet(catalog.list(LayerInfo.class, filter)));
+
+        filter = Predicates.exactTermSearch("waterways");
+        assertEquals(newHashSet(l2), asSet(catalog.list(LayerInfo.class, filter)));
+    }
+
     @SuppressWarnings("PMD.UseTryWithResources")
     private <T> Set<T> asSet(CloseableIterator<T> list) {
         try {
@@ -3522,8 +3600,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         }
     }
 
-    protected LayerInfo newLayer(
-            ResourceInfo resource, StyleInfo defStyle, StyleInfo... extraStyles) {
+    protected LayerInfo newLayer(ResourceInfo resource, StyleInfo defStyle, StyleInfo... extraStyles) {
         LayerInfo l2 = catalog.getFactory().createLayer();
         l2.setResource(resource);
         l2.setDefaultStyle(defStyle);
@@ -3554,15 +3631,14 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
     public void testConcurrentCatalogModification() throws Exception {
         Logger logger = Logging.getLogger(CatalogImpl.class);
         final int tasks = 8;
-        ExecutorService executor = Executors.newFixedThreadPool(tasks / 2);
         Level previousLevel = logger.getLevel();
         // clear previous listeners
         new ArrayList<>(catalog.getListeners()).forEach(l -> catalog.removeListener(l));
+        ExecutorService executor = Executors.newFixedThreadPool(tasks / 2);
         try {
             // disable logging for this test, it will stay a while in case of failure otherwise
             logger.setLevel(Level.OFF);
-            ExecutorCompletionService<Void> completionService =
-                    new ExecutorCompletionService<>(executor);
+            ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(executor);
             for (int i = 0; i < tasks; i++) {
                 completionService.submit(
                         () -> {
@@ -3582,8 +3658,7 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
                                 assertTrue(
                                         "Did not find the expected even in the listener",
                                         testListener.removed.stream()
-                                                .anyMatch(
-                                                        event -> event.getSource() == catalogInfo));
+                                                .anyMatch(event -> event.getSource() == catalogInfo));
                             }
 
                             // clear the listeners
@@ -3601,7 +3676,6 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    @SuppressWarnings("PMD.SimplifiableTestAssertion")
     public void testChangeLayerGroupOrder() {
         addLayerGroup();
 
@@ -3643,5 +3717,27 @@ public class CatalogImplTest extends GeoServerSystemTestSupport {
         LayerGroupInfo g1 = catalog.getFacade().getLayerGroupByName(lg.getName());
         LayerGroupInfo g2 = catalog.getFacade().getLayerGroupByName(lg.getName());
         assertTrue(LayerGroupInfo.equals(g1, g2));
+    }
+
+    @Test
+    public void testSyncAssignsNewCatalogProperty() {
+        assumeTrue(catalog instanceof CatalogImpl); // only relevant for CatalogImpl.sync()
+        addLayer();
+        assertNotNull(catalog.getStyle(s.getId()));
+        assertNotNull(catalog.getDataStore(ds.getId()));
+        assertNotNull(catalog.getFeatureType(ft.getId()));
+
+        CatalogImpl target = new CatalogImpl();
+        target.sync((CatalogImpl) catalog);
+
+        StyleInfoImpl style = (StyleInfoImpl) ModificationProxy.unwrap(requireNonNull(target.getStyle(s.getId())));
+        DataStoreInfoImpl store =
+                (DataStoreInfoImpl) ModificationProxy.unwrap(requireNonNull(target.getDataStore(ds.getId())));
+        FeatureTypeInfoImpl featureType =
+                (FeatureTypeInfoImpl) ModificationProxy.unwrap(requireNonNull(target.getFeatureType(ft.getId())));
+
+        assertSame(target, style.getCatalog());
+        assertSame(target, store.getCatalog());
+        assertSame(target, featureType.getCatalog());
     }
 }

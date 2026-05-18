@@ -10,11 +10,11 @@ import java.util.Optional;
 import org.geoserver.config.util.XStreamPersister;
 import org.geoserver.importer.ImportContext;
 import org.geoserver.importer.Importer;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.jdbc.JDBCDataStore;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 class ImportContextMapper {
 
@@ -74,8 +74,7 @@ class ImportContextMapper {
             return null;
         }
         if (!id.startsWith(CTX_FEATURE_TYPE.getTypeName() + ".")) {
-            throw new IllegalArgumentException(
-                    "Was expecting a feature type " + CTX_FEATURE_TYPE.getTypeName());
+            throw new IllegalArgumentException("Was expecting a feature type " + CTX_FEATURE_TYPE.getTypeName());
         }
         return Long.parseLong(id.substring(CTX_FEATURE_TYPE.getTypeName().length() + 1));
     }

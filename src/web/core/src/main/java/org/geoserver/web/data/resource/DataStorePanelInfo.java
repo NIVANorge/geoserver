@@ -7,12 +7,12 @@ package org.geoserver.web.data.resource;
 
 import org.geoserver.web.ComponentInfo;
 import org.geoserver.web.data.store.StoreEditPanel;
-import org.geotools.data.DataAccessFactory;
-import org.opengis.coverage.grid.Format;
+import org.geotools.api.coverage.grid.Format;
+import org.geotools.api.data.DataAccessFactory;
 
 /**
- * Used to declare a data store panel information and its icon. Both are optional, you can specify
- * the configuration panel but not the icon, or the opposite.
+ * Used to declare a data store panel information and its icon. Both are optional, you can specify the configuration
+ * panel but not the icon, or the opposite.
  *
  * @author aaime
  */
@@ -22,8 +22,6 @@ public class DataStorePanelInfo extends ComponentInfo<StoreEditPanel> {
 
     String icon;
 
-    Class<?> iconBase;
-
     public String getIcon() {
         return icon;
     }
@@ -32,14 +30,13 @@ public class DataStorePanelInfo extends ComponentInfo<StoreEditPanel> {
         this.icon = icon;
     }
 
+    Class<?> iconBase;
+
     public Class<?> getIconBase() {
         return iconBase;
     }
 
-    /**
-     * Used as the reference class to locate the datastore icon (since the component might not be
-     * there)
-     */
+    /** Used as the reference class to locate the datastore icon (since the component might not be there) */
     public void setIconBase(Class<?> iconBase) {
         this.iconBase = iconBase;
     }

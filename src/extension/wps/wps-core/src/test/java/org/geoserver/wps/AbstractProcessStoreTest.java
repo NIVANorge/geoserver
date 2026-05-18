@@ -12,7 +12,11 @@ import java.io.IOException;
 import java.util.List;
 import org.geoserver.wps.executor.ExecutionStatus;
 import org.geoserver.wps.executor.ProcessState;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.text.cql2.CQL;
@@ -20,10 +24,6 @@ import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
 
 /**
  * Base class for status store tests
@@ -32,7 +32,7 @@ import org.opengis.filter.sort.SortOrder;
  */
 public abstract class AbstractProcessStoreTest {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     protected ProcessStatusStore store;
 
@@ -122,8 +122,7 @@ public abstract class AbstractProcessStoreTest {
         return FF.sort(propertyName, SortOrder.DESCENDING);
     }
 
-    protected void checkFiltered(
-            ProcessStatusStore store, Query query, ExecutionStatus... statuses) {
+    protected void checkFiltered(ProcessStatusStore store, Query query, ExecutionStatus... statuses) {
         List<ExecutionStatus> filtered = store.list(query);
         checkContains(filtered, statuses);
     }
@@ -132,8 +131,7 @@ public abstract class AbstractProcessStoreTest {
         return query(cql, 0, Integer.MAX_VALUE);
     }
 
-    private Query query(String cql, int startIndex, int maxFeatures, SortBy... sortBy)
-            throws CQLException {
+    private Query query(String cql, int startIndex, int maxFeatures, SortBy... sortBy) throws CQLException {
         Filter filter = ECQL.toFilter(cql);
         Query query = new Query(null, filter);
         query.setStartIndex(startIndex);

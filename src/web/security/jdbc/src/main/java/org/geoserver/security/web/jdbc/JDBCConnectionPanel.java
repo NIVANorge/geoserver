@@ -5,6 +5,9 @@
  */
 package org.geoserver.security.web.jdbc;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -15,7 +18,6 @@ import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxCheckBox;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.markup.html.WebMarkupContainer;
-import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
 import org.apache.wicket.markup.html.form.PasswordTextField;
@@ -34,9 +36,23 @@ import org.geotools.util.logging.Logging;
  * @author Chrisitian Mueller
  * @author Justin Deoliveira, OpenGeo
  */
-public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
-        extends FormComponentPanel<T> {
+// TODO WICKET8 - Verify this page works OK
+public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig> extends FormComponentPanel<T> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(JDBCConnectionPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     static Logger LOGGER = Logging.getLogger("org.geoserver.security");
@@ -46,47 +62,36 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
     public JDBCConnectionPanel(String id, IModel<T> model) {
         super(id, new Model<>());
 
-        add(
-                new AjaxCheckBox("jndi") {
-                    @Override
-                    @SuppressWarnings("unchecked")
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        WebMarkupContainer c =
-                                (WebMarkupContainer)
-                                        JDBCConnectionPanel.this.get("cxPanelContainer");
+        add(new AjaxCheckBox("jndi") {
+            @Override
+            @SuppressWarnings("unchecked")
+            protected void onUpdate(AjaxRequestTarget target) {
+                WebMarkupContainer c = (WebMarkupContainer) JDBCConnectionPanel.this.get("cxPanelContainer");
 
-                        // reset any values that were set
-                        ((ConnectionPanel) c.get("cxPanel")).resetModel();
+                // reset any values that were set
+                ((ConnectionPanel) c.get("cxPanel")).resetModel();
 
-                        // replace old panel
-                        c.addOrReplace(createCxPanel("cxPanel", getModelObject()));
+                // replace old panel
+                c.addOrReplace(createCxPanel("cxPanel", getModelObject()));
 
-                        target.add(c);
-                    }
-                });
+                target.add(c);
+            }
+        });
 
         boolean useJNDI = model.getObject().isJndi();
-        add(
-                new WebMarkupContainer("cxPanelContainer")
-                        .add(createCxPanel("cxPanel", useJNDI))
-                        .setOutputMarkupId(true));
+        add(new WebMarkupContainer("cxPanelContainer")
+                .add(createCxPanel("cxPanel", useJNDI))
+                .setOutputMarkupId(true));
 
         add(
                 new AjaxSubmitLink("cxTest") {
                     @Override
                     @SuppressWarnings("unchecked")
-                    protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+                    protected void onSubmit(AjaxRequestTarget target) {
                         try {
-                            ((ConnectionPanel)
-                                            JDBCConnectionPanel.this.get(
-                                                    "cxPanelContainer:cxPanel"))
-                                    .test();
-                            info(
-                                    new StringResourceModel(
-                                                    "connectionSuccessful",
-                                                    JDBCConnectionPanel.this,
-                                                    null)
-                                            .getObject());
+                            ((ConnectionPanel) JDBCConnectionPanel.this.get("cxPanelContainer:cxPanel")).test();
+                            info(new StringResourceModel("connectionSuccessful", JDBCConnectionPanel.this, null)
+                                    .getObject());
                         } catch (Exception e) {
                             error(e);
                             LOGGER.log(Level.WARNING, "Connection error", e);
@@ -104,7 +109,7 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
         return useJNDI ? new JNDIConnectionPanel(id) : new BasicConnectionPanel(id);
     }
 
-    abstract class ConnectionPanel extends FormComponentPanel<Serializable> {
+    abstract static class ConnectionPanel extends FormComponentPanel<Serializable> {
 
         public ConnectionPanel(String id) {
             super(id, new Model<>());
@@ -115,7 +120,20 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
         public abstract void test() throws Exception;
     }
 
-    class BasicConnectionPanel extends ConnectionPanel {
+    static class BasicConnectionPanel extends ConnectionPanel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(JDBCConnectionPanel.BasicConnectionPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public BasicConnectionPanel(String id) {
             super(id);
@@ -139,6 +157,7 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
             // get("userGroupServiceName").setDefaultModelObject(null);
         }
 
+        @SuppressWarnings({"PMD.EmptyControlStatement", "PMD.UnusedLocalVariable"})
         @Override
         public void test() throws Exception {
             // since this wasn't a regular form submission, we need to manually update component
@@ -150,15 +169,27 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
 
             // do the test
             Class.forName(get("driverClassName").getDefaultModelObjectAsString());
-            try (Connection cx =
-                    DriverManager.getConnection(
-                            get("connectURL").getDefaultModelObjectAsString(),
-                            get("userName").getDefaultModelObjectAsString(),
-                            get("password").getDefaultModelObjectAsString())) {}
+            try (Connection cx = DriverManager.getConnection(
+                    get("connectURL").getDefaultModelObjectAsString(),
+                    get("userName").getDefaultModelObjectAsString(),
+                    get("password").getDefaultModelObjectAsString())) {}
         }
     }
 
-    class JNDIConnectionPanel extends ConnectionPanel {
+    static class JNDIConnectionPanel extends ConnectionPanel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(JDBCConnectionPanel.JNDIConnectionPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public JNDIConnectionPanel(String id) {
             super(id);
@@ -172,6 +203,7 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
             // get("groupSearchFilter").setDefaultModelObject(null);
         }
 
+        @SuppressWarnings({"PMD.EmptyControlStatement", "PMD.UnusedLocalVariable"})
         @Override
         public void test() throws Exception {
             // since this wasn't a regular form submission, we need to manually update component
@@ -180,13 +212,10 @@ public class JDBCConnectionPanel<T extends JDBCSecurityServiceConfig>
 
             Object lookedUp = GeoTools.jndiLookup(get("jndiName").getDefaultModelObjectAsString());
             if (lookedUp == null)
-                throw new IllegalArgumentException(
-                        "Failed to look up an object from JNDI at the given location");
+                throw new IllegalArgumentException("Failed to look up an object from JNDI at the given location");
             if (!(lookedUp instanceof DataSource)) {
                 LOGGER.log(
-                        Level.WARNING,
-                        "Was trying to look up a DataSource in JNDI, but got this instead: "
-                                + lookedUp);
+                        Level.WARNING, "Was trying to look up a DataSource in JNDI, but got this instead: " + lookedUp);
                 throw new IllegalArgumentException("JNDI lookup did not provide a DataSource");
             }
             try (Connection con = ((DataSource) lookedUp).getConnection()) {}

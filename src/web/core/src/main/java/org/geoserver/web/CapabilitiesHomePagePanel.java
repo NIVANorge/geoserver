@@ -5,8 +5,10 @@
  */
 package org.geoserver.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.io.Serializable;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import org.apache.wicket.markup.html.basic.Label;
@@ -17,21 +19,36 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.geotools.util.Version;
 
 /**
- * Default component for a {@link CapabilitiesHomePageLinkProvider} implementation to provide a list
- * of {@link CapsInfo} (GetCapabilities links discriminated by service name and version.)
+ * Default component for a {@link CapabilitiesHomePageLinkProvider} implementation to provide a list of {@link CapsInfo}
+ * (GetCapabilities links discriminated by service name and version.)
  *
  * @author Gabriel Roldan
  */
 public class CapabilitiesHomePagePanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(CapabilitiesHomePagePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * A complete reference to a GetCapabilities or other service description document acting as the
-     * model object to this panel's ListView.
+     * A complete reference to a GetCapabilities or other service description document acting as the model object to
+     * this panel's ListView.
      *
      * @deprecated Please use {@link ServiceDescription} and {@link ServiceLinkDescription}
      */
+    @Deprecated
     public static class CapsInfo implements Serializable {
 
         /** Service type. */
@@ -67,9 +84,7 @@ public class CapabilitiesHomePagePanel extends Panel {
                 return false;
             }
             CapsInfo ci = (CapsInfo) o;
-            return service.equals(ci.service)
-                    && version.equals(ci.version)
-                    && capsLink.equals(ci.capsLink);
+            return service.equals(ci.service) && version.equals(ci.version) && capsLink.equals(ci.capsLink);
         }
 
         @Override
@@ -95,39 +110,32 @@ public class CapabilitiesHomePagePanel extends Panel {
     public CapabilitiesHomePagePanel(final String id, final List<CapsInfo> capsLinks) {
 
         super(id);
-        capsLinks.sort(
-                new Comparator<CapsInfo>() {
-                    @Override
-                    public int compare(CapsInfo o1, CapsInfo o2) {
-                        int serviceOrder =
-                                o1.getService()
-                                        .toUpperCase()
-                                        .compareTo(o2.getService().toUpperCase());
-                        int versionOrder = -o1.version.compareTo(o2.getVersion());
+        capsLinks.sort((o1, o2) -> {
+            int serviceOrder =
+                    o1.getService().toUpperCase().compareTo(o2.getService().toUpperCase());
+            int versionOrder = -o1.version.compareTo(o2.getVersion());
 
-                        return serviceOrder != 0 ? serviceOrder : versionOrder;
-                    }
-                });
+            return serviceOrder != 0 ? serviceOrder : versionOrder;
+        });
 
-        ListView<CapsInfo> view =
-                new ListView<CapsInfo>("services", capsLinks) {
-                    private static final long serialVersionUID = 1L;
+        ListView<CapsInfo> view = new ListView<>("services", capsLinks) {
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @Override
-                    protected void populateItem(ListItem<CapsInfo> captItem) {
-                        @SuppressWarnings("deprecation")
-                        CapsInfo capsInfo = captItem.getModelObject();
+            @Override
+            protected void populateItem(ListItem<CapsInfo> captItem) {
+                CapsInfo capsInfo = captItem.getModelObject();
 
-                        Version version = capsInfo.getVersion();
-                        String capsLink = capsInfo.getCapsLink();
-                        ExternalLink link = new ExternalLink("link", capsLink);
+                Version version = capsInfo.getVersion();
+                String capsLink = capsInfo.getCapsLink();
+                ExternalLink link = new ExternalLink("link", capsLink);
 
-                        link.add(new Label("service", capsInfo.getService()));
-                        link.add(new Label("version", version.toString()));
+                link.add(new Label("service", capsInfo.getService()));
+                link.add(new Label("version", version.toString()));
 
-                        captItem.add(link);
-                    }
-                };
+                captItem.add(link);
+            }
+        };
         add(view);
     }
 }

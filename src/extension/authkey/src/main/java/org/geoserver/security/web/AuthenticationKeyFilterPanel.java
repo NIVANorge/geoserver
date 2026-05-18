@@ -4,6 +4,9 @@
  */
 package org.geoserver.security.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -13,9 +16,11 @@ import java.util.logging.Logger;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
+import org.apache.wicket.markup.head.CssHeaderItem;
+import org.apache.wicket.markup.head.IHeaderResponse;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.list.ListItem;
@@ -39,9 +44,10 @@ import org.geotools.util.logging.Logging;
  *
  * @author mcr
  */
-public class AuthenticationKeyFilterPanel
-        extends AuthenticationFilterPanel<AuthenticationKeyFilterConfig> {
+// TODO WICKET8 - Verify this page works OK
+public class AuthenticationKeyFilterPanel extends AuthenticationFilterPanel<AuthenticationKeyFilterConfig> {
 
+    @Serial
     private static final long serialVersionUID = 1;
 
     static Logger LOGGER = Logging.getLogger("org.geoserver.security");
@@ -57,66 +63,57 @@ public class AuthenticationKeyFilterPanel
 
         add(new HelpLink("authKeyParametersHelp", this).setDialog(dialog));
 
-        add(new TextField<String>("authKeyParamName"));
+        add(new TextField<>("authKeyParamName"));
+
+        add(new CheckBox("allowMapperKeysAutoSync"));
+
+        add(new CheckBox("allowChallengeAnonymousSessions"));
 
         Map<String, String> parameters = model.getObject().getMapperParameters();
         final ParamsPanel paramsPanel =
-                createParamsPanel(
-                        "authKeyMapperParamsPanel",
-                        model.getObject().getAuthKeyMapperName(),
-                        parameters);
+                createParamsPanel("authKeyMapperParamsPanel", model.getObject().getAuthKeyMapperName(), parameters);
 
         AuthenticationKeyMapperChoice authenticationKeyMapperChoice =
                 new AuthenticationKeyMapperChoice("authKeyMapperName");
 
-        authenticationKeyMapperChoice.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        String newSelection = (String) getFormComponent().getConvertedInput();
-                        Map<String, String> parameters = getMapperParameters(newSelection);
-                        AuthenticationKeyFilterPanel.this
-                                .model
-                                .getObject()
-                                .setMapperParameters(parameters);
-                        paramsPanel.updateParameters(newSelection, parameters);
-                        target.add(paramsPanel);
-                    }
-                });
+        authenticationKeyMapperChoice.add(new AjaxFormComponentUpdatingBehavior("change") {
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                String newSelection = (String) getFormComponent().getConvertedInput();
+                Map<String, String> parameters = getMapperParameters(newSelection);
+                AuthenticationKeyFilterPanel.this.model.getObject().setMapperParameters(parameters);
+                paramsPanel.updateParameters(newSelection, parameters);
+                target.add(paramsPanel);
+            }
+        });
 
         add(authenticationKeyMapperChoice);
         add(new UserGroupServiceChoice("userGroupServiceName"));
 
-        add(
-                new WebMarkupContainer("authKeyMapperParamsContainer")
-                        .add(paramsPanel)
-                        .setOutputMarkupId(true));
+        add(new WebMarkupContainer("authKeyMapperParamsContainer")
+                .add(paramsPanel)
+                .setOutputMarkupId(true));
 
         add(
                 new AjaxSubmitLink("synchronize") {
                     @Override
-                    protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+                    protected void onSubmit(AjaxRequestTarget target) {
                         try {
                             // AuthenticationKeyFilterPanel.this.updateModel();
-                            AuthenticationKeyFilterConfig config =
-                                    AuthenticationKeyFilterPanel.this.model.getObject();
+                            AuthenticationKeyFilterConfig config = AuthenticationKeyFilterPanel.this.model.getObject();
 
                             getSecurityManager().saveFilter(config);
                             AuthenticationKeyMapper mapper =
-                                    (AuthenticationKeyMapper)
-                                            GeoServerExtensions.bean(config.getAuthKeyMapperName());
+                                    (AuthenticationKeyMapper) GeoServerExtensions.bean(config.getAuthKeyMapperName());
                             mapper.setSecurityManager(getSecurityManager());
                             mapper.setUserGroupServiceName(config.getUserGroupServiceName());
                             int numberOfNewKeys = mapper.synchronize();
-                            info(
-                                    new StringResourceModel(
-                                                    "synchronizeSuccessful",
-                                                    AuthenticationKeyFilterPanel.this)
-                                            .setParameters(numberOfNewKeys)
-                                            .getObject());
+                            info(new StringResourceModel("synchronizeSuccessful", AuthenticationKeyFilterPanel.this)
+                                    .setParameters(numberOfNewKeys)
+                                    .getObject());
                         } catch (Exception e) {
                             error(e);
-                            LOGGER.log(Level.WARNING, "Authentication key  error ", e);
+                            LOGGER.log(Level.WARNING, "Authentication key error ", e);
                         } finally {
                             target.add(getPage().get("topFeedback"));
                         }
@@ -124,45 +121,55 @@ public class AuthenticationKeyFilterPanel
                 }.setDefaultFormProcessing(true));
     }
 
-    class ParamsPanel extends FormComponentPanel<Serializable> {
+    static class ParamsPanel extends FormComponentPanel<Serializable> {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(AuthenticationKeyFilterPanel.ParamsPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public ParamsPanel(String id, String authMapperName, Map<String, String> parameters) {
             super(id, new Model<>());
             updateParameters(authMapperName, parameters);
         }
 
-        private void updateParameters(
-                final String authMapperName, final Map<String, String> parameters) {
+        private void updateParameters(final String authMapperName, final Map<String, String> parameters) {
 
             removeAll();
-            add(
-                    new ListView<String>(
-                            "parametersList", new Model<>(new ArrayList<>(parameters.keySet()))) {
-                        @Override
-                        protected void populateItem(ListItem<String> item) {
-                            String labelKey =
-                                    "AuthenticationKeyFilterPanel."
-                                            + authMapperName
-                                            + "."
-                                            + item.getModel().getObject();
-                            item.add(
-                                    new Label(
-                                            "parameterName",
-                                            new StringResourceModel(labelKey, this, null)));
-                            item.add(
-                                    new TextField<String>(
-                                            "parameterField",
-                                            new MapModel<>(
-                                                    parameters, item.getModel().getObject())));
-                        }
-                    });
+            add(new ListView<>("parametersList", new Model<>(new ArrayList<>(parameters.keySet()))) {
+                @Override
+                protected void populateItem(ListItem<String> item) {
+                    String labelKey = "AuthenticationKeyFilterPanel."
+                            + authMapperName
+                            + "."
+                            + item.getModel().getObject();
+                    item.add(new Label("parameterName", new StringResourceModel(labelKey, this, null)));
+                    item.add(new TextField<>(
+                            "parameterField",
+                            new MapModel<>(parameters, item.getModel().getObject())));
+                }
+            });
         }
 
         public void resetModel() {}
     }
 
-    private ParamsPanel createParamsPanel(
-            String id, String authKeyMapperName, Map<String, String> parameters) {
+    @Override
+    public void renderHead(IHeaderResponse response) {
+        super.renderHead(response);
+        String css = " ul.horizontal div {\n" + "    display:inline;\n" + "  }";
+        response.render(CssHeaderItem.forCSS(css, "org-geoserver-security-web-AuthenticationKeyFilterPanel"));
+    }
+
+    private ParamsPanel createParamsPanel(String id, String authKeyMapperName, Map<String, String> parameters) {
         ParamsPanel paramsPanel = new ParamsPanel(id, authKeyMapperName, parameters);
         paramsPanel.setOutputMarkupId(true);
         return paramsPanel;
@@ -170,8 +177,7 @@ public class AuthenticationKeyFilterPanel
 
     private Map<String, String> getMapperParameters(String authKeyMapperName) {
         if (authKeyMapperName != null) {
-            AuthenticationKeyMapper mapper =
-                    (AuthenticationKeyMapper) GeoServerExtensions.bean(authKeyMapperName);
+            AuthenticationKeyMapper mapper = (AuthenticationKeyMapper) GeoServerExtensions.bean(authKeyMapperName);
             if (mapper != null) {
                 return mapper.getMapperConfiguration();
             }

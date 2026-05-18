@@ -1,61 +1,79 @@
 # Documentation Instructions
 
-For writing guide please generate and review ``docguide`` below. Documentation is written in a combination of:
+For writing guide please generate and review [docguide](https://docs.geoserver.org/3.0.x/en/docguide/). Documentation is written in a combination of:
 
-* [swagger.io](http://swagger.io) - REST API reference documentation
-* [sphinx-doc.org](http://www.sphinx-doc.org): user manual, developers guide and documentation guide
+* [material for mkdocs](https://squidfunk.github.io/mkdocs-material/): user manual, developers guide and documentation guide
+* [swagger.io](http://swagger.io): REST API reference documentation
 
 GeoServer documentation is released using [Creative Commons Attribution 4.0 International](LICENSE.md).
+
+## Building with Python
+
+The documentation is written with [mkdocs](https://www.mkdocs.org/), which is a Python documentation generator. We use [Material for mkdocs](https://squidfunk.github.io/mkdocs-material/) theme which provides excellent documentation.
+
+1. From the root of your GeoServer checkout:
+
+   ```bash
+   python3 -m venv venv
+   ```
+
+2. Activate virtual environment and install (or update) requirements:
+   ```bash
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+   
+3. Use ***mkdocs*** to serve preview from virtual environment:
+
+   ```bash
+   mkdocs serve --livereload --no-directory-urls -o
+   ```
 
 ## Building with Maven
 
 To build:
+```bash
+mvn clean install
+```
 
-    mvn clean install
+The documentation is packaged for offline use (inlining javascript and using `index.html` links).
+
+### index.html
+
+The file `index.html` is the landing page for the [online documentation](https://docs.geoserver.org/index.html). It exists outside of the version hierarchy of the rest of the documentation.
 
 ### REST API
 
 To generate the REST API documentation:
 
-    mvn process-resources
+```bash
+mvn process-resources
+```
     
 To generate a specific REST API endpoint:
 
-    mvn process-resources:system-status
-    
+```bash
+mvn process-resources:system-status
+```
 
-### Manuals
+The api documentation is packaged for offline use, as a replacement for the interactive swagger docs
+available on the website (or in local preview).
 
-To build all restructured text documentation:
+#### Writing
 
-    mvn compile
+The ant `build.xml` can also be called directly:
 
-And to package into zips:
+```
+ant build
+```
 
-    mvn package
+This uses `mkdocs build` to generate documentation into `../../target/index.html`.
 
-Profiles are defined to build individual manuals:
+To view content while editing:
+```
+ant site
+```
 
-    mvn compile -Puser
-    mvn compile -Pdeveloper
-    mvn compile -Pdocguide
+This uses `mkdocs serve` to serve docs locally.
 
-And can be packaged individually:
-    
-    mvn package:single@user
-    mvn package:single@developer
-    mvn package:single@docguide
-
-To generate user pdf:
-
-    mvn compile -Puser-pdf
-
-The ant ``build.xml`` can also be called directly with the ``project.version`` name:
-
-    ant user -Dproject.version=2.18.0
-    ant developer -Dproject.version=2.18.0
-    ant docguide -Dproject.version=2.18.0
-
-## index.html
-
-The file `index.html` is the landing page for the [online documentation](https://docs.geoserver.org/index.html). It exists outside of the version hierarchy of the rest of the documentation.
+The `../version.py` mkdocs hook looks up the current project version, and most recent release, information in `src/pom.xml`. This information is made available to the macros plugin for use when writing.

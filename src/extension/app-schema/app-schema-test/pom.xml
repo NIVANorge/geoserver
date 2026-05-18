@@ -11,7 +11,7 @@
   <parent>
     <groupId>org.geoserver.extension</groupId>
     <artifactId>gs-app-schema</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver.extension</groupId>
@@ -26,37 +26,69 @@
     <dependency>
       <groupId>org.geoserver.extension</groupId>
       <artifactId>gs-app-schema-core</artifactId>
-      <version>${gs.version}</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-main</artifactId>
       <classifier>tests</classifier>
+      <scope>test</scope>
     </dependency>
-    <dependency>
-      <!--
-                wfs required to get applicationContext.xml. Without it, code will
-                compile but will not run.
-            -->
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-wfs</artifactId>
-    </dependency>
+    <!--
+          wfs required to get applicationContext.xml. Without it, code will
+          compile but will not run.
+      -->
     <dependency>
       <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs2_x</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-main</artifactId>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs-core</artifactId>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wfs2_x</artifactId>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver.extension</groupId>
       <artifactId>gs-kml</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <!--
-                //NC - wms package required for wms support
-            -->
       <groupId>org.geoserver</groupId>
-      <artifactId>gs-wms</artifactId>
+      <artifactId>gs-wms-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wms1_3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wms-gml</artifactId>
     </dependency>
     <dependency>
       <groupId>net.sf.opencsv</groupId>
       <artifactId>opencsv</artifactId>
-      <version>1.8</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.wicket</groupId>
+      <artifactId>wicket-tester</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -75,12 +107,10 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-app-schema</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-app-schema</artifactId>
-      <version>${gt.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
@@ -110,32 +140,28 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-sample-data</artifactId>
-      <version>${gt.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-jdbc</artifactId>
-      <version>${gt.version}</version>
-      <type>test-jar</type>
+      <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools.jdbc</groupId>
       <artifactId>gt-jdbc-postgis</artifactId>
-      <version>${gt.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools.jdbc</groupId>
       <artifactId>gt-jdbc-oracle</artifactId>
-      <version>${gt.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools.data</groupId>
       <artifactId>refdataset-1.0</artifactId>
-      <version>1.0.7</version>
+      <version>1.0.8</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -163,7 +189,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
+      <groupId>tools.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
       <scope>test</scope>
     </dependency>
@@ -173,8 +199,13 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
+      <groupId>tools.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
       <scope>test</scope>
     </dependency>
     <!-- required for Web UI tests -->
@@ -244,7 +275,7 @@
       <dependencies>
         <dependency>
           <groupId>com.oracle.database.jdbc</groupId>
-          <artifactId>ojdbc8</artifactId>
+          <artifactId>ojdbc17</artifactId>
         </dependency>
       </dependencies>
     </profile>

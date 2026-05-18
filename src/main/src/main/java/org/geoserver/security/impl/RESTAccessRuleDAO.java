@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.GeoServerExtensions;
+import org.geoserver.util.LinkedProperties;
 import org.geotools.util.logging.Logging;
 
 /**
@@ -30,11 +31,10 @@ public class RESTAccessRuleDAO extends AbstractAccessRuleDAO<String> {
     }
 
     /** rule pattern */
-    static final Pattern PATTERN =
-            Pattern.compile(
-                    "\\S+;(GET|POST|PUT|DELETE|HEAD)(,(GET|POST|PUT|DELETE|HEAD))*=\\S+(, ?\\S+)*");
+    static final Pattern PATTERN = Pattern.compile(
+            "\\S+;(GET|POST|PUT|DELETE|HEAD|OPTIONS)(,(GET|POST|PUT|DELETE|HEAD|OPTIONS))*=\\S+(, ?\\S+)*");
 
-    protected RESTAccessRuleDAO(GeoServerDataDirectory dd) throws IOException {
+    public RESTAccessRuleDAO(GeoServerDataDirectory dd) throws IOException {
         super(dd, "rest.properties");
     }
 
@@ -57,8 +57,8 @@ public class RESTAccessRuleDAO extends AbstractAccessRuleDAO<String> {
     }
 
     @Override
-    protected Properties toProperties() {
-        Properties props = new Properties();
+    protected LinkedProperties toProperties() {
+        LinkedProperties props = new LinkedProperties();
         for (String rule : rules) {
             rule = rule.replaceAll(":", ";");
             if (!PATTERN.matcher(rule).matches()) {

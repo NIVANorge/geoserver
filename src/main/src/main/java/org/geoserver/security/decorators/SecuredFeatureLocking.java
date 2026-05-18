@@ -9,12 +9,12 @@ import static org.geoserver.security.SecurityUtils.getWriteQuery;
 
 import java.io.IOException;
 import org.geoserver.security.WrapperPolicy;
-import org.geotools.data.FeatureLock;
-import org.geotools.data.FeatureLocking;
-import org.geotools.data.Query;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
+import org.geotools.api.data.FeatureLock;
+import org.geotools.api.data.FeatureLocking;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
 
 /**
  * See {@link SecuredFeatureStore} for an explanation of why this class exists
@@ -23,8 +23,8 @@ import org.opengis.filter.Filter;
  * @param <T>
  * @param <F>
  */
-public class SecuredFeatureLocking<T extends FeatureType, F extends Feature>
-        extends SecuredFeatureStore<T, F> implements FeatureLocking<T, F> {
+public class SecuredFeatureLocking<T extends FeatureType, F extends Feature> extends SecuredFeatureStore<T, F>
+        implements FeatureLocking<T, F> {
 
     FeatureLocking<T, F> lockDelegate;
 

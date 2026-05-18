@@ -9,23 +9,23 @@ import java.util.logging.Logger;
 import org.geoserver.platform.ExtensionPriority;
 import org.geoserver.wps.process.DelegatingProcessFactory;
 import org.geoserver.wps.process.ProcessFilter;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.util.DelegateProgressListener;
 import org.geotools.process.Process;
 import org.geotools.process.ProcessException;
 import org.geotools.process.ProcessFactory;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
-import org.opengis.util.ProgressListener;
 
 /**
- * A process filter making sure the {@link ProgressListener#started()} method is called upon
- * execution no matter if the process has inputs or not
+ * A process filter making sure the {@link ProgressListener#started()} method is called upon execution no matter if the
+ * process has inputs or not
  *
  * @author Andrea Aime - GeoSolutions
  */
 public class ProcessStartupFilter implements ProcessFilter, ExtensionPriority {
 
-    public class ProcessStartupWrapper implements Process {
+    public static class ProcessStartupWrapper implements Process {
 
         Process delegate;
 
@@ -39,13 +39,12 @@ public class ProcessStartupFilter implements ProcessFilter, ExtensionPriority {
                 throws ProcessException {
             if (monitor != null) {
                 monitor.started();
-                monitor =
-                        new DelegateProgressListener(monitor) {
-                            @Override
-                            public void started() {
-                                // do not pass over, we already called "started"
-                            }
-                        };
+                monitor = new DelegateProgressListener(monitor) {
+                    @Override
+                    public void started() {
+                        // do not pass over, we already called "started"
+                    }
+                };
             }
             return delegate.execute(input, monitor);
         }
@@ -58,7 +57,7 @@ public class ProcessStartupFilter implements ProcessFilter, ExtensionPriority {
         return new ProcessStartupFactory(pf);
     }
 
-    class ProcessStartupFactory extends DelegatingProcessFactory {
+    static class ProcessStartupFactory extends DelegatingProcessFactory {
 
         public ProcessStartupFactory(ProcessFactory delegate) {
             super(delegate);

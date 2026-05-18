@@ -5,15 +5,15 @@
  */
 package org.geoserver.cluster.message;
 
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.ObjectMessage;
+import jakarta.jms.Session;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.ObjectMessage;
-import javax.jms.Session;
 import org.geoserver.cluster.configuration.JMSConfiguration;
 import org.springframework.jms.core.MessageCreator;
 
@@ -37,8 +37,7 @@ public class JMSObjectMessageCreator implements MessageCreator {
     protected void updateProperties(Message message) throws JMSException {
         // append the name of the server
         message.setObjectProperty(
-                JMSConfiguration.INSTANCE_NAME_KEY,
-                properties.get(JMSConfiguration.INSTANCE_NAME_KEY));
+                JMSConfiguration.INSTANCE_NAME_KEY, properties.get(JMSConfiguration.INSTANCE_NAME_KEY));
 
         // set other properties
         final Set<Entry<Object, Object>> set = properties.entrySet();

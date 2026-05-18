@@ -5,6 +5,8 @@
  */
 package org.geoserver.security.web.user;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.behavior.AttributeAppender;
@@ -24,6 +26,19 @@ import org.geoserver.web.wicket.GeoServerTablePanel;
 @SuppressWarnings("serial")
 public class UserPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(UserPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     protected GeoServerTablePanel<GeoServerUser> users;
     protected GeoServerDialog dialog;
     protected SelectionUserRemovalLink removal, removalWithRoles;
@@ -32,9 +47,7 @@ public class UserPanel extends Panel {
 
     protected GeoServerUserGroupService getService() {
         try {
-            return GeoServerApplication.get()
-                    .getSecurityManager()
-                    .loadUserGroupService(serviceName);
+            return GeoServerApplication.get().getSecurityManager().loadUserGroupService(serviceName);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -46,16 +59,15 @@ public class UserPanel extends Panel {
         this.serviceName = serviceName;
         UserListProvider provider = new UserListProvider(this.serviceName);
         add(
-                users =
-                        new UserTablePanel("table", serviceName, provider, true) {
-                            @Override
-                            protected void onSelectionUpdate(AjaxRequestTarget target) {
-                                removal.setEnabled(users.getSelection().size() > 0);
-                                target.add(removal);
-                                removalWithRoles.setEnabled(users.getSelection().size() > 0);
-                                target.add(removalWithRoles);
-                            }
-                        });
+                users = new UserTablePanel("table", serviceName, provider, true) {
+                    @Override
+                    protected void onSelectionUpdate(AjaxRequestTarget target) {
+                        removal.setEnabled(!users.getSelection().isEmpty());
+                        target.add(removal);
+                        removalWithRoles.setEnabled(!users.getSelection().isEmpty());
+                        target.add(removalWithRoles);
+                    }
+                });
         users.setOutputMarkupId(true);
         add(dialog = new GeoServerDialog("dialog"));
         headerComponents();
@@ -80,51 +92,41 @@ public class UserPanel extends Panel {
         add(h);
 
         if (!canCreateStore) {
-            h.add(
-                    new Label("message", new StringResourceModel("noCreateStore", this, null))
-                            .add(new AttributeAppender("class", new Model<>("info-link"), " ")));
+            h.add(new Label("message", new StringResourceModel("noCreateStore", this, null))
+                    .add(new AttributeAppender("class", new Model<>("info-link"), " ")));
         } else {
-            h.add(
-                    new Label("message", new Model())
-                            .add(new AttributeAppender("class", new Model<>("d-none"), " ")));
+            h.add(new Label("message", new Model<>()).add(new AttributeAppender("class", new Model<>("d-none"), " ")));
         }
 
         // the add button
         h.add(
-                add =
-                        new Link<NewUserPage>("addNew") {
-                            @Override
-                            public void onClick() {
-                                setResponsePage(
-                                        new NewUserPage(serviceName).setReturnPage(this.getPage()));
-                            }
-                        });
+                add = new Link<>("addNew") {
+                    @Override
+                    public void onClick() {
+                        setResponsePage(new NewUserPage(serviceName).setReturnPage(this.getPage()));
+                    }
+                });
 
         // <NewUserPage><NewUserPage>("addNew", NewUserPage.class));
         // add.setParameter(AbstractSecurityPage.ServiceNameKey, serviceName);
         add.setVisible(canCreateStore);
 
         // the removal button
-        h.add(
-                removal =
-                        new SelectionUserRemovalLink(
-                                serviceName, "removeSelected", users, dialog, false));
+        h.add(removal = new SelectionUserRemovalLink(serviceName, "removeSelected", users, dialog, false));
         removal.setOutputMarkupId(true);
         removal.setEnabled(false);
         removal.setVisible(canCreateStore);
 
         h.add(
                 removalWithRoles =
-                        new SelectionUserRemovalLink(
-                                serviceName, "removeSelectedWithRoles", users, dialog, true));
+                        new SelectionUserRemovalLink(serviceName, "removeSelectedWithRoles", users, dialog, true));
         removalWithRoles.setOutputMarkupId(true);
         removalWithRoles.setEnabled(false);
-        removalWithRoles.setVisible(
-                canCreateStore
-                        && GeoServerApplication.get()
-                                .getSecurityManager()
-                                .getActiveRoleService()
-                                .canCreateStore());
+        removalWithRoles.setVisible(canCreateStore
+                && GeoServerApplication.get()
+                        .getSecurityManager()
+                        .getActiveRoleService()
+                        .canCreateStore());
     }
 
     @Override

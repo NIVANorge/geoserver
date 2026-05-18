@@ -8,57 +8,53 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.JAXBElement;
+import jakarta.xml.bind.annotation.XmlElementDecl;
+import jakarta.xml.bind.annotation.XmlRegistry;
 import java.util.List;
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.annotation.XmlElementDecl;
-import javax.xml.bind.annotation.XmlRegistry;
 import javax.xml.namespace.QName;
 
 @SuppressWarnings("unchecked")
 
 /**
- * This object contains factory methods for each Java content interface and Java element interface
- * generated in the org.geoserver.mapml.xml package.
+ * This object contains factory methods for each Java content interface and Java element interface generated in the
+ * org.geoserver.mapml.xml package.
  *
- * <p>An ObjectFactory allows you to programatically construct new instances of the Java
- * representation for XML content. The Java representation of XML content can consist of schema
- * derived interfaces and classes representing the binding of schema type definitions, element
- * declarations and model groups. Factory methods for each of these are provided in this class.
+ * <p>An ObjectFactory allows you to programatically construct new instances of the Java representation for XML content.
+ * The Java representation of XML content can consist of schema derived interfaces and classes representing the binding
+ * of schema type definitions, element declarations and model groups. Factory methods for each of these are provided in
+ * this class.
  */
 @XmlRegistry
 public class ObjectFactory {
 
-    private static final QName _MultiPoint_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-multipoint");
+    private static final QName _MultiPoint_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-multipoint");
     private static final QName _GeometryContent_QNAME =
             new QName("http://www.w3.org/1999/xhtml", "map-geometrycontent");
     private static final QName _MultiLineString_QNAME =
             new QName("http://www.w3.org/1999/xhtml", "map-multilinestring");
     private static final QName _Bbox_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-bbox");
-    private static final QName _Point_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-point");
-    private static final QName _Title_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-title");
+    private static final QName _Point_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-point");
+    private static final QName _Title_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-title");
     private static final QName _Body_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-body");
     private static final QName _Head_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-head");
     private static final QName _GeometryCollection_QNAME =
             new QName("http://www.w3.org/1999/xhtml", "map-geometrycollection");
-    private static final QName _LineString_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-linestring");
-    private static final QName _MultiPolygon_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-multipolygon");
-    private static final QName _Geometry_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-geometry");
-    private static final QName _Polygon_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-polygon");
-    private static final QName _Properties_QNAME =
-            new QName("http://www.w3.org/1999/xhtml", "map-properties");
+    private static final QName _LineString_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-linestring");
+    private static final QName _MultiPolygon_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-multipolygon");
+    private static final QName _Geometry_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-geometry");
+    private static final QName _Polygon_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-polygon");
+    private static final QName _Properties_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-properties");
     private static final QName _MultiPointCoordinates_QNAME =
             new QName("http://www.w3.org/1999/xhtml", "map-coordinates");
+    private static final QName _A_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-a");
+    private static final QName _Style_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-style");
+    private static final QName _Span_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-span");
+    private static final QName _Featurecaption_QNAME = new QName("http://www.w3.org/1999/xhtml", "map-featurecaption");
 
     /**
-     * Create a new ObjectFactory that can be used to create new instances of schema derived classes
-     * for package: org.geoserver.mapml.xml
+     * Create a new ObjectFactory that can be used to create new instances of schema derived classes for package:
+     * org.geoserver.mapml.xml
      */
     public ObjectFactory() {}
 
@@ -213,13 +209,10 @@ public class ObjectFactory {
         return new JAXBElement<>(_MultiLineString_QNAME, MultiLineString.class, null, value);
     }
 
-    /**
-     * Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String
-     * }{@code >}{@code >}}
-     */
+    /** Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String }{@code >}{@code >}} */
     @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-bbox")
     public JAXBElement<List<String>> createBbox(List<String> value) {
-        return new JAXBElement<>(_Bbox_QNAME, ((Class) List.class), null, ((List<String>) value));
+        return new JAXBElement<>(_Bbox_QNAME, ((Class) List.class), null, value);
     }
 
     /** Create an instance of {@link JAXBElement }{@code <}{@link Point }{@code >}} */
@@ -236,6 +229,24 @@ public class ObjectFactory {
     @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-title")
     public JAXBElement<String> createTitle(String value) {
         return new JAXBElement<>(_Title_QNAME, String.class, null, value);
+    }
+
+    /** Create an instance of {@link JAXBElement }{@code <}{@link String }{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-style")
+    public JAXBElement<String> createStyle(String value) {
+        return new JAXBElement<>(_Style_QNAME, String.class, null, value);
+    }
+
+    /** Create an instance of {@link JAXBElement }{@code <}{@link Span }{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-span")
+    public JAXBElement<Span> createSpan(Span value) {
+        return new JAXBElement<>(_Span_QNAME, Span.class, null, value);
+    }
+
+    /** Create an instance of {@link JAXBElement }{@code <}{@link String }{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-featurecaption")
+    public JAXBElement<String> createFeaturecaption(String value) {
+        return new JAXBElement<>(_Featurecaption_QNAME, String.class, null, value);
     }
 
     /** Create an instance of {@link JAXBElement }{@code <}{@link BodyContent }{@code >}} */
@@ -296,57 +307,37 @@ public class ObjectFactory {
         return new JAXBElement<>(_Polygon_QNAME, Polygon.class, null, value);
     }
 
+    /** Create an instance of {@link JAXBElement }{@code <}{@link A }{@code >}} */
+    @XmlElementDecl(
+            namespace = "http://www.w3.org/1999/xhtml",
+            name = "map-a",
+            substitutionHeadNamespace = "http://www.w3.org/1999/xhtml",
+            substitutionHeadName = "GeometryContent")
+    public JAXBElement<A> createA(A value) {
+        return new JAXBElement<>(_A_QNAME, A.class, null, value);
+    }
+
     /** Create an instance of {@link JAXBElement }{@code <}{@link PropertyContent }{@code >}} */
     @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-properties")
     public JAXBElement<PropertyContent> createProperties(PropertyContent value) {
         return new JAXBElement<>(_Properties_QNAME, PropertyContent.class, null, value);
     }
 
-    /**
-     * Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String
-     * }{@code >}{@code >}}
-     */
-    @XmlElementDecl(
-            namespace = "http://www.w3.org/1999/xhtml",
-            name = "map-coordinates",
-            scope = MultiPoint.class)
+    /** Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String }{@code >}{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-coordinates", scope = MultiPoint.class)
     public JAXBElement<List<String>> createMultiPointCoordinates(List<String> value) {
-        return new JAXBElement<>(
-                _MultiPointCoordinates_QNAME,
-                ((Class) List.class),
-                MultiPoint.class,
-                ((List<String>) value));
+        return new JAXBElement<>(_MultiPointCoordinates_QNAME, ((Class) List.class), MultiPoint.class, value);
     }
 
-    /**
-     * Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String
-     * }{@code >}{@code >}}
-     */
-    @XmlElementDecl(
-            namespace = "http://www.w3.org/1999/xhtml",
-            name = "map-coordinates",
-            scope = Polygon.class)
+    /** Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String }{@code >}{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-coordinates", scope = Polygon.class)
     public JAXBElement<List<String>> createPolygonCoordinates(List<String> value) {
-        return new JAXBElement<>(
-                _MultiPointCoordinates_QNAME,
-                ((Class) List.class),
-                Polygon.class,
-                ((List<String>) value));
+        return new JAXBElement<>(_MultiPointCoordinates_QNAME, ((Class) List.class), Polygon.class, value);
     }
 
-    /**
-     * Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String
-     * }{@code >}{@code >}}
-     */
-    @XmlElementDecl(
-            namespace = "http://www.w3.org/1999/xhtml",
-            name = "map-coordinates",
-            scope = MultiLineString.class)
+    /** Create an instance of {@link JAXBElement }{@code <}{@link List }{@code <}{@link String }{@code >}{@code >}} */
+    @XmlElementDecl(namespace = "http://www.w3.org/1999/xhtml", name = "map-coordinates", scope = MultiLineString.class)
     public JAXBElement<List<String>> createMultiLineStringCoordinates(List<String> value) {
-        return new JAXBElement<>(
-                _MultiPointCoordinates_QNAME,
-                ((Class) List.class),
-                MultiLineString.class,
-                ((List<String>) value));
+        return new JAXBElement<>(_MultiPointCoordinates_QNAME, ((Class) List.class), MultiLineString.class, value);
     }
 }

@@ -29,7 +29,8 @@ import org.geoserver.wps.transmute.GML2PointTransmuter;
 import org.geoserver.wps.transmute.GML2PolygonTransmuter;
 import org.geoserver.wps.transmute.LiteralTransmuter;
 import org.geoserver.wps.transmute.Transmuter;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.feature.type.Name;
 import org.geotools.process.ProcessFactory;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
@@ -39,7 +40,6 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.type.Name;
 
 /**
  * Class for parsing and encoding inputs and results to processes
@@ -77,8 +77,7 @@ public class DataTransformer {
 
     /** Returns Map of parsed inputs ready for execution */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> decodeInputs(
-            final List<InputType> inputs, final Map<String, Parameter<?>> parameters) {
+    public Map<String, Object> decodeInputs(final List<InputType> inputs, final Map<String, Parameter<?>> parameters) {
         Map<String, Object> inputMap = new HashMap<>();
 
         this.inputParameters = parameters;
@@ -116,8 +115,7 @@ public class DataTransformer {
     }
 
     /** Fetches and decodes external data references */
-    private Object decodeReferenceData(
-            final String identifier, final InputReferenceType reference) {
+    private Object decodeReferenceData(final String identifier, final InputReferenceType reference) {
         Object data = null;
         URL url = null;
         Parameter<?> param = this.inputParameters.get(identifier);
@@ -188,9 +186,7 @@ public class DataTransformer {
             }
 
             if (false
-                    == ((ComplexTransmuter) transmuter)
-                            .getSchema(this.urlBase)
-                            .equalsIgnoreCase(schema)) {
+                    == ((ComplexTransmuter) transmuter).getSchema(this.urlBase).equalsIgnoreCase(schema)) {
                 continue;
             }
 
@@ -201,8 +197,7 @@ public class DataTransformer {
             return (ComplexTransmuter) transmuter;
         }
 
-        throw new WPSException(
-                "NoApplicableCode", "Could not find ComplexTransmuter for '" + schema + "'.");
+        throw new WPSException("NoApplicableCode", "Could not find ComplexTransmuter for '" + schema + "'.");
     }
 
     /** Return default a transmuter for a given Java type */
@@ -211,8 +206,7 @@ public class DataTransformer {
 
         if (null == transmuter) {
             throw new WPSException(
-                    "NoApplicableCode",
-                    "No default transmuter registered for type " + type.toString() + "'.");
+                    "NoApplicableCode", "No default transmuter registered for type " + type.toString() + "'.");
         }
 
         return transmuter;

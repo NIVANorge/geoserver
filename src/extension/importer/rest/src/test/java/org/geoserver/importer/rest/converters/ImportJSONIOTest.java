@@ -9,8 +9,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.StoreInfo;
 import org.geoserver.importer.Directory;
 import org.geoserver.importer.ImportContext;
@@ -26,6 +24,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
@@ -104,7 +104,8 @@ public class ImportJSONIOTest extends ImporterTestSupport {
         Assert.assertNotNull(store);
         Assert.assertEquals("foobar", store.getName());
         Assert.assertEquals(
-                getCatalog().getDefaultWorkspace().getName(), store.getWorkspace().getName());
+                getCatalog().getDefaultWorkspace().getName(),
+                store.getWorkspace().getName());
     }
 
     @Test
@@ -116,9 +117,7 @@ public class ImportJSONIOTest extends ImporterTestSupport {
         JSONObject json = parseJson(outputStream);
 
         JSONArray transforms =
-                json.getJSONObject("task")
-                        .getJSONObject("transformChain")
-                        .getJSONArray("transforms");
+                json.getJSONObject("task").getJSONObject("transformChain").getJSONArray("transforms");
         JSONObject dateTransform = new JSONObject();
         dateTransform.put("type", "dateFormatTransform");
         dateTransform.put("field", "foobar");

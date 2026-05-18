@@ -18,28 +18,28 @@ import org.geoserver.importer.ImportContext;
 import org.geoserver.importer.ImportStore;
 import org.geoserver.importer.Importer;
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.Id;
+import org.geotools.api.filter.identity.FeatureId;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.jdbc.Index;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.Id;
-import org.opengis.filter.identity.FeatureId;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
 
 public class JDBCImportStore implements ImportStore {
 
-    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
     static final Logger LOGGER = Logging.getLogger(JDBCImportStore.class);
 
     /** The datastore backing the import context storage */
@@ -71,8 +71,7 @@ public class JDBCImportStore implements ImportStore {
     @Override
     public void init() {
         if (backingStore == null) {
-            throw new IllegalStateException(
-                    "Cannot initialize the import store, no backing store has been setup yet");
+            throw new IllegalStateException("Cannot initialize the import store, no backing store has been setup yet");
         }
 
         try {
@@ -85,10 +84,8 @@ public class JDBCImportStore implements ImportStore {
 
                 // try creating indexes, not a big deal if that does not work
                 try {
-                    backingStore.createIndex(
-                            new Index(actualTypeName, actualTypeName + "_user", false, "user"));
-                    backingStore.createIndex(
-                            new Index(actualTypeName, actualTypeName + "_state", false, "state"));
+                    backingStore.createIndex(new Index(actualTypeName, actualTypeName + "_user", false, "user"));
+                    backingStore.createIndex(new Index(actualTypeName, actualTypeName + "_state", false, "state"));
                 } catch (IOException e) {
                     LOGGER.log(Level.WARNING, "Failed to create database indexes", e);
                 }
@@ -114,8 +111,7 @@ public class JDBCImportStore implements ImportStore {
     }
 
     private SimpleFeatureStore getBackingFeatureStore() throws IOException {
-        SimpleFeatureStore featureStore =
-                (SimpleFeatureStore) backingStore.getFeatureSource(actualTypeName);
+        SimpleFeatureStore featureStore = (SimpleFeatureStore) backingStore.getFeatureSource(actualTypeName);
 
         if (needsMapping) {
             throw new UnsupportedOperationException("Not implemented yet");
@@ -133,10 +129,7 @@ public class JDBCImportStore implements ImportStore {
     @Override
     public ImportContext get(long id) {
         try {
-            Id filter =
-                    FF.id(
-                            Collections.singleton(
-                                    FF.featureId(CTX_FEATURE_TYPE.getTypeName() + "." + id)));
+            Id filter = FF.id(Collections.singleton(FF.featureId(CTX_FEATURE_TYPE.getTypeName() + "." + id)));
             SimpleFeatureCollection fc = getBackingFeatureStore().getFeatures(filter);
             SimpleFeature feature = DataUtilities.first(fc);
             if (feature == null) {
@@ -152,8 +145,7 @@ public class JDBCImportStore implements ImportStore {
     public void add(ImportContext context) {
         try {
             SimpleFeature feature = mapper.toFeature(context);
-            List<FeatureId> ids =
-                    getBackingFeatureStore().addFeatures(DataUtilities.collection(feature));
+            List<FeatureId> ids = getBackingFeatureStore().addFeatures(DataUtilities.collection(feature));
             if (ids == null || ids.isEmpty()) {
                 throw new ServiceException("No identifiers returned after insertion");
             }
@@ -172,10 +164,9 @@ public class JDBCImportStore implements ImportStore {
             } else {
                 SimpleFeature feature = mapper.toFeature(context);
                 Id filter = FF.id(Collections.singleton(FF.featureId(feature.getID())));
-                String[] names =
-                        CTX_FEATURE_TYPE.getAttributeDescriptors().stream()
-                                .map(ad -> ad.getLocalName())
-                                .toArray(n -> new String[n]);
+                String[] names = CTX_FEATURE_TYPE.getAttributeDescriptors().stream()
+                        .map(ad -> ad.getLocalName())
+                        .toArray(n -> new String[n]);
                 Object[] values = feature.getAttributes().toArray();
                 getBackingFeatureStore().modifyFeatures(names, values, filter);
             }
@@ -187,17 +178,11 @@ public class JDBCImportStore implements ImportStore {
     @Override
     public void remove(ImportContext importContext) {
         try {
-            Id filter =
-                    FF.id(
-                            Collections.singleton(
-                                    FF.featureId(
-                                            CTX_FEATURE_TYPE.getTypeName()
-                                                    + "."
-                                                    + importContext.getId())));
+            Id filter = FF.id(
+                    Collections.singleton(FF.featureId(CTX_FEATURE_TYPE.getTypeName() + "." + importContext.getId())));
             getBackingFeatureStore().removeFeatures(filter);
         } catch (IOException e) {
-            throw new ServiceException(
-                    "Unexpected exception while removing context: " + importContext, e);
+            throw new ServiceException("Unexpected exception while removing context: " + importContext, e);
         }
     }
 
@@ -237,17 +222,14 @@ public class JDBCImportStore implements ImportStore {
     @Override
     public Iterator<ImportContext> allNonCompleteImports() {
         try {
-            Filter filter =
-                    FF.notEqual(
-                            FF.property(STATE), FF.literal(ImportContext.State.COMPLETE.name()));
+            Filter filter = FF.notEqual(FF.property(STATE), FF.literal(ImportContext.State.COMPLETE.name()));
             Query q = new Query();
             q.setSortBy(new SortBy[] {SortBy.NATURAL_ORDER});
             q.setFilter(filter);
             SimpleFeatureCollection fc = getBackingFeatureStore().getFeatures(q);
             return new MappingIterator(fc.features(), mapper);
         } catch (IOException e) {
-            throw new ServiceException(
-                    "Unexpected exception while looking up incomplete imports", e);
+            throw new ServiceException("Unexpected exception while looking up incomplete imports", e);
         }
     }
 
@@ -261,8 +243,7 @@ public class JDBCImportStore implements ImportStore {
             SimpleFeatureCollection fc = getBackingFeatureStore().getFeatures(q);
             return new MappingIterator(fc.features(), mapper);
         } catch (IOException e) {
-            throw new ServiceException(
-                    "Unexpected exception while looking up imports by user: " + user, e);
+            throw new ServiceException("Unexpected exception while looking up imports by user: " + user, e);
         }
     }
 

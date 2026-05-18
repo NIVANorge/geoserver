@@ -5,8 +5,8 @@
 package org.geoserver.backuprestore;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,13 +14,12 @@ import java.util.logging.Level;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.gwc.layer.TileLayerCatalog;
 import org.geoserver.platform.GeoServerExtensions;
-import org.junit.Before;
 import org.junit.Test;
 import org.springframework.batch.core.BatchStatus;
 
 public class GwcRestoreTest extends BackupRestoreTestSupport {
 
-    @Before
+    @Override
     public void beforeTest() throws InterruptedException {
         ensureCleanedQueues();
 
@@ -43,7 +42,7 @@ public class GwcRestoreTest extends BackupRestoreTestSupport {
         Thread.sleep(100);
 
         assertNotNull(backupFacade.getRestoreExecutions());
-        assertTrue(!backupFacade.getRestoreExecutions().isEmpty());
+        assertFalse(backupFacade.getRestoreExecutions().isEmpty());
 
         assertNotNull(restoreExecution);
 
@@ -53,9 +52,7 @@ public class GwcRestoreTest extends BackupRestoreTestSupport {
         assertNotNull(restoreCatalog);
 
         int cnt = 0;
-        while (cnt < 100
-                && (restoreExecution.getStatus() != BatchStatus.COMPLETED
-                        || !restoreExecution.isRunning())) {
+        while (cnt < 100 && (restoreExecution.getStatus() != BatchStatus.COMPLETED || !restoreExecution.isRunning())) {
             Thread.sleep(100);
             cnt++;
 
@@ -75,8 +72,7 @@ public class GwcRestoreTest extends BackupRestoreTestSupport {
             backupFacade.stopExecution(restoreExecution.getId());
         }
 
-        final TileLayerCatalog gwcCatalog =
-                (TileLayerCatalog) GeoServerExtensions.bean("GeoSeverTileLayerCatalog");
+        final TileLayerCatalog gwcCatalog = (TileLayerCatalog) GeoServerExtensions.bean("GeoSeverTileLayerCatalog");
         assertNotNull(gwcCatalog.getLayerByName("sf:AggregateGeoFeature"));
         assertEquals(30, gwcCatalog.getLayerNames().size());
     }

@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.GeoServerExtensionsHelper;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -19,10 +19,9 @@ import org.springframework.context.support.GenericApplicationContext;
 
 public class ProcessParameterIOTest {
 
-    public static class TestType {};
+    public static class TestType {}
 
-    private static ProcessParameterIO testPPIO =
-            new ProcessParameterIO(TestType.class, TestType.class, "testPPIO") {};
+    private static ProcessParameterIO testPPIO = new ProcessParameterIO(TestType.class, TestType.class, "testPPIO") {};
 
     private static GenericApplicationContext context = new GenericApplicationContext();
 
@@ -60,8 +59,7 @@ public class ProcessParameterIOTest {
         try (GenericApplicationContext myContext = new GenericApplicationContext()) {
             myContext.refresh();
             List<ProcessParameterIO> matches =
-                    ProcessParameterIO.findAll(
-                            new Parameter<>("testPPIO", TestType.class), myContext);
+                    ProcessParameterIO.findAll(new Parameter<>("testPPIO", TestType.class), myContext);
             assertEquals(0, matches.size());
         }
     }

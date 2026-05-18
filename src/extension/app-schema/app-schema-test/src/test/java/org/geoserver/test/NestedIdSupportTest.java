@@ -12,9 +12,11 @@ import static org.junit.Assume.assumeTrue;
 
 import java.io.IOException;
 import org.geoserver.catalog.FeatureTypeInfo;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.PropertyIsEqualTo;
 import org.geotools.appschema.filter.FilterFactoryImplNamespaceAware;
 import org.geotools.appschema.jdbc.NestedFilterToSQL;
-import org.geotools.data.FeatureSource;
 import org.geotools.data.complex.AppSchemaDataAccess;
 import org.geotools.data.complex.FeatureTypeMapping;
 import org.geotools.data.complex.filter.ComplexFilterSplitter;
@@ -22,8 +24,6 @@ import org.geotools.data.jdbc.FilterToSQLException;
 import org.geotools.data.util.NullProgressListener;
 import org.geotools.jdbc.JDBCDataStore;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.PropertyIsEqualTo;
 import org.w3c.dom.Document;
 
 /**
@@ -41,65 +41,61 @@ public class NestedIdSupportTest extends AbstractAppSchemaTestSupport {
     /** Test Nested Id with Feature Chaining */
     @Test
     public void testNestedIdFeatureChaining() {
-        String xml =
-                "<wfs:GetFeature " //
-                        + "service=\"WFS\" " //
-                        + "version=\"1.1.0\" " //
-                        + "xmlns:cdf=\"http://www.opengis.net/cite/data\" " //
-                        + "xmlns:ogc=\"http://www.opengis.net/ogc\" " //
-                        + "xmlns:wfs=\"http://www.opengis.net/wfs\" " //
-                        + "xmlns:gml=\"http://www.opengis.net/gml\" " //
-                        + "xmlns:gsml=\""
-                        + AbstractAppSchemaMockData.GSML_URI
-                        + "\" " //
-                        + ">" //
-                        + "<wfs:Query typeName=\"gsml:MappedFeature\">"
-                        + "<ogc:Filter>"
-                        + "     <ogc:PropertyIsEqualTo>"
-                        + "        <ogc:PropertyName>gsml:specification/gsml:GeologicUnit/gsml:composition/gsml:CompositionPart/gsml:lithology/gsml:ControlledConcept/@gml:id</ogc:PropertyName>"
-                        + "        <ogc:Literal>cc.1</ogc:Literal>"
-                        + "     </ogc:PropertyIsEqualTo>"
-                        + " </ogc:Filter>"
-                        + "</wfs:Query>"
-                        + "</wfs:GetFeature>";
+        String xml = "<wfs:GetFeature " //
+                + "service=\"WFS\" " //
+                + "version=\"1.1.0\" " //
+                + "xmlns:cdf=\"http://www.opengis.net/cite/data\" " //
+                + "xmlns:ogc=\"http://www.opengis.net/ogc\" " //
+                + "xmlns:wfs=\"http://www.opengis.net/wfs\" " //
+                + "xmlns:gml=\"http://www.opengis.net/gml\" " //
+                + "xmlns:gsml=\""
+                + AbstractAppSchemaMockData.GSML_URI
+                + "\" " //
+                + ">" //
+                + "<wfs:Query typeName=\"gsml:MappedFeature\">"
+                + "<ogc:Filter>"
+                + "     <ogc:PropertyIsEqualTo>"
+                + "        <ogc:PropertyName>gsml:specification/gsml:GeologicUnit/gsml:composition/gsml:CompositionPart/gsml:lithology/gsml:ControlledConcept/@gml:id</ogc:PropertyName>"
+                + "        <ogc:Literal>cc.1</ogc:Literal>"
+                + "     </ogc:PropertyIsEqualTo>"
+                + " </ogc:Filter>"
+                + "</wfs:Query>"
+                + "</wfs:GetFeature>";
         Document doc = postAsDOM("wfs", xml);
 
         LOGGER.info("MappedFeature: WFS GetFeature response:\n" + prettyString(doc));
         assertXpathCount(1, "//gsml:MappedFeature", doc);
-        assertXpathEvaluatesTo(
-                "mf4", "wfs:FeatureCollection/gml:featureMember/gsml:MappedFeature/@gml:id", doc);
+        assertXpathEvaluatesTo("mf4", "wfs:FeatureCollection/gml:featureMember/gsml:MappedFeature/@gml:id", doc);
     }
 
     /** Test Nested Id with InlineMapping */
     @Test
     public void testNestedIdInlineMapping() {
-        String xml =
-                "<wfs:GetFeature " //
-                        + "service=\"WFS\" " //
-                        + "version=\"1.1.0\" " //
-                        + "xmlns:cdf=\"http://www.opengis.net/cite/data\" " //
-                        + "xmlns:ogc=\"http://www.opengis.net/ogc\" " //
-                        + "xmlns:wfs=\"http://www.opengis.net/wfs\" " //
-                        + "xmlns:gml=\"http://www.opengis.net/gml\" " //
-                        + "xmlns:gsml=\""
-                        + AbstractAppSchemaMockData.GSML_URI
-                        + "\" " //
-                        + ">" //
-                        + "<wfs:Query typeName=\"gsml:Borehole\">"
-                        + "<ogc:Filter>"
-                        + "     <ogc:PropertyIsEqualTo>"
-                        + "        <ogc:PropertyName>gsml:indexData/gsml:BoreholeDetails/@gml:id</ogc:PropertyName>"
-                        + "        <ogc:Literal>bh.details.11.sp</ogc:Literal>"
-                        + "     </ogc:PropertyIsEqualTo>"
-                        + " </ogc:Filter>"
-                        + "</wfs:Query>"
-                        + "</wfs:GetFeature>";
+        String xml = "<wfs:GetFeature " //
+                + "service=\"WFS\" " //
+                + "version=\"1.1.0\" " //
+                + "xmlns:cdf=\"http://www.opengis.net/cite/data\" " //
+                + "xmlns:ogc=\"http://www.opengis.net/ogc\" " //
+                + "xmlns:wfs=\"http://www.opengis.net/wfs\" " //
+                + "xmlns:gml=\"http://www.opengis.net/gml\" " //
+                + "xmlns:gsml=\""
+                + AbstractAppSchemaMockData.GSML_URI
+                + "\" " //
+                + ">" //
+                + "<wfs:Query typeName=\"gsml:Borehole\">"
+                + "<ogc:Filter>"
+                + "     <ogc:PropertyIsEqualTo>"
+                + "        <ogc:PropertyName>gsml:indexData/gsml:BoreholeDetails/@gml:id</ogc:PropertyName>"
+                + "        <ogc:Literal>bh.details.11.sp</ogc:Literal>"
+                + "     </ogc:PropertyIsEqualTo>"
+                + " </ogc:Filter>"
+                + "</wfs:Query>"
+                + "</wfs:GetFeature>";
         Document doc = postAsDOM("wfs", xml);
 
         LOGGER.info("Borehole: WFS GetFeature response:\n" + prettyString(doc));
         assertXpathCount(1, "//gsml:Borehole", doc);
-        assertXpathEvaluatesTo(
-                "11", "wfs:FeatureCollection/gml:featureMember/gsml:Borehole/@gml:id", doc);
+        assertXpathEvaluatesTo("11", "wfs:FeatureCollection/gml:featureMember/gsml:Borehole/@gml:id", doc);
     }
 
     @Test
@@ -121,15 +117,13 @@ public class NestedIdSupportTest extends AbstractAppSchemaTestSupport {
         /*
          * test filter on nested ID
          */
-        PropertyIsEqualTo nestedIdFilter =
-                ff.equals(
-                        ff.property(
-                                "gsml:specification/gsml:GeologicUnit/gsml:composition/gsml:CompositionPart/gsml:lithology/gsml:ControlledConcept/@gml:id"),
-                        ff.literal("cc.1"));
+        PropertyIsEqualTo nestedIdFilter = ff.equals(
+                ff.property(
+                        "gsml:specification/gsml:GeologicUnit/gsml:composition/gsml:CompositionPart/gsml:lithology/gsml:ControlledConcept/@gml:id"),
+                ff.literal("cc.1"));
 
         // Filter involves a single nested attribute --> can be encoded
-        ComplexFilterSplitter splitter =
-                new ComplexFilterSplitter(store.getFilterCapabilities(), rootMapping);
+        ComplexFilterSplitter splitter = new ComplexFilterSplitter(store.getFilterCapabilities(), rootMapping);
         splitter.visit(nestedIdFilter, null);
         Filter preFilter = splitter.getFilterPre();
         Filter postFilter = splitter.getFilterPost();
@@ -155,8 +149,7 @@ public class NestedIdSupportTest extends AbstractAppSchemaTestSupport {
         // "chain_link_1"."COMPONENTPART_ID" = "chain_link_2"."ROW_ID"
         //      WHERE "chain_link_3"."GML_ID" = 'cc.1' AND
         // "appschematest"."MAPPEDFEATUREPROPERTYFILE"."GEOLOGIC_UNIT_ID" = "chain_link_1"."GML_ID")
-        assertTrue(
-                encodedFilter.matches("^EXISTS.*SELECT.*FROM.*INNER JOIN.*INNER JOIN.*WHERE.*$"));
+        assertTrue(encodedFilter.matches("^EXISTS.*SELECT.*FROM.*INNER JOIN.*INNER JOIN.*WHERE.*$"));
         assertContainsFeatures(fs.getFeatures(nestedIdFilter), "mf4");
     }
 }

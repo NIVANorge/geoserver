@@ -35,8 +35,7 @@ public class InputStreamConverter extends BaseMessageConverter<InputStream> {
     }
 
     @Override
-    protected InputStream readInternal(
-            Class<? extends InputStream> clazz, HttpInputMessage inputMessage)
+    protected InputStream readInternal(Class<? extends InputStream> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
         throw new HttpMessageNotReadableException(
                 getClass().getName() + " does not support deserialization", inputMessage);
@@ -45,10 +44,8 @@ public class InputStreamConverter extends BaseMessageConverter<InputStream> {
     @Override
     protected void writeInternal(InputStream inputStream, HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
-        try {
+        try (inputStream) {
             IOUtils.copy(inputStream, outputMessage.getBody());
-        } finally {
-            inputStream.close();
         }
     }
 }

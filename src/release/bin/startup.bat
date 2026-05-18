@@ -135,15 +135,18 @@ goto setMarlinRenderer
     echo Marlin renderer jar not found
     goto run
   )
-  set MARLIN_ENABLER=-Xbootclasspath/a:"%MARLIN_JAR%" -Dsun.java2d.renderer=org.marlin.pisces.MarlinRenderingEngine
+  set MARLIN_ENABLER=--patch-module java.desktop="%MARLIN_JAR%"
   set JAVA_OPTS=%JAVA_OPTS% %MARLIN_ENABLER%
 goto run
 
 :run
+
+  set JAVA_OPTS=%JAVA_OPTS% --add-exports=java.desktop/sun.awt.image=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.desktop/sun.awt.image=ALL-UNNAMED --add-opens=java.naming/com.sun.jndi.ldap=ALL-UNNAMED --add-opens=java.desktop/sun.java2d.pipe=ALL-UNNAMED
+
   cd "%GEOSERVER_HOME%"
   echo Please wait while loading GeoServer...
   echo.
-  "%RUN_JAVA%" %JAVA_OPTS% -DGEOSERVER_DATA_DIR="%GEOSERVER_DATA_DIR%" -Djava.awt.headless=true -DSTOP.PORT=8079 -DSTOP.KEY=geoserver -jar start.jar
+  "%RUN_JAVA%" %JAVA_OPTS% -DGEOSERVER_DATA_DIR="%GEOSERVER_DATA_DIR%" -Djava.awt.headless=true -DSTOP.PORT=8079 -DSTOP.KEY=geoserver -jar start.jar %JETTY_OPTS%
   cd bin
 goto end
 

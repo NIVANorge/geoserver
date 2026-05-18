@@ -14,12 +14,12 @@ import org.geoserver.config.impl.GeoServerLifecycleHandler;
 import org.geoserver.opensearch.eo.OpenSearchAccessProvider;
 import org.geoserver.opensearch.eo.OseoEvent;
 import org.geoserver.opensearch.eo.OseoEventListener;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
 import org.springframework.stereotype.Component;
 
 /** Keeps a set of collections, caches them, reacts to reload/reset events to clear the cache */
@@ -27,27 +27,29 @@ import org.springframework.stereotype.Component;
 public class CollectionsCache implements GeoServerLifecycleHandler, OseoEventListener {
 
     private final OpenSearchAccessProvider accessProvider;
-    private final LoadingCache<Object, Feature> collections =
-            CacheBuilder.newBuilder()
-                    .build(
-                            new CacheLoader<Object, Feature>() {
-                                @Override
-                                public Feature load(Object o) throws Exception {
-                                    FeatureSource<FeatureType, Feature> ps =
-                                            accessProvider
-                                                    .getOpenSearchAccess()
-                                                    .getCollectionSource();
-                                    Filter filter = Filter.INCLUDE;
-                                    if (o instanceof String) {
-                                        filter = STACService.getCollectionFilter((String) o);
-                                    }
-                                    Query q = new Query();
-                                    q.setMaxFeatures(1);
-                                    q.setFilter(filter);
-                                    return DataUtilities.first(ps.getFeatures(q));
-                                }
-                            });
+    private final LoadingCache<Object, Feature> collections = CacheBuilder.newBuilder()
+            .build(new CacheLoader<>() {
+                @Override
+                public Feature load(Object o) throws Exception {
+                    FeatureSource<FeatureType, Feature> ps =
+                            accessProvider.getOpenSearchAccess().getCollectionSource();
+                    Filter filter = Filter.INCLUDE;
+                    if (o instanceof String string) {
+                        filter = STACService.getCollectionFilter(string);
+                    }
+                    Query q = new Query();
+                    q.setMaxFeatures(1);
+                    q.setFilter(filter);
+                    return DataUtilities.first(ps.getFeatures(q));
+                }
+            });
 
+    /**
+     * Creates a new cache
+     *
+     * @param gs The GeoServer instance
+     * @param accessProvider The OpenSearch access provider
+     */
     public CollectionsCache(GeoServer gs, OpenSearchAccessProvider accessProvider) {
         this.accessProvider = accessProvider;
     }
@@ -67,8 +69,10 @@ public class CollectionsCache implements GeoServerLifecycleHandler, OseoEventLis
             return collections.get(collectionId);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof IOException) throw (IOException) cause;
+            if (cause instanceof IOException exception) throw exception;
             throw new IOException(e);
+        } catch (CacheLoader.InvalidCacheLoadException e) {
+            throw new IOException("Collection not found: " + collectionId, e);
         }
     }
 

@@ -8,13 +8,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import org.geoserver.schemalessfeatures.type.DynamicComplexType;
 import org.geoserver.schemalessfeatures.type.DynamicFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.AttributeType;
+import org.geotools.api.feature.type.ComplexType;
+import org.geotools.api.feature.type.Name;
 import org.geotools.feature.AttributeTypeBuilder;
 import org.geotools.feature.NameImpl;
 import org.geotools.gml3.v3_2.GMLSchema;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.AttributeType;
-import org.opengis.feature.type.ComplexType;
-import org.opengis.feature.type.Name;
 
 /** A builder able to build Dynamic types */
 public class DynamicComplexTypeBuilder extends AttributeTypeBuilder {
@@ -27,30 +27,27 @@ public class DynamicComplexTypeBuilder extends AttributeTypeBuilder {
     }
 
     public DynamicFeatureType buildNestedFeatureType() {
-        DynamicFeatureType type =
-                (DynamicFeatureType)
-                        factory.createFeatureType(
-                                name(),
-                                new ArrayList<>(),
-                                null,
-                                isAbstract,
-                                Collections.emptyList(),
-                                GMLSchema.ABSTRACTGMLTYPE_TYPE,
-                                null);
+        DynamicFeatureType type = (DynamicFeatureType) factory.createFeatureType(
+                name(),
+                new ArrayList<>(),
+                null,
+                isAbstract,
+                Collections.emptyList(),
+                GMLSchema.ABSTRACTGMLTYPE_TYPE,
+                null);
         resetTypeState();
         return type;
     }
 
     public DynamicComplexType buildComplexType() {
-        ComplexType type =
-                factory.createComplexType(
-                        name(),
-                        new ArrayList<>(),
-                        isIdentifiable,
-                        isAbstract,
-                        Collections.emptyList(),
-                        GMLSchema.ABSTRACTGMLTYPE_TYPE,
-                        null);
+        ComplexType type = factory.createComplexType(
+                name(),
+                new ArrayList<>(),
+                isIdentifiable,
+                isAbstract,
+                Collections.emptyList(),
+                GMLSchema.ABSTRACTGMLTYPE_TYPE,
+                null);
         resetTypeState();
         return (DynamicComplexType) type;
     }

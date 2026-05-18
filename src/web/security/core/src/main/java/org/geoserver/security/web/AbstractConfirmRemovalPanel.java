@@ -5,7 +5,10 @@
  */
 package org.geoserver.security.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +22,20 @@ import org.apache.wicket.model.Model;
 
 public abstract class AbstractConfirmRemovalPanel<T> extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AbstractConfirmRemovalPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     List<T> roots;
@@ -57,13 +74,12 @@ public abstract class AbstractConfirmRemovalPanel<T> extends Panel {
         removed.add(rulesRemoved);
         if (roots.isEmpty()) removed.setVisible(false);
         else {
-            rulesRemoved.add(
-                    new ListView<String>("rules", names(roots)) {
-                        @Override
-                        protected void populateItem(ListItem<String> item) {
-                            item.add(new Label("name", item.getModelObject()));
-                        }
-                    });
+            rulesRemoved.add(new ListView<>("rules", names(roots)) {
+                @Override
+                protected void populateItem(ListItem<String> item) {
+                    item.add(new Label("name", item.getModelObject()));
+                }
+            });
         }
 
         WebMarkupContainer problematic = new WebMarkupContainer("problematicObjects");
@@ -73,13 +89,12 @@ public abstract class AbstractConfirmRemovalPanel<T> extends Panel {
         problematic.add(rulesNotRemoved);
         if (problems.isEmpty()) problematic.setVisible(false);
         else {
-            rulesNotRemoved.add(
-                    new ListView<String>("problems", problems(problems)) {
-                        @Override
-                        protected void populateItem(ListItem<String> item) {
-                            item.add(new Label("name", item.getModelObject()));
-                        }
-                    });
+            rulesNotRemoved.add(new ListView<>("problems", problems(problems)) {
+                @Override
+                protected void populateItem(ListItem<String> item) {
+                    item.add(new Label("name", item.getModelObject()));
+                }
+            });
         }
     }
 
@@ -116,9 +131,7 @@ public abstract class AbstractConfirmRemovalPanel<T> extends Panel {
             throw new RuntimeException(ioEx);
         } catch (Exception e) {
             throw new RuntimeException(
-                    "A data object that does not have "
-                            + "a 'name' property has been used, this is unexpected",
-                    e);
+                    "A data object that does not have " + "a 'name' property has been used, this is unexpected", e);
         }
     }
 

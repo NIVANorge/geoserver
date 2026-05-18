@@ -84,16 +84,14 @@ public class LandingPageTest extends TilesTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/tiles/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/tiles/v1?f=application/yaml");
         // System.out.println(yaml);
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -133,9 +131,7 @@ public class LandingPageTest extends TilesTestSupport {
         assertEquals(15, (int) json.read("links.length()", Integer.class));
         // check landing page links
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
                 "links[?(@.type != 'application/json' && @.href =~ /.*ogc\\/tiles\\/v1\\/\\?.*/)].rel",
@@ -167,7 +163,7 @@ public class LandingPageTest extends TilesTestSupport {
                 Link.REL_DATA_URI,
                 Link.REL_DATA_URI);
         // check title
-        assertEquals("Tiles server", json.read("title"));
+        assertEquals("Tiles Service", json.read("title"));
         // check description
         assertEquals("", json.read("description"));
     }

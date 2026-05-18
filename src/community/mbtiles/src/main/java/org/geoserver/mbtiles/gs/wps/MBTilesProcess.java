@@ -25,6 +25,8 @@ import org.geoserver.wms.GetMapRequest;
 import org.geoserver.wms.MapLayerInfo;
 import org.geoserver.wps.gs.GeoServerProcess;
 import org.geoserver.wps.resource.WPSResourceManager;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.mbtiles.MBTilesFile;
 import org.geotools.process.ProcessException;
@@ -32,10 +34,7 @@ import org.geotools.process.factory.DescribeParameter;
 import org.geotools.process.factory.DescribeProcess;
 import org.geotools.process.factory.DescribeResult;
 import org.geotools.referencing.CRS;
-import org.geotools.styling.Style;
 import org.geotools.util.logging.Logging;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.util.ProgressListener;
 
 @DescribeProcess(title = "MBTiles", description = "MBTiles Process")
 public class MBTilesProcess implements GeoServerProcess {
@@ -57,8 +56,7 @@ public class MBTilesProcess implements GeoServerProcess {
     /** {@link MBTilesGetMapOutputFormat} instance used for creating the MBTiles file */
     private MBTilesGetMapOutputFormat mapOutput;
 
-    public MBTilesProcess(
-            Catalog catalog, MBTilesGetMapOutputFormat mapOutput, WPSResourceManager storage) {
+    public MBTilesProcess(Catalog catalog, MBTilesGetMapOutputFormat mapOutput, WPSResourceManager storage) {
         this.resources = storage;
         this.mapOutput = mapOutput;
         this.catalog = catalog;
@@ -73,58 +71,35 @@ public class MBTilesProcess implements GeoServerProcess {
                 return tempDir;
             }
         }
-        throw new IllegalStateException(
-                "Failed to create directory within "
-                        + TEMP_DIR_ATTEMPTS
-                        + " attempts (tried "
-                        + baseName
-                        + "0 to "
-                        + baseName
-                        + (TEMP_DIR_ATTEMPTS - 1)
-                        + ')');
+        throw new IllegalStateException("Failed to create directory within "
+                + TEMP_DIR_ATTEMPTS
+                + " attempts (tried "
+                + baseName
+                + "0 to "
+                + baseName
+                + (TEMP_DIR_ATTEMPTS - 1)
+                + ')');
     }
 
     @DescribeResult(name = "mbtile", description = "Link to Compiled MBTiles File")
     public URL execute(
-            @DescribeParameter(
-                            name = "layers",
-                            description = "Name of the input layer",
-                            collectionType = String.class)
+            @DescribeParameter(name = "layers", description = "Name of the input layer", collectionType = String.class)
                     Collection<String> layerz,
             @DescribeParameter(name = "format", description = "Tiles format") String format,
-            @DescribeParameter(
-                            name = "boundingbox",
-                            description = "Bounding Box of the final MBTile",
-                            min = 0)
+            @DescribeParameter(name = "boundingbox", description = "Bounding Box of the final MBTile", min = 0)
                     ReferencedEnvelope boundingbox,
-            @DescribeParameter(name = "filename", description = "Name of the .mbtile file", min = 0)
-                    String filename,
-            @DescribeParameter(
-                            name = "minZoom",
-                            description = "Minimum Zoom level to generate",
-                            min = 0)
+            @DescribeParameter(name = "filename", description = "Name of the .mbtile file", min = 0) String filename,
+            @DescribeParameter(name = "minZoom", description = "Minimum Zoom level to generate", min = 0)
                     Integer minZoom,
-            @DescribeParameter(
-                            name = "maxZoom",
-                            description = "Maximum Zoom level to generate",
-                            min = 0)
+            @DescribeParameter(name = "maxZoom", description = "Maximum Zoom level to generate", min = 0)
                     Integer maxZoom,
-            @DescribeParameter(name = "minRow", description = "Minimum Row to generate", min = 0)
-                    Integer minRow,
-            @DescribeParameter(name = "maxRow", description = "Maximum Row to generate", min = 0)
-                    Integer maxRow,
-            @DescribeParameter(
-                            name = "minColumn",
-                            description = "Minimum Column to generate",
-                            min = 0)
+            @DescribeParameter(name = "minRow", description = "Minimum Row to generate", min = 0) Integer minRow,
+            @DescribeParameter(name = "maxRow", description = "Maximum Row to generate", min = 0) Integer maxRow,
+            @DescribeParameter(name = "minColumn", description = "Minimum Column to generate", min = 0)
                     Integer minColumn,
-            @DescribeParameter(
-                            name = "maxColumn",
-                            description = "Maximum Column to generate",
-                            min = 0)
+            @DescribeParameter(name = "maxColumn", description = "Maximum Column to generate", min = 0)
                     Integer maxColumn,
-            @DescribeParameter(name = "bgColor", description = "Background color", min = 0)
-                    String bgColor,
+            @DescribeParameter(name = "bgColor", description = "Background color", min = 0) String bgColor,
             @DescribeParameter(
                             name = "transparency",
                             description = "Transparency enabled or not",
@@ -137,16 +112,8 @@ public class MBTilesProcess implements GeoServerProcess {
                             min = 0,
                             collectionType = String.class)
                     Collection<String> styleNames,
-            @DescribeParameter(
-                            name = "stylePath",
-                            description = "Path of the style to use",
-                            min = 0)
-                    URL stylePath,
-            @DescribeParameter(
-                            name = "styleBody",
-                            description = "Body of the style to use",
-                            min = 0)
-                    String styleBody,
+            @DescribeParameter(name = "stylePath", description = "Path of the style to use", min = 0) URL stylePath,
+            @DescribeParameter(name = "styleBody", description = "Body of the style to use", min = 0) String styleBody,
             ProgressListener listener)
             throws IOException {
 
@@ -171,8 +138,7 @@ public class MBTilesProcess implements GeoServerProcess {
         File file = resources.getOutputResource(null, outputResourceName).file();
 
         // Create the MBTile file
-        MBTilesFile mbtile = new MBTilesFile(file, true);
-        try {
+        try (MBTilesFile mbtile = new MBTilesFile(file, true)) {
             // Initialize the MBTile file in order to avoid exceptions when accessing the geoPackage
             // file
             mbtile.init();
@@ -181,7 +147,7 @@ public class MBTilesProcess implements GeoServerProcess {
             GetMapRequest request = new GetMapRequest();
 
             // Create the layers map for the request
-            ArrayList<MapLayerInfo> layers = new ArrayList<MapLayerInfo>();
+            ArrayList<MapLayerInfo> layers = new ArrayList<>();
 
             // Get the layers from the catalog
             for (String layername : layerz) {
@@ -220,6 +186,7 @@ public class MBTilesProcess implements GeoServerProcess {
                     }
 
                     request.setBbox(bbox);
+                    boundingbox = bbox;
                 } catch (Exception e) {
                     String msg = "Must specify bbox, unable to derive from requested layers";
                     throw new RuntimeException(msg, e);
@@ -256,7 +223,7 @@ public class MBTilesProcess implements GeoServerProcess {
             } else if (styleBody != null && !styleBody.isEmpty()) {
                 request.setStyleBody(styleBody);
             } else {
-                request.setStyles(new ArrayList<Style>());
+                request.setStyles(new ArrayList<>());
                 if (styleNames != null && !styleNames.isEmpty()) {
                     for (String styleName : styleNames) {
                         StyleInfo info = catalog.getStyleByName(styleName);
@@ -275,7 +242,7 @@ public class MBTilesProcess implements GeoServerProcess {
             }
             // Set the format of the mbtiles images
             request.setFormat("none");
-            Map formatOptions = new HashMap();
+            Map<String, Object> formatOptions = new HashMap<>();
             formatOptions.put("format", format);
             // Configure zoom levels if present
             if (minZoom != null) {
@@ -308,17 +275,6 @@ public class MBTilesProcess implements GeoServerProcess {
                 LOGGER.log(Level.SEVERE, e.getMessage(), e);
             }
             throw new ProcessException(e);
-        } finally {
-            // Close the connection
-            if (mbtile != null) {
-                try {
-                    mbtile.close();
-                } catch (Exception e) {
-                    if (LOGGER.isLoggable(Level.SEVERE)) {
-                        LOGGER.log(Level.SEVERE, e.getMessage(), e);
-                    }
-                }
-            }
         }
 
         return new URL(resources.getOutputResourceUrl(outputResourceName, "application/x-mbtiles"));

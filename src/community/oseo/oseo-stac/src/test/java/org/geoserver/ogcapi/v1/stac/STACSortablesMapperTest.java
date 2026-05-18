@@ -18,29 +18,34 @@ import org.geoserver.featurestemplating.readers.TemplateReaderConfiguration;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.OSEOInfoImpl;
 import org.geoserver.opensearch.eo.store.JDBCOpenSearchAccessTest;
+import org.geoserver.opensearch.eo.store.OSEOPostGISResource;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.platform.resource.FileSystemResourceStore;
 import org.geoserver.platform.resource.Resource;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 
 public class STACSortablesMapperTest {
     private static final String FAKE_ID = "foobar";
+
+    @ClassRule
+    public static final OSEOPostGISResource postgis = new OSEOPostGISResource(false);
 
     static OpenSearchAccess data;
 
     @BeforeClass
     public static void setupClass() throws IOException, SQLException {
-        data = JDBCOpenSearchAccessTest.setupAndReturnStore();
+        data = JDBCOpenSearchAccessTest.setupAndReturnStore(postgis);
     }
 
     @AfterClass
@@ -50,22 +55,14 @@ public class STACSortablesMapperTest {
 
     @Test
     public void testGetSortable() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfo service = new OSEOInfoImpl();
-        STACQueryablesBuilder qbuilder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        null,
-                        service);
+        STACQueryablesBuilder qbuilder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, null, service);
         STACSortablesMapper builder =
                 new STACSortablesMapper(template.getRootBuilder(), products.getSchema(), qbuilder);
         Map<String, String> sortables = builder.getSortablesMap();
@@ -85,25 +82,16 @@ public class STACSortablesMapperTest {
 
     @Test
     public void testGetSortableLimitedByGlobalConfiguration() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfoImpl service = new OSEOInfoImpl();
         service.setGlobalQueryables(
-                Collections.singletonList(
-                        "one.two.three")); // limits sortables to standard set + one.two.three
-        STACQueryablesBuilder qbuilder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        null,
-                        service);
+                Collections.singletonList("one.two.three")); // limits sortables to standard set + one.two.three
+        STACQueryablesBuilder qbuilder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, null, service);
         STACSortablesMapper builder =
                 new STACSortablesMapper(template.getRootBuilder(), products.getSchema(), qbuilder);
         Map<String, String> sortables = builder.getSortablesMap();
@@ -130,26 +118,18 @@ public class STACSortablesMapperTest {
 
     @Test
     public void testGetSortableLimitedByCollectionConfiguration() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfoImpl service = new OSEOInfoImpl();
-        FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory();
         Filter collectionSampleFilter = ff.equals(ff.property("name"), ff.literal("LANDSAT8"));
         Feature sampleCollectionFeature =
                 DataUtilities.first(data.getCollectionSource().getFeatures(collectionSampleFilter));
-        STACQueryablesBuilder qbuilder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        sampleCollectionFeature,
-                        service);
+        STACQueryablesBuilder qbuilder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, sampleCollectionFeature, service);
         STACSortablesMapper builder =
                 new STACSortablesMapper(template.getRootBuilder(), products.getSchema(), qbuilder);
         Map<String, String> sortables = builder.getSortablesMap();
@@ -176,22 +156,14 @@ public class STACSortablesMapperTest {
 
     @Test
     public void testSortablesIncludeFlat() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-SAS1.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfo service = new OSEOInfoImpl();
-        STACQueryablesBuilder qbuilder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        null,
-                        service);
+        STACQueryablesBuilder qbuilder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, null, service);
         STACSortablesMapper builder =
                 new STACSortablesMapper(template.getRootBuilder(), products.getSchema(), qbuilder);
         Map<String, String> sortables = builder.getSortablesMap();

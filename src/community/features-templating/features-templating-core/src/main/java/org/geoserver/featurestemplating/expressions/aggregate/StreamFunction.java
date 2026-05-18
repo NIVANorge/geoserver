@@ -9,14 +9,14 @@ import static org.geoserver.featurestemplating.expressions.aggregate.Aggregation
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.VolatileFunction;
 import org.geotools.filter.FunctionExpressionImpl;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.VolatileFunction;
 
 /**
- * A Function accepting as parameters an unlimited number of Expression that get concatenated so
- * that each of them receives as input the output of the previous expression.
+ * A Function accepting as parameters an unlimited number of Expression that get concatenated so that each of them
+ * receives as input the output of the previous expression.
  */
 public class StreamFunction extends FunctionExpressionImpl implements VolatileFunction {
 

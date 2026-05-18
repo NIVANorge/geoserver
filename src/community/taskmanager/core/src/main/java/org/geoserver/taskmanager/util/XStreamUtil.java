@@ -13,6 +13,7 @@ import com.thoughtworks.xstream.hibernate.converter.HibernatePersistentSortedSet
 import com.thoughtworks.xstream.hibernate.converter.HibernateProxyConverter;
 import com.thoughtworks.xstream.hibernate.mapper.HibernateMapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
+import java.util.LinkedHashMap;
 import org.geoserver.config.util.SecureXStream;
 import org.geoserver.taskmanager.data.impl.AttributeImpl;
 import org.geoserver.taskmanager.data.impl.BatchElementImpl;
@@ -20,36 +21,37 @@ import org.geoserver.taskmanager.data.impl.BatchImpl;
 import org.geoserver.taskmanager.data.impl.ConfigurationImpl;
 import org.geoserver.taskmanager.data.impl.ParameterImpl;
 import org.geoserver.taskmanager.data.impl.TaskImpl;
-import org.hibernate.collection.internal.PersistentMap;
-import org.hibernate.collection.internal.PersistentSortedMap;
-import org.hibernate.collection.internal.PersistentSortedSet;
+import org.hibernate.collection.spi.PersistentBag;
 import org.hibernate.collection.spi.PersistentCollection;
+import org.hibernate.collection.spi.PersistentMap;
+import org.hibernate.collection.spi.PersistentSortedMap;
+import org.hibernate.collection.spi.PersistentSortedSet;
 
 public class XStreamUtil {
 
     private XStreamUtil() {}
 
     public static XStream xs() {
-        final SecureXStream xs =
-                new SecureXStream(new PureJavaReflectionProvider()) {
-                    @Override
-                    protected MapperWrapper wrapMapper(final MapperWrapper next) {
-                        return new HibernateMapper(next);
-                    }
-                };
-        xs.allowTypes(
-                new Class[] {
-                    ConfigurationImpl.class,
-                    BatchImpl.class,
-                    TaskImpl.class,
-                    AttributeImpl.class,
-                    BatchElementImpl.class,
-                    ParameterImpl.class,
-                    PersistentCollection.class,
-                    PersistentMap.class,
-                    PersistentSortedMap.class,
-                    PersistentSortedSet.class
-                });
+        final SecureXStream xs = new SecureXStream(new PureJavaReflectionProvider()) {
+            @Override
+            protected MapperWrapper wrapMapper(final MapperWrapper next) {
+                return new HibernateMapper(next);
+            }
+        };
+        xs.allowTypes(new Class[] {
+            ConfigurationImpl.class,
+            BatchImpl.class,
+            TaskImpl.class,
+            AttributeImpl.class,
+            BatchElementImpl.class,
+            ParameterImpl.class,
+            PersistentCollection.class,
+            PersistentMap.class,
+            PersistentBag.class,
+            PersistentSortedMap.class,
+            PersistentSortedSet.class,
+            LinkedHashMap.class
+        });
 
         xs.autodetectAnnotations(true);
         xs.registerConverter(new HibernateProxyConverter());

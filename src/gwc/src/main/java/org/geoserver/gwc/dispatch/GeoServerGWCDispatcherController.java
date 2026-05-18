@@ -4,17 +4,16 @@
  */
 package org.geoserver.gwc.dispatch;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.geowebcache.controller.GeoWebCacheDispatcherController;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Modified top-level dispatcher controller for use by GeoServer. Same as {@link
- * GeoWebCacheDispatcherController}, except the "/service/**" endpoint is excluded. This is handled
- * seperately by the GeoServer Dispatcher.
+ * Modified top-level dispatcher controller for use by GeoServer. Same as {@link GeoWebCacheDispatcherController},
+ * except the "/service/**" endpoint is excluded. This is handled seperately by the GeoServer Dispatcher.
  */
 @Component
 @RestController
@@ -24,8 +23,7 @@ public class GeoServerGWCDispatcherController extends GeoWebCacheDispatcherContr
     // Let the GeoServer dispatcher handle "/service/**"
     @Override
     @RequestMapping(path = {"", "/home", "/demo/**", "/proxy/**"})
-    public void handleRestApiRequest(HttpServletRequest request, HttpServletResponse response)
-            throws Exception {
+    public void handleRestApiRequest(HttpServletRequest request, HttpServletResponse response) throws Exception {
         super.handleRestApiRequest(request, response);
     }
 }

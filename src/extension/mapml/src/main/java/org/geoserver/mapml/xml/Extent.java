@@ -8,18 +8,16 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlAttribute;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElements;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSchemaType;
+import jakarta.xml.bind.annotation.XmlType;
 import java.util.ArrayList;
 import java.util.List;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlElements;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSchemaType;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 /**
  * Java class for anonymous complex type.
@@ -67,50 +65,36 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 public class Extent {
 
     @XmlElements({
-        @XmlElement(
-                name = "map-input",
-                type = Input.class,
-                namespace = "http://www.w3.org/1999/xhtml"),
-        @XmlElement(
-                name = "map-datalist",
-                type = Datalist.class,
-                namespace = "http://www.w3.org/1999/xhtml"),
-        @XmlElement(
-                name = "map-link",
-                type = Link.class,
-                namespace = "http://www.w3.org/1999/xhtml"),
-        @XmlElement(
-                name = "map-select",
-                type = Select.class,
-                namespace = "http://www.w3.org/1999/xhtml"),
-        @XmlElement(
-                name = "map-label",
-                type = Label.class,
-                namespace = "http://www.w3.org/1999/xhtml")
+        @XmlElement(name = "map-input", type = Input.class, namespace = "http://www.w3.org/1999/xhtml"),
+        @XmlElement(name = "map-datalist", type = Datalist.class, namespace = "http://www.w3.org/1999/xhtml"),
+        @XmlElement(name = "map-link", type = Link.class, namespace = "http://www.w3.org/1999/xhtml"),
+        @XmlElement(name = "map-select", type = Select.class, namespace = "http://www.w3.org/1999/xhtml"),
+        @XmlElement(name = "map-label", type = Label.class, namespace = "http://www.w3.org/1999/xhtml")
     })
-    protected List<Object> inputOrDatalistOrLink;
+    protected List<MapMLElement> inputOrDatalistOrLink;
 
     @XmlAttribute(name = "units")
-    protected ProjType units;
+    @XmlSchemaType(name = "anySimpleType")
+    protected String units;
 
-    @XmlAttribute(name = "action")
-    @XmlSchemaType(name = "anyURI")
-    protected String action;
+    @XmlAttribute(name = "label")
+    @XmlSchemaType(name = "anySimpleType")
+    protected String label;
 
-    @XmlAttribute(name = "method")
-    @XmlJavaTypeAdapter(CollapsedStringAdapter.class)
-    protected String method;
+    @XmlAttribute(name = "checked")
+    @XmlSchemaType(name = "anySimpleType")
+    protected String checked = "checked";
 
-    @XmlAttribute(name = "enctype")
-    @XmlJavaTypeAdapter(CollapsedStringAdapter.class)
-    protected String enctype;
+    @XmlAttribute(name = "hidden")
+    @XmlSchemaType(name = "anySimpleType")
+    protected String hidden = "hidden";
 
     /**
      * Gets the value of the inputOrDatalistOrLink property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the inputOrDatalistOrLink property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the inputOrDatalistOrLink property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -118,10 +102,10 @@ public class Extent {
      *    getInputOrDatalistOrLink().add(newItem);
      * </pre>
      *
-     * <p>Objects of the following type(s) are allowed in the list {@link Input } {@link Datalist }
-     * {@link Link } {@link Select } {@link Label }
+     * <p>Objects of the following type(s) are allowed in the list {@link Input } {@link Datalist } {@link Link }
+     * {@link Select } {@link Label }
      */
-    public List<Object> getInputOrDatalistOrLink() {
+    public List<MapMLElement> getInputOrDatalistOrLink() {
         if (inputOrDatalistOrLink == null) {
             inputOrDatalistOrLink = new ArrayList<>();
         }
@@ -131,72 +115,72 @@ public class Extent {
     /**
      * Gets the value of the units property.
      *
-     * @return possible object is {@link ProjType }
+     * @return possible object is {@link String }
      */
-    public ProjType getUnits() {
+    public String getUnits() {
         return units;
     }
 
     /**
      * Sets the value of the units property.
      *
-     * @param value allowed object is {@link ProjType }
+     * @param value allowed object is {@link String }
      */
-    public void setUnits(ProjType value) {
+    public void setUnits(String value) {
         this.units = value;
     }
 
     /**
-     * Gets the value of the action property.
+     * Gets the value of the label property.
      *
      * @return possible object is {@link String }
      */
-    public String getAction() {
-        return action;
+    public String getLabel() {
+        return label;
     }
 
     /**
-     * Sets the value of the action property.
+     * Sets the value of the label property.
      *
      * @param value allowed object is {@link String }
      */
-    public void setAction(String value) {
-        this.action = value;
+    public void setLabel(String value) {
+        this.label = value;
     }
 
     /**
-     * Gets the value of the method property.
+     * Gets the value of the checked property.
      *
      * @return possible object is {@link String }
      */
-    public String getMethod() {
-        return method;
+    public String getChecked() {
+        return checked;
     }
 
     /**
-     * Sets the value of the method property.
+     * Sets the value of the checked property.
      *
      * @param value allowed object is {@link String }
      */
-    public void setMethod(String value) {
-        this.method = value;
+    public void setChecked(String value) {
+        this.checked = value;
     }
 
     /**
-     * Gets the value of the enctype property.
+     * Gets the value of the hidden property.
      *
      * @return possible object is {@link String }
      */
-    public String getEnctype() {
-        return enctype;
+    public String getHidden() {
+        return hidden;
     }
 
     /**
-     * Sets the value of the enctype property.
+     * Sets the value of the hidden property.
      *
      * @param value allowed object is {@link String }
      */
-    public void setEnctype(String value) {
-        this.enctype = value;
+    public void setHidden(String value) {
+        this.hidden = value;
     }
 }

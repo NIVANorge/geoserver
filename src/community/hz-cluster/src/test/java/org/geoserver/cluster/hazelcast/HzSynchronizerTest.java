@@ -16,12 +16,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItems;
 
 import com.google.common.collect.Sets;
-import com.hazelcast.core.Cluster;
+import com.hazelcast.cluster.Cluster;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.ITopic;
-import com.hazelcast.core.Member;
-import com.hazelcast.core.Message;
-import com.hazelcast.core.MessageListener;
+import com.hazelcast.topic.ITopic;
+import com.hazelcast.topic.Message;
+import com.hazelcast.topic.MessageListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -39,7 +39,6 @@ import org.apache.commons.io.FileUtils;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
 import org.easymock.EasyMock;
-import org.easymock.IAnswer;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.event.CatalogListener;
 import org.geoserver.cluster.ClusterConfig;
@@ -80,11 +79,9 @@ public abstract class HzSynchronizerTest {
     public void setUp() throws Exception {
         hz = createMock(HazelcastInstance.class);
         // Create a "partial mock" of the HzCluster
-        cluster =
-                createMockBuilder(HzCluster.class)
-                        .addMockedMethods(
-                                "getHz", "isEnabled", "getRawCatalog", "getAckTimeoutMillis")
-                        .createMock();
+        cluster = createMockBuilder(HzCluster.class)
+                .addMockedMethods("getHz", "isEnabled", "getRawCatalog", "getAckTimeoutMillis")
+                .createMock();
         topic = createMock(ITopic.class);
         ackTopic = createMock(ITopic.class);
         configWatcher = createMock(ClusterConfigWatcher.class);
@@ -106,35 +103,26 @@ public abstract class HzSynchronizerTest {
         expect(this.cluster.getHz()).andStubReturn(hz);
         expect(this.cluster.isEnabled()).andStubReturn(true);
         expect(this.cluster.getRawCatalog()).andStubReturn(catalog);
-        ;
         expect(this.cluster.getAckTimeoutMillis()).andStubReturn(100);
 
         expect(hz.<Event>getTopic(TOPIC_NAME)).andStubReturn(topic);
-        expect(topic.addMessageListener(capture(captureTopicListener))).andReturn("fake-id");
+        expect(topic.addMessageListener(capture(captureTopicListener))).andReturn(UUID.randomUUID());
         expectLastCall().anyTimes();
 
         expect(hz.<UUID>getTopic(ACK_TOPIC_NAME)).andStubReturn(ackTopic);
-        expect(ackTopic.addMessageListener(capture(captureAckTopicListener))).andReturn("fake-id");
+        expect(ackTopic.addMessageListener(capture(captureAckTopicListener))).andReturn(UUID.randomUUID());
         expectLastCall().anyTimes();
 
         ackTopic.publish(EasyMock.capture(captureAckTopicPublish));
-        EasyMock.expectLastCall()
-                .andStubAnswer(
-                        new IAnswer<Object>() {
-
-                            @Override
-                            public Object answer() throws Throwable {
-                                Message<UUID> message = createMock(Message.class);
-                                expect(message.getMessageObject())
-                                        .andStubReturn(captureAckTopicPublish.getValue());
-                                EasyMock.replay(message);
-                                for (MessageListener<UUID> listener :
-                                        captureAckTopicListener.getValues()) {
-                                    listener.onMessage(message);
-                                }
-                                return null;
-                            }
-                        });
+        EasyMock.expectLastCall().andStubAnswer(() -> {
+            Message<UUID> message = createMock(Message.class);
+            expect(message.getMessageObject()).andStubReturn(captureAckTopicPublish.getValue());
+            EasyMock.replay(message);
+            for (MessageListener<UUID> listener : captureAckTopicListener.getValues()) {
+                listener.onMessage(message);
+            }
+            return null;
+        });
 
         expect(cluster.getLocalMember()).andStubReturn(localMember);
         expect(localMember.getSocketAddress()).andStubReturn(localAddress);
@@ -199,16 +187,7 @@ public abstract class HzSynchronizerTest {
     protected Capture<UUID> captureAckTopicPublish;
 
     public List<Object> myMocks() {
-        return Arrays.asList(
-                topic,
-                ackTopic,
-                configWatcher,
-                clusterConfig,
-                geoServer,
-                catalog,
-                hz,
-                executor,
-                cluster);
+        return Arrays.asList(topic, ackTopic, configWatcher, clusterConfig, geoServer, catalog, hz, executor, cluster);
     }
 
     public HzSynchronizerTest() {
@@ -220,8 +199,8 @@ public abstract class HzSynchronizerTest {
     }
 
     /**
-     * Return the HzSynchronizer instance to be tested. Override {@link HzSyncronizer#getExecutor}
-     * to return {@link #getMockExecutor}. Provide it with {@link #hz} and {@link #geoServer}.
+     * Return the HzSynchronizer instance to be tested. Override {@link HzSyncronizer#getExecutor} to return
+     * {@link #getMockExecutor}. Provide it with {@link #hz} and {@link #geoServer}.
      */
     protected abstract HzSynchronizer getSynchronizer();
 

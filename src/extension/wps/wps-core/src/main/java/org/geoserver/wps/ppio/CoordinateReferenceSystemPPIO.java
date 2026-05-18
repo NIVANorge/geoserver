@@ -5,8 +5,9 @@
  */
 package org.geoserver.wps.ppio;
 
+import org.geoserver.catalog.ResourcePool;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.referencing.CRS;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * Converts between CRS string representations and {@link CoordinateReferenceSystem}
@@ -34,6 +35,6 @@ public class CoordinateReferenceSystemPPIO extends LiteralPPIO {
         if (value == null) {
             return null;
         }
-        return CRS.lookupIdentifier(((CoordinateReferenceSystem) value), true);
+        return ResourcePool.lookupIdentifier(((CoordinateReferenceSystem) value), true);
     }
 }

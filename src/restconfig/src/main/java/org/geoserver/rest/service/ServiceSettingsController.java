@@ -10,7 +10,9 @@ import java.util.Collections;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.ServiceInfo;
+import org.geoserver.config.util.patch.PatchContext;
 import org.geoserver.ows.util.OwsUtils;
+import org.geoserver.ows.util.PropertyCopyPolicy;
 import org.geoserver.rest.AbstractGeoServerController;
 import org.geoserver.rest.ObjectToMapWrapper;
 import org.geoserver.rest.RestException;
@@ -24,8 +26,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /** Service Settings controller */
-public abstract class ServiceSettingsController<T extends ServiceInfo>
-        extends AbstractGeoServerController {
+public abstract class ServiceSettingsController<T extends ServiceInfo> extends AbstractGeoServerController {
     private Class<T> clazz;
 
     @Autowired
@@ -36,18 +37,13 @@ public abstract class ServiceSettingsController<T extends ServiceInfo>
 
     @GetMapping(
             value = {"/settings", "/workspaces/{workspaceName}/settings"},
-            produces = {
-                MediaType.APPLICATION_JSON_VALUE,
-                MediaType.APPLICATION_XML_VALUE,
-                MediaType.TEXT_HTML_VALUE
-            })
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE, MediaType.TEXT_HTML_VALUE})
     public RestWrapper serviceSettingsGet(@PathVariable(required = false) String workspaceName) {
         T service;
         if (workspaceName != null) {
             WorkspaceInfo ws = geoServer.getCatalog().getWorkspaceByName(workspaceName);
             if (ws == null) {
-                throw new RestException(
-                        "Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
+                throw new RestException("Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
             }
             service = geoServer.getService(ws, clazz);
         } else {
@@ -55,8 +51,7 @@ public abstract class ServiceSettingsController<T extends ServiceInfo>
         }
         if (service == null) {
             String errorMessage =
-                    "Service does not exist"
-                            + (workspaceName == null ? "" : " for workspace " + workspaceName);
+                    "Service does not exist" + (workspaceName == null ? "" : " for workspace " + workspaceName);
             throw new RestException(errorMessage, HttpStatus.NOT_FOUND);
         }
 
@@ -74,7 +69,8 @@ public abstract class ServiceSettingsController<T extends ServiceInfo>
             originalInfo = geoServer.getService(clazz);
         }
         if (originalInfo != null) {
-            OwsUtils.copy(info, originalInfo, clazz);
+            PropertyCopyPolicy policy = PatchContext.getCopyPolicy();
+            OwsUtils.copy(info, originalInfo, clazz, policy);
             geoServer.save(originalInfo);
         } else {
             if (ws != null) {
@@ -88,8 +84,7 @@ public abstract class ServiceSettingsController<T extends ServiceInfo>
     public void serviceDelete(@PathVariable String workspaceName) {
         WorkspaceInfo ws = geoServer.getCatalog().getWorkspaceByName(workspaceName);
         if (ws == null) {
-            throw new RestException(
-                    "Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
+            throw new RestException("Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
         }
         ServiceInfo serviceInfo = geoServer.getService(ws, clazz);
         if (serviceInfo != null) {

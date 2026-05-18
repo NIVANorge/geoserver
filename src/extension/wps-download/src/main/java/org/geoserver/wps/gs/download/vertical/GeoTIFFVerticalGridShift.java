@@ -4,7 +4,6 @@
  */
 package org.geoserver.wps.gs.download.vertical;
 
-import it.geosolutions.jaiext.range.Range;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
 import java.awt.image.RenderedImage;
@@ -12,16 +11,17 @@ import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.media.jai.ImageLayout;
-import javax.media.jai.PlanarImage;
+import org.eclipse.imagen.ImageLayout;
+import org.eclipse.imagen.PlanarImage;
+import org.eclipse.imagen.media.range.Range;
+import org.geotools.api.coverage.grid.GridEnvelope;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
-import org.geotools.geometry.DirectPosition2D;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
+import org.geotools.geometry.Position2D;
 import org.geotools.image.ImageWorker;
 import org.geotools.image.util.ImageUtilities;
 import org.geotools.util.logging.Logging;
-import org.opengis.coverage.grid.GridEnvelope;
 
 /** A Vertical Grid Shift implementation based on an underlying GeoTIFF file */
 public class GeoTIFFVerticalGridShift implements VerticalGridShift {
@@ -31,7 +31,7 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
     private static final double DELTA = 1E-6;
 
     /** The valid area being covered by this grid */
-    private final GeneralEnvelope validArea;
+    private final GeneralBounds validArea;
 
     /** The Grid's 2D CoordinateReferenceSystem (EPSG code number) */
     private final int crsCode;
@@ -71,7 +71,7 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
         super();
         this.crsCode = crsCode;
         reader = new GeoTiffReader(file);
-        GeneralEnvelope envelope = reader.getOriginalEnvelope();
+        GeneralBounds envelope = reader.getOriginalEnvelope();
         this.validArea = envelope;
 
         // Initialize Grid's layout
@@ -84,7 +84,7 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
         maxY = envelope.getMaximum(1);
 
         dataType = layout.getSampleModel(null).getDataType();
-        GridCoverage2D coverage = reader.read(null);
+        GridCoverage2D coverage = reader.read();
         gridImage = coverage.getRenderedImage();
         tileWidth = gridImage.getTileWidth();
         tileHeight = gridImage.getTileHeight();
@@ -109,11 +109,11 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
 
     @Override
     public boolean isInValidArea(double x, double y) {
-        return validArea.contains(new DirectPosition2D(x, y));
+        return validArea.contains(new Position2D(x, y));
     }
 
     @Override
-    public GeneralEnvelope getValidArea() {
+    public GeneralBounds getValidArea() {
         return validArea;
     }
 
@@ -177,8 +177,7 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
         return true;
     }
 
-    private double interpolateDouble(
-            double gridX, double gridY, int gridI0, int gridI1, int gridJ0, int gridJ1) {
+    private double interpolateDouble(double gridX, double gridY, int gridI0, int gridI1, int gridJ0, int gridJ1) {
         // Get the 4 pixels of the 2x2 matrix:
         // (I0,J0) ----- (I1,J0)
         //   |              |
@@ -228,8 +227,7 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
         return pixelValue;
     }
 
-    private float interpolateFloat(
-            double gridX, double gridY, int gridI0, int gridI1, int gridJ0, int gridJ1) {
+    private float interpolateFloat(double gridX, double gridY, int gridI0, int gridI1, int gridJ0, int gridJ1) {
         // Get the 4 pixels of the 2x2 matrix:
         // (I0,J0) ----- (I1,J0)
         //   |              |
@@ -280,10 +278,9 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
     }
 
     private double readDouble(int gridI, int gridJ) {
-        Raster tile =
-                gridImage.getTile(
-                        PlanarImage.XToTileX(gridI, tileGridXOffset, tileWidth),
-                        PlanarImage.XToTileX(gridJ, tileGridYOffset, tileHeight));
+        Raster tile = gridImage.getTile(
+                PlanarImage.XToTileX(gridI, tileGridXOffset, tileWidth),
+                PlanarImage.XToTileX(gridJ, tileGridYOffset, tileHeight));
         double val = tile.getSampleDouble(gridI, gridJ, 0);
         if (Math.abs(val - noData) < DELTA) {
             val = Double.NaN;
@@ -293,10 +290,9 @@ public class GeoTIFFVerticalGridShift implements VerticalGridShift {
     }
 
     private float readFloat(int gridI, int gridJ) {
-        Raster tile =
-                gridImage.getTile(
-                        PlanarImage.XToTileX(gridI, tileGridXOffset, tileWidth),
-                        PlanarImage.XToTileX(gridJ, tileGridYOffset, tileHeight));
+        Raster tile = gridImage.getTile(
+                PlanarImage.XToTileX(gridI, tileGridXOffset, tileWidth),
+                PlanarImage.XToTileX(gridJ, tileGridYOffset, tileHeight));
         float val = tile.getSampleFloat(gridI, gridJ, 0);
         if (Math.abs(val - noData) < DELTA) {
             val = Float.NaN;

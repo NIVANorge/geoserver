@@ -21,15 +21,14 @@ import org.geoserver.ogcapi.v1.coverages.cis.IndexAxis;
 import org.geoserver.ogcapi.v1.coverages.cis.IrregularAxis;
 import org.geoserver.ogcapi.v1.coverages.cis.RegularAxis;
 import org.geoserver.wcs2_0.util.EnvelopeAxesLabelsMapper;
+import org.geotools.api.coverage.grid.GridEnvelope;
+import org.geotools.api.coverage.grid.GridGeometry;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.cs.CoordinateSystem;
+import org.geotools.api.referencing.cs.CoordinateSystemAxis;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
-import org.geotools.referencing.CRS;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.coverage.grid.GridGeometry;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.cs.CoordinateSystem;
-import org.opengis.referencing.cs.CoordinateSystemAxis;
 import org.springframework.http.HttpStatus;
 import tech.units.indriya.format.SimpleUnitFormat;
 
@@ -45,7 +44,7 @@ class DomainSetBuilder {
     public DomainSet build() throws IOException, FactoryException {
         EnvelopeAxesLabelsMapper mapper = new EnvelopeAxesLabelsMapper();
         CoordinateReferenceSystem crs = coverage.getCRS();
-        String srsName = CoveragesService.CRS_PREFIX + CRS.lookupEpsgCode(crs, false);
+        String srsName = CoveragesService.getCRSURI(crs);
 
         // check coordinate system is supported
         CoordinateSystem cs = crs.getCoordinateSystem();
@@ -70,8 +69,7 @@ class DomainSetBuilder {
         // handle time as well
         DimensionInfo time = coverage.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
         if (time != null) {
-            GridCoverage2DReader reader =
-                    (GridCoverage2DReader) coverage.getGridCoverageReader(null, null);
+            GridCoverage2DReader reader = (GridCoverage2DReader) coverage.getGridCoverageReader(null, null);
             TimeDimensionHelper helper = new TimeDimensionHelper(time, reader);
             switch (time.getPresentation()) {
                 case CONTINUOUS_INTERVAL:
@@ -110,10 +108,7 @@ class DomainSetBuilder {
     }
 
     private RegularAxis toRegularAxis(
-            CoordinateSystemAxis axis,
-            EnvelopeAxesLabelsMapper mapper,
-            CoverageInfo coverage,
-            int axisIndex) {
+            CoordinateSystemAxis axis, EnvelopeAxesLabelsMapper mapper, CoverageInfo coverage, int axisIndex) {
         double lowerBound, upperBound, resolution;
         ReferencedEnvelope envelope = coverage.getNativeBoundingBox();
         GridGeometry grid = coverage.getGrid();
@@ -123,9 +118,7 @@ class DomainSetBuilder {
             resolution = (upperBound - lowerBound) / grid.getGridRange().getSpan(axisIndex);
         } else {
             throw new UnsupportedOperationException(
-                    "Cannot describe a coverage with a CRS having "
-                            + (axisIndex + 1)
-                            + " dimensions");
+                    "Cannot describe a coverage with a CRS having " + (axisIndex + 1) + " dimensions");
         }
 
         return new RegularAxis(

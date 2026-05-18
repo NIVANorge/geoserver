@@ -12,22 +12,22 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import jakarta.servlet.ServletContextEvent;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.spi.ImageReaderWriterSpi;
 import javax.imageio.spi.ImageWriterSpi;
-import javax.servlet.ServletContextEvent;
+import org.geotools.api.feature.FeatureFactory;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.style.StyleFactory;
 import org.geotools.coverage.grid.GridCoverageFactory;
 import org.geotools.util.factory.GeoTools;
 import org.geotools.util.factory.Hints;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.FeatureFactory;
-import org.opengis.filter.FilterFactory;
-import org.opengis.style.StyleFactory;
 import org.springframework.mock.web.MockServletContext;
 
 public class GeoServerInitStartupListenerTest {
@@ -88,8 +88,7 @@ public class GeoServerInitStartupListenerTest {
         assertNoSunJPEG2000(registry, ImageWriterSpi.class);
     }
 
-    private <T extends ImageReaderWriterSpi> void assertNoSunJPEG2000(
-            IIORegistry registry, Class<T> category) {
+    private <T extends ImageReaderWriterSpi> void assertNoSunJPEG2000(IIORegistry registry, Class<T> category) {
         Iterator<T> it = registry.getServiceProviders(category, false);
         while (it.hasNext()) {
             T spi = it.next();

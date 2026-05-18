@@ -6,21 +6,18 @@ package org.geoserver.featurestemplating.expressions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.ows.Request;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.capability.FunctionNameImpl;
 import org.geotools.util.Converters;
-import org.opengis.filter.capability.FunctionName;
 
 /** Returns the value of the request parameter with the name specified in the function parameter. */
 public class RequestParameterFunction extends RequestFunction {
 
     public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "requestParam",
-                    parameter("result", String.class),
-                    parameter("name", String.class));
+            new FunctionNameImpl("requestParam", parameter("result", String.class), parameter("name", String.class));
 
     public RequestParameterFunction() {
         super(NAME);

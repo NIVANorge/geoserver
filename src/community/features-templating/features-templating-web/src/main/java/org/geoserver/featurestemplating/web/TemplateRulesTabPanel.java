@@ -4,6 +4,8 @@
  */
 package org.geoserver.featurestemplating.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,6 +23,19 @@ import org.geoserver.web.publish.PublishedEditTabPanel;
 
 public class TemplateRulesTabPanel extends PublishedEditTabPanel<LayerInfo> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(TemplateRulesTabPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     public TemplateRuleConfigurationPanel configurationPanel;
     /**
      * @param id The id given to the panel.
@@ -34,20 +49,15 @@ public class TemplateRulesTabPanel extends PublishedEditTabPanel<LayerInfo> {
             configurationPanel.setEnabled(false);
         }
         TemplateInfoDAO infoDao = TemplateInfoDAO.get();
-        FeatureTypeTemplateDAOListener listener =
-                new FeatureTypeTemplateDAOListener((FeatureTypeInfo) ri);
+        FeatureTypeTemplateDAOListener listener = new FeatureTypeTemplateDAOListener((FeatureTypeInfo) ri);
         infoDao.addTemplateListener(listener);
         PropertyModel<ResourceInfo> resource = new PropertyModel<>(model, "resource");
         PropertyModel<MetadataMap> metadata = new PropertyModel<>(resource, "metadata");
         TemplateRulesTablePanel tablePanel = new TemplateRulesTablePanel("rulesTable", metadata);
         tablePanel.setOutputMarkupId(true);
         add(tablePanel);
-        configurationPanel =
-                new TemplateRuleConfigurationPanel(
-                        "ruleConfiguration",
-                        new CompoundPropertyModel<>(new TemplateRule()),
-                        false,
-                        li);
+        configurationPanel = new TemplateRuleConfigurationPanel(
+                "ruleConfiguration", new CompoundPropertyModel<>(new TemplateRule()), false, li);
         configurationPanel.setTemplateRuleTablePanel(tablePanel);
         configurationPanel.setOutputMarkupId(true);
         tablePanel.setConfigurationPanel(configurationPanel);

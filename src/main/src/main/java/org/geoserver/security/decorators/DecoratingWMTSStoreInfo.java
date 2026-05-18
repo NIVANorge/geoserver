@@ -13,9 +13,9 @@ import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.WMTSStoreInfo;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wmts.WebMapTileServer;
 import org.geotools.util.decorate.AbstractDecorator;
-import org.opengis.util.ProgressListener;
 
 /**
  * Delegates every method to the delegate wmts store info.
@@ -24,8 +24,7 @@ import org.opengis.util.ProgressListener;
  *
  * @author Emanuele Tajariol (etj at geo-solutions dot it)
  */
-public class DecoratingWMTSStoreInfo extends AbstractDecorator<WMTSStoreInfo>
-        implements WMTSStoreInfo {
+public class DecoratingWMTSStoreInfo extends AbstractDecorator<WMTSStoreInfo> implements WMTSStoreInfo {
 
     public DecoratingWMTSStoreInfo(WMTSStoreInfo delegate) {
         super(delegate);
@@ -215,6 +214,16 @@ public class DecoratingWMTSStoreInfo extends AbstractDecorator<WMTSStoreInfo>
     @Override
     public void setHeaderValue(String headerValue) {
         delegate.setHeaderValue(headerValue);
+    }
+
+    @Override
+    public String getAuthKey() {
+        return delegate.getAuthKey();
+    }
+
+    @Override
+    public void setAuthKey(String authKey) {
+        delegate.setAuthKey(authKey);
     }
 
     @Override

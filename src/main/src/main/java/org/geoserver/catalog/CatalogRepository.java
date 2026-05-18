@@ -12,11 +12,11 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.platform.GeoServerExtensions;
-import org.geotools.data.DataAccess;
-import org.geotools.data.DataStore;
-import org.geotools.data.Repository;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.Repository;
+import org.geotools.api.feature.type.Name;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
 
 /**
  * Implementation of GeoTools Repository interface wrapped around the GeoServer catalog.
@@ -41,8 +41,8 @@ public class CatalogRepository implements Repository, Serializable {
     @Override
     public DataStore dataStore(Name name) {
         DataAccess da = access(name);
-        if (da instanceof DataStore) {
-            return (DataStore) da;
+        if (da instanceof DataStore store) {
+            return store;
         }
 
         if (LOGGER.isLoggable(Level.FINE)) {
@@ -80,8 +80,8 @@ public class CatalogRepository implements Repository, Serializable {
 
             try {
                 DataAccess da = ds.getDataStore(null);
-                if (da instanceof DataStore) {
-                    dataStores.add((DataStore) da);
+                if (da instanceof DataStore store) {
+                    dataStores.add(store);
                 }
             } catch (IOException e) {
                 LOGGER.log(Level.WARNING, "Unable to get datastore '" + ds.getName() + "'", e);

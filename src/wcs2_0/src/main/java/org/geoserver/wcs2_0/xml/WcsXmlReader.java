@@ -27,10 +27,7 @@ public class WcsXmlReader extends XmlRequestReader {
     private EntityResolverProvider resolverProvider;
 
     public WcsXmlReader(
-            String element,
-            String version,
-            WCSConfiguration configuration,
-            EntityResolverProvider resolverProvider) {
+            String element, String version, WCSConfiguration configuration, EntityResolverProvider resolverProvider) {
         super(new QName(WCS.NAMESPACE, element), new Version(version), "wcs");
         this.configuration = configuration;
         this.resolverProvider = resolverProvider;
@@ -55,7 +52,7 @@ public class WcsXmlReader extends XmlRequestReader {
         } catch (Exception e) {
             throw new WcsException(
                     "Parsing failed, the xml request is most probably not compliant to the wcs 2.0.1 schema",
-                    e);
+                    cleanException(e));
         }
 
         return parsed;

@@ -15,19 +15,20 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.importer.Database;
 import org.geoserver.importer.Directory;
 import org.geoserver.importer.ImportContext;
 import org.geoserver.importer.ImporterTestSupport;
+import org.geoserver.importer.ImporterTestUtils;
 import org.geoserver.importer.SpatialFile;
 import org.geoserver.rest.RestBaseController;
-import org.geotools.data.h2.H2DataStoreFactory;
+import org.geotools.geopkg.GeoPkgDataStoreFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -49,8 +50,8 @@ public class ImportControllerTest extends ImporterTestSupport {
         this.secondId = importer.createContext(new Directory(dir)).getId();
 
         dir = unpack("shape/archsites_no_crs.zip");
-        this.thirdId =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp"))).getId();
+        this.thirdId = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")))
+                .getId();
         if (getCatalog().getStoreByName("gs", "skunkworks", DataStoreInfo.class) != null)
             removeStore("gs", "skunkworks");
     }
@@ -85,16 +86,14 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testGetNonExistantImport() throws Exception {
-        MockHttpServletResponse resp =
-                getAsServletResponse((RestBaseController.ROOT_PATH + "/imports/9999"));
+        MockHttpServletResponse resp = getAsServletResponse((RestBaseController.ROOT_PATH + "/imports/9999"));
 
         assertEquals(404, resp.getStatus());
     }
 
     @Test
     public void testGetImport() throws Exception {
-        JSONObject json =
-                (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + firstId, 200);
+        JSONObject json = (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + firstId, 200);
 
         assertNotNull(json.get("import"));
 
@@ -110,18 +109,14 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testGetImportExpandChildren() throws Exception {
-        JSONObject json =
-                (JSONObject)
-                        getAsJSON(
-                                RestBaseController.ROOT_PATH + "/imports/" + firstId + "?expand=2");
+        JSONObject json = (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + firstId + "?expand=2");
 
         JSONObject source = json.getJSONObject("import").getJSONObject("data");
         assertEquals("directory", source.getString("type"));
         assertEquals("Shapefile", source.getString("format"));
 
         ImportContext context = importer.getContext(firstId);
-        assertEquals(
-                ((Directory) context.getData()).getFile().getPath(), source.getString("location"));
+        assertEquals(((Directory) context.getData()).getFile().getPath(), source.getString("location"));
 
         JSONArray files = source.getJSONArray("files");
         assertEquals(2, files.size());
@@ -139,10 +134,7 @@ public class ImportControllerTest extends ImporterTestSupport {
     @Test
     public void testGetImport2() throws Exception {
         JSONObject json =
-                (JSONObject)
-                        getAsJSON(
-                                RestBaseController.ROOT_PATH + "/imports/" + secondId + "?expand=3",
-                                200);
+                (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + secondId + "?expand=3", 200);
         assertNotNull(json.get("import"));
 
         JSONObject imprt = json.optJSONObject("import");
@@ -171,10 +163,7 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testGetImport3() throws Exception {
-        JSONObject json =
-                (JSONObject)
-                        getAsJSON(
-                                RestBaseController.ROOT_PATH + "/imports/" + thirdId + "?expand=2");
+        JSONObject json = (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + thirdId + "?expand=2");
         assertNotNull(json.get("import"));
 
         JSONObject imprt = json.optJSONObject("import");
@@ -194,26 +183,20 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testGetImportDatabase() throws Exception {
-        File dir = unpack("h2/cookbook.zip");
+        File cookbook = ImporterTestUtils.file("gpkg/cookbook.gpkg");
 
         Map<String, Serializable> params = new HashMap<>();
-        params.put(H2DataStoreFactory.DBTYPE.key, "h2");
-        params.put(H2DataStoreFactory.DATABASE.key, new File(dir, "cookbook").getAbsolutePath());
+        params.put(GeoPkgDataStoreFactory.DBTYPE.key, "geopkg");
+        params.put(GeoPkgDataStoreFactory.DATABASE.key, cookbook.getAbsolutePath());
         importer.createContext(new Database(params));
 
-        JSONObject json =
-                (JSONObject)
-                        getAsJSON(
-                                RestBaseController.ROOT_PATH
-                                        + "/imports/"
-                                        + lastId()
-                                        + "?expand=2");
+        JSONObject json = (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + lastId() + "?expand=2");
 
         assertNotNull(json.get("import"));
 
         JSONObject source = json.getJSONObject("import").getJSONObject("data");
         assertEquals("database", source.getString("type"));
-        assertEquals("H2", source.getString("format"));
+        assertEquals("GeoPackage", source.getString("format"));
 
         JSONArray tables = source.getJSONArray("tables");
         assertTrue(tables.contains("point"));
@@ -225,8 +208,7 @@ public class ImportControllerTest extends ImporterTestSupport {
     public void testPost() throws Exception {
 
         MockHttpServletResponse resp =
-                postAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports", "", "application/json");
+                postAsServletResponse(RestBaseController.ROOT_PATH + "/imports", "", "application/json");
         assertEquals(201, resp.getStatus());
         assertNotNull(resp.getHeader("Location"));
 
@@ -244,8 +226,7 @@ public class ImportControllerTest extends ImporterTestSupport {
     public void testPutWithId() throws Exception {
         // propose a new import id
         MockHttpServletResponse resp =
-                putAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports/8675309", "", "application/json");
+                putAsServletResponse(RestBaseController.ROOT_PATH + "/imports/8675309", "", "application/json");
         assertEquals(201, resp.getStatus());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, resp.getContentType());
         JSONObject json = (JSONObject) json(resp);
@@ -261,16 +242,12 @@ public class ImportControllerTest extends ImporterTestSupport {
         assertEquals(8675309, imprt.getInt("id"));
 
         // now propose a new one that is less than the earlier
-        resp =
-                putAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports/8675000", "", "application/json");
+        resp = putAsServletResponse(RestBaseController.ROOT_PATH + "/imports/8675000", "", "application/json");
         assertEquals(MediaType.APPLICATION_JSON_VALUE, resp.getContentType());
         assertEquals(201, resp.getStatus());
         // it should be one more than the latest
 
-        assertTrue(
-                resp.getHeader("Location")
-                        .endsWith(RestBaseController.ROOT_PATH + "/imports/8675310"));
+        assertTrue(resp.getHeader("Location").endsWith(RestBaseController.ROOT_PATH + "/imports/8675310"));
 
         // and just make sure the other parts work
         resp = getAsServletResponse(RestBaseController.ROOT_PATH + "/imports/8675310");
@@ -280,9 +257,7 @@ public class ImportControllerTest extends ImporterTestSupport {
         assertEquals(8675310, imprt.getInt("id"));
 
         // now a normal request - make sure it continues the sequence
-        resp =
-                postAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports", "{}", "application/json");
+        resp = postAsServletResponse(RestBaseController.ROOT_PATH + "/imports", "{}", "application/json");
         assertEquals(201, resp.getStatus());
         assertNotNull(resp.getHeader("Location"));
         assertTrue(resp.getHeader("Location").endsWith("/imports/8675311"));
@@ -291,34 +266,31 @@ public class ImportControllerTest extends ImporterTestSupport {
     @Test
     public void testPutWithIdNoContentType() throws Exception {
         // propose a new import id
-        MockHttpServletResponse resp =
-                putAsServletResponse(RestBaseController.ROOT_PATH + "/imports/8675317");
+        MockHttpServletResponse resp = putAsServletResponse(RestBaseController.ROOT_PATH + "/imports/8675317");
         assertEquals(201, resp.getStatus());
     }
 
     @Test
     public void testPostWithTarget() throws Exception {
-        createH2DataStore("sf", "skunkworks");
+        creatGeopkgDataStore("sf", "skunkworks");
 
-        String json =
-                "{"
-                        + "\"import\": { "
-                        + "\"targetWorkspace\": {"
-                        + "\"workspace\": {"
-                        + "\"name\": \"sf\""
-                        + "}"
-                        + "},"
-                        + "\"targetStore\": {"
-                        + "\"dataStore\": {"
-                        + "\"name\": \"skunkworks\""
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}";
+        String json = "{"
+                + "\"import\": { "
+                + "\"targetWorkspace\": {"
+                + "\"workspace\": {"
+                + "\"name\": \"sf\""
+                + "}"
+                + "},"
+                + "\"targetStore\": {"
+                + "\"dataStore\": {"
+                + "\"name\": \"skunkworks\""
+                + "}"
+                + "}"
+                + "}"
+                + "}";
 
         MockHttpServletResponse resp =
-                postAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports", json, "application/json");
+                postAsServletResponse(RestBaseController.ROOT_PATH + "/imports", json, "application/json");
         assertEquals(201, resp.getStatus());
         assertNotNull(resp.getHeader("Location"));
 
@@ -336,8 +308,7 @@ public class ImportControllerTest extends ImporterTestSupport {
         assertEquals(204, resp.getStatus());
     }
 
-    private MockHttpServletResponse postAsServletResponseNoContentType(String path, String body)
-            throws Exception {
+    private MockHttpServletResponse postAsServletResponseNoContentType(String path, String body) throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("POST");
         if (body != null && !body.isEmpty()) {
@@ -355,8 +326,7 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testImportSessionIdNotInt() throws Exception {
-        MockHttpServletResponse resp =
-                postAsServletResponse(RestBaseController.ROOT_PATH + "/imports/foo", "");
+        MockHttpServletResponse resp = postAsServletResponse(RestBaseController.ROOT_PATH + "/imports/foo", "");
         // assertEquals(404, resp.getStatus());
         // Spring feels that 400 is better than 404 for this! - IJT
         assertEquals(400, resp.getStatus());
@@ -364,12 +334,10 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testContentNegotiation() throws Exception {
-        MockHttpServletResponse res =
-                getAsServletResponse(RestBaseController.ROOT_PATH + "/imports/" + firstId);
+        MockHttpServletResponse res = getAsServletResponse(RestBaseController.ROOT_PATH + "/imports/" + firstId);
         assertEquals("application/json", res.getContentType());
 
-        MockHttpServletRequest req =
-                createRequest(RestBaseController.ROOT_PATH + "/imports/" + firstId);
+        MockHttpServletRequest req = createRequest(RestBaseController.ROOT_PATH + "/imports/" + firstId);
         req.setMethod("GET");
         req.addHeader("Accept", "text/html");
 
@@ -385,9 +353,7 @@ public class ImportControllerTest extends ImporterTestSupport {
         importer.createContext(new SpatialFile(new File(dir, "point.json")));
         int id = lastId();
 
-        JSONObject json =
-                (JSONObject)
-                        getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + id + "?expand=3");
+        JSONObject json = (JSONObject) getAsJSON(RestBaseController.ROOT_PATH + "/imports/" + id + "?expand=3");
         assertNotNull(json);
 
         JSONObject imprt = json.optJSONObject("import");
@@ -412,30 +378,28 @@ public class ImportControllerTest extends ImporterTestSupport {
 
     @Test
     public void testPostTargetWithSameStoreNameTwoWs() throws Exception {
-        createH2DataStore("sf", "skunkworks");
+        creatGeopkgDataStore("sf", "skunkworks");
         // same store name in different ws, to check later that workspace is
         // properly checked
-        createH2DataStore("gs", "skunkworks");
+        creatGeopkgDataStore("gs", "skunkworks");
 
-        String json =
-                "{"
-                        + "\"import\": { "
-                        + "\"targetWorkspace\": {"
-                        + "\"workspace\": {"
-                        + "\"name\": \"sf\""
-                        + "}"
-                        + "},"
-                        + "\"targetStore\": {"
-                        + "\"dataStore\": {"
-                        + "\"name\": \"skunkworks\""
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}";
+        String json = "{"
+                + "\"import\": { "
+                + "\"targetWorkspace\": {"
+                + "\"workspace\": {"
+                + "\"name\": \"sf\""
+                + "}"
+                + "},"
+                + "\"targetStore\": {"
+                + "\"dataStore\": {"
+                + "\"name\": \"skunkworks\""
+                + "}"
+                + "}"
+                + "}"
+                + "}";
 
         MockHttpServletResponse resp =
-                postAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports", json, "application/json");
+                postAsServletResponse(RestBaseController.ROOT_PATH + "/imports", json, "application/json");
         assertEquals(201, resp.getStatus());
         assertNotNull(resp.getHeader("Location"));
 
@@ -452,25 +416,22 @@ public class ImportControllerTest extends ImporterTestSupport {
         resp = postAsServletResponse(RestBaseController.ROOT_PATH + "/imports/" + id, "");
         assertEquals(204, resp.getStatus());
 
-        json =
-                "{"
-                        + "\"import\": { "
-                        + "\"targetWorkspace\": {"
-                        + "\"workspace\": {"
-                        + "\"name\": \"gs\""
-                        + "}"
-                        + "},"
-                        + "\"targetStore\": {"
-                        + "\"dataStore\": {"
-                        + "\"name\": \"skunkworks\""
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}";
+        json = "{"
+                + "\"import\": { "
+                + "\"targetWorkspace\": {"
+                + "\"workspace\": {"
+                + "\"name\": \"gs\""
+                + "}"
+                + "},"
+                + "\"targetStore\": {"
+                + "\"dataStore\": {"
+                + "\"name\": \"skunkworks\""
+                + "}"
+                + "}"
+                + "}"
+                + "}";
 
-        resp =
-                postAsServletResponse(
-                        RestBaseController.ROOT_PATH + "/imports", json, "application/json");
+        resp = postAsServletResponse(RestBaseController.ROOT_PATH + "/imports", json, "application/json");
         assertEquals(201, resp.getStatus());
         assertNotNull(resp.getHeader("Location"));
 

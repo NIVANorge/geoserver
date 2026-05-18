@@ -5,6 +5,9 @@
  */
 package org.geoserver.filters;
 
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Set;
@@ -12,25 +15,22 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.WriteListener;
-import javax.servlet.http.HttpServletResponse;
 
 /**
- * A response stream that figures out whether or not to compress the output just before the first
- * write. The decision is based on the mimetype set for the output request.
+ * A response stream that figures out whether or not to compress the output just before the first write. The decision is
+ * based on the mimetype set for the output request.
  *
- * @author David Winslow <dwinslow@openplans.org>
+ * @author David Winslow
  */
 public class AlternativesResponseStream extends ServletOutputStream {
     HttpServletResponse myResponse;
     ServletOutputStream myStream;
     Set myCompressibleTypes;
     Logger logger = org.geotools.util.logging.Logging.getLogger("org.geoserver.filters");
-    int contentLength;
+    long contentLength;
 
-    public AlternativesResponseStream(
-            HttpServletResponse response, Set compressible, int contentLength) throws IOException {
+    public AlternativesResponseStream(HttpServletResponse response, Set compressible, long contentLength)
+            throws IOException {
         super();
         myResponse = response;
         myCompressibleTypes = compressible;
@@ -77,7 +77,7 @@ public class AlternativesResponseStream extends ServletOutputStream {
         } else {
             logger.log(Level.FINE, "Not compressing output for mimetype: {0}", type);
             if (contentLength >= 0) {
-                myResponse.setContentLength(contentLength);
+                myResponse.setContentLengthLong(contentLength);
             }
             myStream = myResponse.getOutputStream();
         }

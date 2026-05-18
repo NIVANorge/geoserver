@@ -13,12 +13,13 @@ import java.awt.Color;
 import java.awt.geom.Point2D;
 import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
-import javax.media.jai.RasterFactory;
+import org.eclipse.imagen.RasterFactory;
 import org.geoserver.wps.WPSTestSupport;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.CoverageFactoryFinder;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridCoverageFactory;
-import org.geotools.geometry.Envelope2D;
+import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.junit.Test;
 
@@ -38,6 +39,7 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
      * @param envY0 envelope miny
      * @param envWidth envelope width
      * @param envHeight envelope height
+     * @param crs
      * @return the test coverage
      */
     protected static GridCoverage2D createTestCoverage(
@@ -46,12 +48,12 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
             final double envX0,
             final double envY0,
             final double envWidth,
-            final double envHeight) {
+            final double envHeight,
+            CoordinateReferenceSystem crs) {
 
         final GridCoverageFactory factory = CoverageFactoryFinder.getGridCoverageFactory(null);
 
-        WritableRaster raster =
-                RasterFactory.createBandedRaster(DataBuffer.TYPE_FLOAT, width, height, 1, null);
+        WritableRaster raster = RasterFactory.createBandedRaster(DataBuffer.TYPE_FLOAT, width, height, 1, null);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 if (x < 50 && y < 50) { // upper left square: vertical lines
@@ -60,12 +62,10 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
                 } else if (x < 50 && y > height - 50) { // lower left square: horizontal lines
                     if (y % 5 == 0) raster.setSample(x, y, 0, 0);
                     else raster.setSample(x, y, 0, width);
-                } else if (x > width - 50
-                        && y < 50) { // upper right square: descending diagonal lines
+                } else if (x > width - 50 && y < 50) { // upper right square: descending diagonal lines
                     if ((x - y) % 5 == 0) raster.setSample(x, y, 0, 0);
                     else raster.setSample(x, y, 0, width);
-                } else if (x > width - 50
-                        && y > height - 50) { // lower right square: ascending diagonal lines
+                } else if (x > width - 50 && y > height - 50) { // lower right square: ascending diagonal lines
                     if ((x + y) % 5 == 0) raster.setSample(x, y, 0, 0);
                     else raster.setSample(x, y, 0, width);
                 } else if (x % 50 == 0 || y % 50 == 0 || (x - y) % 100 == 0)
@@ -78,7 +78,7 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
         return factory.create(
                 "Float coverage",
                 raster,
-                new Envelope2D(DefaultGeographicCRS.WGS84, envX0, envY0, envWidth, envHeight),
+                ReferencedEnvelope.rect(envX0, envY0, envWidth, envHeight, crs),
                 null,
                 null,
                 null,
@@ -88,10 +88,10 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
 
     @Test
     public void testSame() throws InterruptedException {
-        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10);
-        GridCoverage2D dst = createTestCoverage(500, 500, 0, 0, 10, 10);
+        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10, DefaultGeographicCRS.WGS84);
+        GridCoverage2D dst = createTestCoverage(500, 500, 0, 0, 10, 10, DefaultGeographicCRS.WGS84);
 
-        GridCoverage2DRIA cria = GridCoverage2DRIA.create(src, dst, NODATA);
+        GridCoverage2DRIA cria = GridCoverage2DRIA.create(/* src= */ dst, /* dst= */ src, NODATA);
 
         // --- internal points should stay the same
         Point2D psrc = new Point2D.Double(2d, 3d); // this is on dst gc
@@ -112,10 +112,10 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
 
     @Test
     public void testSameWorldSmallerDstRaster() throws InterruptedException {
-        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10);
-        GridCoverage2D dst = createTestCoverage(250, 250, 0, 0, 10, 10);
+        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10, DefaultGeographicCRS.WGS84);
+        GridCoverage2D dst = createTestCoverage(250, 250, 0, 0, 10, 10, DefaultGeographicCRS.WGS84);
 
-        GridCoverage2DRIA cria = GridCoverage2DRIA.create(dst, src, NODATA);
+        GridCoverage2DRIA cria = GridCoverage2DRIA.create(/* src= */ dst, /* dst= */ src, NODATA);
 
         // --- internal points should double coords (no interp on coords)
         Point2D psrc = new Point2D.Double(13d, 16d); // this is on dst gc
@@ -136,12 +136,12 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
     /** Same raster dimension, subset word area */
     @Test
     public void testSameRasterSmallerWorld() throws InterruptedException {
-        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10);
-        GridCoverage2D dst = createTestCoverage(500, 500, 0, 0, 5, 5);
+        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 10, 10, DefaultGeographicCRS.WGS84);
+        GridCoverage2D dst = createTestCoverage(500, 500, 0, 0, 5, 5, DefaultGeographicCRS.WGS84);
 
         //        double nodata[] = src.getSampleDimension(0).getNoDataValues();
 
-        GridCoverage2DRIA cria = GridCoverage2DRIA.create(dst, src, NODATA);
+        GridCoverage2DRIA cria = GridCoverage2DRIA.create(/* src= */ dst, /* dst= */ src, NODATA);
 
         // --- internal points should halves coords (no interp on coords)
         Point2D psrc = new Point2D.Double(0d, 0d);
@@ -163,10 +163,10 @@ public class Coverage2RenderedImageAdapterTest extends WPSTestSupport {
     /** Same raster dimension, subset word area */
     @Test
     public void testSameRasterTranslatedWorld0() throws InterruptedException {
-        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 5, 5);
-        GridCoverage2D dst = createTestCoverage(500, 500, 2, 2, 5, 5);
+        GridCoverage2D src = createTestCoverage(500, 500, 0, 0, 5, 5, DefaultGeographicCRS.WGS84);
+        GridCoverage2D dst = createTestCoverage(500, 500, 2, 2, 5, 5, DefaultGeographicCRS.WGS84);
 
-        GridCoverage2DRIA cria = GridCoverage2DRIA.create(dst, src, NODATA);
+        GridCoverage2DRIA cria = GridCoverage2DRIA.create(/* src= */ dst, /* dst= */ src, NODATA);
 
         // --- internal points should halves coords (no interp on coords)
         Point2D psrc = new Point2D.Double(0d, 499d); // this is on dst gc

@@ -25,10 +25,10 @@ import org.geoserver.platform.Service;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.geoserver.wms.GetLegendGraphicRequest;
 import org.geoserver.wms.legendgraphic.GetLegendGraphicKvpReader;
+import org.geotools.api.style.FeatureTypeStyle;
+import org.geotools.api.style.RasterSymbolizer;
+import org.geotools.api.style.Style;
 import org.geotools.process.raster.DynamicColorMapTest;
-import org.geotools.styling.FeatureTypeStyle;
-import org.geotools.styling.RasterSymbolizer;
-import org.geotools.styling.Style;
 import org.geotools.xml.styling.SLDTransformer;
 import org.junit.Test;
 
@@ -39,8 +39,7 @@ public class DynamicGetLegendGraphicsCallbackTest extends GeoServerSystemTestSup
         super.onSetUp(testData);
 
         Catalog catalog = getCatalog();
-        testData.addStyle(
-                "style_rgb", "test-data/style_rgb.sld", DynamicColorMapTest.class, catalog);
+        testData.addStyle("style_rgb", "test-data/style_rgb.sld", DynamicColorMapTest.class, catalog);
         Map<LayerProperty, Object> properties = new HashMap<>();
         properties.put(LayerProperty.STYLE, "style_rgb");
         testData.addRasterLayer(
@@ -55,22 +54,18 @@ public class DynamicGetLegendGraphicsCallbackTest extends GeoServerSystemTestSup
     @Test
     public void testLegendExpasion() throws Exception {
         // manually parse a request
-        GetLegendGraphicKvpReader requestReader =
-                GeoServerExtensions.bean(GetLegendGraphicKvpReader.class);
-        Map params = new KvpMap();
+        GetLegendGraphicKvpReader requestReader = GeoServerExtensions.bean(GetLegendGraphicKvpReader.class);
+        Map<String, Object> params = new KvpMap<>();
         params.put("VERSION", "1.0.0");
         params.put("REQUEST", "GetLegendGraphic");
         params.put("LAYER", "watertemp_dynamic");
         params.put("STYLE", "style_rgb");
         params.put("FORMAT", "image/png");
-        GetLegendGraphicRequest getLegendGraphics =
-                requestReader.read(new GetLegendGraphicRequest(), params, params);
+        GetLegendGraphicRequest getLegendGraphics = requestReader.read(new GetLegendGraphicRequest(), params, params);
 
         // setup to call the callback
         Service wmsService = (Service) GeoServerExtensions.bean("wms-1_1_1-ServiceDescriptor");
-        Operation op =
-                new Operation(
-                        "getLegendGraphic", wmsService, null, new Object[] {getLegendGraphics});
+        Operation op = new Operation("getLegendGraphic", wmsService, null, new Object[] {getLegendGraphics});
         Request request = new Request();
         request.setKvp(params);
         request.setRawKvp(params);
@@ -85,7 +80,8 @@ public class DynamicGetLegendGraphicsCallbackTest extends GeoServerSystemTestSup
         Style style = getLegendGraphics.getLegends().get(0).getStyle();
         FeatureTypeStyle fts = style.featureTypeStyles().get(0);
         assertNull(fts.getTransformation());
-        RasterSymbolizer rs = (RasterSymbolizer) fts.rules().get(0).symbolizers().get(0);
+        RasterSymbolizer rs =
+                (RasterSymbolizer) fts.rules().get(0).symbolizers().get(0);
         assertNotNull(rs.getColorMap());
     }
 

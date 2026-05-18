@@ -13,11 +13,14 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.commons.io.FilenameUtils;
-import org.geotools.data.FeatureWriter;
-import org.geotools.data.Transaction;
+import org.geoserver.util.SortedProperties;
+import org.geotools.api.data.FeatureWriter;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.geometry.BoundingBox;
 import org.geotools.data.directory.DirectoryDataStore;
 import org.geotools.data.shapefile.ShapefileDataStoreFactory;
 import org.geotools.data.shapefile.files.ShpFileType;
@@ -25,13 +28,10 @@ import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.gce.imagemosaic.ImageMosaicFormat;
 import org.geotools.gce.imagemosaic.ImageMosaicReader;
 import org.geotools.gce.imagemosaic.Utils;
-import org.geotools.geometry.Envelope2D;
 import org.geotools.geometry.jts.JTS;
+import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.geometry.BoundingBox;
 
 /**
  * Helper to write out mosaic index shapefile and properties files.
@@ -53,31 +53,26 @@ public class MosaicIndex {
     }
 
     public void delete() throws IOException {
-        File[] files =
-                mosaic.getFile()
-                        .listFiles(
-                                (dir, name) -> {
-                                    if ("sample_image".equalsIgnoreCase(name)) {
-                                        return true;
-                                    }
+        File[] files = mosaic.getFile().listFiles((dir, name) -> {
+            if ("sample_image".equalsIgnoreCase(name)) {
+                return true;
+            }
 
-                                    if (!mosaic.getName()
-                                            .equalsIgnoreCase(FilenameUtils.getBaseName(name))) {
-                                        return false;
-                                    }
+            if (!mosaic.getName().equalsIgnoreCase(FilenameUtils.getBaseName(name))) {
+                return false;
+            }
 
-                                    String ext = FilenameUtils.getExtension(name);
-                                    ShpFileType shpFileType = null;
-                                    if (ext != null) {
-                                        try {
-                                            shpFileType = ShpFileType.valueOf(ext.toUpperCase());
-                                        } catch (IllegalArgumentException iae) {
-                                            // the extension is not matching
-                                        }
-                                    }
-                                    return "properties".equalsIgnoreCase(ext)
-                                            || shpFileType != null;
-                                });
+            String ext = FilenameUtils.getExtension(name);
+            ShpFileType shpFileType = null;
+            if (ext != null) {
+                try {
+                    shpFileType = ShpFileType.valueOf(ext.toUpperCase());
+                } catch (IllegalArgumentException iae) {
+                    // the extension is not matching
+                }
+            }
+            return "properties".equalsIgnoreCase(ext) || shpFileType != null;
+        });
         if (files != null) {
             for (File f : files) {
                 if (!f.delete()) {
@@ -100,18 +95,14 @@ public class MosaicIndex {
             return;
         }
 
-        Granule first =
-                Iterators.find(
-                        granules.iterator(),
-                        input ->
-                                input.getEnvelope() != null
-                                        && input.getEnvelope().getCoordinateReferenceSystem()
-                                                != null);
+        Granule first = Iterators.find(
+                granules.iterator(),
+                input -> input.getEnvelope() != null && input.getEnvelope().getCoordinateReferenceSystem() != null);
         if (first == null) {
             throw new IOException("Unable to determine CRS for mosaic");
         }
 
-        Envelope2D envelope = new Envelope2D(first.getEnvelope());
+        ReferencedEnvelope envelope = new ReferencedEnvelope(first.getEnvelope());
 
         // create index schema
         SimpleFeatureTypeBuilder typeBuilder = new SimpleFeatureTypeBuilder();
@@ -126,7 +117,7 @@ public class MosaicIndex {
 
         // tell image mosaic to use the index file we are creating
         File indexerFile = new File(mosaic.getFile(), "indexer.properties");
-        Properties indexer = new Properties();
+        SortedProperties indexer = new SortedProperties();
         indexer.put(Utils.Prop.NAME, mosaic.getName());
         indexer.put(Utils.Prop.INDEX_NAME, mosaic.getName());
         indexer.put(Utils.Prop.USE_EXISTING_SCHEMA, "true");
@@ -136,11 +127,8 @@ public class MosaicIndex {
 
         // create a new shapefile feature store
         ShapefileDataStoreFactory shpFactory = new ShapefileDataStoreFactory();
-        DirectoryDataStore dir =
-                new DirectoryDataStore(
-                        mosaic.getFile(),
-                        new ShapefileDataStoreFactory.ShpFileStoreFactory(
-                                shpFactory, new HashMap<>()));
+        DirectoryDataStore dir = new DirectoryDataStore(
+                mosaic.getFile(), new ShapefileDataStoreFactory.ShpFileStoreFactory(shpFactory, new HashMap<>()));
 
         try {
             dir.createSchema(typeBuilder.buildFeatureType());
@@ -149,8 +137,7 @@ public class MosaicIndex {
                     dir.getFeatureWriterAppend(mosaic.getName(), Transaction.AUTO_COMMIT)) {
                 for (Granule g : mosaic.granules()) {
                     if (g.getEnvelope() == null) {
-                        LOGGER.warning(
-                                "Skipping " + g.getFile().getAbsolutePath() + ", no envelope");
+                        LOGGER.warning("Skipping " + g.getFile().getAbsolutePath() + ", no envelope");
                     }
 
                     SimpleFeature f = w.next();
@@ -177,7 +164,7 @@ public class MosaicIndex {
         // if we have to add the time, do so now
         if (mosaic.getTimeMode() != TimeMode.NONE) {
             File propertyFile = new File(mosaic.getFile(), mosaic.getName() + ".properties");
-            Properties props = new Properties();
+            SortedProperties props = new SortedProperties();
             try (FileInputStream fis = new FileInputStream(propertyFile)) {
                 props.load(fis);
             }

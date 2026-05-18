@@ -40,7 +40,8 @@ import org.junit.rules.TemporaryFolder;
 
 public class GeoServerTileLayerInfoSerializableTest {
 
-    @Rule public TemporaryFolder temp = new TemporaryFolder();
+    @Rule
+    public TemporaryFolder temp = new TemporaryFolder();
 
     private GeoServerTileLayerInfo info;
 
@@ -62,20 +63,14 @@ public class GeoServerTileLayerInfoSerializableTest {
     }
 
     @SuppressWarnings("unchecked")
-    <T> Matcher<T> sameProperty(T expected, String property, Function<?, Matcher<?>> valueMatcher)
-            throws Exception {
-        Object value =
-                Arrays.stream(
-                                Introspector.getBeanInfo(expected.getClass())
-                                        .getPropertyDescriptors())
-                        .filter(p -> p.getName().equals(property))
-                        .findAny()
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "bean expected lacks the property " + property))
-                        .getReadMethod()
-                        .invoke(expected);
+    <T> Matcher<T> sameProperty(T expected, String property, Function<?, Matcher<?>> valueMatcher) throws Exception {
+        Object value = Arrays.stream(
+                        Introspector.getBeanInfo(expected.getClass()).getPropertyDescriptors())
+                .filter(p -> p.getName().equals(property))
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException("bean expected lacks the property " + property))
+                .getReadMethod()
+                .invoke(expected);
         return hasProperty(property, (Matcher<?>) ((Function) valueMatcher).apply(value));
     }
 
@@ -86,7 +81,7 @@ public class GeoServerTileLayerInfoSerializableTest {
             out.writeObject(info);
         }
         GeoServerTileLayerInfo unmarshalled;
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(f)); ) {
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(f))) {
             unmarshalled = (GeoServerTileLayerInfo) in.readObject();
         }
 
@@ -177,7 +172,7 @@ public class GeoServerTileLayerInfoSerializableTest {
 
         FloatParameterFilter floatParam = new FloatParameterFilter();
         floatParam.setKey("ENV");
-        floatParam.setThreshold(Float.valueOf(1E-4F));
+        floatParam.setThreshold(1E-4F);
         List<Float> floatValues = new ArrayList<>(floatParam.getValues());
         floatValues.addAll(Arrays.asList(1f, 1.5f, 2f, 2.5f));
         floatParam.setValues(floatValues);

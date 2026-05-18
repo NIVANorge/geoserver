@@ -16,11 +16,12 @@ import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.CoverageStoreInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.ResourcePool;
+import org.geoserver.security.impl.FileSandboxEnforcer;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.ParamResourceModel;
+import org.geotools.api.coverage.grid.GridCoverageReader;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.util.factory.GeoTools;
-import org.opengis.coverage.grid.GridCoverageReader;
 
 /**
  * Supports coverage store configuration
@@ -30,7 +31,7 @@ import org.opengis.coverage.grid.GridCoverageReader;
 public class CoverageStoreEditPage extends AbstractCoverageStorePage {
 
     public static final String STORE_NAME = "storeName";
-    public static final String WS_NAME = "wsName";
+    public static final String WS_NAME = "workspace";
 
     /** Dialog to ask for save confirmation in case the store can't be reached */
     private GeoServerDialog dialog;
@@ -43,13 +44,8 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
 
         if (csi == null) {
             getSession()
-                    .error(
-                            new ParamResourceModel(
-                                            "CoverageStoreEditPage.notFound",
-                                            this,
-                                            storeName,
-                                            wsName)
-                                    .getString());
+                    .error(new ParamResourceModel("CoverageStoreEditPage.notFound", this, storeName, wsName)
+                            .getString());
             doReturn(StorePage.class);
             return;
         }
@@ -85,15 +81,12 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
             String workspaceId = store.getWorkspace().getId();
             workspacePanel
                     .getFormComponent()
-                    .add(
-                            new CheckExistingResourcesInWorkspaceValidator(
-                                    store.getId(), workspaceId));
+                    .add(new CheckExistingResourcesInWorkspaceValidator(store.getId(), workspaceId));
         }
     }
 
     @Override
-    protected final void onSave(
-            final CoverageStoreInfo info, final AjaxRequestTarget requestTarget, boolean doReturn)
+    protected final void onSave(final CoverageStoreInfo info, final AjaxRequestTarget requestTarget, boolean doReturn)
             throws IllegalArgumentException {
 
         if (null == info.getType()) {
@@ -109,28 +102,22 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
         if (info.isEnabled()) {
             // store's enabled, make sure it works
             LOGGER.finer(
-                    "Store "
-                            + info.getName()
-                            + " is enabled, verifying factory availability "
-                            + "before saving it...");
+                    "Store " + info.getName() + " is enabled, verifying factory availability " + "before saving it...");
             AbstractGridFormat gridFormat = resourcePool.getGridCoverageFormat(info);
 
             if (gridFormat == null) {
-                throw new IllegalArgumentException(
-                        "No grid format found capable of connecting to the provided URL."
-                                + " To save the store disable it, and check the required libraries are in place");
+                throw new IllegalArgumentException("No grid format found capable of connecting to the provided URL."
+                        + " To save the store disable it, and check the required libraries are in place");
             }
             try {
                 // get the reader through ResourcePool so it resolves relative URL's for us
-                GridCoverageReader reader =
-                        resourcePool.getGridCoverageReader(info, GeoTools.getDefaultHints());
-                LOGGER.info(
-                        "Connection to store "
-                                + info.getName()
-                                + " validated. Got a "
-                                + reader.getClass().getName()
-                                + ". Saving store");
-                doSaveStore(info);
+                GridCoverageReader reader = resourcePool.getGridCoverageReader(info, GeoTools.getDefaultHints());
+                LOGGER.info("Connection to store "
+                        + info.getName()
+                        + " validated. Got a "
+                        + reader.getClass().getName()
+                        + ". Saving store");
+                if (!doSaveStore(info)) return;
                 if (doReturn) {
                     doReturn(StorePage.class);
                 }
@@ -139,7 +126,7 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
             }
         } else {
             // store's disabled, no need to check for availability
-            doSaveStore(info);
+            if (!doSaveStore(info)) return;
             if (doReturn) {
                 doReturn(StorePage.class);
             }
@@ -148,42 +135,37 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
 
     @SuppressWarnings("serial")
     private void confirmSaveOnConnectionFailure(
-            final CoverageStoreInfo info,
-            final AjaxRequestTarget requestTarget,
-            final Exception error) {
+            final CoverageStoreInfo info, final AjaxRequestTarget requestTarget, final Exception error) {
         final String exceptionMessage = error.getMessage();
 
-        dialog.showOkCancel(
-                requestTarget,
-                new GeoServerDialog.DialogDelegate() {
+        dialog.showOkCancel(requestTarget, new GeoServerDialog.DialogDelegate() {
 
-                    boolean accepted = false;
+            boolean accepted = false;
 
-                    @Override
-                    protected Component getContents(String id) {
-                        return new StoreConnectionFailedInformationPanel(
-                                id, info.getName(), exceptionMessage);
-                    }
+            @Override
+            protected Component getContents(String id) {
+                return new StoreConnectionFailedInformationPanel(id, info.getName(), exceptionMessage);
+            }
 
-                    @Override
-                    protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
-                        doSaveStore(info);
-                        accepted = true;
-                        return true;
-                    }
+            @Override
+            protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
+                doSaveStore(info);
+                accepted = true;
+                return true;
+            }
 
-                    @Override
-                    protected boolean onCancel(AjaxRequestTarget target) {
-                        return true;
-                    }
+            @Override
+            protected boolean onCancel(AjaxRequestTarget target) {
+                return true;
+            }
 
-                    @Override
-                    public void onClose(AjaxRequestTarget target) {
-                        if (accepted) {
-                            doReturn(StorePage.class);
-                        }
-                    }
-                });
+            @Override
+            public void onClose(AjaxRequestTarget target) {
+                if (accepted) {
+                    doReturn(StorePage.class);
+                }
+            }
+        });
     }
 
     /**
@@ -191,15 +173,14 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
      *
      * <p>This method may be subclasses to provide custom save functionality.
      */
-    protected void doSaveStore(final CoverageStoreInfo info) {
+    protected boolean doSaveStore(final CoverageStoreInfo info) {
         try {
             Catalog catalog = getCatalog();
 
             final String prefix = info.getWorkspace().getName();
             final NamespaceInfo namespace = catalog.getNamespaceByPrefix(prefix);
 
-            List<CoverageInfo> alreadyConfigured =
-                    catalog.getResourcesByStore(info, CoverageInfo.class);
+            List<CoverageInfo> alreadyConfigured = catalog.getResourcesByStore(info, CoverageInfo.class);
 
             for (CoverageInfo coverage : alreadyConfigured) {
                 coverage.setNamespace(namespace);
@@ -218,9 +199,14 @@ public class CoverageStoreEditPage extends AbstractCoverageStorePage {
                 catalog.save(coverage);
             }
             LOGGER.finer("Saved store " + info.getName());
+        } catch (FileSandboxEnforcer.SandboxException e) {
+            // this one is non recoverable, give up and inform the user
+            error(new ParamResourceModel("sandboxError", this, e.getFile().getAbsolutePath()).getString());
+            return false;
         } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Saving the store for " + info.getURL(), e);
             throw new IllegalArgumentException("Unable to save the store: " + e.getMessage());
         }
+        return true;
     }
 }

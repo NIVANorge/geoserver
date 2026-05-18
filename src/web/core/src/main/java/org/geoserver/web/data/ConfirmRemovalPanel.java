@@ -9,6 +9,7 @@ import static org.geoserver.catalog.CascadeRemovalReporter.ModificationType.DELE
 import static org.geoserver.catalog.CascadeRemovalReporter.ModificationType.EXTRA_STYLE_REMOVED;
 import static org.geoserver.catalog.CascadeRemovalReporter.ModificationType.GROUP_CHANGED;
 import static org.geoserver.catalog.CascadeRemovalReporter.ModificationType.STYLE_RESET;
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +37,20 @@ import org.geoserver.web.GeoServerApplication;
 
 @SuppressWarnings("serial")
 public class ConfirmRemovalPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ConfirmRemovalPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     List<? extends CatalogInfo> roots;
 
     public ConfirmRemovalPanel(String id, CatalogInfo... roots) {
@@ -124,9 +139,8 @@ public class ConfirmRemovalPanel extends Panel {
 
         // modified objects root (we show it if any modified object is on the list)
         WebMarkupContainer modified = new WebMarkupContainer("modifiedObjects");
-        modified.setVisible(
-                visitor.getObjects(null, EXTRA_STYLE_REMOVED, GROUP_CHANGED, STYLE_RESET).size()
-                        > 0);
+        modified.setVisible(!visitor.getObjects(null, EXTRA_STYLE_REMOVED, GROUP_CHANGED, STYLE_RESET)
+                .isEmpty());
         add(modified);
 
         // layers modified
@@ -162,37 +176,33 @@ public class ConfirmRemovalPanel extends Panel {
             return BeanUtils.getProperty(object, "name");
         } catch (Exception e) {
             throw new RuntimeException(
-                    "A catalog object that does not have "
-                            + "a 'name' property has been used, this is unexpected",
-                    e);
+                    "A catalog object that does not have " + "a 'name' property has been used, this is unexpected", e);
         }
     }
 
     ListView<CatalogInfo> notRemovedList(final Map<CatalogInfo, StringResourceModel> notRemoved) {
         List<CatalogInfo> items = new ArrayList<>(notRemoved.keySet());
-        ListView<CatalogInfo> lv =
-                new ListView<CatalogInfo>("notRemovedList", items) {
+        ListView<CatalogInfo> lv = new ListView<>("notRemovedList", items) {
 
-                    @Override
-                    protected void populateItem(ListItem<CatalogInfo> item) {
-                        CatalogInfo object = item.getModelObject();
-                        StringResourceModel reason = notRemoved.get(object);
-                        item.add(new Label("name", name(object)));
-                        item.add(new Label("reason", reason));
-                    }
-                };
+            @Override
+            protected void populateItem(ListItem<CatalogInfo> item) {
+                CatalogInfo object = item.getModelObject();
+                StringResourceModel reason = notRemoved.get(object);
+                item.add(new Label("name", name(object)));
+                item.add(new Label("reason", reason));
+            }
+        };
         return lv;
     }
 
     /**
      * Determines if a catalog object can be removed or not.
      *
-     * <p>This method returns non-null in cases where the object should not be be removed. The
-     * return value should be a description or reason of why the object can not be removed.
+     * <p>This method returns non-null in cases where the object should not be be removed. The return value should be a
+     * description or reason of why the object can not be removed.
      *
      * @param info The object to be removed.
-     * @return A message stating why the object can not be removed, or null to indicate that it can
-     *     be removed.
+     * @return A message stating why the object can not be removed, or null to indicate that it can be removed.
      */
     protected StringResourceModel canRemove(CatalogInfo info) {
         return null;

@@ -5,6 +5,9 @@
  */
 package org.geoserver.gwc.web.diskquota;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -52,6 +55,21 @@ import org.springframework.context.ApplicationContext;
  * @author groldan
  */
 public class DiskQuotaConfigPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(DiskQuotaConfigPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOGGER = Logging.getLogger(DiskQuotaConfigPanel.class);
@@ -80,8 +98,7 @@ public class DiskQuotaConfigPanel extends Panel {
         // representing the quota byte count
         BigInteger bytes = globalQuota.getBytes();
         StorageUnit bestRepresentedUnit = StorageUnit.bestFit(bytes);
-        BigDecimal transformedQuota =
-                StorageUnit.B.convertTo(new BigDecimal(bytes), bestRepresentedUnit);
+        BigDecimal transformedQuota = StorageUnit.B.convertTo(new BigDecimal(bytes), bestRepresentedUnit);
         configQuotaValueModel = new Model<>(transformedQuota.doubleValue());
 
         configQuotaUnitModel = new Model<>(bestRepresentedUnit);
@@ -98,17 +115,14 @@ public class DiskQuotaConfigPanel extends Panel {
     }
 
     private void addDiskQuotaStoreChooser(
-            IModel<DiskQuotaConfig> diskQuotaModel,
-            IModel<JDBCConfiguration> jdbcQuotaConfigModel) {
-        final WebMarkupContainer quotaStoreContainer =
-                new WebMarkupContainer("quotaStoreContainer");
+            IModel<DiskQuotaConfig> diskQuotaModel, IModel<JDBCConfiguration> jdbcQuotaConfigModel) {
+        final WebMarkupContainer quotaStoreContainer = new WebMarkupContainer("quotaStoreContainer");
         quotaStoreContainer.setOutputMarkupId(true);
         add(quotaStoreContainer);
 
         // get the list of supported quota store types
         ApplicationContext applicationContext = GeoServerApplication.get().getApplicationContext();
-        Map<String, QuotaStoreFactory> factories =
-                applicationContext.getBeansOfType(QuotaStoreFactory.class);
+        Map<String, QuotaStoreFactory> factories = applicationContext.getBeansOfType(QuotaStoreFactory.class);
         List<String> storeNames = new ArrayList<>();
         for (QuotaStoreFactory sf : factories.values()) {
             storeNames.addAll(sf.getSupportedStoreNames());
@@ -118,14 +132,10 @@ public class DiskQuotaConfigPanel extends Panel {
         // add the drop down chooser
         PropertyModel<String> storeNameModel = new PropertyModel<>(diskQuotaModel, "quotaStore");
         if (diskQuotaModel.getObject().getQuotaStore() == null) {
-            storeNameModel.setObject(JDBCQuotaStoreFactory.H2_STORE);
+            storeNameModel.setObject(JDBCQuotaStoreFactory.HSQL_STORE);
         }
         final DropDownChoice<String> quotaStoreChooser =
-                new DropDownChoice<>(
-                        "diskQuotaStore",
-                        storeNameModel,
-                        storeNames,
-                        new LocalizedChoiceRenderer(this));
+                new DropDownChoice<>("diskQuotaStore", storeNameModel, storeNames, new LocalizedChoiceRenderer(this));
         quotaStoreChooser.setOutputMarkupId(true);
         quotaStoreContainer.add(quotaStoreChooser);
 
@@ -136,10 +146,19 @@ public class DiskQuotaConfigPanel extends Panel {
         quotaStoreContainer.add(jdbcContainer);
 
         // add a chooser for the dialect type
-        List<String> dialectBeanNames =
-                new ArrayList<>(applicationContext.getBeansOfType(SQLDialect.class).keySet());
+        List<String> dialectBeanNames = new ArrayList<>(
+                applicationContext.getBeansOfType(SQLDialect.class).keySet());
         List<String> dialectNames = new ArrayList<>();
         for (String beanName : dialectBeanNames) {
+            if (beanName.equals("H2QuotaDialect")) {
+                try {
+                    // check if H2 driver is in the classpath
+                    Class.forName("org.h2.Driver");
+                } catch (Exception e) {
+                    // don't add H2QuotaDialect when h2 driver is not there
+                    continue;
+                }
+            }
             int idx = beanName.indexOf("QuotaDialect");
             if (idx > 0) {
                 dialectNames.add(beanName.substring(0, idx));
@@ -147,10 +166,15 @@ public class DiskQuotaConfigPanel extends Panel {
         }
         JDBCConfiguration config = jdbcQuotaConfigModel.getObject();
         IModel<String> dialectModel = new PropertyModel<>(jdbcQuotaConfigModel, "dialect");
-        DropDownChoice<String> dialectChooser =
-                new DropDownChoice<>("dialectChooser", dialectModel, dialectNames);
+        DropDownChoice<String> dialectChooser = new DropDownChoice<>("dialectChooser", dialectModel, dialectNames);
         dialectChooser.setRequired(true);
         jdbcContainer.add(dialectChooser);
+
+        // Optional database schema for the quota store tables. Honored by
+        // JDBCQuotaStoreFactory#getJDBCStore -> JDBCQuotaStore#setSchema.
+        IModel<String> schemaModel = new PropertyModel<>(jdbcQuotaConfigModel, "schema");
+        TextField<String> schema = new TextField<>("schema", schemaModel);
+        jdbcContainer.add(schema);
 
         // add a chooser for the connection type
         List<String> connectionTypes = Arrays.asList("JNDI", "PRIVATE_POOL");
@@ -160,31 +184,26 @@ public class DiskQuotaConfigPanel extends Panel {
         } else {
             connectionTypeModel.setObject("JNDI");
         }
-        final DropDownChoice<String> connectionTypeChooser =
-                new DropDownChoice<>(
-                        "connectionTypeChooser",
-                        connectionTypeModel,
-                        connectionTypes,
-                        new LocalizedChoiceRenderer(this));
+        final DropDownChoice<String> connectionTypeChooser = new DropDownChoice<>(
+                "connectionTypeChooser", connectionTypeModel, connectionTypes, new LocalizedChoiceRenderer(this));
         connectionTypeChooser.setOutputMarkupId(true);
         jdbcContainer.add(connectionTypeChooser);
 
         // make the JDBC configuration visible only when the user chose a JDBC store
-        quotaStoreChooser.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
+        quotaStoreChooser.add(new AjaxFormComponentUpdatingBehavior("change") {
 
-                    private static final long serialVersionUID = -6806581935751265393L;
+            @Serial
+            private static final long serialVersionUID = -6806581935751265393L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        jdbcContainer.setVisible("JDBC".equals(quotaStoreChooser.getModelObject()));
-                        target.add(quotaStoreContainer);
-                    }
-                });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                jdbcContainer.setVisible("JDBC".equals(quotaStoreChooser.getModelObject()));
+                target.add(quotaStoreContainer);
+            }
+        });
 
         // a container for jndi and local private pool options
-        final WebMarkupContainer connectionTypeContainer =
-                new WebMarkupContainer("connectionTypeContainer");
+        final WebMarkupContainer connectionTypeContainer = new WebMarkupContainer("connectionTypeContainer");
         connectionTypeContainer.setOutputMarkupId(true);
         jdbcContainer.add(connectionTypeContainer);
 
@@ -206,19 +225,19 @@ public class DiskQuotaConfigPanel extends Panel {
         connectionTypeContainer.add(privatePoolPanel);
 
         // make the two ways to configure the JDBC store show up as alternatives
-        connectionTypeChooser.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
+        connectionTypeChooser.add(new AjaxFormComponentUpdatingBehavior("change") {
 
-                    private static final long serialVersionUID = -8286073946292214144L;
+            @Serial
+            private static final long serialVersionUID = -8286073946292214144L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        boolean jndiVisible = "JNDI".equals(connectionTypeChooser.getModelObject());
-                        jndiContainer.setVisible(jndiVisible);
-                        privatePoolPanel.setVisible(!jndiVisible);
-                        target.add(connectionTypeContainer);
-                    }
-                });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                boolean jndiVisible = "JNDI".equals(connectionTypeChooser.getModelObject());
+                jndiContainer.setVisible(jndiVisible);
+                privatePoolPanel.setVisible(!jndiVisible);
+                target.add(connectionTypeContainer);
+            }
+        });
     }
 
     private void addGlobalQuotaConfig(
@@ -228,37 +247,34 @@ public class DiskQuotaConfigPanel extends Panel {
 
         final IModel<Quota> globalQuotaModel = new PropertyModel<>(diskQuotaModel, "globalQuota");
 
-        final IModel<Quota> globalUsedQuotaModel =
-                new LoadableDetachableModel<Quota>() {
-                    private static final long serialVersionUID = 1L;
+        final IModel<Quota> globalUsedQuotaModel = new LoadableDetachableModel<>() {
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @Override
-                    protected Quota load() {
-                        GWC gwc = GWC.get();
-                        if (!gwc.isDiskQuotaAvailable()) {
-                            return new Quota(); // fake
-                        }
-                        return gwc.getGlobalUsedQuota();
-                    }
-                };
+            @Override
+            protected Quota load() {
+                GWC gwc = GWC.get();
+                if (!gwc.isDiskQuotaAvailable()) {
+                    return new Quota(); // fake
+                }
+                return gwc.getGlobalUsedQuota();
+            }
+        };
 
         Object[] progressMessageParams = {
             globalUsedQuotaModel.getObject().toNiceString(),
             globalQuotaModel.getObject().toNiceString()
         };
         IModel<String> progressMessageModel =
-                new StringResourceModel("DiskQuotaConfigPanel.usedQuotaMessage")
-                        .setParameters(progressMessageParams);
+                new StringResourceModel("DiskQuotaConfigPanel.usedQuotaMessage").setParameters(progressMessageParams);
         addGlobalQuotaStatusBar(globalQuotaModel, globalUsedQuotaModel, progressMessageModel);
 
         TextField<Double> quotaValue = new TextField<>("globalQuota", quotaValueModel);
         quotaValue.setRequired(true);
         add(quotaValue);
 
-        List<? extends StorageUnit> units =
-                Arrays.asList(StorageUnit.MiB, StorageUnit.GiB, StorageUnit.TiB);
-        DropDownChoice<StorageUnit> quotaUnitChoice =
-                new DropDownChoice<>("globalQuotaUnits", unitModel, units);
+        List<? extends StorageUnit> units = Arrays.asList(StorageUnit.MiB, StorageUnit.GiB, StorageUnit.TiB);
+        DropDownChoice<StorageUnit> quotaUnitChoice = new DropDownChoice<>("globalQuotaUnits", unitModel, units);
         add(quotaUnitChoice);
     }
 
@@ -273,16 +289,13 @@ public class DiskQuotaConfigPanel extends Panel {
         IModel<ExpirationPolicy> lfuModel = new Model<>(ExpirationPolicy.LFU);
         IModel<ExpirationPolicy> lruModel = new Model<>(ExpirationPolicy.LRU);
 
-        Radio<ExpirationPolicy> globalQuotaPolicyLFU =
-                new Radio<>("globalQuotaPolicyLFU", lfuModel);
-        Radio<ExpirationPolicy> globalQuotaPolicyLRU =
-                new Radio<>("globalQuotaPolicyLRU", lruModel);
+        Radio<ExpirationPolicy> globalQuotaPolicyLFU = new Radio<>("globalQuotaPolicyLFU", lfuModel);
+        Radio<ExpirationPolicy> globalQuotaPolicyLRU = new Radio<>("globalQuotaPolicyLRU", lruModel);
 
         globalQuotaPolicy.add(globalQuotaPolicyLFU);
         globalQuotaPolicy.add(globalQuotaPolicyLRU);
     }
 
-    @SuppressWarnings("unchecked")
     private void addCleanUpFrequencyConfig(final IModel<DiskQuotaConfig> diskQuotaModel) {
 
         final DiskQuotaConfig diskQuotaConfig = diskQuotaModel.getObject();
@@ -295,15 +308,11 @@ public class DiskQuotaConfigPanel extends Panel {
             diskQuotaConfig.setCacheCleanUpUnits(TimeUnit.SECONDS);
         }
 
-        IModel<Integer> cleanUpFreqModel =
-                new PropertyModel<>(diskQuotaModel, "cacheCleanUpFrequency");
+        IModel<Integer> cleanUpFreqModel = new PropertyModel<>(diskQuotaModel, "cacheCleanUpFrequency");
         TextField<Integer> cleanUpFreq = new TextField<>("cleanUpFreq", cleanUpFreqModel);
         cleanUpFreq.setRequired(true);
-        cleanUpFreq.add(
-                new AttributeModifier(
-                        "title",
-                        new StringResourceModel(
-                                "DiskQuotaConfigPanel.cleanUpFreq.title", null, null)));
+        cleanUpFreq.add(new AttributeModifier(
+                "title", new StringResourceModel("DiskQuotaConfigPanel.cleanUpFreq.title", null, null)));
         add(cleanUpFreq);
         {
             Date lastRun = diskQuotaConfig.getLastCleanUpTime();
@@ -328,8 +337,7 @@ public class DiskQuotaConfigPanel extends Panel {
                 params.put("x", String.valueOf(timeAgo));
                 params.put("timeUnit", timeUnits);
             }
-            IModel<String> lastRunModel =
-                    new StringResourceModel(resourceId, this, new Model(params));
+            IModel<String> lastRunModel = new StringResourceModel(resourceId, this, new Model<>(params));
             add(new Label("cleanUpLastRun", lastRunModel));
         }
     }
@@ -337,10 +345,7 @@ public class DiskQuotaConfigPanel extends Panel {
     private void addDiskQuotaIntegrationEnablement(IModel<DiskQuotaConfig> diskQuotaModel) {
         IModel<Boolean> quotaEnablementModel = new PropertyModel<>(diskQuotaModel, "enabled");
         CheckBox diskQuotaIntegration =
-                checkbox(
-                        "enableDiskQuota",
-                        quotaEnablementModel,
-                        "DiskQuotaConfigPanel.enableDiskQuota.title");
+                checkbox("enableDiskQuota", quotaEnablementModel, "DiskQuotaConfigPanel.enableDiskQuota.title");
         add(diskQuotaIntegration);
     }
 
@@ -358,10 +363,7 @@ public class DiskQuotaConfigPanel extends Panel {
         StorageUnit bestUnitForLimit = StorageUnit.bestFit(limitValue);
         StorageUnit bestUnitForUsed = StorageUnit.bestFit(usedValue);
 
-        StorageUnit biggerUnit =
-                bestUnitForLimit.compareTo(bestUnitForUsed) > 0
-                        ? bestUnitForLimit
-                        : bestUnitForUsed;
+        StorageUnit biggerUnit = bestUnitForLimit.compareTo(bestUnitForUsed) > 0 ? bestUnitForLimit : bestUnitForUsed;
 
         BigDecimal showLimit = StorageUnit.B.convertTo(new BigDecimal(limitValue), biggerUnit);
         BigDecimal showUsed = StorageUnit.B.convertTo(new BigDecimal(usedValue), biggerUnit);
@@ -369,9 +371,7 @@ public class DiskQuotaConfigPanel extends Panel {
         final IModel<Number> limitModel = new Model<>(showLimit);
         final IModel<Number> usedModel = new Model<>(showUsed);
 
-        StatusBar statusBar =
-                new StatusBar(
-                        "globalQuotaProgressBar", limitModel, usedModel, progressMessageModel);
+        StatusBar statusBar = new StatusBar("globalQuotaProgressBar", limitModel, usedModel, progressMessageModel);
 
         add(statusBar);
     }

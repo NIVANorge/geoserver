@@ -10,20 +10,15 @@ import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.gwc.wmts.Tuple;
 import org.geoserver.wms.WMS;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.sort.SortOrder;
 import org.geotools.feature.FeatureCollection;
-import org.opengis.filter.sort.SortOrder;
 
 /** Represents an elevation dimension of a raster. */
 public class RasterElevationDimension extends RasterDimension {
 
     public RasterElevationDimension(WMS wms, LayerInfo layerInfo, DimensionInfo dimensionInfo) {
-        super(
-                wms,
-                ResourceInfo.ELEVATION,
-                layerInfo,
-                dimensionInfo,
-                CoverageDimensionsReader.DataType.NUMERIC);
+        super(wms, ResourceInfo.ELEVATION, layerInfo, dimensionInfo, CoverageDimensionsReader.DataType.NUMERIC);
     }
 
     @Override
@@ -33,14 +28,9 @@ public class RasterElevationDimension extends RasterDimension {
 
     @Override
     protected FeatureCollection getDomain(Query query) {
-        CoverageDimensionsReader reader =
-                CoverageDimensionsReader.instantiateFrom((CoverageInfo) resourceInfo);
-        Tuple<String, FeatureCollection> values =
-                reader.getValues(
-                        this.dimensionName,
-                        query,
-                        CoverageDimensionsReader.DataType.NUMERIC,
-                        SortOrder.ASCENDING);
+        CoverageDimensionsReader reader = CoverageDimensionsReader.instantiateFrom((CoverageInfo) resourceInfo);
+        Tuple<String, FeatureCollection> values = reader.getValues(
+                this.dimensionName, query, CoverageDimensionsReader.DataType.NUMERIC, SortOrder.ASCENDING);
 
         return values.second;
     }

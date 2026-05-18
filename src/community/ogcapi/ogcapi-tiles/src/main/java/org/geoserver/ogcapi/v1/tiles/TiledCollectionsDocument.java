@@ -16,15 +16,15 @@ import org.geoserver.ogcapi.APIException;
 import org.geoserver.ogcapi.AbstractDocument;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.wms.WMS;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.util.logging.Logging;
 import org.geowebcache.layer.TileLayer;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.operation.TransformException;
 import org.springframework.http.HttpStatus;
 
 /**
- * A class representing the tiles server "collections" in a way that Jackson can easily translate to
- * JSON/YAML (and can be used as a Freemarker template model)
+ * A class representing the tiles server "collections" in a way that Jackson can easily translate to JSON/YAML (and can
+ * be used as a Freemarker template model)
  */
 @JsonPropertyOrder({"links", "collections"})
 public class TiledCollectionsDocument extends AbstractDocument {
@@ -51,9 +51,8 @@ public class TiledCollectionsDocument extends AbstractDocument {
     public Iterator<TiledCollectionDocument> getCollections() {
         Iterator<TileLayer> tileLayers = gwc.getTileLayers().iterator();
         boolean skipInvalid =
-                gs.getGlobal().getResourceErrorHandling()
-                        == ResourceErrorHandling.SKIP_MISCONFIGURED_LAYERS;
-        return new Iterator<TiledCollectionDocument>() {
+                gs.getGlobal().getResourceErrorHandling() == ResourceErrorHandling.SKIP_MISCONFIGURED_LAYERS;
+        return new Iterator<>() {
 
             TiledCollectionDocument next;
 
@@ -66,8 +65,7 @@ public class TiledCollectionsDocument extends AbstractDocument {
                 while (tileLayers.hasNext()) {
                     TileLayer tileLayer = tileLayers.next();
                     try {
-                        TiledCollectionDocument collection =
-                                new TiledCollectionDocument(wms, tileLayer, true);
+                        TiledCollectionDocument collection = new TiledCollectionDocument(wms, tileLayer, true);
 
                         next = collection;
                         return true;

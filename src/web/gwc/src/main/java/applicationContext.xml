@@ -7,9 +7,10 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
 
 <beans>
-  <bean class="org.geoserver.platform.ModuleStatusImpl">
+  <bean id="gwcWebExtension" class="org.geoserver.platform.ModuleStatusImpl">
     <constructor-arg index="0" value="gs-web-gwc"/>
     <constructor-arg index="1" value="GeoServer Web UI GeoWebCache"/>
+    <property name="category" value="CORE"/>
   </bean>
 
   <bean id="wmtsServiceDescriptor" class="org.geoserver.gwc.web.GWCServiceDescriptionProvider">
@@ -30,6 +31,7 @@
     <property name="category" ref="gwcCategory"/>
     <property name="icon" value="../tilelayer.png"/>
     <property name="order" value="1"/>
+    <property name="contextParams" value="workspace,group" />
   </bean>
     
   <bean id="gwcSettingsMenuPage" class="org.geoserver.web.MenuPageInfo">
@@ -86,6 +88,7 @@
 
   <bean id="wmtsServicePage" class="org.geoserver.web.services.ServiceMenuPageInfo">
     <property name="id" value="wmts"/>
+    <property name="order" value="800"/>
     <property name="titleKey" value="wmts.title"/>
     <property name="descriptionKey" value="wmts.description"/>
     <property name="componentClass" value="org.geoserver.gwc.web.wmts.WMTSAdminPage"/>
@@ -99,7 +102,6 @@
     <constructor-arg ref="catalog" />
     <constructor-arg value="/gwc/demo"/>
     <property name="alwaysUseFullPath" value="true" />
-    <property name="order" value="10" />
   </bean>
 
   <!-- Used for workspace-based web requests (i.e. for rest/web/openlayer/ol.js) -->
@@ -107,7 +109,18 @@
     <constructor-arg ref="catalog" />
     <constructor-arg type="java.lang.String"  value="/gwc/rest/web"/>
     <property name="alwaysUseFullPath" value="true" />
+  </bean>
+
+  <!-- Tile Caching - Workspace-based tile caching page -->
+  <bean id="breadcrumbItemWsTileCaching" class="org.geoserver.web.BreadcrumbContextMenuItemInfo">
+    <property name="id" value="breadcrumbItemWsTileCaching" />
+    <property name="titleKey" value="BreadcrumbNavigationPanel.tilelayers" /> 
+    <property name="componentClass" value="org.geoserver.gwc.web.layer.CachedLayersPage" />
+    <property name="targetLevel" value="WORKSPACE" />
+    <property name="category" ref="breadcrumbCatTileCaching" />
     <property name="order" value="10" />
+    <property name="authorizer" ref="workspaceAdminAuthorizer"/>
+    <property name="icon" value="../wmts/server_tile_map.png"/>
   </bean>
 
 </beans>

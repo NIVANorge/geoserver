@@ -5,23 +5,26 @@
  */
 package org.geoserver.monitor;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.geoserver.platform.ServiceException;
-import org.opengis.geometry.BoundingBox;
+import org.geotools.api.geometry.BoundingBox;
+import org.geotools.util.SuppressFBWarnings;
 
 /**
- * The request object, a simple java bean that gathers all the information and data that is
- * monitored per request.
+ * The request object, a simple java bean that gathers all the information and data that is monitored per request.
  *
  * @author Andrea Aime, OpenGeo
  * @author Justin Deoliveira, OpenGeo
  */
+@SuppressFBWarnings("AT_NONATOMIC_64BIT_PRIMITIVE") // used by one thread at a time
 public class RequestData implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 4115701065212157258L;
 
     private static AtomicLong COUNTER = new AtomicLong();
@@ -35,14 +38,14 @@ public class RequestData implements Serializable {
         FINISHED,
         CANCELLED,
         INTERRUPTED
-    };
+    }
 
     /** Enumeration describing the category of a request. */
     public static enum Category {
         OWS,
         REST,
         OTHER
-    };
+    }
 
     public long internalid = COUNTER.getAndIncrement();
 
@@ -59,8 +62,8 @@ public class RequestData implements Serializable {
     private String path;
 
     /**
-     * The query string that is contained in the request URL after the path, or {@code null} if the
-     * URL does not have a query string.
+     * The query string that is contained in the request URL after the path, or {@code null} if the URL does not have a
+     * query string.
      */
     private String queryString;
 
@@ -76,16 +79,10 @@ public class RequestData implements Serializable {
     /** The HTTP method of the request */
     private String httpMethod;
 
-    /**
-     * The request start timestamp in the Server's local time (as per {@link
-     * System#currentTimeMillis()})
-     */
+    /** The request start timestamp in the Server's local time (as per {@link System#currentTimeMillis()}) */
     private Date startTime;
 
-    /**
-     * The request end timestamp in the Server's local time (as per {@link
-     * System#currentTimeMillis()})
-     */
+    /** The request end timestamp in the Server's local time (as per {@link System#currentTimeMillis()}) */
     private Date endTime;
 
     /** The total time, in milliseconds, the request took to complete */
@@ -95,9 +92,8 @@ public class RequestData implements Serializable {
     private String remoteAddr;
 
     /**
-     * The fully qualified name of the client or the last proxy that sent the request. If the engine
-     * cannot or chooses not to resolve the hostname (to improve performance), the the dotted-string
-     * form of the IP address.
+     * The fully qualified name of the client or the last proxy that sent the request. If the engine cannot or chooses
+     * not to resolve the hostname (to improve performance), the dotted-string form of the IP address.
      */
     private String remoteHost;
 
@@ -161,9 +157,7 @@ public class RequestData implements Serializable {
     /** A bounding box for the region the request covers if any (May be approximate) */
     private BoundingBox bbox;
 
-    /**
-     * Whether the request hit or miss the cache for cache-able protocols (GWC, direct integration)
-     */
+    /** Whether the request hit or miss the cache for cache-able protocols (GWC, direct integration) */
     private String cacheResult;
 
     /** If there was a cache miss, the reason for it */
@@ -216,8 +210,7 @@ public class RequestData implements Serializable {
     /**
      * The body of the HTTP request
      *
-     * <p>May be trimmed to a maximum length. If so, check getBodyContentLength for the length of
-     * the untrimmed body.
+     * <p>May be trimmed to a maximum length. If so, check getBodyContentLength for the length of the untrimmed body.
      */
     public byte[] getBody() {
         return body;

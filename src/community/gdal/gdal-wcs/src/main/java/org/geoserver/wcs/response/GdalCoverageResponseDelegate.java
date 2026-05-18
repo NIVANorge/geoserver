@@ -13,10 +13,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.zip.ZipOutputStream;
 import org.geoserver.config.GeoServer;
+import org.geoserver.config.impl.GeoServerLifecycleHandler;
 import org.geoserver.ogr.core.Format;
 import org.geoserver.ogr.core.FormatAdapter;
 import org.geoserver.ogr.core.FormatConverter;
@@ -26,37 +28,37 @@ import org.geoserver.platform.ServiceException;
 import org.geoserver.util.IOUtils;
 import org.geoserver.wcs.WCSInfo;
 import org.geoserver.wcs.responses.CoverageResponseDelegate;
+import org.geotools.api.parameter.GeneralParameterValue;
+import org.geotools.api.parameter.ParameterValueGroup;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.gce.geotiff.GeoTiffFormat;
 import org.geotools.gce.geotiff.GeoTiffWriteParams;
 import org.geotools.gce.geotiff.GeoTiffWriter;
 import org.geotools.util.Utilities;
-import org.opengis.parameter.GeneralParameterValue;
-import org.opengis.parameter.ParameterValueGroup;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.vfny.geoserver.wcs.WcsException;
 
 /**
- * Implementation of {@link CoverageResponseDelegate} that leverages the gdal_translate utility to
- * encode coverages in any output format supported by the GDAL library available on the system where
- * GeoServer is running.
+ * Implementation of {@link CoverageResponseDelegate} that leverages the gdal_translate utility to encode coverages in
+ * any output format supported by the GDAL library available on the system where GeoServer is running.
  *
  * <p>The encoding process involves two steps:
  *
  * <ol>
- *   <li>the coverage passed as input to the <code>encode()</code> method is dumped to a temporary
- *       file on disk in GeoTIFF format
- *   <li>the <code>gdal_translate</code> command is invoked with the provided options to convert the
- *       dumped GeoTIFF file to the desired format
+ *   <li>the coverage passed as input to the <code>encode()</code> method is dumped to a temporary file on disk in
+ *       GeoTIFF format
+ *   <li>the <code>gdal_translate</code> command is invoked with the provided options to convert the dumped GeoTIFF file
+ *       to the desired format
  * </ol>
  *
- * <p>Configuration for the supported output formats must be passed to the class via its {@link
- * #addFormat(GdalFormat)} method.
+ * <p>Configuration for the supported output formats must be passed to the class via its {@link #addFormat(GdalFormat)}
+ * method.
  *
  * @author Stefano Costa, GeoSolutions
  */
-public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, FormatConverter {
+public class GdalCoverageResponseDelegate
+        implements CoverageResponseDelegate, FormatConverter, GeoServerLifecycleHandler {
 
     private static final GeoTiffFormat GEOTIF_FORMAT = new GeoTiffFormat();
 
@@ -67,8 +69,8 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
     ToolWrapperFactory gdalWrapperFactory;
 
     /**
-     * The fs path to gdal_translate. If null, we'll assume gdal_translate is in the PATH and that
-     * we can execute it just by running gdal_translate
+     * The fs path to gdal_translate. If null, we'll assume gdal_translate is in the PATH and that we can execute it
+     * just by running gdal_translate
      */
     String gdalTranslatePath = null;
 
@@ -79,19 +81,26 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
     Map<String, String> environment = null;
 
     /** Map holding the descriptors of the supported GDAL formats (keyed by format name). */
-    static Map<String, Format> formats = new HashMap<String, Format>();
+    static Map<String, Format> formats = new HashMap<>();
+
     /** Map holding the descriptors of the supported GDAL formats (keyed by mime type). */
-    static Map<String, Format> formatsByMimeType = new HashMap<String, Format>();
+    static Map<String, Format> formatsByMimeType = new HashMap<>();
 
     /** Lock guarding concurrent access to the maps holding the format descriptors. */
     private ReadWriteLock formatsLock;
+
+    /**
+     * Supports caching and lazily computing the gdal_translate availability, and ability to clear the computed value on
+     * reset/reload
+     */
+    private AtomicReference<Boolean> available = new AtomicReference<>(null);
 
     /** @param gs */
     public GdalCoverageResponseDelegate(GeoServer gs, ToolWrapperFactory wrapperFactory) {
         this.formatsLock = new ReentrantReadWriteLock();
         this.geoServer = gs;
         this.gdalWrapperFactory = wrapperFactory;
-        this.environment = new HashMap<String, String>();
+        this.environment = new HashMap<>();
     }
 
     /** Returns the gdal_translate executable full path. */
@@ -101,8 +110,8 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
     }
 
     /**
-     * Sets the gdal_translate executable full path. The default value is simply "gdal_translate",
-     * which will work if gdal_translate is in the path.
+     * Sets the gdal_translate executable full path. The default value is simply "gdal_translate", which will work if
+     * gdal_translate is in the path.
      */
     @Override
     public void setExecutable(String gdalTranslate) {
@@ -116,8 +125,8 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
     }
 
     /**
-     * Provides the environment variables that are set prior to invoking gdal_translate (notably the
-     * GDAL_DATA variable, specifying the location of GDAL's data directory).
+     * Provides the environment variables that are set prior to invoking gdal_translate (notably the GDAL_DATA variable,
+     * specifying the location of GDAL's data directory).
      */
     @Override
     public void setEnvironment(Map<String, String> environment) {
@@ -158,7 +167,7 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
     public List<Format> getFormats() {
         formatsLock.readLock().lock();
         try {
-            return new ArrayList<Format>(formats.values());
+            return new ArrayList<>(formats.values());
         } finally {
             formatsLock.readLock().unlock();
         }
@@ -274,12 +283,10 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
         return format;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void encode(
-            GridCoverage2D coverage,
-            String outputFormat,
-            Map<String, String> econdingParameters,
-            OutputStream output)
+            GridCoverage2D coverage, String outputFormat, Map<String, String> econdingParameters, OutputStream output)
             throws ServiceException, IOException {
         Utilities.ensureNonNull("sourceCoverage", coverage);
 
@@ -296,8 +303,7 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
         File tempGDAL = IOUtils.createTempDirectory("gdaltmpout");
 
         // build the gdal wrapper used to run the gdal_translate commands
-        ToolWrapper wrapper =
-                gdalWrapperFactory.createWrapper(gdalTranslateExecutable, environment);
+        ToolWrapper wrapper = gdalWrapperFactory.createWrapper(gdalTranslateExecutable, environment);
 
         // actually export the coverage
         try {
@@ -309,8 +315,7 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
             // convert with gdal_translate
             final CoordinateReferenceSystem crs = coverage.getCoordinateReferenceSystem();
             outputFile =
-                    wrapper.convert(
-                            intermediate, tempGDAL, coverage.getName().toString(), format, crs);
+                    wrapper.convert(intermediate, tempGDAL, coverage.getName().toString(), format, crs);
 
             // wipe out the input dir contents
             IOUtils.emptyDirectory(tempGS);
@@ -352,7 +357,8 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
 
             final ParameterValueGroup writerParams = GEOTIF_FORMAT.getWriteParameters();
             writerParams
-                    .parameter(AbstractGridFormat.GEOTOOLS_WRITE_PARAMS.getName().toString())
+                    .parameter(
+                            AbstractGridFormat.GEOTOOLS_WRITE_PARAMS.getName().toString())
                     .setValue(wp);
 
             WCSInfo wcsService = geoServer.getService(WCSInfo.class);
@@ -363,11 +369,7 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
             }
 
             // write down
-            if (writer != null)
-                writer.write(
-                        coverage,
-                        (GeneralParameterValue[])
-                                writerParams.values().toArray(new GeneralParameterValue[1]));
+            if (writer != null) writer.write(coverage, writerParams.values().toArray(new GeneralParameterValue[1]));
         } finally {
             try {
                 if (writer != null) writer.dispose();
@@ -385,7 +387,7 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
         List<String> outputFormats = null;
         formatsLock.readLock().lock();
         try {
-            outputFormats = new ArrayList<String>(formats.keySet());
+            outputFormats = new ArrayList<>(formats.keySet());
         } finally {
             formatsLock.readLock().unlock();
         }
@@ -396,12 +398,34 @@ public class GdalCoverageResponseDelegate implements CoverageResponseDelegate, F
 
     @Override
     public boolean isAvailable() {
-        ToolWrapper gdal = gdalWrapperFactory.createWrapper(gdalTranslateExecutable, environment);
-        return gdal.isAvailable();
+        return available.updateAndGet(b -> {
+            if (b == null) {
+                ToolWrapper gdal = gdalWrapperFactory.createWrapper(gdalTranslateExecutable, environment);
+                return gdal.isAvailable();
+            } else {
+                return b;
+            }
+        });
     }
 
     @Override
     public String getConformanceClass(String format) {
         return "http://www.opengis.net/spec/WCS_coverage-encoding-x" + getMimeType(format);
+    }
+
+    @Override
+    public void onReset() {
+        available.set(null);
+    }
+
+    @Override
+    public void onDispose() {}
+
+    @Override
+    public void beforeReload() {}
+
+    @Override
+    public void onReload() {
+        available.set(null);
     }
 }

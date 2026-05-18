@@ -13,6 +13,7 @@ import org.geoserver.metadata.AbstractWicketMetadataTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.wicketstuff.progressbar.ProgressBar;
 
 /**
  * Test bulk page.
@@ -22,25 +23,31 @@ import org.junit.Test;
 public class BulkOperationsPageTest extends AbstractWicketMetadataTest {
 
     @Before
-    public void before() throws IOException {
+    @Override
+    public void start() throws Exception {
+        super.start();
         login();
         tester.startPage(new MetadataBulkOperationsPage());
         tester.assertRenderedPage(MetadataBulkOperationsPage.class);
     }
 
     @After
-    public void after() throws Exception {
+    @Override
+    public void stop() throws Exception {
         restoreLayers();
         restoreTemplates();
         logout();
+        super.stop();
     }
 
     @Test
     public void testFixAll() {
         tester.clickLink("fix");
         tester.assertModelValue(
-                "dialog:dialog:content:form:userPanel",
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel",
                 "This will update 1 layers and might take a while.");
+        tester.clickLink("dialog:dialog:modal:overlay:dialog:content:content:form:submit");
+        tester.assertComponent("progress:dialog:modal:overlay:dialog:content:content", ProgressBar.class);
     }
 
     @Test
@@ -54,7 +61,7 @@ public class BulkOperationsPageTest extends AbstractWicketMetadataTest {
 
         formTester.submit("import");
         tester.assertModelValue(
-                "dialog:dialog:content:form:userPanel",
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel",
                 "This will import 2 layers and might take a while. Existing data may be overwritten/removed.");
     }
 
@@ -69,7 +76,7 @@ public class BulkOperationsPageTest extends AbstractWicketMetadataTest {
 
         formTester.submit("custom");
         tester.assertModelValue(
-                "dialog:dialog:content:form:userPanel",
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel",
                 "This will process 2 layers and might take a while. Existing data may be overwritten/removed.");
     }
 
@@ -78,7 +85,7 @@ public class BulkOperationsPageTest extends AbstractWicketMetadataTest {
         FormTester formTester = tester.newFormTester("formClear");
         formTester.submit("clear");
         tester.assertModelValue(
-                "dialog:dialog:content:form:userPanel",
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel",
                 "This will update 1 layers and might take a while. Warning: ALL metadata will be removed and this cannot be undone!");
     }
 }

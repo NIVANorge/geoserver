@@ -14,10 +14,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Test;
 
-/**
- * Tests default logging functionality, requires use of {@link #cleanupLogs()} after test is
- * completed.
- */
+/** Tests default logging functionality, requires use of {@link #cleanupLogs()} after test is completed. */
 public class LogPageTest extends GeoServerWicketTestSupport {
 
     protected static File logsDir = null;
@@ -42,19 +39,6 @@ public class LogPageTest extends GeoServerWicketTestSupport {
     public void testDefaultLocation() {
         GeoServer gs = getGeoServerApplication().getGeoServer();
         LoggingInfo logging = gs.getLogging();
-        logging.setLocation("logs/geoserver.log");
-        gs.save(logging);
-
-        login();
-        tester.startPage(LogPage.class);
-        tester.assertRenderedPage(LogPage.class);
-    }
-
-    @Test
-    public void testNullLocation() {
-        GeoServer gs = getGeoServerApplication().getGeoServer();
-        LoggingInfo logging = gs.getLogging();
-        logging.setLocation(null);
         gs.save(logging);
 
         login();

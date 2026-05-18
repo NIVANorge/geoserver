@@ -14,23 +14,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class SearchHTMLMessageConverter extends AbstractItemsHTMLMessageConverter<SearchResponse> {
 
-    public SearchHTMLMessageConverter(
-            FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
+    public SearchHTMLMessageConverter(FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
         super(SearchResponse.class, templateSupport, geoServer);
     }
 
+    @Override
     protected Template getEmptyTemplate() throws IOException {
         return templateSupport.getTemplate(null, "search-empty.ftl", STACService.class);
     }
 
+    @Override
     protected Template getContentTemplate() throws IOException {
         return templateSupport.getTemplate(null, "search-content.ftl", STACService.class);
     }
 
+    @Override
     protected Template getFooterTemplate() throws IOException {
         return templateSupport.getTemplate(null, "search-footer.ftl", STACService.class);
     }
 
+    @Override
     protected Template getHeaderTemplate() throws IOException {
         return templateSupport.getTemplate(null, "search-header.ftl", STACService.class);
     }

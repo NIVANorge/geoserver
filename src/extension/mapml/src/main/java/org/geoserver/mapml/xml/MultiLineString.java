@@ -8,13 +8,13 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlType;
 import java.util.ArrayList;
 import java.util.List;
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElementRef;
-import javax.xml.bind.annotation.XmlType;
 
 /**
  * Java class for anonymous complex type.
@@ -35,20 +35,18 @@ import javax.xml.bind.annotation.XmlType;
 @XmlType(
         name = "",
         propOrder = {"twoOrMoreCoordinatePairs"})
-public class MultiLineString {
+@XmlRootElement(name = "map-multilinestring", namespace = "http://www.w3.org/1999/xhtml")
+public class MultiLineString implements MapMLElement {
 
-    @XmlElementRef(
-            name = "map-coordinates",
-            type = JAXBElement.class,
-            namespace = "http://www.w3.org/1999/xhtml")
-    protected List<JAXBElement<List<String>>> twoOrMoreCoordinatePairs;
+    @XmlElement(name = "map-coordinates", namespace = "http://www.w3.org/1999/xhtml")
+    protected List<Coordinates> twoOrMoreCoordinatePairs;
 
     /**
      * Gets the value of the twoOrMoreCoordinatePairs property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the twoOrMoreCoordinatePairs property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the twoOrMoreCoordinatePairs property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -56,12 +54,12 @@ public class MultiLineString {
      *    getTwoOrMoreCoordinatePairs().add(newItem);
      * </pre>
      *
-     * <p>Objects of the following type(s) are allowed in the list {@link JAXBElement }{@code
-     * <}{@link List }{@code <}{@link String }{@code >}{@code >}
+     * <p>Objects of the following type(s) are allowed in the list {@link JAXBElement }{@code <}{@link List
+     * }{@code <}{@link String }{@code >}{@code >}
      *
      * @return two or more coordinate pairs
      */
-    public List<JAXBElement<List<String>>> getTwoOrMoreCoordinatePairs() {
+    public List<Coordinates> getTwoOrMoreCoordinatePairs() {
         if (twoOrMoreCoordinatePairs == null) {
             twoOrMoreCoordinatePairs = new ArrayList<>();
         }

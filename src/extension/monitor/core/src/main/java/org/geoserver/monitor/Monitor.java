@@ -17,9 +17,9 @@ import org.springframework.context.event.ContextRefreshedEvent;
 /**
  * The GeoServer request monitor and primary entry point into the monitor api.
  *
- * <p>For each request submitted to a GeoServer instance the monitor maintains state about the
- * request and makes operations available that control the life cycle of the request. The life cycle
- * of a monitored request advances through the following states:
+ * <p>For each request submitted to a GeoServer instance the monitor maintains state about the request and makes
+ * operations available that control the life cycle of the request. The life cycle of a monitored request advances
+ * through the following states:
  *
  * <ul>
  *   <li>the request is STARTED
@@ -145,5 +145,14 @@ public class Monitor implements ApplicationListener<ApplicationEvent> {
         if (event instanceof ContextRefreshedEvent) {
             listeners = GeoServerExtensions.extensions(RequestDataListener.class);
         }
+    }
+
+    /**
+     * Adds a RequestDataListener to the monitor, that is not registered in the application context already
+     *
+     * @param listener The listener to add
+     */
+    public void addRequestDataListener(RequestDataListener listener) {
+        this.listeners.add(listener);
     }
 }

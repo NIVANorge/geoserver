@@ -4,7 +4,10 @@
  */
 package org.geoserver.web.security;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.util.List;
 import java.util.Set;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -23,6 +26,20 @@ import org.geoserver.security.impl.DataAccessRule;
 
 public class AccessDataRulePanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AccessDataRulePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -5609090679199229976L;
 
     private IModel<List<DataAccessRuleInfo>> ownModel;
@@ -38,9 +55,7 @@ public class AccessDataRulePanel extends Panel {
     WebMarkupContainer listContainer;
 
     public AccessDataRulePanel(
-            String id,
-            IModel<? extends CatalogInfo> model,
-            IModel<List<DataAccessRuleInfo>> ownModel) {
+            String id, IModel<? extends CatalogInfo> model, IModel<List<DataAccessRuleInfo>> ownModel) {
         super(id, model);
         AccessDataRuleInfoManager manager = new AccessDataRuleInfoManager();
         this.info = model.getObject();
@@ -66,33 +81,30 @@ public class AccessDataRulePanel extends Panel {
         AccessDataRuleInfoManager manager = new AccessDataRuleInfoManager();
         Set<String> roles = manager.getAvailableRoles();
         Set<DataAccessRule> rules = manager.getResourceRule(workspaceName, info);
-        boolean globalLayerGroup =
-                info instanceof LayerGroupInfo && workspaceName == null ? true : false;
+        boolean globalLayerGroup = info instanceof LayerGroupInfo && workspaceName == null ? true : false;
         Set<DataAccessRule> news =
-                manager.mapFrom(
-                        ownModel.getObject(), roles, workspaceName, layerName, globalLayerGroup);
+                manager.mapFrom(ownModel.getObject(), roles, workspaceName, layerName, globalLayerGroup);
         manager.saveRules(rules, news);
     }
 
     CheckBox selectAllCheckbox() {
-        CheckBox sa =
-                new CheckBox("selectAll", new PropertyModel<>(this, "dataAccessView.selectAll"));
+        CheckBox sa = new CheckBox("selectAll", new PropertyModel<>(this, "dataAccessView.selectAll"));
         sa.setOutputMarkupId(true);
-        sa.add(
-                new AjaxFormComponentUpdatingBehavior("click") {
+        sa.add(new AjaxFormComponentUpdatingBehavior("click") {
 
-                    private static final long serialVersionUID = 1154921156065269691L;
+            @Serial
+            private static final long serialVersionUID = 1154921156065269691L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        // select all the checkboxes
-                        dataAccessView.setSelection();
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                // select all the checkboxes
+                dataAccessView.setSelection();
 
-                        // update table and the checkbox itself
-                        target.add(getComponent());
-                        target.add(listContainer);
-                    }
-                });
+                // update table and the checkbox itself
+                target.add(getComponent());
+                target.add(listContainer);
+            }
+        });
         return sa;
     }
 }

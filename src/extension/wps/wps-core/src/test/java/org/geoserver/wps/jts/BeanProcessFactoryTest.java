@@ -17,7 +17,9 @@ import java.util.Map;
 import java.util.Set;
 import org.geoserver.wps.WPSTestSupport;
 import org.geoserver.wps.process.GeoServerProcessors;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.util.InternationalString;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
@@ -34,8 +36,6 @@ import org.geotools.util.factory.FactoryIteratorProvider;
 import org.geotools.util.factory.GeoTools;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.type.Name;
-import org.opengis.util.InternationalString;
 
 /**
  * Tests some processes that do not require integration with the application context
@@ -44,7 +44,7 @@ import org.opengis.util.InternationalString;
  */
 public class BeanProcessFactoryTest extends WPSTestSupport {
 
-    public class BeanProcessFactory extends AnnotatedBeanProcessFactory {
+    public static class BeanProcessFactory extends AnnotatedBeanProcessFactory {
 
         public BeanProcessFactory() {
             super(
@@ -64,19 +64,18 @@ public class BeanProcessFactoryTest extends WPSTestSupport {
 
         // check SPI will see the factory if we register it using an iterator
         // provider
-        GeoTools.addFactoryIteratorProvider(
-                new FactoryIteratorProvider() {
+        GeoTools.addFactoryIteratorProvider(new FactoryIteratorProvider() {
 
-                    @Override
-                    @SuppressWarnings("unchecked")
-                    public <T> Iterator<T> iterator(Class<T> category) {
-                        if (ProcessFactory.class.isAssignableFrom(category)) {
-                            return (Iterator<T>) Collections.singletonList(factory).iterator();
-                        } else {
-                            return null;
-                        }
-                    }
-                });
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T> Iterator<T> iterator(Class<T> category) {
+                if (ProcessFactory.class.isAssignableFrom(category)) {
+                    return (Iterator<T>) Collections.singletonList(factory).iterator();
+                } else {
+                    return null;
+                }
+            }
+        });
     }
 
     @Test
@@ -112,13 +111,12 @@ public class BeanProcessFactoryTest extends WPSTestSupport {
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
         tb.setName("test");
         final ReferencedEnvelope re = new ReferencedEnvelope(-10, 10, -10, 10, null);
-        FeatureCollection fc =
-                new ListFeatureCollection(tb.buildFeatureType()) {
-                    @Override
-                    public synchronized ReferencedEnvelope getBounds() {
-                        return re;
-                    }
-                };
+        FeatureCollection fc = new ListFeatureCollection(tb.buildFeatureType()) {
+            @Override
+            public synchronized ReferencedEnvelope getBounds() {
+                return re;
+            }
+        };
 
         org.geotools.process.Process p = factory.create(new NameImpl("bean", "Bounds"));
         Map<String, Object> inputs = new HashMap<>();

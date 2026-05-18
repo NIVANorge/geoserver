@@ -5,6 +5,9 @@
  */
 package org.geoserver.web.data.store.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.PasswordTextField;
 import org.apache.wicket.markup.html.form.validation.FormComponentFeedbackBorder;
@@ -19,15 +22,26 @@ import org.geoserver.web.data.store.PasswordTextFieldWriteOnlyModel;
  */
 public class PasswordParamPanel extends Panel implements ParamPanel<String> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(PasswordParamPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -7801141820174575611L;
 
     private final PasswordTextField passwordField;
 
     public PasswordParamPanel(
-            final String id,
-            final IModel<String> model,
-            final IModel<String> paramLabelModel,
-            final boolean required) {
+            final String id, final IModel<String> model, final IModel<String> paramLabelModel, final boolean required) {
         super(id, model);
         String requiredMark = required ? " *" : "";
         add(new Label("paramName", paramLabelModel.getObject() + requiredMark));
@@ -38,8 +52,7 @@ public class PasswordParamPanel extends Panel implements ParamPanel<String> {
         // "Parameter 'paramValue' is required"
         passwordField.setLabel(paramLabelModel);
 
-        FormComponentFeedbackBorder requiredFieldFeedback =
-                new FormComponentFeedbackBorder("border");
+        FormComponentFeedbackBorder requiredFieldFeedback = new FormComponentFeedbackBorder("border");
 
         requiredFieldFeedback.add(passwordField);
 

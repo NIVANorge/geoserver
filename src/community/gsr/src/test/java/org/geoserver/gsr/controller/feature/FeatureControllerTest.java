@@ -12,10 +12,10 @@ package org.geoserver.gsr.controller.feature;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import net.sf.json.JSON;
-import net.sf.json.JSONObject;
 import org.geoserver.gsr.controller.ControllerTest;
 import org.junit.Test;
+import org.kordamp.json.JSON;
+import org.kordamp.json.JSONObject;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 public class FeatureControllerTest extends ControllerTest {
@@ -45,9 +45,7 @@ public class FeatureControllerTest extends ControllerTest {
         // 'attributes' fields.
         JSONObject json = (JSONObject) result;
         Object featureObject = ((JSONObject) result).get("feature");
-        assertTrue(
-                "feature field should contain an object" + json,
-                featureObject instanceof JSONObject);
+        assertTrue("feature field should contain an object" + json, featureObject instanceof JSONObject);
         JSONObject feature = (JSONObject) featureObject;
         assertTrue("feature should contain attributes" + json, feature.containsKey("attributes"));
         assertTrue("feature should contain geometry" + json, feature.containsKey("geometry"));

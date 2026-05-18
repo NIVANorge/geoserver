@@ -12,13 +12,13 @@ import java.util.List;
 import org.geoserver.catalog.CatalogInfo;
 import org.geoserver.csw.DownloadLinkHandler;
 import org.geoserver.csw.records.CSWRecordDescriptor;
-import org.geotools.data.CloseableIterator;
+import org.geotools.api.data.CloseableIterator;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.ComplexType;
 import org.geotools.feature.AttributeImpl;
 import org.geotools.feature.ComplexAttributeImpl;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.ComplexType;
 
 /** {@link FeatureCustomizer} subclass to deal with CSW DublinCore records */
 public class RecordCustomizer extends FeatureCustomizer {
@@ -53,8 +53,7 @@ public class RecordCustomizer extends FeatureCustomizer {
         List<Property> newReferencesList = new ArrayList<>();
         String link = null;
         try {
-            try (CloseableIterator<String> links =
-                    downloadLinkHandler.generateDownloadLinks(resource)) {
+            try (CloseableIterator<String> links = downloadLinkHandler.generateDownloadLinks(resource)) {
                 if (links == null) {
                     // No need to update the feature
                     return;
@@ -84,8 +83,7 @@ public class RecordCustomizer extends FeatureCustomizer {
 
                 // link String should contain the last link generated
                 // let's recycle it to generate the full download link
-                newReferencesList.add(
-                        createReferencesElement(downloadLinkHandler.extractFullDownloadLink(link)));
+                newReferencesList.add(createReferencesElement(downloadLinkHandler.extractFullDownloadLink(link)));
                 // append new references to the current collection
                 // before going to other elements
                 propertyList.addAll(newReferencesList);
@@ -101,7 +99,6 @@ public class RecordCustomizer extends FeatureCustomizer {
         Property urlAttribute = new AttributeImpl(link, VALUE_DESCRIPTOR, null);
 
         // Setting references
-        return new ComplexAttributeImpl(
-                Collections.singletonList(urlAttribute), REFERENCES_DESCRIPTOR, null);
+        return new ComplexAttributeImpl(Collections.singletonList(urlAttribute), REFERENCES_DESCRIPTOR, null);
     }
 }

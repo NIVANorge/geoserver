@@ -1,38 +1,41 @@
 /* (c) 2022 Open Source Geospatial Foundation - all rights reserved
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
- */ package org.geoserver.wcs.web;
+ */
+package org.geoserver.wcs.web;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Logger;
 import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServer;
+import org.geoserver.config.ServiceInfo;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.Service;
 import org.geoserver.wcs.WCSInfo;
-import org.geoserver.wcs.WebCoverageService100;
-import org.geoserver.wcs.WebCoverageService111;
-import org.geoserver.wcs2_0.WebCoverageService20;
+import org.geoserver.wcs.WCSResourceVoter;
 import org.geoserver.web.ServiceDescription;
 import org.geoserver.web.ServiceDescriptionProvider;
 import org.geoserver.web.ServiceLinkDescription;
-import org.geotools.util.logging.Logging;
+import org.geotools.util.Version;
 
-/** Provide description of WMS services for welcome page. */
+/** Provide description of WCS services for welcome page. */
 public class WCSServiceDescriptionProvider extends ServiceDescriptionProvider {
 
-    static final Logger LOGGER = Logging.getLogger(WCSServiceDescriptionProvider.class);
-
     /** Service type to cross-link between service description and service link description. */
-    public static final String SERVICE_TYPE = "WCS";
+    private static final String SERVICE_TYPE = "WCS";
+
+    private static final List<Version> SUPPORTED_VERSIONS =
+            Arrays.asList(new Version("1.0.0"), new Version("1.1.1"), new Version("2.0.1"));
 
     GeoServer geoserver;
     Catalog catalog;
 
     public WCSServiceDescriptionProvider(GeoServer gs) {
+        super(SERVICE_TYPE);
         this.geoserver = gs;
         catalog = gs.getCatalog();
     }
@@ -56,14 +59,24 @@ public class WCSServiceDescriptionProvider extends ServiceDescriptionProvider {
     }
 
     @Override
-    public List<ServiceDescription> getServices(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    protected boolean isAvailable(String serviceType, ServiceInfo serviceInfo, PublishedInfo layerInfo) {
+        if (layerInfo != null && layerInfo instanceof LayerInfo info) {
+            WCSResourceVoter voter = new WCSResourceVoter();
+            if (voter.hideService(serviceType, info.getResource())) {
+                return false;
+            }
+        }
+        return super.isAvailable(serviceType, serviceInfo, layerInfo);
+    }
+
+    @Override
+    public List<ServiceDescription> getServices(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
 
         List<ServiceDescription> descriptions = new ArrayList<>();
         WCSInfo info = info(workspaceInfo, layerInfo);
 
         if (workspaceInfo != null || geoserver.getGlobal().isGlobalServices()) {
-            descriptions.add(description(SERVICE_TYPE, info, workspaceInfo, layerInfo));
+            descriptions.add(description(serviceType, info, workspaceInfo, layerInfo));
         }
         return descriptions;
     }
@@ -77,20 +90,23 @@ public class WCSServiceDescriptionProvider extends ServiceDescriptionProvider {
     }
 
     @Override
-    public List<ServiceLinkDescription> getServiceLinks(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    public List<ServiceLinkDescription> getServiceLinks(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
         List<ServiceLinkDescription> links = new ArrayList<>();
 
         if (workspaceInfo == null && !geoserver.getGlobal().isGlobalServices()) {
             return links;
         }
 
+        WCSInfo info = info(workspaceInfo, layerInfo);
+        List<Version> disabledVersions = (info != null) ? info.getDisabledVersions() : null;
+
         List<Service> extensions = GeoServerExtensions.extensions(Service.class);
 
         for (Service service : extensions) {
-            if ((service.getService() instanceof WebCoverageService111)
-                    || (service.getService() instanceof WebCoverageService100)
-                    || (service.getService() instanceof WebCoverageService20)) {
+            if (SERVICE_TYPE.equalsIgnoreCase(service.getId()) && SUPPORTED_VERSIONS.contains(service.getVersion())) {
+                if (disabledVersions != null && disabledVersions.contains(service.getVersion())) {
+                    continue;
+                }
 
                 String link = null;
                 if (service.getOperations().contains("GetCapabilities")) {
@@ -100,13 +116,12 @@ public class WCSServiceDescriptionProvider extends ServiceDescriptionProvider {
                 }
 
                 if (link != null) {
-                    links.add(
-                            new ServiceLinkDescription(
-                                    SERVICE_TYPE,
-                                    service.getVersion(),
-                                    link,
-                                    workspaceInfo != null ? workspaceInfo.getName() : null,
-                                    layerInfo != null ? layerInfo.getName() : null));
+                    links.add(new ServiceLinkDescription(
+                            serviceType,
+                            service.getVersion(),
+                            link,
+                            workspaceInfo != null ? workspaceInfo.getName() : null,
+                            layerInfo != null ? layerInfo.getName() : null));
                 }
             }
         }

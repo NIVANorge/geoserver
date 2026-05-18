@@ -9,9 +9,9 @@ import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
 import org.geoserver.catalog.CatalogInfo;
 import org.geoserver.gwc.GWC;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
 
 /**
  * Detect if layer is cached.
@@ -35,8 +35,7 @@ public class IsCachedFunction extends FunctionExpressionImpl {
             info = (CatalogInfo) getExpression(0).evaluate(object);
         } catch (Exception e) {
             throw new IllegalArgumentException(
-                    "Filter Function problem for function typeOf argument #0 - expected type CatalogInfo",
-                    e);
+                    "Filter Function problem for function typeOf argument #0 - expected type CatalogInfo", e);
         }
 
         return GWC.get().hasTileLayer(info);

@@ -12,23 +12,22 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.wps.ppio.ProcessParameterIO;
 import org.geoserver.wps.process.ProcessSelector;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.feature.type.Name;
 import org.geotools.process.ProcessFactory;
 import org.geotools.process.Processors;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 /**
- * A process filter that removes from the supported processes the ones that have inputs of outputs
- * we cannot deal with using the available {@link ProcessParameterIO} objects
+ * A process filter that removes from the supported processes the ones that have inputs of outputs we cannot deal with
+ * using the available {@link ProcessParameterIO} objects
  *
  * @author Andrea Aime - GeoSolutions
  */
-public class UnsupportedParameterTypeProcessFilter extends ProcessSelector
-        implements ApplicationContextAware {
+public class UnsupportedParameterTypeProcessFilter extends ProcessSelector implements ApplicationContextAware {
 
     static final Logger LOGGER = Logging.getLogger(UnsupportedParameterTypeProcessFilter.class);
 
@@ -81,6 +80,7 @@ public class UnsupportedParameterTypeProcessFilter extends ProcessSelector
                         }
                     }
                 } catch (Throwable t) {
+                    LOGGER.log(Level.CONFIG, "Blacklisting process " + name.getURI() + " as it cannot be loaded", t);
                     processBlacklist.add(name);
                 }
 

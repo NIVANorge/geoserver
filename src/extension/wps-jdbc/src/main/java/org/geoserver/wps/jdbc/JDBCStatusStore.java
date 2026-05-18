@@ -27,14 +27,21 @@ import org.geoserver.wps.WPSException;
 import org.geoserver.wps.executor.ExecutionStatus;
 import org.geoserver.wps.executor.ProcessState;
 import org.geoserver.wps.xml.WPSConfiguration;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.data.transform.Definition;
 import org.geotools.data.transform.TransformFactory;
 import org.geotools.factory.CommonFactoryFinder;
@@ -49,13 +56,6 @@ import org.geotools.util.logging.Logging;
 import org.geotools.wps.WPS;
 import org.geotools.xsd.Encoder;
 import org.geotools.xsd.Parser;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
 import org.xml.sax.SAXException;
 
 /**
@@ -127,8 +127,7 @@ public class JDBCStatusStore implements ProcessStatusStore {
 
     public JDBCStatusStore(DataStore store) {
         if (store == null) {
-            throw new RuntimeException(
-                    "Attempted to create a JDBCStatusStore with a null datastore");
+            throw new RuntimeException("Attempted to create a JDBCStatusStore with a null datastore");
         }
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
         tb.add(PROCESS_ID, String.class);
@@ -170,8 +169,7 @@ public class JDBCStatusStore implements ProcessStatusStore {
         }
     }
 
-    private List<Definition> buildDefinitions(
-            SimpleFeatureType actual, SimpleFeatureType expected) {
+    private List<Definition> buildDefinitions(SimpleFeatureType actual, SimpleFeatureType expected) {
         List<Definition> definitions = new ArrayList<>();
         boolean mappingRequired = false;
         if (!actual.getTypeName().equals(expected.getTypeName())) {
@@ -231,8 +229,7 @@ public class JDBCStatusStore implements ProcessStatusStore {
             SimpleFeatureStore store = getStatusFeatureStore();
             store.setTransaction(transaction);
             SimpleFeature feature = statusToFeature(status);
-            FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection =
-                    DataUtilities.collection(feature);
+            FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection = DataUtilities.collection(feature);
             // if the feature exists delete it
             Filter filter = ECQL.toFilter(PROCESS_ID + " = '" + status.getExecutionId() + "'");
             store.removeFeatures(filter);
@@ -397,10 +394,7 @@ public class JDBCStatusStore implements ProcessStatusStore {
         try {
             e.encode(request, WPS.Execute, out);
         } catch (IOException ex) {
-            LOGGER.log(
-                    Level.INFO,
-                    "Problem encountered encoding WPS Request, moving on without it",
-                    ex);
+            LOGGER.log(Level.INFO, "Problem encountered encoding WPS Request, moving on without it", ex);
         }
 
         return out.toByteArray();
@@ -468,11 +462,10 @@ public class JDBCStatusStore implements ProcessStatusStore {
         Exception exc = new Exception(message);
         // see if we can rebuild the exception
         try {
-            Constructor<?> con =
-                    this.getClass()
-                            .getClassLoader()
-                            .loadClass((String) attrs.get(EXCEPTION_CLASS))
-                            .getConstructor(String.class);
+            Constructor<?> con = this.getClass()
+                    .getClassLoader()
+                    .loadClass((String) attrs.get(EXCEPTION_CLASS))
+                    .getConstructor(String.class);
             exc = (Exception) con.newInstance(message);
 
         } catch (InstantiationException
@@ -495,8 +488,7 @@ public class JDBCStatusStore implements ProcessStatusStore {
             String fileName = parts[1];
             String methodName = parts[2];
             int lineNumber = Integer.parseInt(parts[3]);
-            StackTraceElement t =
-                    new StackTraceElement(declaringClass, methodName, fileName, lineNumber);
+            StackTraceElement t = new StackTraceElement(declaringClass, methodName, fileName, lineNumber);
 
             trace.add(t);
         }

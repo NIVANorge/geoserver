@@ -4,13 +4,13 @@
  */
 package org.geoserver.featurestemplating.builders.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.Objects;
 import org.geoserver.featurestemplating.builders.AbstractTemplateBuilder;
 import org.geoserver.featurestemplating.builders.visitors.TemplateVisitor;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.databind.JsonNode;
 
 /** This class provides functionality to write content from Json-ld template file as it is */
 public class StaticBuilder extends AbstractTemplateBuilder {
@@ -35,15 +35,13 @@ public class StaticBuilder extends AbstractTemplateBuilder {
     }
 
     @Override
-    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         if (canWrite(context) && evaluateFilter(context)) {
             evaluateInternal(writer, context);
         }
     }
 
-    protected void evaluateInternal(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    protected void evaluateInternal(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         addChildrenEvaluationToEncodingHints(writer, context);
         String key = getKey(context);
         if (strValue != null) writer.writeStaticContent(key, strValue, getEncodingHints());
@@ -78,8 +76,7 @@ public class StaticBuilder extends AbstractTemplateBuilder {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         StaticBuilder that = (StaticBuilder) o;
-        return Objects.equals(staticValue, that.staticValue)
-                && Objects.equals(strValue, that.strValue);
+        return Objects.equals(staticValue, that.staticValue) && Objects.equals(strValue, that.strValue);
     }
 
     @Override

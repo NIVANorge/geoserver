@@ -103,9 +103,9 @@ public class TrkType {
     /**
      * Gets the value of the link property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the link property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the link property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -117,7 +117,7 @@ public class TrkType {
      */
     public List<LinkType> getLink() {
         if (link == null) {
-            link = new ArrayList<LinkType>();
+            link = new ArrayList<>();
         }
 
         return this.link;
@@ -156,9 +156,9 @@ public class TrkType {
     /**
      * Gets the value of the trkseg property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the trkseg property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the trkseg property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -170,7 +170,7 @@ public class TrkType {
      */
     public List<TrksegType> getTrkseg() {
         if (trkseg == null) {
-            trkseg = new ArrayList<TrksegType>();
+            trkseg = new ArrayList<>();
         }
 
         return this.trkseg;

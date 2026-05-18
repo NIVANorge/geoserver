@@ -16,14 +16,14 @@ import java.util.Set;
 import org.apache.wicket.validation.IValidatable;
 import org.apache.wicket.validation.IValidator;
 import org.apache.wicket.validation.ValidationError;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.filter.FilterAttributeExtractor;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
-import org.opengis.filter.expression.Expression;
 
 /**
- * Validates that a ECQL expression is syntactically valid, and if a set of valid attribute is
- * provided, that the expression only uses those attributes
+ * Validates that a ECQL expression is syntactically valid, and if a set of valid attribute is provided, that the
+ * expression only uses those attributes
  *
  * @author Andrea Aime - GeoSolutions
  */

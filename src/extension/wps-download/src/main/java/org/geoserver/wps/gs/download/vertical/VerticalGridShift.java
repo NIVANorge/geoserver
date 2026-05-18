@@ -4,11 +4,11 @@
  */
 package org.geoserver.wps.gs.download.vertical;
 
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 
 /**
- * A Vertical Grid Shift is based on a Grid file containing a Grid of values where each position in
- * the grid contains the value of the shift to be applied
+ * A Vertical Grid Shift is based on a Grid file containing a Grid of values where each position in the grid contains
+ * the value of the shift to be applied
  */
 public interface VerticalGridShift {
 
@@ -22,7 +22,7 @@ public interface VerticalGridShift {
     boolean isInValidArea(double x, double y);
 
     /** Return the valid area (the bbox) of the Grid */
-    GeneralEnvelope getValidArea();
+    GeneralBounds getValidArea();
 
     /** Return the resolution of the Grid */
     double[] getResolution();
@@ -30,10 +30,7 @@ public interface VerticalGridShift {
     /** Return the CRS associated to the Grid */
     int getCRSCode();
 
-    /**
-     * Apply the shift to the z value at the given position, returning false if the shift hasn't be
-     * applied
-     */
+    /** Apply the shift to the z value at the given position, returning false if the shift hasn't be applied */
     boolean shift(double x, double y, double[] z);
 
     /** Release resources associated to the Grid */

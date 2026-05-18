@@ -35,16 +35,24 @@
     <include>ant-*.jar</include>
     <include>commons-el-*.jar</include>
     <include>commons-logging-*.jar</include>
-    <include>log4j-*.jar</include>
     <include>jetty-*.jar</include>
     <include>jetty-util-*.jar</include>
-    <include>javax.servlet-api-*.jar</include>
     <include>xmlParserAPIs-*.jar</include>
+    <include>jakarta.servlet*.jar</include>
    </includes>
    <excludes>
-    <exclude>log4j-over-slf4j-*.jar</exclude>
+    <exclude>*-slf4j-*.jar</exclude>
     <exclude>jetty-start*.jar</exclude>
+       <exclude>*log4j*.jar</exclude>
    </excludes>
+  </fileSet>
+  <fileSet>
+     <directory>release/target/dependency</directory>
+     <outputDirectory>lib/logging</outputDirectory>
+     <includes>
+         <include>slf4j-*.jar</include>
+         <include>jetty-slf4j-*.jar</include>
+     </includes>
   </fileSet>
   <fileSet>
    <!-- windows batch files -->
@@ -67,16 +75,8 @@
    </includes>
   </fileSet>
   <fileSet>
-   <directory>release/target/html</directory>
-   <outputDirectory></outputDirectory>
-   <includes>
-    <include>README.html</include>
-    <include>RUNNING.html</include>
-   </includes>
-  </fileSet>
-  <fileSet>
     <directory>release/target/html/licenses</directory>
-    <outputDirectory>license</outputDirectory>
+    <outputDirectory>licenses</outputDirectory>
     <includes>
        <include>NOTICE.html</include>
        <include>apache-1.1.html</include>
@@ -86,16 +86,10 @@
        <include>GEOTOOLS_NOTICE.html</include>
        <include>HSQL.html</include>
        <include>LGPL.html</include>
+       <include>GPL.html</include>
        <include>OGC.html</include>
        <include>W3C.html</include>
     </includes>
-  </fileSet>
-  <fileSet>
-   <directory>target</directory>
-   <outputDirectory></outputDirectory>
-   <includes>
-    <include>VERSION.txt</include>
-   </includes>
   </fileSet>
   <fileSet>
    <!-- jetty configuration -->
@@ -104,7 +98,18 @@
    <includes>
     <include>**/*</include>
    </includes>
+   <excludes>
+       <exclude>start.ini</exclude>
+   </excludes>
   </fileSet>
+     <fileSet>
+       <!-- start.ini with template expansion -->
+       <directory>release/target/jetty</directory>
+       <outputDirectory></outputDirectory>
+       <includes>
+           <include>start.ini</include>
+       </includes>
+     </fileSet>
   <fileSet>
    <!-- empty log directory -->
    <directory>release/logs</directory>
@@ -122,5 +127,23 @@
       <outputDirectory></outputDirectory>
       <destName>start.jar</destName>
     </file>
+     <file>
+       <source>release/target/html/release/README.html</source>
+     </file>
+     <file>
+       <source>release/target/html/release/RUNNING.html</source>
+     </file>
+     <file>
+       <source>release/target/html/release/LICENSE.html</source>
+     </file>
+     <file>
+       <source>../licenses/NOTICE.md</source>
+       <outputDirectory>license</outputDirectory>
+       <destName>NOTICE.txt</destName>
+     </file>
+     <file>
+       <source>target/VERSION.txt</source>
+       <outputDirectory></outputDirectory>
+     </file>
  </files>
 </assembly>

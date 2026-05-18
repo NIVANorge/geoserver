@@ -50,7 +50,8 @@ public class GDALStatus implements ModuleStatus {
 
     @Override
     public Optional<String> getMessage() {
-        String message = "JNI GDAL Wrapper Version: " + getGDALWrapperJarVersion().orElse("null");
+        String message =
+                "JNI GDAL Wrapper Version: " + getGDALWrapperJarVersion().orElse("null");
         if (!isAvailable()) {
             message += "\njava.library.path: " + System.getProperty("java.library.path", "");
         } else {
@@ -62,6 +63,16 @@ public class GDALStatus implements ModuleStatus {
     @Override
     public Optional<String> getDocumentation() {
         return Optional.ofNullable("");
+    }
+
+    @Override
+    public Category getCategory() {
+        return Category.EXTENSION;
+    }
+
+    @Override
+    public String getContact() {
+        return "";
     }
 
     public Optional<String> getGDALWrapperJarVersion() {

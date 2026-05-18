@@ -4,7 +4,6 @@
  */
 package org.geoserver.featurestemplating.builders.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -14,13 +13,13 @@ import org.geoserver.featurestemplating.builders.*;
 import org.geoserver.featurestemplating.builders.visitors.TemplateVisitor;
 import org.geoserver.featurestemplating.expressions.TemplateCQLManager;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.feature.ComplexAttributeImpl;
 import org.geotools.filter.AttributeExpressionImpl;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.ComplexAttribute;
-import org.opengis.filter.expression.Expression;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.databind.JsonNode;
 
 /** Evaluates xpath and cql functions, writing their results to the output. */
 public class DynamicValueBuilder extends AbstractTemplateBuilder {
@@ -65,8 +64,7 @@ public class DynamicValueBuilder extends AbstractTemplateBuilder {
     }
 
     @Override
-    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         if (evaluateFilter(context)) {
             Object o = evaluateDirective(context);
             addChildrenEvaluationToEncodingHints(writer, context);
@@ -82,14 +80,12 @@ public class DynamicValueBuilder extends AbstractTemplateBuilder {
      * @param context
      * @throws IOException
      */
-    protected void writeValue(
-            TemplateOutputWriter writer, Object value, TemplateBuilderContext context)
+    protected void writeValue(TemplateOutputWriter writer, Object value, TemplateBuilderContext context)
             throws IOException {
         writeValue(null, writer, value, context);
     }
 
-    protected void writeValue(
-            String name, TemplateOutputWriter writer, Object value, TemplateBuilderContext context)
+    protected void writeValue(String name, TemplateOutputWriter writer, Object value, TemplateBuilderContext context)
             throws IOException {
         if (encodeNull || canWriteValue(value)) {
             EncodingHints encodingHints = getEncodingHints();
@@ -161,12 +157,12 @@ public class DynamicValueBuilder extends AbstractTemplateBuilder {
      * @return true if can write the value else false
      */
     protected boolean canWriteValue(Object value) {
-        if (value instanceof ComplexAttributeImpl) {
-            return canWriteValue(((ComplexAttribute) value).getValue());
-        } else if (value instanceof Attribute) {
-            return canWriteValue(((Attribute) value).getValue());
-        } else if (value instanceof List && ((List) value).size() == 0) {
-            if (((List) value).size() == 0) return false;
+        if (value instanceof ComplexAttributeImpl impl) {
+            return canWriteValue(impl.getValue());
+        } else if (value instanceof Attribute attribute) {
+            return canWriteValue(attribute.getValue());
+        } else if (value instanceof List list && list.size() == 0) {
+            if (list.size() == 0) return false;
             else return true;
         } else if (value == null || value.equals("null") || "".equals(value)) {
             return false;

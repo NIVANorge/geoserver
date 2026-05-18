@@ -9,10 +9,10 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import org.geoserver.catalog.StyleInfo;
-import org.geoserver.ogcapi.OpenAPIMessageConverter;
+import org.geoserver.ogcapi.SwaggerJSONAPIMessageConverter;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 import org.springframework.http.HttpHeaders;
@@ -38,23 +38,20 @@ public class ApiTest extends StylesTestSupport {
 
     @Test
     public void testApiJson() throws Exception {
-        MockHttpServletResponse response =
-                getAsMockHttpServletResponse("ogc/styles/v1/openapi", 200);
+        MockHttpServletResponse response = getAsMockHttpServletResponse("ogc/styles/v1/openapi", 200);
         assertThat(
                 response.getContentType(),
-                CoreMatchers.startsWith(OpenAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE));
+                CoreMatchers.startsWith(SwaggerJSONAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE));
         String json = response.getContentAsString();
         LOGGER.log(Level.INFO, json);
 
-        ObjectMapper mapper = Json.mapper();
-        OpenAPI api = mapper.readValue(json, OpenAPI.class);
+        OpenAPI api = Json.mapper().readValue(json, OpenAPI.class);
         validateApi(api);
     }
 
     @Test
     public void testApiHTML() throws Exception {
-        MockHttpServletResponse response =
-                getAsMockHttpServletResponse("ogc/styles/v1/openapi?f=text/html", 200);
+        MockHttpServletResponse response = getAsMockHttpServletResponse("ogc/styles/v1/openapi?f=text/html", 200);
         assertEquals("text/html", response.getContentType());
         String html = response.getContentAsString();
         LOGGER.info(html);
@@ -62,33 +59,36 @@ public class ApiTest extends StylesTestSupport {
         // check template expansion worked properly
         assertThat(
                 html,
-                containsString(
-                        "<link rel=\"icon\" type=\"image/png\" href=\"http://localhost:8080/geoserver/swagger-ui/favicon-32x32.png\" sizes=\"32x32\" />"));
+                containsString("<link rel=\"icon\" type=\"image/png\""
+                        + " href=\"http://localhost:8080/geoserver/swagger-ui/favicon-32x32.png\" sizes=\"32x32\""
+                        + " />"));
         assertThat(
                 html,
-                containsString(
-                        "<link rel=\"icon\" type=\"image/png\" href=\"http://localhost:8080/geoserver/swagger-ui/favicon-16x16.png\" sizes=\"16x16\" />"));
+                containsString("<link rel=\"icon\" type=\"image/png\""
+                        + " href=\"http://localhost:8080/geoserver/swagger-ui/favicon-16x16.png\" sizes=\"16x16\""
+                        + " />"));
         assertThat(
                 html,
-                containsString(
-                        "<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-bundle.js\">"));
+                containsString("<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-bundle.js\">"));
         assertThat(
                 html,
                 containsString(
                         "<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-standalone-preset.js\">"));
+        assertThat(html, containsString("<script src=\"http://localhost:8080/geoserver/webresources/ogcapi/api.js\">"));
         assertThat(
                 html,
                 containsString(
-                        "url: \"http://localhost:8080/geoserver/ogc/styles/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0\""));
+                        "<input type=\"hidden\" id=\"apiLocation\" value="
+                                + "\"http://localhost:8080/geoserver/ogc/styles/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0\"/>"));
+        assertThat(html, not(containsString("<script>")));
     }
 
     @Test
     public void testApiYaml() throws Exception {
-        String yaml = getAsString("ogc/styles/v1/openapi?f=application/x-yaml");
+        String yaml = getAsString("ogc/styles/v1/openapi?f=application/yaml");
         LOGGER.log(Level.INFO, yaml);
 
-        ObjectMapper mapper = Yaml.mapper();
-        OpenAPI api = mapper.readValue(yaml, OpenAPI.class);
+        OpenAPI api = Yaml.mapper().readValue(yaml, OpenAPI.class);
         validateApi(api);
     }
 
@@ -97,14 +97,14 @@ public class ApiTest extends StylesTestSupport {
         MockHttpServletRequest request = createRequest("ogc/styles/v1/openapi");
         request.setMethod("GET");
         request.setContent(new byte[] {});
-        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/x-yaml, text/html");
+        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/yaml, text/html");
         MockHttpServletResponse response = dispatch(request);
         assertEquals(200, response.getStatus());
-        assertThat(response.getContentType(), CoreMatchers.startsWith("application/x-yaml"));
-        String yaml = string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
+        assertThat(response.getContentType(), CoreMatchers.startsWith("application/yaml"));
+        String yaml =
+                string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
 
-        ObjectMapper mapper = Yaml.mapper();
-        OpenAPI api = mapper.readValue(yaml, OpenAPI.class);
+        OpenAPI api = Yaml.mapper().readValue(yaml, OpenAPI.class);
         validateApi(api);
     }
 
@@ -113,8 +113,7 @@ public class ApiTest extends StylesTestSupport {
         // only one server
         List<Server> servers = api.getServers();
         assertThat(servers, hasSize(1));
-        assertThat(
-                servers.get(0).getUrl(), equalTo("http://localhost:8080/geoserver/ogc/styles/v1"));
+        assertThat(servers.get(0).getUrl(), equalTo("http://localhost:8080/geoserver/ogc/styles/v1"));
 
         // paths
         Paths paths = api.getPaths();
@@ -174,20 +173,17 @@ public class ApiTest extends StylesTestSupport {
         Parameter styleId = params.get("styleId");
         @SuppressWarnings("unchecked")
         List<String> styleIdValues = styleId.getSchema().getEnum();
-        List<String> expectedStyleIds =
-                getCatalog().getStyles().stream()
-                        .filter(
-                                s ->
-                                        s.getWorkspace() == null
-                                                || "ws".equals(s.getWorkspace().getName()))
-                        .map(StyleInfo::getName)
-                        .collect(Collectors.toList());
+        List<String> expectedStyleIds = getCatalog().getStyles().stream()
+                .filter(s ->
+                        s.getWorkspace() == null || "ws".equals(s.getWorkspace().getName()))
+                .map(StyleInfo::getName)
+                .collect(Collectors.toList());
         // does not work and I cannot fathom why, both lists have the same size and same elements
         // by visual inspection
         // assertThat(styleIdValues, Matchers.containsInAnyOrder(expectedStyleIds));
         Collections.sort(styleIdValues);
         Collections.sort(expectedStyleIds);
-        assertEquals(styleIdValues, expectedStyleIds);
+        assertEquals(expectedStyleIds, styleIdValues);
     }
 
     @Test
@@ -198,11 +194,10 @@ public class ApiTest extends StylesTestSupport {
         Parameter collectionId = params.get("styleId");
         @SuppressWarnings("unchecked")
         List<String> collectionIdValues = collectionId.getSchema().getEnum();
-        List<String> expectedStyleIds =
-                getCatalog().getStyles().stream()
-                        .filter(s -> s.getWorkspace() == null)
-                        .map(StyleInfo::getName)
-                        .collect(Collectors.toList());
+        List<String> expectedStyleIds = getCatalog().getStyles().stream()
+                .filter(s -> s.getWorkspace() == null)
+                .map(StyleInfo::getName)
+                .collect(Collectors.toList());
         assertThat(collectionIdValues, equalTo(expectedStyleIds));
     }
 
@@ -210,13 +205,13 @@ public class ApiTest extends StylesTestSupport {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("GET");
         request.setContent(new byte[] {});
-        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/x-yaml, text/html");
+        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/yaml, text/html");
         MockHttpServletResponse response = dispatch(request);
         assertEquals(200, response.getStatus());
-        assertEquals("application/x-yaml", response.getContentType());
-        String yaml = string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
+        assertEquals("application/yaml", response.getContentType());
+        String yaml =
+                string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
 
-        ObjectMapper mapper = Yaml.mapper();
-        return mapper.readValue(yaml, OpenAPI.class);
+        return Yaml.mapper().readValue(yaml, OpenAPI.class);
     }
 }

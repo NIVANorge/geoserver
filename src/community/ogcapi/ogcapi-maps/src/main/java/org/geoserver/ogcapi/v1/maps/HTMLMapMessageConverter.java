@@ -4,6 +4,7 @@
  */
 package org.geoserver.ogcapi.v1.maps;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
@@ -16,34 +17,28 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.APIRequestInfo;
-import org.geoserver.ogcapi.AbstractHTMLMessageConverter;
+import org.geoserver.ogcapi.AbstractServiceHTMLMessageConverter;
 import org.geoserver.ogcapi.FreemarkerTemplateSupport;
 import org.geoserver.wms.GetMapRequest;
 import org.geoserver.wms.WMSInfo;
 import org.geoserver.wms.WMSMapContent;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.ProjectedCRS;
 import org.geotools.util.logging.Logging;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.crs.ProjectedCRS;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.stereotype.Component;
 
 @Component
-public class HTMLMapMessageConverter extends AbstractHTMLMessageConverter<HTMLMap> {
+public class HTMLMapMessageConverter extends AbstractServiceHTMLMessageConverter<HTMLMap> {
 
     static final Logger LOGGER = Logging.getLogger(HTMLMapMessageConverter.class);
 
-    /**
-     * Set of parameters that we can ignore, since they are not part of the OpenLayers WMS request
-     */
-    private static final Set<String> IGNORED_PARAMETERS =
-            new HashSet<>(
-                    Arrays.asList(
-                            "REQUEST", "TILED", "BBOX", "SERVICE", "VERSION", "FORMAT", "WIDTH",
-                            "HEIGHT", "SRS"));
+    /** Set of parameters that we can ignore, since they are not part of the OpenLayers WMS request */
+    private static final Set<String> IGNORED_PARAMETERS = new HashSet<>(
+            Arrays.asList("REQUEST", "TILED", "BBOX", "SERVICE", "VERSION", "FORMAT", "WIDTH", "HEIGHT", "SRS"));
 
     public HTMLMapMessageConverter(FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
         super(HTMLMap.class, WMSInfo.class, templateSupport, geoServer);
@@ -69,16 +64,14 @@ public class HTMLMapMessageConverter extends AbstractHTMLMessageConverter<HTMLMa
                     new OutputStreamWriter(outputMessage.getBody(), defaultCharset),
                     defaultCharset);
         } else {
-            LOGGER.warning(
-                    "Either the default character set, output message or body was null, so the "
-                            + "htmlmap.ftl template could not be processed.");
+            LOGGER.warning("Either the default character set, output message or body was null, so the "
+                    + "htmlmap.ftl template could not be processed.");
         }
     }
 
     /**
-     * OL does support only a limited number of unit types, we have to try and return one of those,
-     * otherwise the scale won't be shown. From the OL guide: possible values are "degrees" (or
-     * "dd"), "m", "ft", "km", "mi", "inches".
+     * OL does support only a limited number of unit types, we have to try and return one of those, otherwise the scale
+     * won't be shown. From the OL guide: possible values are "degrees" (or "dd"), "m", "ft", "km", "mi", "inches".
      */
     protected String getUnits(WMSMapContent mapContent) {
         CoordinateReferenceSystem crs = mapContent.getRequest().getCrs();
@@ -127,9 +120,8 @@ public class HTMLMapMessageConverter extends AbstractHTMLMessageConverter<HTMLMa
     }
 
     /**
-     * Returns a list of maps with the name and value of each parameter that we have to forward to
-     * OpenLayers. Forwarded parameters are all the provided ones, besides a short set contained in
-     * {@link #IGNORED_PARAMETERS}.
+     * Returns a list of maps with the name and value of each parameter that we have to forward to OpenLayers. Forwarded
+     * parameters are all the provided ones, besides a short set contained in {@link #IGNORED_PARAMETERS}.
      */
     private List<Map<String, String>> getLayerParameter(Map<String, String> rawKvp) {
         List<Map<String, String>> result = new ArrayList<>(rawKvp.size());

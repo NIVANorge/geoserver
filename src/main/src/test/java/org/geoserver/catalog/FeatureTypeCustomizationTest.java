@@ -20,22 +20,22 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.PropertyDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.factory.CommonFactoryFinder;
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 
 public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
 
-    private static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    private static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
     private static final Filter ID_03 = FF.id(FF.featureId("PrimitiveGeoFeature.f003"));
     private static final String BOOLEAN_PROPERTY = "booleanProperty";
     private static final String CURVE_PROPERTY = "curveProperty";
@@ -52,10 +52,9 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
         Catalog catalog = getCatalog();
         FeatureTypeInfo fti = catalog.getFeatureTypeByName(getLayerId(PRIMITIVEGEOFEATURE));
         Set<String> exclude = new HashSet<>(Arrays.asList(CURVE_PROPERTY, "uriProperty"));
-        List<AttributeTypeInfo> filteredAttributes =
-                fti.attributes().stream()
-                        .filter(at -> !exclude.contains(at.getName()))
-                        .collect(Collectors.toList());
+        List<AttributeTypeInfo> filteredAttributes = fti.attributes().stream()
+                .filter(at -> !exclude.contains(at.getName()))
+                .collect(Collectors.toList());
         fti.getAttributes().clear();
         fti.getAttributes().addAll(filteredAttributes);
         catalog.save(fti);
@@ -82,15 +81,12 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
         // switch one property type from boolean to string
         Catalog catalog = getCatalog();
         FeatureTypeInfo fti = catalog.getFeatureTypeByName(getLayerId(PRIMITIVEGEOFEATURE));
-        List<AttributeTypeInfo> filteredAttributes =
-                fti.attributes().stream()
-                        .map(
-                                at -> {
-                                    if (BOOLEAN_PROPERTY.equals(at.getName()))
-                                        at.setBinding(String.class);
-                                    return at;
-                                })
-                        .collect(Collectors.toList());
+        List<AttributeTypeInfo> filteredAttributes = fti.attributes().stream()
+                .map(at -> {
+                    if (BOOLEAN_PROPERTY.equals(at.getName())) at.setBinding(String.class);
+                    return at;
+                })
+                .collect(Collectors.toList());
         fti.getAttributes().clear();
         fti.getAttributes().addAll(filteredAttributes);
         catalog.save(fti);
@@ -120,17 +116,15 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
         // rename one property
         Catalog catalog = getCatalog();
         FeatureTypeInfo fti = catalog.getFeatureTypeByName(getLayerId(PRIMITIVEGEOFEATURE));
-        List<AttributeTypeInfo> filteredAttributes =
-                fti.attributes().stream()
-                        .map(
-                                at -> {
-                                    if (BOOLEAN_PROPERTY.equals(at.getName())) {
-                                        at.setName(TRUE_OR_FALSE);
-                                        at.setSource(BOOLEAN_PROPERTY);
-                                    }
-                                    return at;
-                                })
-                        .collect(Collectors.toList());
+        List<AttributeTypeInfo> filteredAttributes = fti.attributes().stream()
+                .map(at -> {
+                    if (BOOLEAN_PROPERTY.equals(at.getName())) {
+                        at.setName(TRUE_OR_FALSE);
+                        at.setSource(BOOLEAN_PROPERTY);
+                    }
+                    return at;
+                })
+                .collect(Collectors.toList());
         fti.getAttributes().clear();
         fti.getAttributes().addAll(filteredAttributes);
         catalog.save(fti);
@@ -206,9 +200,7 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
         try {
             catalog.save(fti);
         } catch (ValidationException e) {
-            assertThat(
-                    e.getMessage(),
-                    allOf(containsString("multiple definitions"), containsString("description")));
+            assertThat(e.getMessage(), allOf(containsString("multiple definitions"), containsString("description")));
         }
     }
 
@@ -246,9 +238,7 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
         try {
             catalog.save(fti);
         } catch (ValidationException e) {
-            assertThat(
-                    e.getMessage(),
-                    allOf(containsString("attributes unavailable"), containsString("one, two")));
+            assertThat(e.getMessage(), allOf(containsString("attributes unavailable"), containsString("one, two")));
         }
     }
 
@@ -274,5 +264,5 @@ public class FeatureTypeCustomizationTest extends GeoServerSystemTestSupport {
     }
 
     /** A class that {@link org.geotools.util.Converters} can't know how to handle */
-    private final class MyOddBinding {}
+    private static final class MyOddBinding {}
 }

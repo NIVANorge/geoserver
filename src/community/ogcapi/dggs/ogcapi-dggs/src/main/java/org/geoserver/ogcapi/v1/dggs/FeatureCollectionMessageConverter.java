@@ -19,15 +19,14 @@ import org.geoserver.platform.Operation;
 import org.geoserver.wfs.request.FeatureCollectionResponse;
 import org.geoserver.wfs.request.GetFeatureRequest;
 import org.geoserver.wfs.request.Query;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.opengis.feature.simple.SimpleFeatureType;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 @Component
-public class FeatureCollectionMessageConverter
-        extends MessageConverterResponseAdapter<SimpleFeatureCollection> {
+public class FeatureCollectionMessageConverter extends MessageConverterResponseAdapter<SimpleFeatureCollection> {
 
     public FeatureCollectionMessageConverter() {
         super(SimpleFeatureCollection.class, FeatureCollectionResponse.class);
@@ -40,15 +39,11 @@ public class FeatureCollectionMessageConverter
 
     @Override
     protected void writeResponse(
-            SimpleFeatureCollection value,
-            HttpOutputMessage httpOutputMessage,
-            Operation operation,
-            Response response)
+            SimpleFeatureCollection value, HttpOutputMessage httpOutputMessage, Operation operation, Response response)
             throws IOException {
         Operation wrappedOperation = wrapOperation(value, operation);
         FeatureCollectionResponse fcr =
-                FeatureCollectionResponse.adapt(
-                        Wfs20Factory.eINSTANCE.createFeatureCollectionType());
+                FeatureCollectionResponse.adapt(Wfs20Factory.eINSTANCE.createFeatureCollectionType());
         fcr.setFeatures(Arrays.asList(value));
         setHeaders(fcr, wrappedOperation, response, httpOutputMessage);
         response.write(fcr, httpOutputMessage.getBody(), wrappedOperation);
@@ -76,12 +71,8 @@ public class FeatureCollectionMessageConverter
             query.setTypeNames(Arrays.asList(new QName(null, schema.getTypeName())));
             request.getAdaptedQueries().add(query.getAdaptee());
         }
-        Operation op =
-                new Operation(
-                        "GetFeature",
-                        originalOperation.getService(),
-                        originalOperation.getMethod(),
-                        new Object[] {rawRequest});
+        Operation op = new Operation(
+                "GetFeature", originalOperation.getService(), originalOperation.getMethod(), new Object[] {rawRequest});
         return op;
     }
 }

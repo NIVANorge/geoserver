@@ -20,29 +20,25 @@ public class AggregateProcessPPIO extends XStreamPPIO {
 
     static final QName AggregationResults = new QName("AggregationResults");
 
-    protected AggregateProcessPPIO() {
+    public AggregateProcessPPIO() {
         super(AggregateProcess.Results.class, AggregationResults);
     }
 
     @Override
     protected SecureXStream buildXStream() {
-        SecureXStream xstream =
-                new SecureXStream() {
-                    @Override
-                    protected MapperWrapper wrapMapper(MapperWrapper next) {
-                        return new UppercaseTagMapper(next);
-                    };
-                };
+        SecureXStream xstream = new SecureXStream() {
+            @Override
+            protected MapperWrapper wrapMapper(MapperWrapper next) {
+                return new UppercaseTagMapper(next);
+            }
+        };
         xstream.allowTypes(new Class[] {AggregateProcess.Results.class});
         xstream.omitField(AggregateProcess.Results.class, "aggregateAttribute");
         xstream.omitField(AggregateProcess.Results.class, "functions");
         xstream.omitField(AggregateProcess.Results.class, "groupByAttributes");
         xstream.omitField(AggregateProcess.Results.class, "results");
+        xstream.omitField(AggregateProcess.Results.class, "schema");
         xstream.alias(AggregationResults.getLocalPart(), AggregateProcess.Results.class);
-        xstream.omitField(AggregateProcess.Results.class, "aggregateAttribute");
-        xstream.omitField(AggregateProcess.Results.class, "functions");
-        xstream.omitField(AggregateProcess.Results.class, "groupByAttributes");
-        xstream.omitField(AggregateProcess.Results.class, "results");
         return xstream;
     }
 }

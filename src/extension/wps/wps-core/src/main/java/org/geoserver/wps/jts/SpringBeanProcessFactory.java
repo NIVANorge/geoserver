@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.geotools.api.feature.type.Name;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.FunctionFactory;
@@ -26,7 +27,6 @@ import org.geotools.process.factory.DescribeResults;
 import org.geotools.process.function.ProcessFunctionFactory;
 import org.geotools.util.SimpleInternationalString;
 import org.geotools.util.factory.FactoryIteratorProvider;
-import org.opengis.feature.type.Name;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -36,13 +36,12 @@ import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 
 /**
- * A {@link ProcessFactory} meant to be declared in a Spring context. It will look in the
- * application context for beans implementing the specified marker interface and annotated with
- * {@link DescribeProcess}, {@link DescribeParameter} and {@link DescribeResult}. Each bean will
- * have a "execute" method taking the process parameters as arguments and returning the results
+ * A {@link ProcessFactory} meant to be declared in a Spring context. It will look in the application context for beans
+ * implementing the specified marker interface and annotated with {@link DescribeProcess}, {@link DescribeParameter} and
+ * {@link DescribeResult}. Each bean will have a "execute" method taking the process parameters as arguments and
+ * returning the results
  */
-public class SpringBeanProcessFactory
-        extends org.geotools.process.factory.AnnotationDrivenProcessFactory
+public class SpringBeanProcessFactory extends org.geotools.process.factory.AnnotationDrivenProcessFactory
         implements ApplicationContextAware, ApplicationListener {
 
     Map<String, Class<?>> classMap;
@@ -60,30 +59,28 @@ public class SpringBeanProcessFactory
         this.markerInterface = markerInterface;
 
         // create an iterator that will register this factory into SPI
-        iterator =
-                new FactoryIteratorProvider() {
+        iterator = new FactoryIteratorProvider() {
 
-                    @Override
-                    public <T> Iterator<T> iterator(Class<T> category) {
-                        if (ProcessFactory.class.isAssignableFrom(category)) {
-                            return getFactoryIterator();
-                        } else {
-                            return null;
-                        }
-                    }
+            @Override
+            public <T> Iterator<T> iterator(Class<T> category) {
+                if (ProcessFactory.class.isAssignableFrom(category)) {
+                    return getFactoryIterator();
+                } else {
+                    return null;
+                }
+            }
 
-                    @SuppressWarnings("unchecked")
-                    private <T> Iterator<T> getFactoryIterator() {
-                        return (Iterator<T>)
-                                Collections.singletonList(SpringBeanProcessFactory.this).iterator();
-                    }
-                };
+            @SuppressWarnings("unchecked")
+            private <T> Iterator<T> getFactoryIterator() {
+                return (Iterator<T>)
+                        Collections.singletonList(SpringBeanProcessFactory.this).iterator();
+            }
+        };
 
         // register the new process and make the process function factory lookup again the processes
         Processors.addProcessFactory(this);
         for (FunctionFactory ff : CommonFactoryFinder.getFunctionFactories(null)) {
-            if (ff instanceof ProcessFunctionFactory) {
-                ProcessFunctionFactory pff = (ProcessFunctionFactory) ff;
+            if (ff instanceof ProcessFunctionFactory pff) {
                 pff.clear();
             }
         }

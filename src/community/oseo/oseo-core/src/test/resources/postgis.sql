@@ -41,6 +41,7 @@ create table collection (
   "eoAcquisitionStation" varchar,
   "license" varchar,
   "queryables" varchar[],
+  "workspaces" varchar[],
   "enabled" boolean not null DEFAULT true,
   "assets" json
 );
@@ -138,6 +139,7 @@ create table product (
   "atmAlgorithmVersion" varchar[],
   "enabled" boolean not null DEFAULT true,
   "assets" json,
+  "assetsb" jsonb,
   "keywords" varchar[]
 );
 

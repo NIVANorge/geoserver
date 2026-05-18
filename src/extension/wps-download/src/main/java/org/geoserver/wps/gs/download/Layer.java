@@ -4,10 +4,10 @@
  */
 package org.geoserver.wps.gs.download;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.adapters.CollapsedStringAdapter;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.adapters.CollapsedStringAdapter;
+import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 /** A layer in a map/animation download */
 @XmlRootElement(name = "Layer")
@@ -15,6 +15,7 @@ public class Layer extends AbstractParametricEntity {
 
     String capabilities;
     String decorationName;
+    Integer opacity;
 
     @XmlElement(name = "Capabilities")
     @XmlJavaTypeAdapter(CollapsedStringAdapter.class)
@@ -34,5 +35,14 @@ public class Layer extends AbstractParametricEntity {
 
     public void setDecorationName(String decorationName) {
         this.decorationName = decorationName;
+    }
+
+    @XmlElement(name = "Opacity")
+    public Integer getOpacity() {
+        return opacity;
+    }
+
+    public void setOpacity(Integer opacity) {
+        this.opacity = opacity;
     }
 }

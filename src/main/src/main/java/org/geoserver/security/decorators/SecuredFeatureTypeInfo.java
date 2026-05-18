@@ -23,18 +23,18 @@ import org.geoserver.security.AccessLevel;
 import org.geoserver.security.SecureCatalogImpl;
 import org.geoserver.security.VectorAccessLimits;
 import org.geoserver.security.WrapperPolicy;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.util.InternationalString;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.util.factory.Hints;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.util.InternationalString;
-import org.opengis.util.ProgressListener;
 
 /**
  * Wraps a {@link FeatureTypeInfo} so that it will return a secured FeatureSource
@@ -70,8 +70,7 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
                 return ft;
             }
 
-            if (ft instanceof SimpleFeatureType) {
-                SimpleFeatureType sft = (SimpleFeatureType) ft;
+            if (ft instanceof SimpleFeatureType sft) {
                 Set<String> properties = new HashSet<>(Arrays.asList(query.getPropertyNames()));
                 SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
                 tb.init(sft);
@@ -92,10 +91,9 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
                 return fc.getSchema();
             }
         } else {
-            throw new IllegalArgumentException(
-                    "SecureFeatureSources has been fed "
-                            + "with unexpected AccessLimits class "
-                            + policy.getLimits().getClass());
+            throw new IllegalArgumentException("SecureFeatureSources has been fed "
+                    + "with unexpected AccessLimits class "
+                    + policy.getLimits().getClass());
         }
     }
 
@@ -106,8 +104,7 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
     @Override
     public FeatureSource<? extends FeatureType, ? extends Feature> getFeatureSource(
             ProgressListener listener, Hints hints) throws IOException {
-        final FeatureSource<? extends FeatureType, ? extends Feature> fs =
-                delegate.getFeatureSource(listener, hints);
+        final FeatureSource<? extends FeatureType, ? extends Feature> fs = delegate.getFeatureSource(listener, hints);
         Request request = Dispatcher.REQUEST.get();
         if (policy.level == AccessLevel.METADATA && !isGetCapabilities(request)) {
             throw SecureCatalogImpl.unauthorizedAccess(this.getName());
@@ -117,20 +114,16 @@ public class SecuredFeatureTypeInfo extends DecoratingFeatureTypeInfo {
     }
 
     /**
-     * Checks if current request is GetCapabilities and returns a new WrapperPolicy with attributes
-     * read allowed to compute the dimensions values. If current request is not a GetCapabilities
-     * one, returns the same policy without changes.
+     * Checks if current request is GetCapabilities and returns a new WrapperPolicy with attributes read allowed to
+     * compute the dimensions values. If current request is not a GetCapabilities one, returns the same policy without
+     * changes.
      */
     private WrapperPolicy computeWrapperPolicy(Request request) {
         if (isGetCapabilities(request) && policy.getLimits() instanceof VectorAccessLimits) {
             VectorAccessLimits accessLimits = (VectorAccessLimits) policy.getLimits();
-            VectorAccessLimits newLimits =
-                    new VectorAccessLimits(
-                            accessLimits.getMode(),
-                            null,
-                            Filter.INCLUDE,
-                            accessLimits.getWriteAttributes(),
-                            accessLimits.getWriteFilter());
+            VectorAccessLimits newLimits = (VectorAccessLimits) accessLimits.clone();
+            newLimits.setReadAttributes(null);
+            newLimits.setReadFilter(Filter.INCLUDE);
             WrapperPolicy newPolicy = WrapperPolicy.readOnlyChallenge(newLimits);
             return newPolicy;
         }

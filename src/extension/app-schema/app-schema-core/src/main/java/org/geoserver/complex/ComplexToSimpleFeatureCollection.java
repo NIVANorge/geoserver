@@ -16,6 +16,17 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.feature.type.PropertyDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
@@ -25,22 +36,10 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.filter.AttributeExpressionImpl;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.util.ProgressListener;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /**
- * Feature collection Wrapper. Converts complex features to simple features on the fly based on the
- * Layer info rules.
+ * Feature collection Wrapper. Converts complex features to simple features on the fly based on the Layer info rules.
  */
 public class ComplexToSimpleFeatureCollection implements SimpleFeatureCollection {
 
@@ -69,13 +68,9 @@ public class ComplexToSimpleFeatureCollection implements SimpleFeatureCollection
         LOGGER.fine(() -> "Converted feature type: " + featureType);
     }
 
-    /**
-     * Builds and returns the simple feature type based on the complex type and the transformation
-     * rules.
-     */
+    /** Builds and returns the simple feature type based on the complex type and the transformation rules. */
     protected SimpleFeatureType buildConvertedType() {
-        FeatureTypeConverter converter =
-                new FeatureTypeConverter(delegate.getSchema(), rulesMap, namespaceSupport);
+        FeatureTypeConverter converter = new FeatureTypeConverter(delegate.getSchema(), rulesMap, namespaceSupport);
         return converter.produceSimpleType();
     }
 
@@ -176,8 +171,8 @@ public class ComplexToSimpleFeatureCollection implements SimpleFeatureCollection
         }
 
         /**
-         * Transform the original complex feature into a simple feature, using the convention and
-         * rules. Returns the resulting simple feature.
+         * Transform the original complex feature into a simple feature, using the convention and rules. Returns the
+         * resulting simple feature.
          */
         private SimpleFeature convert(Feature feature) {
             SimpleFeatureBuilder builder = new SimpleFeatureBuilder(featureType);
@@ -189,23 +184,19 @@ public class ComplexToSimpleFeatureCollection implements SimpleFeatureCollection
             return builder.buildFeature(feature.getIdentifier().getID());
         }
 
-        /**
-         * Returns the attribute value from the original complex feature based on its simple name.
-         */
+        /** Returns the attribute value from the original complex feature based on its simple name. */
         private Object getComplexAttributeValue(Name name, Feature feature) {
             String simpleName = name.getLocalPart();
             String attrPath = rulesMap.get(simpleName);
             // if it's a rule based attribute, use the expression
             if (attrPath != null) {
-                AttributeExpressionImpl expression =
-                        new AttributeExpressionImpl(attrPath, namespaceSupport);
+                AttributeExpressionImpl expression = new AttributeExpressionImpl(attrPath, namespaceSupport);
                 return expression.evaluate(feature);
             }
             // not rule based, look up simple feature based on simple name
-            Optional<Property> propertyOpt =
-                    feature.getProperties().stream()
-                            .filter(prop -> simpleName.equals(prop.getName().getLocalPart()))
-                            .findFirst();
+            Optional<Property> propertyOpt = feature.getProperties().stream()
+                    .filter(prop -> simpleName.equals(prop.getName().getLocalPart()))
+                    .findFirst();
             if (propertyOpt.isPresent()) {
                 return propertyOpt.get().getValue();
             }

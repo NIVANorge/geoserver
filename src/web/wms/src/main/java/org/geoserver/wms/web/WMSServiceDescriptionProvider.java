@@ -18,6 +18,7 @@ import org.geoserver.web.ServiceDescriptionProvider;
 import org.geoserver.web.ServiceLinkDescription;
 import org.geoserver.wms.WMSInfo;
 import org.geoserver.wms.WebMapService;
+import org.geotools.util.Version;
 import org.geotools.util.logging.Logging;
 
 /** Provide description of WMS services for welcome page. */
@@ -32,6 +33,7 @@ public class WMSServiceDescriptionProvider extends ServiceDescriptionProvider {
     Catalog catalog;
 
     public WMSServiceDescriptionProvider(GeoServer gs) {
+        super(SERVICE_TYPE);
         this.geoserver = gs;
         catalog = gs.getCatalog();
     }
@@ -55,30 +57,36 @@ public class WMSServiceDescriptionProvider extends ServiceDescriptionProvider {
     }
 
     @Override
-    public List<ServiceDescription> getServices(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    public List<ServiceDescription> getServices(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
 
         List<ServiceDescription> descriptions = new ArrayList<>();
         WMSInfo info = info(workspaceInfo, layerInfo);
 
         if (workspaceInfo != null || geoserver.getGlobal().isGlobalServices()) {
-            descriptions.add(description(SERVICE_TYPE, info, workspaceInfo, layerInfo));
+            descriptions.add(description(serviceType, info, workspaceInfo, layerInfo));
         }
         return descriptions;
     }
 
     @Override
-    public List<ServiceLinkDescription> getServiceLinks(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    public List<ServiceLinkDescription> getServiceLinks(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
         List<ServiceLinkDescription> links = new ArrayList<>();
 
         if (workspaceInfo == null && !geoserver.getGlobal().isGlobalServices()) {
             return links;
         }
+
+        WMSInfo info = info(workspaceInfo, layerInfo);
+        List<Version> disabledVersions = (info != null) ? info.getDisabledVersions() : null;
+
         List<Service> extensions = GeoServerExtensions.extensions(Service.class);
 
         for (Service service : extensions) {
             if (service.getService() instanceof WebMapService) {
+                if (disabledVersions != null && disabledVersions.contains(service.getVersion())) {
+                    continue;
+                }
+
                 String link = null;
                 if (service.getOperations().contains("GetCapabilities")) {
                     link = getCapabilitiesURL(workspaceInfo, layerInfo, service);
@@ -87,13 +95,12 @@ public class WMSServiceDescriptionProvider extends ServiceDescriptionProvider {
                 }
 
                 if (link != null) {
-                    links.add(
-                            new ServiceLinkDescription(
-                                    SERVICE_TYPE,
-                                    service.getVersion(),
-                                    link,
-                                    workspaceInfo != null ? workspaceInfo.getName() : null,
-                                    layerInfo != null ? layerInfo.getName() : null));
+                    links.add(new ServiceLinkDescription(
+                            serviceType,
+                            service.getVersion(),
+                            link,
+                            workspaceInfo != null ? workspaceInfo.getName() : null,
+                            layerInfo != null ? layerInfo.getName() : null));
                 }
             }
         }

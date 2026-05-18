@@ -1,6 +1,10 @@
 <#global pagetitle=model.id>
 <#global pagepath="/collections/"+model.id>
-<#global pagecrumbs="<li class='breadcrumb-item'><a href='"+serviceLink("")+"'>Home</a></li><li class='breadcrumb-item'><a href='"+serviceLink("styles")+"'>Styles</a></li><li class='breadcrumb-item active'>"+model.id+"</li>">
+<#global pagecrumbs>
+  <li class='breadcrumb-item'><a href='${serviceLink("")}'>Home</a></li>
+  <li class='breadcrumb-item'><a href='${serviceLink("styles")}'>Styles</a></li>
+  <li class='breadcrumb-item active'>${model.id}</li>
+</#global>
 <#include "common-header.ftl">
 
   <div class="card my-4">
@@ -47,8 +51,8 @@
             <#list model.layers as layer>
               <li>
                 ${layer.id}: ${layer.type}. 
-                <#if layer.sampleData??><br/>Sample data available:
-                      <select onchange="window.open(this.options[this.selectedIndex].value);this.selectedIndex=0" >
+                <#if layer.sampleData?has_content><br/>Sample data available:
+                      <select class="form-select-open-basic">
                         <option value="none" selected>-- Please choose a format --</option>
                         <#list layer.sampleData as link>
                         <option value="${link.href}">${link.type}</option>

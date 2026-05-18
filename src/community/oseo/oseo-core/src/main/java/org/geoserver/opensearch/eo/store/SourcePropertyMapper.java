@@ -4,13 +4,12 @@
  */
 package org.geoserver.opensearch.eo.store;
 
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.feature.type.PropertyDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.feature.type.PropertyDescriptor;
 
 /**
- * Uses JDBCOpenSearchAccess.SOURCE_ATTRIBUTE to locate the source attribute name of a given mapped
- * property name
+ * Uses JDBCOpenSearchAccess.SOURCE_ATTRIBUTE to locate the source attribute name of a given mapped property name
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -27,7 +26,6 @@ class SourcePropertyMapper {
         if (name.contains(":")) {
             String[] split = name.split(":");
             // TODO: find a way to make use of the prefix, or just get a full namespace...
-            String prefix = split[0];
             String localName = split[1];
             for (PropertyDescriptor pd : schema.getDescriptors()) {
                 if (localName.equals(pd.getName().getLocalPart())) {

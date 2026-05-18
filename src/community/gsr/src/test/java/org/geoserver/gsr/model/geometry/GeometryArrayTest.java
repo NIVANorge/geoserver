@@ -9,7 +9,8 @@
  */
 package org.geoserver.gsr.model.geometry;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -31,12 +32,10 @@ public class GeometryArrayTest {
         Polygon polygon = new Polygon(rings, spatialRef);
         Geometry[] geometries1 = {point1, point2};
         Geometry[] geometries2 = {point1, point2, polygon};
-        GeometryArray geometryArray1 =
-                new GeometryArray(GeometryTypeEnum.POINT, geometries1, spatialRef);
-        GeometryArray geometryArray2 =
-                new GeometryArray(GeometryTypeEnum.POINT, geometries2, spatialRef);
+        GeometryArray geometryArray1 = new GeometryArray(GeometryTypeEnum.POINT, geometries1, spatialRef);
+        GeometryArray geometryArray2 = new GeometryArray(GeometryTypeEnum.POINT, geometries2, spatialRef);
 
-        assertEquals(true, geometryArray1.isValidGeometryTypes());
-        assertEquals(false, geometryArray2.isValidGeometryTypes());
+        assertTrue(geometryArray1.isValidGeometryTypes());
+        assertFalse(geometryArray2.isValidGeometryTypes());
     }
 }

@@ -7,7 +7,6 @@ package org.geoserver.rest;
 import freemarker.template.ObjectWrapper;
 import java.lang.reflect.Type;
 import java.util.Collections;
-import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.ContactInfo;
 import org.geoserver.config.GeoServer;
@@ -51,14 +50,10 @@ public class LocalSettingsController extends AbstractGeoServerController {
     }
 
     @GetMapping(
-            produces = {
-                MediaType.APPLICATION_JSON_VALUE,
-                MediaType.APPLICATION_XML_VALUE,
-                MediaType.TEXT_HTML_VALUE
-            })
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE, MediaType.TEXT_HTML_VALUE})
     public RestWrapper<SettingsInfo> localSettingsGet(@PathVariable String workspaceName) {
 
-        WorkspaceInfo workspaceInfo = geoServer.getCatalog().getWorkspaceByName(workspaceName);
+        WorkspaceInfo workspaceInfo = findWorkspace(workspaceName);
         SettingsInfo settingsInfo = geoServer.getSettings(workspaceInfo);
         if (settingsInfo == null) {
             settingsInfo = new SettingsInfoImpl();
@@ -76,18 +71,12 @@ public class LocalSettingsController extends AbstractGeoServerController {
             },
             produces = MediaType.TEXT_PLAIN_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public String localSettingsCreate(
-            @PathVariable String workspaceName, @RequestBody SettingsInfo settingsInfo) {
-        String name = "";
-        if (workspaceName != null) {
-            Catalog catalog = geoServer.getCatalog();
-            WorkspaceInfo workspaceInfo = catalog.getWorkspaceByName(workspaceName);
-            settingsInfo.setWorkspace(workspaceInfo);
-            geoServer.add(settingsInfo);
-            geoServer.save(geoServer.getSettings(workspaceInfo));
-            name = settingsInfo.getWorkspace().getName();
-        }
-        return name;
+    public String localSettingsCreate(@PathVariable String workspaceName, @RequestBody SettingsInfo settingsInfo) {
+        WorkspaceInfo workspaceInfo = findWorkspace(workspaceName);
+        settingsInfo.setWorkspace(workspaceInfo);
+        geoServer.add(settingsInfo);
+        geoServer.save(geoServer.getSettings(workspaceInfo));
+        return workspaceInfo.getName();
     }
 
     @PutMapping(
@@ -97,37 +86,41 @@ public class LocalSettingsController extends AbstractGeoServerController {
                 MediaType.APPLICATION_XML_VALUE,
                 MediaType.TEXT_XML_VALUE
             })
-    public void localSettingsPut(
-            @PathVariable String workspaceName, @RequestBody SettingsInfo settingsInfo) {
-        if (workspaceName != null) {
-            WorkspaceInfo workspaceInfo = geoServer.getCatalog().getWorkspaceByName(workspaceName);
-            SettingsInfo original = geoServer.getSettings(workspaceInfo);
-            if (original == null) {
-                settingsInfo.setWorkspace(workspaceInfo);
-                geoServer.add(settingsInfo);
-                geoServer.save(geoServer.getSettings(workspaceInfo));
-            } else {
-                OwsUtils.copy(settingsInfo, original, SettingsInfo.class);
-                original.setWorkspace(workspaceInfo);
-                geoServer.save(original);
-            }
+    public void localSettingsPut(@PathVariable String workspaceName, @RequestBody SettingsInfo settingsInfo) {
+        WorkspaceInfo workspaceInfo = findWorkspace(workspaceName);
+        SettingsInfo original = geoServer.getSettings(workspaceInfo);
+        if (original == null) {
+            settingsInfo.setWorkspace(workspaceInfo);
+            geoServer.add(settingsInfo);
+            geoServer.save(geoServer.getSettings(workspaceInfo));
+        } else {
+            OwsUtils.copy(settingsInfo, original, SettingsInfo.class);
+            original.setWorkspace(workspaceInfo);
+            geoServer.save(original);
         }
     }
 
     @DeleteMapping
-    public void localSetingsDelete(@PathVariable String workspaceName) {
-        if (workspaceName != null) {
-            WorkspaceInfo workspaceInfo = geoServer.getCatalog().getWorkspaceByName(workspaceName);
-            SettingsInfo settingsInfo = geoServer.getSettings(workspaceInfo);
-            geoServer.remove(settingsInfo);
+    public void localSettingsDelete(@PathVariable String workspaceName) {
+        WorkspaceInfo workspaceInfo = findWorkspace(workspaceName);
+        SettingsInfo settingsInfo = geoServer.getSettings(workspaceInfo);
+        if (settingsInfo == null) {
+            throw new RestException("Settings for workspace " + workspaceName + " do not exist", HttpStatus.NOT_FOUND);
         }
+        geoServer.remove(settingsInfo);
+    }
+
+    private WorkspaceInfo findWorkspace(String workspaceName) {
+        WorkspaceInfo ws = geoServer.getCatalog().getWorkspaceByName(workspaceName);
+        if (ws == null) {
+            throw new RestException("Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
+        }
+        return ws;
     }
 
     @Override
     public boolean supports(
-            MethodParameter methodParameter,
-            Type targetType,
-            Class<? extends HttpMessageConverter<?>> converterType) {
+            MethodParameter methodParameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) {
         return SettingsInfo.class.isAssignableFrom(methodParameter.getParameterType());
     }
 

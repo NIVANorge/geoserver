@@ -23,7 +23,6 @@ import org.geoserver.platform.resource.Paths;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.util.DimensionWarning;
 import org.geotools.util.logging.Logging;
-import org.geowebcache.storage.blobstore.memory.CacheConfiguration;
 
 /**
  * Loads and saves the integrated GWC configuration at {@code <data dir>/gwc-gs.xml}
@@ -42,8 +41,7 @@ public class GWCConfigPersister {
 
     private GWCConfig config;
 
-    public GWCConfigPersister(
-            final XStreamPersisterFactory xspf, final GeoServerResourceLoader resourceLoader) {
+    public GWCConfigPersister(final XStreamPersisterFactory xspf, final GeoServerResourceLoader resourceLoader) {
         this.persisterFactory = xspf;
         this.resourceLoader = resourceLoader;
     }
@@ -67,7 +65,7 @@ public class GWCConfigPersister {
 
     private synchronized void loadConfig() throws IOException {
         Resource configFile = findConfigFile();
-        checkNotNull(configFile, "gwc config file does not exist: ", GWC_CONFIG_FILE);
+        checkNotNull(configFile, "gwc config file does not exist: %s", GWC_CONFIG_FILE);
 
         XStreamPersister xmlPersister = this.persisterFactory.createXMLPersister();
         configureXstream(xmlPersister.getXStream());
@@ -89,8 +87,8 @@ public class GWCConfigPersister {
     }
 
     /**
-     * Saves and applies the integrated GWC's GeoServer specific configuration to the {@code <data
-     * dir>/gwc-gs.xml} file.
+     * Saves and applies the integrated GWC's GeoServer specific configuration to the {@code <data dir>/gwc-gs.xml}
+     * file.
      */
     public void save(final GWCConfig config) throws IOException {
         LOGGER.finer("Saving integrated GWC configuration");
@@ -112,13 +110,10 @@ public class GWCConfigPersister {
         xs.alias("defaultCoverageCacheFormats", HashSet.class);
         xs.alias("defaultVectorCacheFormats", HashSet.class);
         xs.alias("defaultOtherCacheFormats", HashSet.class);
-        xs.alias("InnerCacheConfiguration", CacheConfiguration.class);
         xs.alias("warning", DimensionWarning.WarningType.class);
-        xs.allowTypes(
-                new Class[] {
-                    GWCConfig.class, CacheConfiguration.class, DimensionWarning.WarningType.class
-                });
+        xs.allowTypes(new Class[] {GWCConfig.class, DimensionWarning.WarningType.class});
         xs.addDefaultImplementation(LinkedHashSet.class, Set.class);
+        xs.ignoreUnknownElements();
     }
 
     private Resource getConfigRoot() {

@@ -12,9 +12,9 @@ import java.io.File;
 import org.apache.commons.io.FileUtils;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.referencing.CRS;
 import org.junit.Test;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class NetCDFCRSOverridingAuthorityFactoryTest extends GeoServerSystemTestSupport {
 
@@ -24,9 +24,7 @@ public class NetCDFCRSOverridingAuthorityFactoryTest extends GeoServerSystemTest
         File projectionFileDir = new File(testData.getDataDirectoryRoot(), "user_projections");
         if (!projectionFileDir.mkdir()) {
             FileUtils.deleteDirectory(projectionFileDir);
-            assertTrue(
-                    "Unable to create projection dir: " + projectionFileDir,
-                    projectionFileDir.mkdir());
+            assertTrue("Unable to create projection dir: " + projectionFileDir, projectionFileDir.mkdir());
         }
         testData.copyTo(
                 getClass().getResourceAsStream(netcdfProjectionsDefinition),

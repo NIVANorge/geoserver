@@ -5,32 +5,36 @@
  */
 package org.geoserver.ows;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLDecoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.TimeZone;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.ows.util.EncodingInfo;
 import org.geoserver.ows.util.XmlCharsetDetector;
 import org.geotools.util.URLs;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.MediaType;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.mvc.AbstractController;
 
 /**
  * Controller which publishes files through a web interface from the classpath
  *
- * <p>To use this controller, it should be mapped to a particular url in the url mapping of the
- * spring dispatcher servlet. Example:
+ * <p>To use this controller, it should be mapped to a particular url in the url mapping of the spring dispatcher
+ * servlet. Example:
  *
  * <pre>
  * <code>
@@ -52,10 +56,13 @@ import org.springframework.web.servlet.mvc.AbstractController;
  */
 public abstract class AbstractURLPublisher extends AbstractController {
 
+    protected boolean replaceWindowsFileSeparator = false;
+
     @Override
-    protected ModelAndView handleRequestInternal(
-            HttpServletRequest request, HttpServletResponse response) throws Exception {
-        URL url = getUrl(request);
+    protected ModelAndView handleRequestInternal(HttpServletRequest request, HttpServletResponse response)
+            throws Exception {
+        String reqPath = getRequestPath(request);
+        URL url = getUrl(request, reqPath);
 
         // if not found return a 404
         if (url == null) {
@@ -79,15 +86,16 @@ public abstract class AbstractURLPublisher extends AbstractController {
             return null;
         }
 
-        // set the mime if known by the servlet container, set nothing otherwise
-        // (Tomcat behaves like this when it does not recognize the file format)
-        String mime =
-                Optional.ofNullable(getServletContext())
-                        .map(sc -> sc.getMimeType(new File(url.getFile()).getName()))
-                        .orElse(null);
-        if (mime != null) {
-            response.setContentType(mime);
-        }
+        String filename = new File(url.getFile()).getName();
+        String mime = getMimeType(reqPath, filename);
+        response.setContentType(mime);
+        String dispositionType = isAttachment(reqPath, filename, mime) ? "attachment" : "inline";
+        response.setHeader(
+                "Content-Disposition",
+                ContentDisposition.builder(dispositionType)
+                        .filename(filename)
+                        .build()
+                        .toString());
 
         // set the content length and content type
         URLConnection connection = url.openConnection();
@@ -109,13 +117,11 @@ public abstract class AbstractURLPublisher extends AbstractController {
             // Read the first four bytes, and determine charset encoding
             count = input.read(b4);
             encInfo = XmlCharsetDetector.getEncodingName(b4, count);
-            response.setCharacterEncoding(
-                    encInfo.getEncoding() != null ? encInfo.getEncoding() : "UTF-8");
+            response.setCharacterEncoding(encInfo.getEncoding() != null ? encInfo.getEncoding() : "UTF-8");
 
             // count < 1 -> empty file
             if (count > 0) {
                 // send out the first four bytes read
-                @SuppressWarnings("PMD.CloseResource") // managed by servlet container
                 OutputStream output = response.getOutputStream();
                 output.write(b4, 0, count);
 
@@ -133,17 +139,28 @@ public abstract class AbstractURLPublisher extends AbstractController {
 
     private boolean checkNotModified(HttpServletRequest request, long timeStamp) {
         Enumeration headers = request.getHeaders("If-Modified-Since");
-        String header =
-                headers != null && headers.hasMoreElements()
-                        ? headers.nextElement().toString()
-                        : null;
-        if (header != null && header.length() > 0) {
+        String header = headers != null && headers.hasMoreElements()
+                ? headers.nextElement().toString()
+                : null;
+        if (header != null && !header.isEmpty()) {
             long ifModSinceSeconds = lastModified(header);
             // the HTTP header has second precision
             long timeStampSeconds = 1000 * (timeStamp / 1000);
             return ifModSinceSeconds >= timeStampSeconds;
         }
         return false;
+    }
+
+    private String getRequestPath(HttpServletRequest request) throws IOException {
+        String reqPath = URLDecoder.decode(request.getRequestURI(), "UTF-8")
+                .substring(request.getContextPath().length());
+        if (this.replaceWindowsFileSeparator) {
+            reqPath = reqPath.replace(File.separatorChar, '/');
+        }
+        if (Arrays.stream(reqPath.split("/")).anyMatch(".."::equals)) {
+            throw new IllegalArgumentException("Contains invalid '..' path: " + reqPath);
+        }
+        return reqPath;
     }
 
     static String lastModified(long timeStamp) {
@@ -165,6 +182,23 @@ public abstract class AbstractURLPublisher extends AbstractController {
         return 1000 * (ifModifiedSince / 1000);
     }
 
+    /** Can be overridden to replace specific mime types to mitigate potential XSS issues with certain resources */
+    protected String getMimeType(String reqPath, String filename) {
+        // set the mime if known by the servlet container, otherwise default to
+        // application/octet-stream to mitigate potential cross-site scripting
+        return Optional.ofNullable(getServletContext())
+                .map(sc -> sc.getMimeType(filename))
+                .orElse(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+    }
+
+    /**
+     * Can be overridden to set the Content-Disposition: attachment to mitigate potential XSS issues with certain
+     * resources
+     */
+    protected boolean isAttachment(String reqPath, String filename, String mime) {
+        return false;
+    }
+
     /** Retrieves the resource URL from the specified request */
-    protected abstract URL getUrl(HttpServletRequest request) throws IOException;
+    protected abstract URL getUrl(HttpServletRequest request, String reqPath) throws IOException;
 }

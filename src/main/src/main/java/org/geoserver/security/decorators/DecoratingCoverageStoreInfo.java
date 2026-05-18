@@ -14,22 +14,19 @@ import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.CoverageStoreInfo;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geotools.api.coverage.grid.GridCoverageReader;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.util.decorate.AbstractDecorator;
 import org.geotools.util.factory.Hints;
-import org.opengis.coverage.grid.GridCoverageReader;
-import org.opengis.util.ProgressListener;
 
 /**
- * Delegates all methods to the provided delegate. Suclasses will override methods in order to
- * perform their decoration work
+ * Delegates all methods to the provided delegate. Subclasses will override methods in order to perform their decoration
+ * work
  *
  * @author Andrea Aime - TOPP
- * @param <T>
- * @param <F>
  */
-public class DecoratingCoverageStoreInfo extends AbstractDecorator<CoverageStoreInfo>
-        implements CoverageStoreInfo {
+public class DecoratingCoverageStoreInfo extends AbstractDecorator<CoverageStoreInfo> implements CoverageStoreInfo {
 
     public DecoratingCoverageStoreInfo(CoverageStoreInfo delegate) {
         super(delegate);
@@ -141,8 +138,7 @@ public class DecoratingCoverageStoreInfo extends AbstractDecorator<CoverageStore
     }
 
     @Override
-    public GridCoverageReader getGridCoverageReader(ProgressListener listener, Hints hints)
-            throws IOException {
+    public GridCoverageReader getGridCoverageReader(ProgressListener listener, Hints hints) throws IOException {
         return delegate.getGridCoverageReader(listener, hints);
     }
 
@@ -174,5 +170,15 @@ public class DecoratingCoverageStoreInfo extends AbstractDecorator<CoverageStore
     @Override
     public void setDisableOnConnFailure(boolean disableOnConnFailure) {
         delegate.setDisableOnConnFailure(disableOnConnFailure);
+    }
+
+    @Override
+    public void setModifiedBy(String userName) {
+        delegate.setModifiedBy(userName);
+    }
+
+    @Override
+    public String getModifiedBy() {
+        return delegate.getModifiedBy();
     }
 }

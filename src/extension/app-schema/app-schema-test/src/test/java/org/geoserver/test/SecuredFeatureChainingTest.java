@@ -24,18 +24,18 @@ import org.geoserver.security.TestResourceAccessManager;
 import org.geoserver.security.VectorAccessLimits;
 import org.geoserver.security.decorators.ReadOnlyDataAccess;
 import org.geoserver.security.decorators.SecuredDataStoreInfo;
-import org.geotools.data.DataAccess;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.data.complex.expression.FeaturePropertyAccessorFactory;
 import org.geotools.data.util.NullProgressListener;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.AttributeExpressionImpl;
 import org.geotools.util.factory.Hints;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.expression.PropertyName;
 import org.w3c.dom.Document;
 import org.xml.sax.helpers.NamespaceSupport;
 
@@ -60,9 +60,8 @@ public class SecuredFeatureChainingTest extends AbstractAppSchemaTestSupport {
 
     /** Enable the Spring Security auth filters */
     @Override
-    protected List<javax.servlet.Filter> getFilters() {
-        return Collections.singletonList(
-                (javax.servlet.Filter) GeoServerExtensions.bean("filterChainProxy"));
+    protected List<jakarta.servlet.Filter> getFilters() {
+        return Collections.singletonList((jakarta.servlet.Filter) GeoServerExtensions.bean("filterChainProxy"));
     }
 
     @Override
@@ -91,37 +90,22 @@ public class SecuredFeatureChainingTest extends AbstractAppSchemaTestSupport {
         FeatureTypeInfo gu = catalog.getFeatureTypeByName("gsml:GeologicUnit");
 
         // limits for mr readfilter
-        Filter f =
-                ff.equal(
-                        new AttributeExpressionImpl("gsml:purpose", ns),
-                        ff.literal("instance"),
-                        false);
-        tam.putLimits(
-                "cite_readfilter",
-                gu,
-                new VectorAccessLimits(CatalogMode.HIDE, null, f, null, null));
+        Filter f = ff.equal(new AttributeExpressionImpl("gsml:purpose", ns), ff.literal("instance"), false);
+        tam.putLimits("cite_readfilter", gu, new VectorAccessLimits(CatalogMode.HIDE, null, f, null, null));
 
         List<PropertyName> readAtts =
-                Arrays.asList(
-                        ff.property("gsml:composition"), ff.property("gsml:outcropCharacter"));
+                Arrays.asList(ff.property("gsml:composition"), ff.property("gsml:outcropCharacter"));
 
-        tam.putLimits(
-                "cite_readatts",
-                gu,
-                new VectorAccessLimits(CatalogMode.HIDE, readAtts, f, null, null));
+        tam.putLimits("cite_readatts", gu, new VectorAccessLimits(CatalogMode.HIDE, readAtts, f, null, null));
     }
 
     /** Test that denormalized data reports the correct number of features */
     @Test
     public void testDenormalisedFeaturesCount() {
         setRequestAuth("cite_readatts", "cite");
-        Document doc =
-                getAsDOM(
-                        "wfs?request=GetFeature&version=1.1.0&typename=gsml:GeologicUnit"
-                                + "&maxFeatures=3&resultType=hits");
-        LOGGER.info(
-                "WFS GetFeature&typename=gsml:GeologicUnit&maxFeatures=3 response:\n"
-                        + prettyString(doc));
+        Document doc = getAsDOM(
+                "wfs?request=GetFeature&version=1.1.0&typename=gsml:GeologicUnit" + "&maxFeatures=3&resultType=hits");
+        LOGGER.info("WFS GetFeature&typename=gsml:GeologicUnit&maxFeatures=3 response:\n" + prettyString(doc));
         assertXpathEvaluatesTo("3", "//wfs:FeatureCollection/@numberOfFeatures", doc);
     }
 
@@ -129,12 +113,8 @@ public class SecuredFeatureChainingTest extends AbstractAppSchemaTestSupport {
     @Test
     public void testSecureFeatureContent() {
         setRequestAuth("cite_readatts", "cite");
-        Document doc =
-                getAsDOM(
-                        "wfs?request=GetFeature&version=1.1.0&typename=gsml:GeologicUnit&maxFeatures=3");
-        LOGGER.info(
-                "WFS GetFeature&typename=gsml:GeologicUnit&maxFeatures=3 response:\n"
-                        + prettyString(doc));
+        Document doc = getAsDOM("wfs?request=GetFeature&version=1.1.0&typename=gsml:GeologicUnit&maxFeatures=3");
+        LOGGER.info("WFS GetFeature&typename=gsml:GeologicUnit&maxFeatures=3 response:\n" + prettyString(doc));
         assertXpathCount(3, "//gsml:GeologicUnit", doc);
         assertXpathCount(0, "//gsml:GeologicUnit[@gml:id='gu.25699']/gsml:exposureColor", doc);
         assertXpathCount(0, "//gsml:GeologicUnit[@gml:id='gu.25678']/gsml:exposureColor", doc);
@@ -146,8 +126,8 @@ public class SecuredFeatureChainingTest extends AbstractAppSchemaTestSupport {
     }
 
     /**
-     * Tests that {@link SecuredDataStoreInfo#getDataStore(org.opengis.util.ProgressListener)}
-     * correctly returns a {@link DataAccess} instance.
+     * Tests that {@link SecuredDataStoreInfo#getDataStore(org.geotools.api.util.ProgressListener)} correctly returns a
+     * {@link DataAccess} instance.
      */
     @Test
     public void testSecuredDataStoreInfo() throws IOException {

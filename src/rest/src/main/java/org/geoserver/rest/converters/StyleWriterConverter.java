@@ -15,8 +15,8 @@ import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.rest.wrapper.RestWrapper;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.util.Version;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
@@ -57,12 +57,11 @@ public class StyleWriterConverter extends BaseMessageConverter<Object> {
     public void writeInternal(Object object, HttpOutputMessage outputMessage)
             throws IOException, HttpMessageNotWritableException {
 
-        if (object instanceof RestWrapper) {
-            object = ((RestWrapper<?>) object).getObject();
+        if (object instanceof RestWrapper<?> wrapper) {
+            object = wrapper.getObject();
         }
 
-        if (object instanceof StyleInfo) {
-            StyleInfo style = (StyleInfo) object;
+        if (object instanceof StyleInfo style) {
             // optimization, if the requested format is the same as the native format
             // of the style, stream the file directly from the disk, otherwise encode
             // the style in the requested format
@@ -75,10 +74,10 @@ public class StyleWriterConverter extends BaseMessageConverter<Object> {
         }
 
         StyledLayerDescriptor sld;
-        if (object instanceof StyleInfo) {
+        if (object instanceof StyleInfo info) {
             // get the full SLD, might be a multi-layer style (calling getStye only retrieves
             // the first UserStyle instead)
-            sld = ((StyleInfo) object).getSLD();
+            sld = info.getSLD();
         } else {
             Style style = (Style) object;
             sld = Styles.sld(style);

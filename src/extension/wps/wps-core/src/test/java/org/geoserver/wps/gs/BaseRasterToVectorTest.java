@@ -16,12 +16,12 @@ import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.data.test.SystemTestData.LayerProperty;
 import org.geoserver.wps.WPSTestSupport;
-import org.geotools.data.DataStoreFactorySpi;
-import org.geotools.data.Transaction;
+import org.geotools.api.data.DataStoreFactorySpi;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.data.Transaction;
 import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.shapefile.ShapefileDataStoreFactory;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.geotools.util.Utilities;
@@ -31,8 +31,7 @@ public abstract class BaseRasterToVectorTest extends WPSTestSupport {
     static final double EPS = 1e-6;
     public static QName RESTRICTED = new QName(MockData.SF_URI, "restricted", MockData.SF_PREFIX);
     public static QName DEM = new QName(MockData.SF_URI, "sfdem", MockData.SF_PREFIX);
-    public static QName TASMANIA_BM_ZONES =
-            new QName(MockData.SF_URI, "BmZones", MockData.SF_PREFIX);
+    public static QName TASMANIA_BM_ZONES = new QName(MockData.SF_URI, "BmZones", MockData.SF_PREFIX);
 
     public BaseRasterToVectorTest() {
         super();
@@ -49,21 +48,15 @@ public abstract class BaseRasterToVectorTest extends WPSTestSupport {
         props.put(
                 LayerProperty.ENVELOPE,
                 new ReferencedEnvelope(
-                        181985.7630,
-                        818014.2370,
-                        1973809.4640,
-                        8894102.4298,
-                        CRS.decode("EPSG:26713", true)));
+                        181985.7630, 818014.2370, 1973809.4640, 8894102.4298, CRS.decode("EPSG:26713", true)));
 
-        testData.addVectorLayer(
-                RESTRICTED, props, "restricted.properties", getClass(), getCatalog());
-        testData.addVectorLayer(
-                TASMANIA_BM_ZONES, props, "tazdem_zones.properties", getClass(), getCatalog());
+        testData.addVectorLayer(RESTRICTED, props, "restricted.properties", getClass(), getCatalog());
+        testData.addVectorLayer(TASMANIA_BM_ZONES, props, "tazdem_zones.properties", getClass(), getCatalog());
     }
 
     /**
-     * This method takes the input {@link SimpleFeatureCollection} and transforms it into a
-     * shapefile using the provided file.
+     * This method takes the input {@link SimpleFeatureCollection} and transforms it into a shapefile using the provided
+     * file.
      *
      * <p>Make sure the provided files ends with .shp.
      *
@@ -71,8 +64,8 @@ public abstract class BaseRasterToVectorTest extends WPSTestSupport {
      * @param destination the {@link File} where we want to write the shapefile.
      * @throws IOException in case an {@link IOException} is thrown by the underlying code.
      */
-    protected static void featureCollectionToShapeFile(
-            final SimpleFeatureCollection fc, final File destination) throws IOException {
+    protected static void featureCollectionToShapeFile(final SimpleFeatureCollection fc, final File destination)
+            throws IOException {
 
         //
         // checks
@@ -83,18 +76,15 @@ public abstract class BaseRasterToVectorTest extends WPSTestSupport {
         if (destination.exists()) {
 
             if (destination.isDirectory())
-                throw new IOException(
-                        "The provided destination maps to a directory:" + destination);
+                throw new IOException("The provided destination maps to a directory:" + destination);
 
             if (!destination.canWrite())
                 throw new IOException(
-                        "The provided destination maps to an existing file that cannot be deleted:"
-                                + destination);
+                        "The provided destination maps to an existing file that cannot be deleted:" + destination);
 
             if (!destination.delete())
                 throw new IOException(
-                        "The provided destination maps to an existing file that cannot be deleted:"
-                                + destination);
+                        "The provided destination maps to an existing file that cannot be deleted:" + destination);
         }
 
         // real work

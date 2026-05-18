@@ -12,9 +12,9 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.IOUtils;
+import org.geotools.api.style.ExternalGraphic;
+import org.geotools.api.style.ResourceLocator;
 import org.geotools.styling.AbstractStyleVisitor;
-import org.geotools.styling.ExternalGraphic;
-import org.geotools.styling.ResourceLocator;
 import org.geotools.util.logging.Logging;
 
 class StyleResourceCollector extends AbstractStyleVisitor {
@@ -43,18 +43,14 @@ class StyleResourceCollector extends AbstractStyleVisitor {
             } catch (Exception e) {
                 LOGGER.log(
                         Level.WARNING,
-                        "Cannot retrieve external graphic source "
-                                + location
-                                + " for original uri "
-                                + uri,
+                        "Cannot retrieve external graphic source " + location + " for original uri " + uri,
                         e);
                 return;
             }
 
             String symbolUri = symbolPrefix + symbolId;
             GeoPkgSymbol symbol = new GeoPkgSymbol(uri, null, symbolUri);
-            GeoPkgSymbolImage image =
-                    new GeoPkgSymbolImage(exgr.getFormat(), contents, symbolUri, symbol);
+            GeoPkgSymbolImage image = new GeoPkgSymbolImage(exgr.getFormat(), contents, symbolUri, symbol);
             symbolId++;
             resources.put(uri, image);
         }

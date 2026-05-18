@@ -15,13 +15,14 @@
   <!-- The fragment for the common links -->
   <wicket:fragment wicket:id="commonLinks">
     <span class="text-nowrap" wicket:id="commonFormat">
-      <a target="_blank" href="#" wicket:id="theLink">theTitle</a>&nbsp;
+      <a target="_blank" href="#" wicket:id="theLink">theTitle</a>&#160;
     </span>
   </wicket:fragment>
   
   <!--  The custom drop down with optgroups -->
-  <wicket:fragment wicket:id="menuFragment">
-    <select wicket:id="menu">
+  <wicket:fragment wicket:id="menuFragment" class="menu-page-select">
+    <!-- map-preview-page-menu-select class is required for CSP-JS integration - see renderHeader-->
+    <select wicket:id="menu"  class="map-preview-page-menu-select">
       <option><wicket:message key="selectOne">Select one</wicket:message></option>
       <optgroup label="WMS" wicket:id="wms">
           <option wicket:id="wmsFormats"></option>
@@ -31,6 +32,8 @@
        </optgroup>
     </select>
   </wicket:fragment>
+
+  <input type="hidden" id="maxFeatures" wicket:id="maxFeatures" />
 </wicket:extend>
 </body>
 </html>

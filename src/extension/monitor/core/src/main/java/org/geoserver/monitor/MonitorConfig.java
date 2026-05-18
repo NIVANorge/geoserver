@@ -26,13 +26,15 @@ import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geoserver.security.PropertyFileWatcher;
 import org.geoserver.util.IOUtils;
+import org.geoserver.util.LinkedProperties;
+import org.geoserver.util.SortedProperties;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.referencing.CRS;
 import org.geotools.util.ConverterFactory;
 import org.geotools.util.Converters;
 import org.geotools.util.factory.Hints;
 import org.geotools.util.logging.Logging;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -61,12 +63,16 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
     protected Properties props;
     PropertyFileWatcher fw;
     ApplicationContext context;
-    boolean enabled = true;
+    volatile boolean enabled = true;
     Exception error;
     private GeoServerResourceLoader loader;
 
+    static final int POSTPROCES_THREADS_DEFAULT = 2;
+
+    static final String DNS_CACHE_DEFAULT = "expireAfterWrite=15m,maximumSize=1000";
+
     public MonitorConfig() {
-        props = new PropertyFileWatcher.LinkedProperties();
+        props = new LinkedProperties();
         props.put("storage", "memory");
         props.put("mode", "history");
         props.put("maxBodySize", "1024");
@@ -185,11 +191,7 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
         }
         if (dao == null) {
             LOGGER.warning(
-                    "monitoring storage "
-                            + storage
-                            + " not found, falling back to '"
-                            + MemoryMonitorDAO.NAME
-                            + "'");
+                    "monitoring storage " + storage + " not found, falling back to '" + MemoryMonitorDAO.NAME + "'");
             dao = new MemoryMonitorDAO();
         }
 
@@ -198,8 +200,8 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
     }
 
     /**
-     * Allows to retrieve a generic property from the configuration. Extensions and plugins are
-     * supposed to use the plugin.property naming convention, passing both a prefix and a name
+     * Allows to retrieve a generic property from the configuration. Extensions and plugins are supposed to use the
+     * plugin.property naming convention, passing both a prefix and a name
      *
      * @param prefix namespace prefix
      * @param name name
@@ -209,15 +211,10 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
         String key = prefix == null ? name : prefix + "." + name;
         Object value = props().get(key);
         if (value != null) {
-            T converted =
-                    Converters.convert(
-                            value, target, new Hints(ConverterFactory.SAFE_CONVERSION, true));
+            T converted = Converters.convert(value, target, new Hints(ConverterFactory.SAFE_CONVERSION, true));
             if (converted == null) {
                 throw new IllegalArgumentException(
-                        "Object "
-                                + value
-                                + " could not be converted to the target class "
-                                + target);
+                        "Object " + value + " could not be converted to the target class " + target);
             }
             return converted;
         } else {
@@ -262,9 +259,7 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
     public Resource getConfigurationFile(GeoServerResourceLoader loader) throws IOException {
         Resource f = loader.get(Paths.path("monitoring", MonitorConfig.PROPERTYFILENAME));
         if (!Resources.exists(f)) {
-            IOUtils.copy(
-                    MonitorConfig.class.getResourceAsStream(MonitorConfig.PROPERTYFILENAME),
-                    f.out());
+            IOUtils.copy(MonitorConfig.class.getResourceAsStream(MonitorConfig.PROPERTYFILENAME), f.out());
         }
         return f;
     }
@@ -274,19 +269,18 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
         if (loader != null) {
             Resource f = getConfigurationFile(loader);
 
-            Resource targetDir =
-                    Files.asResource(
-                            resourceLoader.findOrCreateDirectory(
-                                    Paths.convert(loader.getBaseDirectory(), f.parent().dir())));
+            Resource targetDir = Files.asResource(resourceLoader.findOrCreateDirectory(
+                    Paths.convert(loader.getBaseDirectory(), f.parent().dir())));
 
             Resources.copy(f.file(), targetDir);
         } else if (fw != null && fw.getResource() != null) {
             Resources.copy(fw.getFile(), Files.asResource(resourceLoader.getBaseDirectory()));
         } else if (props != null) {
-            File monitoringConfigurationFile =
-                    Resources.file(resourceLoader.get(MonitorConfig.PROPERTYFILENAME), true);
+            File monitoringConfigurationFile = Resources.file(resourceLoader.get(MonitorConfig.PROPERTYFILENAME), true);
             try (OutputStream out = Files.out(monitoringConfigurationFile)) {
-                props.store(out, "");
+                SortedProperties sortedProps = new SortedProperties();
+                sortedProps.putAll(props);
+                sortedProps.store(out, "");
                 out.flush();
             }
         }
@@ -301,5 +295,34 @@ public class MonitorConfig implements GeoServerPluginConfigurator, ApplicationCo
                 fw.setKnownLastModified(System.currentTimeMillis());
             }
         }
+    }
+
+    public int getPostProcessorThreads() {
+        Properties props = props();
+        String key = "postProcessorThreads";
+        String svalue = props.getProperty(key);
+        if (svalue != null) {
+            try {
+                int nvalue = Integer.parseInt(svalue.trim());
+                if (nvalue < 1) {
+                    LOGGER.warning(key + " is not 1 or more :" + svalue + "!");
+                } else {
+                    return nvalue;
+                }
+            } catch (NumberFormatException e) {
+                LOGGER.warning(key + " has non-integer value:" + svalue + "!");
+            }
+        }
+        return POSTPROCES_THREADS_DEFAULT;
+    }
+
+    public String getDNSCacheConfiguration() {
+        Properties props = props();
+        String key = "dnsCacheConfiguration";
+        String value = props.getProperty(key);
+        if (value == null) {
+            value = DNS_CACHE_DEFAULT;
+        }
+        return value;
     }
 }

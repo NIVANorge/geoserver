@@ -6,12 +6,12 @@ package org.geoserver.wps.hz;
 
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.HazelcastInstanceAware;
-import com.hazelcast.core.IMap;
-import com.hazelcast.map.EntryBackupProcessor;
 import com.hazelcast.map.EntryProcessor;
+import com.hazelcast.map.IMap;
 import com.hazelcast.query.PagingPredicate;
 import com.hazelcast.query.Predicate;
-import com.hazelcast.query.TruePredicate;
+import com.hazelcast.query.impl.predicates.PagingPredicateImpl;
+import com.hazelcast.query.impl.predicates.TruePredicate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -26,17 +26,17 @@ import org.geoserver.wps.ProcessStatusStore;
 import org.geoserver.wps.WPSException;
 import org.geoserver.wps.executor.ExecutionStatus;
 import org.geoserver.wps.executor.ProcessState;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
+import org.geotools.api.filter.temporal.After;
+import org.geotools.api.filter.temporal.Before;
 import org.geotools.filter.FilterCapabilities;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.filter.visitor.PostPreProcessFilterSplittingVisitor;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
-import org.opengis.filter.temporal.After;
-import org.opengis.filter.temporal.Before;
 
 /**
  * A Hazelcast based implementation of the {@link ProcessStatusStore} interface
@@ -88,15 +88,9 @@ public class HazelcastStatusStore implements ProcessStatusStore {
                 ProcessState previousPhase = oldStatus.getPhase();
                 ProcessState currPhase = status.getPhase();
                 if (!currPhase.isValidSuccessor(previousPhase)) {
-                    throw new WPSException(
-                            "Cannot switch process status from "
-                                    + previousPhase
-                                    + " to "
-                                    + currPhase);
+                    throw new WPSException("Cannot switch process status from " + previousPhase + " to " + currPhase);
                 }
-                succeded =
-                        statuses.replace(
-                                status.getExecutionId(), oldStatus, new ExecutionStatus(status));
+                succeded = statuses.replace(status.getExecutionId(), oldStatus, new ExecutionStatus(status));
             } else {
                 ExecutionStatus previous = statuses.put(status.getExecutionId(), status);
                 succeded = previous == null;
@@ -124,11 +118,10 @@ public class HazelcastStatusStore implements ProcessStatusStore {
         }
 
         FilterPredicate filterPredicate = new FilterPredicate(filter);
-        Predicate predicate = filterPredicate.predicate;
+        Predicate<String, ExecutionStatus> predicate = filterPredicate.predicate;
         Filter postFilter = filterPredicate.postFilter;
 
-        Map<String, Object> results =
-                statuses.executeOnEntries(new RemovingEntryProcessor(postFilter), predicate);
+        Map<String, Object> results = statuses.executeOnEntries(new RemovingEntryProcessor(postFilter), predicate);
         int removedCount = results.size();
         return removedCount;
     }
@@ -140,7 +133,7 @@ public class HazelcastStatusStore implements ProcessStatusStore {
         int startIndex = query.getStartIndex() == null ? 0 : query.getStartIndex();
         boolean needsSorting = query.getSortBy() != null && query.getSortBy().length > 0;
         FilterPredicate filterPredicate = new FilterPredicate(query.getFilter());
-        Predicate predicate = filterPredicate.predicate;
+        Predicate<String, ExecutionStatus> predicate = filterPredicate.predicate;
         Filter postFilter = filterPredicate.postFilter;
 
         // Two cases here: if we have post-filtering we are going to run an entry processor,
@@ -162,17 +155,16 @@ public class HazelcastStatusStore implements ProcessStatusStore {
                     pagingComparator = getComparator("value.", query.getSortBy());
                 }
                 if (pagingComparator != null) {
-                    predicate = new PagingPredicate(predicate, pagingComparator, maxFeatures);
+                    predicate = new PagingPredicateImpl(predicate, pagingComparator, maxFeatures);
                 } else {
-                    predicate = new PagingPredicate(predicate, maxFeatures);
+                    predicate = new PagingPredicateImpl<>(predicate, maxFeatures);
                 }
             }
 
             // are we actually have to page?
             ArrayList<ExecutionStatus> result = new ArrayList<>();
-            if (predicate instanceof PagingPredicate) {
+            if (predicate instanceof PagingPredicate pp) {
                 int position = 0;
-                PagingPredicate pp = (PagingPredicate) predicate;
                 while (position < startIndex - maxFeatures) {
                     pp.nextPage();
                     position += maxFeatures;
@@ -202,11 +194,7 @@ public class HazelcastStatusStore implements ProcessStatusStore {
     }
 
     private List<ExecutionStatus> postProcessResults(
-            Query query,
-            int maxFeatures,
-            int startIndex,
-            boolean needsSorting,
-            List<ExecutionStatus> result) {
+            Query query, int maxFeatures, int startIndex, boolean needsSorting, List<ExecutionStatus> result) {
         if (needsSorting) {
             Comparator<ExecutionStatus> comparator = getComparator("", query.getSortBy());
             Collections.sort(result, comparator);
@@ -234,8 +222,7 @@ public class HazelcastStatusStore implements ProcessStatusStore {
             if (sort == SortBy.NATURAL_ORDER) {
                 comparators.add(new BeanComparator<>(prefix + "creationTime"));
             } else if (sort == SortBy.REVERSE_ORDER) {
-                comparators.add(
-                        Collections.reverseOrder(new BeanComparator<>(prefix + "creationTime")));
+                comparators.add(Collections.reverseOrder(new BeanComparator<>(prefix + "creationTime")));
             } else {
                 String property = sort.getPropertyName().getPropertyName();
                 Comparator<T> comparator = new BeanComparator<>(prefix + property);
@@ -287,18 +274,14 @@ public class HazelcastStatusStore implements ProcessStatusStore {
         }
 
         @SuppressWarnings("unchecked")
-        private Predicate<String, ExecutionStatus> toPredicate(
-                Filter preFilter, FilterToCriteria transformer) {
+        private Predicate<String, ExecutionStatus> toPredicate(Filter preFilter, FilterToCriteria transformer) {
             return (Predicate<String, ExecutionStatus>) preFilter.accept(transformer, null);
         }
     }
 
-    /**
-     * Base class for {@link EntryProcessor} that need to carry around a OGC filter, which is not
-     * serializable
-     */
+    /** Base class for {@link EntryProcessor} that need to carry around a OGC filter, which is not serializable */
     private abstract static class AbstractFilteringEntryProcessor
-            implements EntryProcessor<String, ExecutionStatus> {
+            implements EntryProcessor<String, ExecutionStatus, Object> {
         private static final long serialVersionUID = -912785821605141531L;
 
         transient Filter filter;
@@ -311,7 +294,7 @@ public class HazelcastStatusStore implements ProcessStatusStore {
         }
 
         @Override
-        public EntryBackupProcessor<String, ExecutionStatus> getBackupProcessor() {
+        public EntryProcessor<String, ExecutionStatus, Object> getBackupProcessor() {
             return null;
         }
 

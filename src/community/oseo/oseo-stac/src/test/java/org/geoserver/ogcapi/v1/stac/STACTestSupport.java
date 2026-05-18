@@ -4,7 +4,6 @@
  */
 package org.geoserver.ogcapi.v1.stac;
 
-import static org.geoserver.opensearch.eo.store.GeoServerOpenSearchTestSupport.setupBasicOpenSearch;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -25,22 +24,33 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.ogcapi.OGCApiTestSupport;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.OpenSearchAccessProvider;
-import org.geoserver.opensearch.eo.store.GeoServerOpenSearchTestSupport;
 import org.geoserver.opensearch.eo.store.JDBCOpenSearchAccessTest;
+import org.geoserver.opensearch.eo.store.OSEOPostGISResource;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
+import org.geoserver.security.GeoServerRoleService;
+import org.geoserver.security.GeoServerRoleStore;
+import org.geoserver.security.GeoServerSecurityManager;
+import org.geoserver.security.impl.GeoServerRole;
 import org.hamcrest.Matchers;
 import org.jsoup.select.Elements;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 
 public class STACTestSupport extends OGCApiTestSupport {
     protected static final String STAC_TITLE = "STAC server title";
-    protected static final double EPS = 1e-5;
+    protected static final String ROLE_PROPRIETARY = "ROLE_PROPRIETARY";
+    protected static final String ROLE_ATM = "ROLE_ATMOSPHERIC";
+    protected static final String ROLE_NOCLOUD = "ROLE_LOWCLOUD";
+
+    /** The EPS value to use for floating point comparisons. Matches precision of the expected values */
+    protected static final double EPS = 1e-4;
 
     static TimeZone currentTimeZone;
     static Locale currentLocale;
+    protected static OSEOPostGISResource postgis;
 
     @BeforeClass
     public static void setupGMT() {
@@ -57,17 +67,21 @@ public class STACTestSupport extends OGCApiTestSupport {
     }
 
     @Override
+    protected void setUpTestData(SystemTestData testData) throws Exception {
+        // no need for test data
+    }
+
+    @Override
     protected void onSetUp(SystemTestData testData) throws Exception {
         super.onSetUp(testData);
 
         GeoServer gs = getGeoServer();
         OSEOInfo service = gs.getService(OSEOInfo.class);
         service.setTitle(STAC_TITLE);
-        service.getGlobalQueryables()
-                .addAll(Arrays.asList("id", "geometry", "collection", "eo:cloud_cover"));
+        service.getGlobalQueryables().addAll(Arrays.asList("id", "geometry", "collection", "eo:cloud_cover"));
         gs.save(service);
 
-        setupBasicOpenSearch(testData, getCatalog(), gs, false);
+        postgis.setupBasicOpenSearch(getCatalog(), gs);
 
         // add the custom product class
         service.getProductClasses().add(JDBCOpenSearchAccessTest.GS_PRODUCT);
@@ -75,8 +89,31 @@ public class STACTestSupport extends OGCApiTestSupport {
     }
 
     @BeforeClass
-    public static void checkOnLine() {
-        GeoServerOpenSearchTestSupport.checkOnLine();
+    public static void checkOnLine() throws Throwable {
+        postgis = new OSEOPostGISResource(false);
+        postgis.before();
+    }
+
+    @AfterClass
+    public static void cleanDB() throws IOException {
+        postgis.after();
+    }
+
+    @Before
+    public void clearConfiguration() throws Exception {
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        service.getGlobalQueryables().clear();
+        service.setSkipNumberMatched(false);
+        gs.save(service);
+    }
+
+    /** Sets up the service to skip number matched */
+    protected void enableSkipNumberMatched() {
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        service.setSkipNumberMatched(true);
+        gs.save(service);
     }
 
     /**
@@ -86,8 +123,7 @@ public class STACTestSupport extends OGCApiTestSupport {
      * @throws IOException
      */
     public OpenSearchAccess getOpenSearchAccess() throws IOException {
-        OpenSearchAccessProvider provider =
-                GeoServerExtensions.bean(OpenSearchAccessProvider.class);
+        OpenSearchAccessProvider provider = GeoServerExtensions.bean(OpenSearchAccessProvider.class);
         return provider.getOpenSearchAccess();
     }
 
@@ -104,24 +140,26 @@ public class STACTestSupport extends OGCApiTestSupport {
         assertThat(elements.select(selector).text(), containsString(text));
     }
 
-    /**
-     * Copies the given template from the classpath to the data directory. Lookup is relative to the
-     * test class.
-     */
+    /** Copies the given template from the classpath to the data directory. Lookup is relative to the test class. */
     protected void copyTemplate(String template) throws IOException {
-        copyTemplate(template, "templates/ogc/stac/");
+        copyTemplate(template, "templates/ogc/stac/v1/");
     }
-    /**
-     * Copies the given template from the classpath to the data directory. Lookup is relative to the
-     * test class. The target path is for when you want to prioritize a template in a specific
-     * folder over an identically named template in a different folder.
-     */
+
+    /** Copies the given template from the classpath to the data directory. Lookup is relative to the test class. */
     protected void copyTemplate(String template, String targetPath) throws IOException {
+        copyTemplate(template, "templates/ogc/stac/v1/", template);
+    }
+
+    /**
+     * Copies the given template from the classpath to the data directory. Lookup is relative to the test class. The
+     * target path is for when you want to prioritize a template in a specific folder over an identically named template
+     * in a different folder.
+     */
+    protected void copyTemplate(String template, String targetPath, String targetFileName) throws IOException {
         GeoServerDataDirectory dd = getDataDirectory();
-        Resource target = dd.get(targetPath, template);
+        Resource target = dd.get(targetPath, targetFileName);
         if (getClass().getResource(template) == null)
-            throw new IllegalArgumentException(
-                    "Could not find " + template + " relative to " + getClass());
+            throw new IllegalArgumentException("Could not find " + template + " relative to " + getClass());
         try (InputStream is = getClass().getResourceAsStream(template);
                 OutputStream os = target.out()) {
             IOUtils.copy(is, os);
@@ -143,8 +181,8 @@ public class STACTestSupport extends OGCApiTestSupport {
         assertThat(instruments, Matchers.containsInAnyOrder("OLI", "TIRS"));
         assertEquals("landsat8", l8_02.read("properties.constellation"));
         // creation and modification
-        assertEquals("2017-02-26T10:24:58.000+00:00", l8_02.read("properties.created"));
-        assertEquals("2017-02-28T10:24:58.000+00:00", l8_02.read("properties.updated"));
+        assertEquals("2017-02-26T10:24:58.000Z", l8_02.read("properties.created"));
+        assertEquals("2017-02-28T10:24:58.000Z", l8_02.read("properties.updated"));
 
         // check bits unique to the LS8 template
         assertEquals(Integer.valueOf(30), l8_02.read("properties.gsd"));
@@ -169,9 +207,8 @@ public class STACTestSupport extends OGCApiTestSupport {
     }
 
     /**
-     * Checks the JSON representation of
-     * S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04 using the common items
-     * template
+     * Checks the JSON representation of S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04 using the common
+     * items template
      *
      * @param s2Sample
      */
@@ -191,7 +228,7 @@ public class STACTestSupport extends OGCApiTestSupport {
         assertEquals(-117.969376, s2Sample.read("bbox[2]", Double.class), EPS);
         assertEquals(34.337738, s2Sample.read("bbox[3]", Double.class), EPS);
         // ... time range (single value)
-        assertEquals("2017-03-08T18:54:21.026+00:00", s2Sample.read("properties.datetime"));
+        assertEquals("2017-03-08T18:54:21.026Z", s2Sample.read("properties.datetime"));
         // ... instrument related
         assertEquals("sentinel-2a", s2Sample.read("properties.platform"));
         assertEquals("sentinel2", s2Sample.read("properties.constellation"));
@@ -203,22 +240,54 @@ public class STACTestSupport extends OGCApiTestSupport {
         assertEquals(
                 "http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2",
                 readSingle(s2Sample, "links[?(@.rel == 'collection')].href"));
+        assertEquals("application/json", readSingle(s2Sample, "links[?(@.rel == 'collection')].type"));
         assertEquals(
-                "application/json", readSingle(s2Sample, "links[?(@.rel == 'collection')].type"));
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1",
-                readSingle(s2Sample, "links[?(@.rel == 'root')].href"));
+                "http://localhost:8080/geoserver/ogc/stac/v1", readSingle(s2Sample, "links[?(@.rel == 'root')].href"));
         assertEquals("application/json", readSingle(s2Sample, "links[?(@.rel == 'root')].type"));
         assertEquals(
                 "http://localhost:8080/geoserver/ogc/stac/v1/collections/SENTINEL2/items/S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04",
                 readSingle(s2Sample, "links[?(@.rel == 'self')].href"));
-        assertEquals(
-                "application/geo+json", readSingle(s2Sample, "links[?(@.rel == 'self')].type"));
+        assertEquals("application/geo+json", readSingle(s2Sample, "links[?(@.rel == 'self')].type"));
     }
 
     /** Checks the array contains the given coordinates in <code>x, y</code> order. */
     protected void assertPoint(double x, double y, JSONArray coordinate) {
         assertEquals(x, (Double) coordinate.get(0), EPS);
         assertEquals(y, (Double) coordinate.get(1), EPS);
+    }
+
+    protected void ensureRolesAvailable(List<String> roleNames) throws IOException {
+        GeoServerSecurityManager securityManager = GeoServerExtensions.bean(GeoServerSecurityManager.class);
+        GeoServerRoleService roleService = securityManager.getActiveRoleService();
+        GeoServerRoleStore roleStore = roleService.createStore();
+        for (String roleName : roleNames) {
+            if (roleService.getRoleByName(roleName) == null) roleStore.addRole(new GeoServerRole(roleName));
+        }
+        roleStore.store();
+    }
+
+    protected int getJsonListSize(DocumentContext json, String jsonPath) {
+        List<?> list = json.read(jsonPath, List.class);
+        return list.size();
+    }
+
+    protected void assertJsonListSize(DocumentContext json, String jsonPath, int expectedSize) {
+        assertEquals(expectedSize, getJsonListSize(json, jsonPath));
+    }
+
+    @Before
+    public void resetSecurity() throws Exception {
+        // clear security rules
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        service.getCollectionLimits().clear();
+        service.getProductLimits().clear();
+        gs.save(service);
+
+        // clear eventual login
+        logout();
+
+        // ensure the test roles are there
+        ensureRolesAvailable(List.of(ROLE_PROPRIETARY, ROLE_ATM, ROLE_NOCLOUD));
     }
 }

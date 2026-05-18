@@ -7,46 +7,44 @@ package org.geoserver.mapml;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.xml.transform.Result;
-import javax.xml.transform.stream.StreamResult;
 import net.opengis.wfs.FeatureCollectionType;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.SettingsInfo;
+import org.geoserver.data.TypeInfoCollectionWrapper;
 import org.geoserver.mapml.tcrs.TiledCRSConstants;
 import org.geoserver.mapml.xml.Base;
 import org.geoserver.mapml.xml.BodyContent;
 import org.geoserver.mapml.xml.Feature;
 import org.geoserver.mapml.xml.HeadContent;
+import org.geoserver.mapml.xml.MapMLElement;
 import org.geoserver.mapml.xml.Mapml;
 import org.geoserver.mapml.xml.Meta;
 import org.geoserver.ows.URLMangler;
 import org.geoserver.ows.util.ResponseUtils;
 import org.geoserver.platform.ServiceException;
-import org.geoserver.wfs.TypeInfoCollectionWrapper;
 import org.geoserver.wms.GetFeatureInfoRequest;
 import org.geoserver.wms.MapLayerInfo;
 import org.geoserver.wms.WMS;
 import org.geoserver.wms.featureinfo.GetFeatureInfoOutputFormat;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
 /**
  * @author Chris Hodgson
@@ -55,7 +53,8 @@ import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat {
     private static final Logger LOGGER = Logging.getLogger("org.geoserver.mapml");
 
-    @Autowired private Jaxb2Marshaller mapmlMarshaller;
+    @Autowired
+    private MapMLEncoder mapMLEncoder;
 
     private WMS wms;
 
@@ -73,17 +72,13 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
      * @throws IOException
      */
     @Override
-    public void write(
-            FeatureCollectionType results, GetFeatureInfoRequest request, OutputStream out)
+    public void write(FeatureCollectionType results, GetFeatureInfoRequest request, OutputStream out)
             throws ServiceException, IOException {
 
         String baseUrl = request.getBaseUrl();
         Map<String, String> kvp = request.getRawKvp();
-        String projection =
-                TiledCRSConstants.lookupTCRSName(
-                        kvp.getOrDefault(
-                                "CRS",
-                                kvp.getOrDefault("SRS", kvp.getOrDefault("TILEMATRIXSET", ""))));
+        String projection = TiledCRSConstants.lookupTCRSName(
+                kvp.getOrDefault("CRS", kvp.getOrDefault("SRS", kvp.getOrDefault("TILEMATRIXSET", ""))));
 
         // build the mapML doc
         Mapml mapml = new Mapml();
@@ -122,20 +117,17 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
         HashMap<Name, String> captionTemplates = captionsMap(request.getQueryLayers());
         SimpleFeatureCollection fc;
         MapMLGenerator featureBuilder = new MapMLGenerator();
-        featureBuilder.setNumDecimals(
-                getNumDecimals(
-                        featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
-        featureBuilder.setForcedDecimal(
-                this.getForcedDecimal(
-                        featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
-        featureBuilder.setPadWithZeros(
-                this.getPadWithZeros(
-                        featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
+        featureBuilder.setNumDecimals(getNumDecimals(
+                featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
+        featureBuilder.setForcedDecimal(this.getForcedDecimal(
+                featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
+        featureBuilder.setPadWithZeros(this.getPadWithZeros(
+                featureCollections, wms.getGeoServer(), wms.getGeoServer().getCatalog()));
         if (!featureCollections.isEmpty()) {
             Iterator<FeatureCollection> fci = featureCollections.iterator();
             while (fci.hasNext()) {
                 fc = (SimpleFeatureCollection) fci.next();
-                List<Feature> features = body.getFeatures();
+                List<MapMLElement> features = body.getTilesOrFeatures();
                 try (SimpleFeatureIterator iterator = fc.features()) {
                     while (iterator.hasNext()) {
                         SimpleFeature feature;
@@ -145,13 +137,15 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
                             // see if in such a case we could just return the
                             // scalar properties
                             feature = iterator.next();
-                            Feature f =
-                                    featureBuilder.buildFeature(
-                                            feature,
-                                            captionTemplates.get(fc.getSchema().getName()));
+                            Optional<Feature> f = featureBuilder.buildFeature(
+                                    feature,
+                                    captionTemplates.get(fc.getSchema().getName()),
+                                    null,
+                                    Optional.empty(),
+                                    feature.getDefaultGeometry() != null);
                             // might be interesting to be able to put features
                             // from different layers into a layer-specific div
-                            features.add(f);
+                            f.ifPresent(features::add);
                         } catch (IllegalStateException e) {
                             LOGGER.log(Level.INFO, "Error transforming feature.");
                         }
@@ -160,10 +154,9 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
             }
         }
 
-        OutputStreamWriter osw = new OutputStreamWriter(out, wms.getCharSet());
-        Result result = new StreamResult(osw);
-        mapmlMarshaller.marshal(mapml, result);
-        osw.flush();
+        // write to output based on global verbose setting
+        boolean verbose = wms.getGeoServer().getGlobal().getSettings().isVerbose();
+        mapMLEncoder.encode(mapml, out, verbose);
     }
 
     @Override
@@ -173,8 +166,8 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
     }
 
     /**
-     * Create a Map wtih key of qualified layer name, to a possibly null, string-valued template to
-     * be processed to substitute ${placeholders} with attribute or dimension/band values
+     * Create a Map wtih key of qualified layer name, to a possibly null, string-valued template to be processed to
+     * substitute ${placeholders} with attribute or dimension/band values
      *
      * @param layers a list of all layers that are in the layer / layer group
      * @return
@@ -182,18 +175,14 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
     private HashMap<Name, String> captionsMap(List<MapLayerInfo> layers) {
         HashMap<Name, String> map = new HashMap<>(layers.size());
 
-        layers.stream()
-                .map(layer -> layer.getLayerInfo().getResource())
-                .forEachOrdered(
-                        r -> {
-                            String fcap =
-                                    r.getMetadata()
-                                            .getOrDefault("mapml.featureCaption", "")
-                                            .toString();
-                            map.put(r.getQualifiedName(), fcap.isEmpty() ? null : fcap);
-                        });
+        layers.stream().map(layer -> layer.getLayerInfo().getResource()).forEachOrdered(r -> {
+            String fcap =
+                    r.getMetadata().getOrDefault("mapml.featureCaption", "").toString();
+            map.put(r.getQualifiedName(), fcap.isEmpty() ? null : fcap);
+        });
         return map;
     }
+
     /**
      * Copied from org.geoserver.wfs.WFSGetFeatureOutputFormat
      *
@@ -205,11 +194,8 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
     protected int getNumDecimals(List featureCollections, GeoServer geoServer, Catalog catalog) {
         int numDecimals = -1;
         for (Object featureCollection : featureCollections) {
-            Integer ftiDecimals =
-                    getFeatureTypeInfoProperty(
-                            catalog,
-                            (FeatureCollection) featureCollection,
-                            fti -> fti.getNumDecimals());
+            Integer ftiDecimals = getFeatureTypeInfoProperty(
+                    catalog, (FeatureCollection) featureCollection, fti -> fti.getNumDecimals());
 
             // track num decimals, in cases where the query has multiple types we choose the max
             // of all the values (same deal as above, might not be a vector due to GetFeatureInfo
@@ -227,6 +213,7 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
 
         return numDecimals;
     }
+
     /**
      * Copied from org.geoserver.wfs.WFSGetFeatureOutputFormat
      *
@@ -235,21 +222,18 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
      * @param catalog
      * @return
      */
-    protected boolean getPadWithZeros(
-            List featureCollections, GeoServer geoServer, Catalog catalog) {
+    protected boolean getPadWithZeros(List featureCollections, GeoServer geoServer, Catalog catalog) {
         boolean padWithZeros = false;
         for (Object featureCollection : featureCollections) {
-            Boolean pad =
-                    getFeatureTypeInfoProperty(
-                            catalog,
-                            (FeatureCollection) featureCollection,
-                            fti -> fti.getPadWithZeros());
+            Boolean pad = getFeatureTypeInfoProperty(
+                    catalog, (FeatureCollection) featureCollection, fti -> fti.getPadWithZeros());
             if (Boolean.TRUE.equals(pad)) {
                 padWithZeros = true;
             }
         }
         return padWithZeros;
     }
+
     /**
      * Copied from org.geoserver.wfs.WFSGetFeatureOutputFormat
      *
@@ -258,21 +242,18 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
      * @param catalog
      * @return
      */
-    protected boolean getForcedDecimal(
-            List featureCollections, GeoServer geoServer, Catalog catalog) {
+    protected boolean getForcedDecimal(List featureCollections, GeoServer geoServer, Catalog catalog) {
         boolean forcedDecimal = false;
         for (Object featureCollection : featureCollections) {
-            Boolean forced =
-                    getFeatureTypeInfoProperty(
-                            catalog,
-                            (FeatureCollection) featureCollection,
-                            fti -> fti.getForcedDecimal());
+            Boolean forced = getFeatureTypeInfoProperty(
+                    catalog, (FeatureCollection) featureCollection, fti -> fti.getForcedDecimal());
             if (Boolean.TRUE.equals(forced)) {
                 forcedDecimal = true;
             }
         }
         return forcedDecimal;
     }
+
     /**
      * @param <T>
      * @param catalog
@@ -285,9 +266,7 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
         FeatureTypeInfo fti;
         ResourceInfo meta = null;
         // if it's a complex feature collection get the proper ResourceInfo
-        if (features instanceof TypeInfoCollectionWrapper.Complex) {
-            TypeInfoCollectionWrapper.Complex fcollection =
-                    (TypeInfoCollectionWrapper.Complex) features;
+        if (features instanceof TypeInfoCollectionWrapper.Complex fcollection) {
             fti = fcollection.getFeatureTypeInfo();
             meta = catalog.getResourceByName(fti.getName(), ResourceInfo.class);
         } else {
@@ -295,8 +274,8 @@ public class MapMLGetFeatureInfoOutputFormat extends GetFeatureInfoOutputFormat 
             FeatureType featureType = features.getSchema();
             meta = catalog.getResourceByName(featureType.getName(), ResourceInfo.class);
         }
-        if (meta instanceof FeatureTypeInfo) {
-            fti = (FeatureTypeInfo) meta;
+        if (meta instanceof FeatureTypeInfo info) {
+            fti = info;
             return callback.apply(fti);
         }
         return null;

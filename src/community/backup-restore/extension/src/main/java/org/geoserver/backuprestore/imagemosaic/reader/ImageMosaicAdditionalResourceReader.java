@@ -11,7 +11,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Properties;
 import org.apache.commons.io.FilenameUtils;
 import org.geoserver.backuprestore.Backup;
 import org.geoserver.backuprestore.imagemosaic.ImageMosaicAdditionalResource;
@@ -23,6 +22,7 @@ import org.geoserver.platform.GeoServerEnvironment;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
+import org.geoserver.util.SortedProperties;
 
 /** @author Alessio Fabiani, GeoSolutions */
 public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalResource
@@ -32,19 +32,16 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
 
     @Override
     public boolean canHandle(Object item) {
-        if (item instanceof CoverageStoreInfo
-                && ((CoverageStoreInfo) item).getType().equals(COVERAGE_TYPE)) {
+        if (item instanceof CoverageStoreInfo info && info.getType().equals(COVERAGE_TYPE)) {
             return true;
         }
         return false;
     }
 
     @Override
-    public void readAdditionalResources(Backup backupFacade, Resource base, StoreInfo item)
-            throws IOException {
+    public void readAdditionalResources(Backup backupFacade, Resource base, StoreInfo item) throws IOException {
 
-        final Resource sourceBackupFolder =
-                BackupUtils.dir(base.parent(), IMAGEMOSAIC_INDEXES_FOLDER);
+        final Resource sourceBackupFolder = BackupUtils.dir(base.parent(), IMAGEMOSAIC_INDEXES_FOLDER);
 
         final CoverageStoreInfo mosaicCoverageStore =
                 backupFacade.getCatalog().getResourcePool().clone((CoverageStoreInfo) item, true);
@@ -53,11 +50,9 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
 
         final Resource mosaicIndexBase = Resources.fromURL(mosaicUrlBase);
 
-        List<Resource> mosaicIndexerResources =
-                Resources.list(sourceBackupFolder, resources.get("properties"), true);
+        List<Resource> mosaicIndexerResources = Resources.list(sourceBackupFolder, resources.get("properties"), true);
 
-        mosaicIndexerResources.addAll(
-                Resources.list(sourceBackupFolder, resources.get("info"), true));
+        mosaicIndexerResources.addAll(Resources.list(sourceBackupFolder, resources.get("info"), true));
 
         boolean datastoreAlreadyPresent = true;
         for (Resource res : mosaicIndexerResources) {
@@ -94,7 +89,7 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
             // "indexer.properties"
             final File indexerFile = new File(mosaicIndexBase.dir(), "indexer.properties");
 
-            Properties indexerProperties = new Properties();
+            SortedProperties indexerProperties = new SortedProperties();
 
             if (indexerFile.exists() && indexerFile.canRead()) {
                 indexerProperties.load(new FileInputStream(indexerFile));
@@ -107,14 +102,13 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
     }
 
     /** */
-    private void resolveTemplate(
-            final Resource sourceBackupFolder, final Resource mosaicIndexBase, Resource res)
+    private void resolveTemplate(final Resource sourceBackupFolder, final Resource mosaicIndexBase, Resource res)
             throws IOException, FileNotFoundException {
         // Overwrite target .properties file by resolving template placeholders
-        Properties templateProperties = new Properties();
+        SortedProperties templateProperties = new SortedProperties();
         templateProperties.load(res.in());
 
-        Properties resolvedProperties = new Properties();
+        SortedProperties resolvedProperties = new SortedProperties();
         for (Entry<Object, Object> propEntry : templateProperties.entrySet()) {
             String value = (String) propEntry.getValue();
 
@@ -128,8 +122,7 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
         final String relative =
                 sourceBackupFolder.dir().toURI().relativize(res.file().toURI()).getPath();
 
-        final String targetPropertyFileName =
-                relative.substring(0, relative.length() - ".template".length());
+        final String targetPropertyFileName = relative.substring(0, relative.length() - ".template".length());
 
         final File targetFile = new File(mosaicIndexBase.parent().dir(), targetPropertyFileName);
 
@@ -138,10 +131,7 @@ public class ImageMosaicAdditionalResourceReader extends ImageMosaicAdditionalRe
 
     /** */
     private boolean copyFile(
-            final Resource sourceBackupFolder,
-            final Resource mosaicIndexBase,
-            Resource res,
-            boolean overwrite)
+            final Resource sourceBackupFolder, final Resource mosaicIndexBase, Resource res, boolean overwrite)
             throws IOException {
         final String relative =
                 sourceBackupFolder.dir().toURI().relativize(res.file().toURI()).getPath();

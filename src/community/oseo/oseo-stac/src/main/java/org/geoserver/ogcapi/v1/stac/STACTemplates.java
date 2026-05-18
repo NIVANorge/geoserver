@@ -23,15 +23,15 @@ import org.geoserver.opensearch.eo.AbstractTemplates;
 import org.geoserver.opensearch.eo.OpenSearchAccessProvider;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.resource.Resource;
-import org.geotools.data.FeatureSource;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.visitor.UniqueVisitor;
+import org.geotools.util.SuppressFBWarnings;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -39,10 +39,11 @@ import org.xml.sax.helpers.NamespaceSupport;
 
 /** Provides access to the collection and item templates used for the STAC JSON outputs */
 @Component
+@SuppressFBWarnings("AT_OPERATION_SEQUENCE_ON_CONCURRENT_ABSTRACTION")
 public class STACTemplates extends AbstractTemplates {
 
     static final Logger LOGGER = Logging.getLogger(STACTemplates.class);
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
     private static final String COLLECTIONS = "collections";
 
     private Template defaultCollectionTemplate;
@@ -52,17 +53,15 @@ public class STACTemplates extends AbstractTemplates {
 
     ResourcePatternResolver resourceResolver = new PathMatchingResourcePatternResolver();
 
-    public STACTemplates(GeoServerDataDirectory dd, OpenSearchAccessProvider accessProvider)
-            throws IOException {
+    public STACTemplates(GeoServerDataDirectory dd, OpenSearchAccessProvider accessProvider) throws IOException {
         super(dd, accessProvider);
     }
 
     /** Copies over all HTML templates, to allow customization */
-    private void copyHTMLTemplates() throws IOException {
-        Resource stac = dd.get("templates/ogc/stac");
+    protected void copyHTMLTemplates() throws IOException {
+        Resource stac = dd.get("templates/ogc/stac/v1");
         stac.dir();
-        String path =
-                "classpath:/" + getClass().getPackage().getName().replace(".", "/") + "/*.ftl";
+        String path = "classpath:/" + getClass().getPackage().getName().replace(".", "/") + "/*.ftl";
         for (org.springframework.core.io.Resource r : resourceResolver.getResources(path)) {
             Resource target = stac.get(r.getFilename());
             if (target.getType() == Resource.Type.UNDEFINED) {
@@ -74,6 +73,7 @@ public class STACTemplates extends AbstractTemplates {
         }
     }
 
+    @Override
     public void reloadTemplates() {
         try {
             copyHTMLTemplates();
@@ -93,36 +93,18 @@ public class STACTemplates extends AbstractTemplates {
         }
     }
 
-    static NamespaceSupport getNamespaces(FeatureSource<FeatureType, Feature> fs) {
-        // collect properties from all namespaces
-        FeatureType schema = fs.getSchema();
-        NamespaceSupport namespaces = new NamespaceSupport();
-        for (PropertyDescriptor pd : schema.getDescriptors()) {
-            String uri = pd.getName().getNamespaceURI();
-            String prefix = (String) pd.getUserData().get(OpenSearchAccess.PREFIX);
-            if (prefix == null) throw new RuntimeException("No prefix available for " + uri);
-            namespaces.declarePrefix(prefix, uri);
-        }
-        // done last, to avoid overrides
-        namespaces.declarePrefix("", schema.getName().getNamespaceURI());
-        return namespaces;
-    }
-
-    private void reloadItemTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces)
-            throws IOException {
+    private void reloadItemTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces) throws IOException {
         // setup the items template
-        Resource items = dd.get("templates/ogc/stac/items.json");
+        Resource items = dd.get("templates/ogc/stac/v1/items.json");
         copyDefault(items, "items.json");
         this.defaultItemTemplate = new Template(items, new TemplateReaderConfiguration(namespaces));
     }
 
-    private void reloadCollectionTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces)
-            throws IOException {
+    private void reloadCollectionTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces) throws IOException {
         // setup the collections template
-        Resource collections = dd.get("templates/ogc/stac/collections.json");
+        Resource collections = dd.get("templates/ogc/stac/v1/collections.json");
         copyDefault(collections, "collections.json");
-        TemplateReaderConfiguration configuration =
-                new TemplateReaderConfiguration(namespaces, COLLECTIONS);
+        TemplateReaderConfiguration configuration = new TemplateReaderConfiguration(namespaces, COLLECTIONS);
         this.defaultCollectionTemplate = new Template(collections, configuration);
     }
 
@@ -134,14 +116,13 @@ public class STACTemplates extends AbstractTemplates {
         Template template = defaultCollectionTemplate;
         // See if a collection specific template has been setup, if so use it as an override
         if (collectionId != null) {
-            Resource resource = dd.get("templates/ogc/stac/collections-" + collectionId + ".json");
+            Resource resource = dd.get("templates/ogc/stac/v1/collections-" + collectionId + ".json");
             if (resource.getType().equals(Resource.Type.RESOURCE)) {
                 template = collectionTemplates.get(collectionId);
                 if (template == null) {
                     OpenSearchAccess access = accessProvider.getOpenSearchAccess();
                     TemplateReaderConfiguration configuration =
-                            new TemplateReaderConfiguration(
-                                    getNamespaces(access.getProductSource()), COLLECTIONS);
+                            new TemplateReaderConfiguration(getNamespaces(access.getProductSource()), COLLECTIONS);
                     template = new Template(resource, configuration);
                     collectionTemplates.put(collectionId, template);
                 }
@@ -173,22 +154,20 @@ public class STACTemplates extends AbstractTemplates {
      * @return
      */
     public Set<String> getCustomItemTemplates() throws IOException {
-        Resource resource = dd.get("templates/ogc/stac/");
+        Resource resource = dd.get("templates/ogc/stac/v1/");
         if (resource.getType() != Resource.Type.DIRECTORY) return Collections.emptySet();
 
-        Set<String> candidates =
-                resource.list().stream()
-                        .filter(r -> r.getType() == Resource.Type.RESOURCE)
-                        .map(r -> r.name())
-                        .filter(n -> n.startsWith("items-") && n.endsWith(".json"))
-                        .map(n -> n.substring(6, n.length() - 5))
-                        .collect(Collectors.toSet());
+        Set<String> candidates = resource.list().stream()
+                .filter(r -> r.getType() == Resource.Type.RESOURCE)
+                .map(r -> r.name())
+                .filter(n -> n.startsWith("items-") && n.endsWith(".json"))
+                .map(n -> n.substring(6, n.length() - 5))
+                .collect(Collectors.toSet());
 
         // TODO: make this visit optimizable
         FeatureSource<FeatureType, Feature> collections =
                 accessProvider.getOpenSearchAccess().getCollectionSource();
-        UniqueVisitor visitor =
-                new UniqueVisitor(FF.property("eo:identifier", getNamespaces(collections)));
+        UniqueVisitor visitor = new UniqueVisitor(FF.property("eo:identifier", getNamespaces(collections)));
         collections.getFeatures().accepts(visitor, null);
         candidates.retainAll(getCollectionNames(visitor));
 
@@ -199,7 +178,7 @@ public class STACTemplates extends AbstractTemplates {
         @SuppressWarnings("unchecked")
         Set<Object> values = visitor.getResult().toSet();
         return values.stream()
-                .map(o -> (String) ((o instanceof Attribute) ? ((Attribute) o).getValue() : o))
+                .map(o -> (String) ((o instanceof Attribute a) ? a.getValue() : o))
                 .collect(Collectors.toSet());
     }
 
@@ -215,16 +194,13 @@ public class STACTemplates extends AbstractTemplates {
         Template template = defaultItemTemplate;
         // See if a collection specific template has been setup, if so use it as an override
         if (collectionId != null) {
-            Resource resource = dd.get("templates/ogc/stac/items-" + collectionId + ".json");
+            Resource resource = dd.get("templates/ogc/stac/v1/items-" + collectionId + ".json");
             if (resource.getType().equals(Resource.Type.RESOURCE)) {
                 template = itemTemplates.get(collectionId);
                 if (template == null) {
                     OpenSearchAccess access = accessProvider.getOpenSearchAccess();
-                    template =
-                            new Template(
-                                    resource,
-                                    new TemplateReaderConfiguration(
-                                            getNamespaces(access.getProductSource())));
+                    template = new Template(
+                            resource, new TemplateReaderConfiguration(getNamespaces(access.getProductSource())));
                     itemTemplates.put(collectionId, template);
                 }
             }

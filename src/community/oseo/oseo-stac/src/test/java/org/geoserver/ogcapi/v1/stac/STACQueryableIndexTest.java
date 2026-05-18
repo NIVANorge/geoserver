@@ -27,28 +27,24 @@ import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.platform.resource.FileSystemResourceStore;
 import org.geoserver.platform.resource.Resource;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 
 public class STACQueryableIndexTest extends STACTestSupport {
-    private static final String FAKE_ID = "foobar";
-    private static final String TYPE_NUMBER = "number";
-    private static final String TYPE_STRING = "string";
-    private static final String TYPE_INTEGER = "integer";
     static OpenSearchAccess data;
 
     @BeforeClass
     public static void setupClass() throws IOException, SQLException {
-        data = JDBCOpenSearchAccessTest.setupAndReturnStore();
+        data = JDBCOpenSearchAccessTest.setupAndReturnStore(postgis);
     }
 
     @AfterClass
@@ -97,26 +93,26 @@ public class STACQueryableIndexTest extends STACTestSupport {
     }
 
     private STACOseoListener getStacOseoListener() throws IOException {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-SAS1.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
         FeatureSource<FeatureType, Feature> collections = data.getCollectionSource();
-        FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
-        Filter sampleFilter =
-                ff.equals(ff.property("identifier"), ff.literal("SAS1_20180226102021.01"));
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory();
+        Filter sampleFilter = ff.equals(ff.property("identifier"), ff.literal("SAS1_20180226102021.01"));
         Feature sampleFeature = DataUtilities.first(products.getFeatures(sampleFilter));
         Filter collectionSampleFilter = ff.equals(ff.property("identifier"), ff.literal("SAS1"));
-        Feature sampleCollectionFeature =
-                DataUtilities.first(collections.getFeatures(collectionSampleFilter));
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        Feature sampleCollectionFeature = DataUtilities.first(collections.getFeatures(collectionSampleFilter));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfo service = new OSEOInfoImpl();
         service.getGlobalQueryables().addAll(Arrays.asList("id", "geometry", "collection"));
         STACTemplates templates = mock(STACTemplates.class);
-        expect(templates.getItemTemplate("SAS1")).andReturn(template.getRootBuilder()).anyTimes();
-        expect(templates.getItemTemplate("SAS9")).andReturn(template.getRootBuilder()).anyTimes();
+        expect(templates.getItemTemplate("SAS1"))
+                .andReturn(template.getRootBuilder())
+                .anyTimes();
+        expect(templates.getItemTemplate("SAS9"))
+                .andReturn(template.getRootBuilder())
+                .anyTimes();
         replay(templates);
         CollectionsCache collectionsCache = mock(CollectionsCache.class);
         expect(collectionsCache.getCollection("SAS1"))
@@ -135,12 +131,7 @@ public class STACQueryableIndexTest extends STACTestSupport {
         expect(accessProvider.getOpenSearchAccess()).andReturn(data).anyTimes();
         replay(accessProvider);
         STACOseoListener stacOseoListener =
-                new STACOseoListener(
-                        getGeoServer(),
-                        templates,
-                        sampleFeatures,
-                        collectionsCache,
-                        accessProvider);
+                new STACOseoListener(getGeoServer(), templates, sampleFeatures, collectionsCache, accessProvider);
         return stacOseoListener;
     }
 }

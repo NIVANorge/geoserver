@@ -8,24 +8,22 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import org.geoserver.wps.ProcessDismissedException;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
-import org.opengis.util.ProgressListener;
 
 /**
- * Helper class that builds a intercepting proxy around feature collections, the proxy will start
- * throwing exceptions as soon as the ProgressListener is cancelled
+ * Helper class that builds a intercepting proxy around feature collections, the proxy will start throwing exceptions as
+ * soon as the ProgressListener is cancelled
  *
  * @author Andrea Aime - GeoSolutions
  */
 class CancellingFeatureCollectionBuilder {
 
-    public static SimpleFeatureCollection wrap(
-            final FeatureCollection delegate, final ProgressListener listener) {
-        InvocationHandler cancellingInvocationHandler =
-                new CancellingInvocationHandler(listener, delegate);
+    public static SimpleFeatureCollection wrap(final FeatureCollection delegate, final ProgressListener listener) {
+        InvocationHandler cancellingInvocationHandler = new CancellingInvocationHandler(listener, delegate);
 
         Class<?>[] interfaces;
         if (delegate instanceof SimpleFeatureCollection) {
@@ -33,12 +31,8 @@ class CancellingFeatureCollectionBuilder {
         } else {
             interfaces = new Class<?>[] {FeatureCollection.class};
         }
-        SimpleFeatureCollection proxy =
-                (SimpleFeatureCollection)
-                        Proxy.newProxyInstance(
-                                CancellingFeatureCollectionBuilder.class.getClassLoader(),
-                                interfaces,
-                                cancellingInvocationHandler);
+        SimpleFeatureCollection proxy = (SimpleFeatureCollection) Proxy.newProxyInstance(
+                CancellingFeatureCollectionBuilder.class.getClassLoader(), interfaces, cancellingInvocationHandler);
 
         return proxy;
     }
@@ -70,11 +64,10 @@ class CancellingFeatureCollectionBuilder {
                 } else {
                     interfaces = new Class<?>[] {FeatureIterator.class};
                 }
-                result =
-                        Proxy.newProxyInstance(
-                                CancellingFeatureCollectionBuilder.class.getClassLoader(),
-                                interfaces,
-                                new CancellingInvocationHandler(listener, result));
+                result = Proxy.newProxyInstance(
+                        CancellingFeatureCollectionBuilder.class.getClassLoader(),
+                        interfaces,
+                        new CancellingInvocationHandler(listener, result));
             }
 
             return result;

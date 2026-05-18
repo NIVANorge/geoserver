@@ -4,9 +4,13 @@
  */
 package org.geoserver.rest.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import javax.servlet.http.HttpServletResponse;
+import java.util.SortedSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.geoserver.rest.RestBaseController;
+import org.geoserver.rest.RestException;
 import org.geoserver.rest.catalog.SequentialExecutionController;
 import org.geoserver.rest.security.xml.JaxbGroupList;
 import org.geoserver.rest.security.xml.JaxbUser;
@@ -17,6 +21,7 @@ import org.geoserver.security.GeoServerUserGroupStore;
 import org.geoserver.security.impl.GeoServerUser;
 import org.geoserver.security.impl.GeoServerUserGroup;
 import org.geoserver.security.validation.PasswordPolicyException;
+import org.geotools.util.logging.Logging;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -33,13 +38,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(path = RestBaseController.ROOT_PATH + "/security/usergroup")
 public class UsersRestController implements SequentialExecutionController {
 
+    private static final Logger LOGGER = Logging.getLogger(UsersRestController.class);
+
     protected GeoServerSecurityManager securityManager;
 
     private static final String DEFAULT_ROLE_SERVICE_NAME = "default";
 
     private String getDefaultServiceName() {
-        String defaultServiceName =
-                System.getProperty("org.geoserver.rest.DefaultUserGroupServiceName");
+        String defaultServiceName = System.getProperty("org.geoserver.rest.DefaultUserGroupServiceName");
         return defaultServiceName == null ? DEFAULT_ROLE_SERVICE_NAME : defaultServiceName;
     }
 
@@ -48,9 +54,10 @@ public class UsersRestController implements SequentialExecutionController {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public void somethingNotFound(IllegalArgumentException exception, HttpServletResponse response)
-            throws IOException {
-        response.sendError(404, exception.getMessage());
+    public void somethingNotFound(IllegalArgumentException e, HttpServletResponse response) throws IOException {
+        String prefix = "User Rest Request failed with IllegalArgumentException:\n";
+        LOGGER.log(Level.WARNING, prefix + e.getMessage(), e);
+        response.sendError(400, prefix + "Check the logs for further details");
     }
 
     @GetMapping(
@@ -70,16 +77,14 @@ public class UsersRestController implements SequentialExecutionController {
     @GetMapping(
             value = "/group/{group}/users",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public JaxbUserList getUsersFromGroup(@PathVariable("group") String groupName)
-            throws IOException {
+    public JaxbUserList getUsersFromGroup(@PathVariable("group") String groupName) throws IOException {
         return getUsersFromGroup(getDefaultServiceName(), groupName);
     }
 
     @GetMapping(
             value = "/user/{user}/groups",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public JaxbGroupList getGroupsFromUser(@PathVariable("user") String userName)
-            throws IOException {
+    public JaxbGroupList getGroupsFromUser(@PathVariable("user") String userName) throws IOException {
         return getGroupsFromUser(getDefaultServiceName(), userName);
     }
 
@@ -97,50 +102,44 @@ public class UsersRestController implements SequentialExecutionController {
     }
 
     @DeleteMapping(value = "/user/{user}")
-    public @ResponseStatus(HttpStatus.OK) void deleteUser(@PathVariable("user") String userName)
-            throws IOException {
+    public @ResponseStatus(HttpStatus.OK) void deleteUser(@PathVariable("user") String userName) throws IOException {
         deleteUser(getDefaultServiceName(), userName);
     }
 
     @PostMapping(value = "/group/{group}")
-    public @ResponseStatus(HttpStatus.CREATED) void insertGroup(
-            @PathVariable("group") String groupName) throws PasswordPolicyException, IOException {
+    public @ResponseStatus(HttpStatus.CREATED) void insertGroup(@PathVariable("group") String groupName)
+            throws PasswordPolicyException, IOException {
         insertGroup(getDefaultServiceName(), groupName);
     }
 
     @DeleteMapping(value = "/group/{group}")
-    public @ResponseStatus(HttpStatus.OK) void deleteGroup(@PathVariable("group") String groupName)
-            throws IOException {
+    public @ResponseStatus(HttpStatus.OK) void deleteGroup(@PathVariable("group") String groupName) throws IOException {
         deleteGroup(getDefaultServiceName(), groupName);
     }
 
     @PostMapping(value = "/user/{user}/group/{group}")
     public @ResponseStatus(HttpStatus.OK) void associateUserToGroup(
-            @PathVariable("user") String userName, @PathVariable("group") String groupName)
-            throws IOException {
+            @PathVariable("user") String userName, @PathVariable("group") String groupName) throws IOException {
         associateUserToGroup(getDefaultServiceName(), userName, groupName);
     }
 
     @DeleteMapping(value = "/user/{user}/group/{group}")
     public @ResponseStatus(HttpStatus.OK) void disassociateUserFromGroup(
-            @PathVariable("user") String userName, @PathVariable("group") String groupName)
-            throws IOException {
+            @PathVariable("user") String userName, @PathVariable("group") String groupName) throws IOException {
         disassociateUserFromGroup(getDefaultServiceName(), userName, groupName);
     }
 
     @GetMapping(
             value = "/service/{serviceName}/users",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public JaxbUserList getUsers(@PathVariable("serviceName") String serviceName)
-            throws IOException {
+    public JaxbUserList getUsers(@PathVariable("serviceName") String serviceName) throws IOException {
         return new JaxbUserList(getService(serviceName).getUsers());
     }
 
     @GetMapping(
             value = "/service/{serviceName}/groups",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
-    public JaxbGroupList getGroups(@PathVariable("serviceName") String serviceName)
-            throws IOException {
+    public JaxbGroupList getGroups(@PathVariable("serviceName") String serviceName) throws IOException {
         return new JaxbGroupList(getService(serviceName).getUserGroups());
     }
 
@@ -148,8 +147,7 @@ public class UsersRestController implements SequentialExecutionController {
             value = "/service/{serviceName}/group/{group}/users",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
     public JaxbUserList getUsersFromGroup(
-            @PathVariable("serviceName") String serviceName,
-            @PathVariable("group") String groupName)
+            @PathVariable("serviceName") String serviceName, @PathVariable("group") String groupName)
             throws IOException {
         GeoServerUserGroupService service = getService(serviceName);
         return new JaxbUserList(service.getUsersForGroup(getGroup(service, groupName)));
@@ -159,8 +157,7 @@ public class UsersRestController implements SequentialExecutionController {
             value = "/service/{serviceName}/user/{user}/groups",
             produces = {MediaType.APPLICATION_XML_VALUE, MediaType.APPLICATION_JSON_VALUE})
     public JaxbGroupList getGroupsFromUser(
-            @PathVariable("serviceName") String serviceName, @PathVariable("user") String userName)
-            throws IOException {
+            @PathVariable("serviceName") String serviceName, @PathVariable("user") String userName) throws IOException {
         GeoServerUserGroupService service = getService(serviceName);
         return new JaxbGroupList(service.getGroupsForUser(getUser(service, userName)));
     }
@@ -193,8 +190,7 @@ public class UsersRestController implements SequentialExecutionController {
 
     @DeleteMapping(value = "/service/{serviceName}/user/{user}")
     public @ResponseStatus(HttpStatus.OK) void deleteUser(
-            @PathVariable("serviceName") String serviceName, @PathVariable("user") String userName)
-            throws IOException {
+            @PathVariable("serviceName") String serviceName, @PathVariable("user") String userName) throws IOException {
         GeoServerUserGroupStore store = getStore(serviceName);
         try {
             store.removeUser(getUser(store, userName));
@@ -205,8 +201,7 @@ public class UsersRestController implements SequentialExecutionController {
 
     @PostMapping(value = "/service/{serviceName}/group/{group}")
     public @ResponseStatus(HttpStatus.CREATED) void insertGroup(
-            @PathVariable("serviceName") String serviceName,
-            @PathVariable("group") String groupName)
+            @PathVariable("serviceName") String serviceName, @PathVariable("group") String groupName)
             throws PasswordPolicyException, IOException {
         GeoServerUserGroupStore store = getStore(serviceName);
         try {
@@ -218,8 +213,7 @@ public class UsersRestController implements SequentialExecutionController {
 
     @DeleteMapping(value = "/service/{serviceName}/group/{group}")
     public @ResponseStatus(HttpStatus.OK) void deleteGroup(
-            @PathVariable("serviceName") String serviceName,
-            @PathVariable("group") String groupName)
+            @PathVariable("serviceName") String serviceName, @PathVariable("group") String groupName)
             throws IOException {
         GeoServerUserGroupStore store = getStore(serviceName);
         try {
@@ -236,6 +230,16 @@ public class UsersRestController implements SequentialExecutionController {
             @PathVariable("group") String groupName)
             throws IOException {
         GeoServerUserGroupStore store = getStore(serviceName);
+        GeoServerUserGroupService service = getService(serviceName);
+        SortedSet<GeoServerUserGroup> groupsForUser =
+                service.getGroupsForUser(getUser(service, userName)); // There should be fewer groups than users
+        for (GeoServerUserGroup group : groupsForUser) {
+            if (groupName.equals(group.getGroupname())) {
+                throw new RestException(
+                        "Username already associated with this groupname",
+                        HttpStatus.OK); // In the future 409 Conflict?
+            }
+        }
         try {
             store.associateUserToGroup(getUser(store, userName), getGroup(store, groupName));
         } finally {
@@ -260,8 +264,7 @@ public class UsersRestController implements SequentialExecutionController {
     protected GeoServerUserGroupService getService(String serviceName) throws IOException {
         GeoServerUserGroupService service = securityManager.loadUserGroupService(serviceName);
         if (service == null) {
-            throw new IllegalArgumentException(
-                    "Provided user/group service does not exist: " + serviceName);
+            throw new IllegalArgumentException("Provided user/group service does not exist: " + serviceName);
         } else {
             return securityManager.loadUserGroupService(serviceName);
         }
@@ -270,8 +273,7 @@ public class UsersRestController implements SequentialExecutionController {
     protected GeoServerUserGroupStore getStore(String serviceName) throws IOException {
         GeoServerUserGroupService service = securityManager.loadUserGroupService(serviceName);
         if (service == null) {
-            throw new IllegalArgumentException(
-                    "Provided user/group service does not exist: " + serviceName);
+            throw new IllegalArgumentException("Provided user/group service does not exist: " + serviceName);
         } else if (service.canCreateStore()) {
             return securityManager.loadUserGroupService(serviceName).createStore();
         } else {
@@ -279,8 +281,7 @@ public class UsersRestController implements SequentialExecutionController {
         }
     }
 
-    protected GeoServerUser getUser(GeoServerUserGroupService service, String userName)
-            throws IOException {
+    protected GeoServerUser getUser(GeoServerUserGroupService service, String userName) throws IOException {
         GeoServerUser user = service.getUserByUsername(userName);
         if (user == null) {
             throw new IllegalArgumentException("Provided username does not exist: " + userName);
@@ -288,8 +289,7 @@ public class UsersRestController implements SequentialExecutionController {
         return user;
     }
 
-    protected GeoServerUserGroup getGroup(GeoServerUserGroupService service, String groupName)
-            throws IOException {
+    protected GeoServerUserGroup getGroup(GeoServerUserGroupService service, String groupName) throws IOException {
         GeoServerUserGroup group = service.getGroupByGroupname(groupName);
         if (group == null) {
             throw new IllegalArgumentException("Provided groupname does not exist: " + groupName);

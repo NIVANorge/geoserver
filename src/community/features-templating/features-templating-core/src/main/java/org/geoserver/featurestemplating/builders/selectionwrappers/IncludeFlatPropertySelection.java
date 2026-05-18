@@ -4,8 +4,6 @@
  */
 package org.geoserver.featurestemplating.builders.selectionwrappers;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.geoserver.featurestemplating.builders.AbstractTemplateBuilder;
 import org.geoserver.featurestemplating.builders.TemplateBuilder;
 import org.geoserver.featurestemplating.builders.impl.DynamicIncludeFlatBuilder;
@@ -13,15 +11,16 @@ import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionContext;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionHandler;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionVisitor;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.PropertyType;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.PropertyType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /** A PropertySelectionWrapper meant to wrap a DynamicIncludeFlatBuilder. */
 public class IncludeFlatPropertySelection extends PropertySelectionWrapper {
 
     public IncludeFlatPropertySelection(
-            DynamicIncludeFlatBuilder templateBuilder,
-            PropertySelectionHandler propertySelectionHandler) {
+            DynamicIncludeFlatBuilder templateBuilder, PropertySelectionHandler propertySelectionHandler) {
         super(templateBuilder, propertySelectionHandler);
     }
 
@@ -36,8 +35,7 @@ public class IncludeFlatPropertySelection extends PropertySelectionWrapper {
                     }
 
                     @Override
-                    public TemplateBuilder getNestedTree(
-                            JsonNode node, TemplateBuilderContext context) {
+                    public TemplateBuilder getNestedTree(JsonNode node, TemplateBuilderContext context) {
                         TemplateBuilder builder = super.getNestedTree(node, context);
                         Object object = context != null ? context.getCurrentObj() : null;
                         if (object != null) {
@@ -47,17 +45,14 @@ public class IncludeFlatPropertySelection extends PropertySelectionWrapper {
                                     new PropertySelectionVisitor(strategy, type);
                             PropertySelectionContext selContext =
                                     new PropertySelectionContext(getFullKey(context), false, false);
-                            builder =
-                                    (TemplateBuilder)
-                                            builder.accept(propertySelectionVisitor, selContext);
+                            builder = (TemplateBuilder) builder.accept(propertySelectionVisitor, selContext);
                         }
                         return builder;
                     }
 
                     @Override
                     public boolean canWrite(TemplateBuilderContext context) {
-                        return IncludeFlatPropertySelection.this.canWrite(context)
-                                && super.canWrite(context);
+                        return IncludeFlatPropertySelection.this.canWrite(context) && super.canWrite(context);
                     }
                 };
         return includeFlat;

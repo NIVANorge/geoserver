@@ -21,17 +21,17 @@ import org.geoserver.csw.response.CSWRecordsResult;
 import org.geoserver.csw.store.CatalogStore;
 import org.geoserver.feature.CompositeFeatureCollection;
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.identity.FeatureId;
 import org.geotools.csw.CSW;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.identity.FeatureId;
 
 /**
  * Runs the GetRecordById request
@@ -40,7 +40,7 @@ import org.opengis.filter.identity.FeatureId;
  */
 public class GetRecordById {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     CSWInfo csw;
 
@@ -48,8 +48,7 @@ public class GetRecordById {
 
     private List<RecordDescriptor> recordDescriptors;
 
-    public GetRecordById(
-            CSWInfo csw, CatalogStore store, List<RecordDescriptor> recordDescriptors) {
+    public GetRecordById(CSWInfo csw, CatalogStore store, List<RecordDescriptor> recordDescriptors) {
         this.csw = csw;
         this.store = store;
         this.recordDescriptors = recordDescriptors;
@@ -69,9 +68,7 @@ public class GetRecordById {
             int numberOfRecordsMatched = 0;
             int[] counts = new int[queries.size()];
             for (int i = 0; i < queries.size(); i++) {
-                counts[i] =
-                        store.getRecordsCount(
-                                queries.get(i).query, Transaction.AUTO_COMMIT, queries.get(i).rd);
+                counts[i] = store.getRecordsCount(queries.get(i).query, Transaction.AUTO_COMMIT, queries.get(i).rd);
                 numberOfRecordsMatched += counts[i];
             }
 
@@ -95,15 +92,14 @@ public class GetRecordById {
 
             ElementSetType elementSet = getElementSetName(request);
 
-            CSWRecordsResult result =
-                    new CSWRecordsResult(
-                            elementSet,
-                            request.getOutputSchema(),
-                            numberOfRecordsMatched,
-                            numberOfRecordsMatched,
-                            0,
-                            timestamp,
-                            records);
+            CSWRecordsResult result = new CSWRecordsResult(
+                    elementSet,
+                    request.getOutputSchema(),
+                    numberOfRecordsMatched,
+                    numberOfRecordsMatched,
+                    0,
+                    timestamp,
+                    records);
             return result;
         } catch (IOException e) {
             throw new ServiceException("Request failed due to: " + e.getMessage(), e);
@@ -111,8 +107,9 @@ public class GetRecordById {
     }
 
     private ElementSetType getElementSetName(GetRecordByIdType request) {
-        ElementSetType elementSet =
-                request.getElementSetName() != null ? request.getElementSetName().getValue() : null;
+        ElementSetType elementSet = request.getElementSetName() != null
+                ? request.getElementSetName().getValue()
+                : null;
         if (elementSet == null) {
             // the default is "summary"
             elementSet = ElementSetType.SUMMARY;
@@ -121,8 +118,7 @@ public class GetRecordById {
     }
 
     private List<GetRecords.WrappedQuery> toGtQueries(
-            List<RecordDescriptor> rds, EList<URI> ids, GetRecordByIdType request)
-            throws IOException {
+            List<RecordDescriptor> rds, EList<URI> ids, GetRecordByIdType request) throws IOException {
         // prepare to build the queries
 
         Set<FeatureId> fids = new HashSet<>();
@@ -141,28 +137,16 @@ public class GetRecordById {
             Query q = new Query(typeName.getLocalPart());
             q.setFilter(filter);
 
-            // perform some necessary query adjustments
-            Query adapted = rd.adaptQuery(q);
-
-            // the specification demands that we throw an error if a spatial operator
-            // is used against a non spatial property
-            if (q.getFilter() != null) {
-                rd.verifySpatialFilters(q.getFilter());
-            }
-
             // smuggle base url
-            adapted.getHints().put(GetRecords.KEY_BASEURL, request.getBaseUrl());
+            q.getHints().put(GetRecords.KEY_BASEURL, request.getBaseUrl());
 
-            result.add(new GetRecords.WrappedQuery(adapted, rd));
+            result.add(new GetRecords.WrappedQuery(q, rd));
         }
 
         return result;
     }
 
-    /**
-     * Search for the record descriptor maching the request, throws a service exception in case none
-     * is found
-     */
+    /** Search for the record descriptor maching the request, throws a service exception in case none is found */
     private List<RecordDescriptor> getRecordDescriptors(GetRecordByIdType request) {
         String outputSchema = request.getOutputSchema();
         if (outputSchema == null) {

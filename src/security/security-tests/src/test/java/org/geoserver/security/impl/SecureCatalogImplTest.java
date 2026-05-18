@@ -77,6 +77,12 @@ import org.geoserver.security.decorators.SecuredLayerGroupInfo;
 import org.geoserver.security.decorators.SecuredLayerInfo;
 import org.geoserver.security.decorators.SecuredWMSLayerInfo;
 import org.geoserver.security.decorators.SecuredWMTSLayerInfo;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.PropertyIsEqualTo;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.util.logging.Logging;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -84,14 +90,15 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @SuppressWarnings("unchecked") // the hamcrest assertions in here are a unchecked warning nightmare
 public class SecureCatalogImplTest extends AbstractAuthorizationTest {
 
     public static final Logger LOGGER = Logging.getLogger(SecureCatalogImplTest.class);
+
+    private static final FilterFactory FF = CommonFactoryFinder.getFilterFactory(null);
+    public static final PropertyName RESOURCE_WS_NAME = FF.property("resource.store.workspace.name");
 
     @Rule
     public GeoServerExtensionsHelper.ExtensionsHelperRule extensions =
@@ -131,17 +138,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertSame(arcGridStore, sc.getCoverageStoreByName("arcGrid"));
 
         assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                equalTo(featureTypes));
-        assertThatBoth(
-                sc.getCoverages(),
-                sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                equalTo(coverages));
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+                sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), equalTo(featureTypes));
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), equalTo(coverages));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
     }
 
     @Test
@@ -160,14 +159,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNull(sc.getDataStoreByName("roads"));
         assertNull(sc.getCoverageStoreByName("arcGrid"));
 
-        assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                empty());
-        assertThatBoth(
-                sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), empty());
-        assertThatBoth(
-                sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), empty());
 
         // try with write enabled user
         SecurityContextHolder.getContext().setAuthentication(rwUser);
@@ -181,17 +175,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertSame(arcGridStore, sc.getCoverageStoreByName("arcGrid"));
 
         assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                equalTo(featureTypes));
-        assertThatBoth(
-                sc.getCoverages(),
-                sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                equalTo(coverages));
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+                sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), equalTo(featureTypes));
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), equalTo(coverages));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
     }
 
     @Test
@@ -259,27 +245,16 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertThatBoth(
                 sc.getFeatureTypes(),
                 sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                allOf(
-                        (Matcher) hasSize(featureTypes.size()),
-                        (Matcher)
-                                everyItem(
-                                        Matchers.<FeatureTypeInfo>instanceOf(
-                                                SecuredFeatureTypeInfo.class))));
+                allOf((Matcher) hasSize(featureTypes.size()), (Matcher)
+                        everyItem(Matchers.<FeatureTypeInfo>instanceOf(SecuredFeatureTypeInfo.class))));
 
         assertThatBoth(
                 sc.getCoverages(),
                 sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                allOf(
-                        (Matcher) hasSize(coverages.size()),
-                        (Matcher)
-                                everyItem(
-                                        Matchers.<CoverageInfo>instanceOf(
-                                                SecuredCoverageInfo.class))));
+                allOf((Matcher) hasSize(coverages.size()), (Matcher)
+                        everyItem(Matchers.<CoverageInfo>instanceOf(SecuredCoverageInfo.class))));
 
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
 
         // try with write enabled user
         SecurityContextHolder.getContext().setAuthentication(rwUser);
@@ -293,17 +268,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertSame(arcGridStore, sc.getCoverageStoreByName("arcGrid"));
 
         assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                equalTo(featureTypes));
-        assertThatBoth(
-                sc.getCoverages(),
-                sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                equalTo(coverages));
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+                sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), equalTo(featureTypes));
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), equalTo(coverages));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
     }
 
     @Test
@@ -314,7 +281,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         // try with read only user and GetFeatures request
         SecurityContextHolder.getContext().setAuthentication(roUser);
         Request request = org.easymock.EasyMock.createNiceMock(Request.class);
-        org.easymock.EasyMock.expect(request.getRequest()).andReturn("GetFeatures").anyTimes();
+        org.easymock.EasyMock.expect(request.getRequest())
+                .andReturn("GetFeatures")
+                .anyTimes();
         org.easymock.EasyMock.replay(request);
         Dispatcher.REQUEST.set(request);
 
@@ -378,19 +347,16 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
 
         // try with a getCapabilities, make sure the lists are empty
         request = org.easymock.EasyMock.createNiceMock(Request.class);
-        org.easymock.EasyMock.expect(request.getRequest()).andReturn("GetCapabilities").anyTimes();
+        org.easymock.EasyMock.expect(request.getRequest())
+                .andReturn("GetCapabilities")
+                .anyTimes();
         org.easymock.EasyMock.replay(request);
         Dispatcher.REQUEST.set(request);
 
         // check the lists used to build capabilities are empty
-        assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                empty());
-        assertThatBoth(
-                sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), empty());
-        assertThatBoth(
-                sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), empty());
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), empty());
 
         // try with write enabled user
         SecurityContextHolder.getContext().setAuthentication(rwUser);
@@ -404,17 +370,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertSame(arcGridStore, sc.getCoverageStoreByName("arcGrid"));
 
         assertThatBoth(
-                sc.getFeatureTypes(),
-                sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                equalTo(featureTypes));
-        assertThatBoth(
-                sc.getCoverages(),
-                sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                equalTo(coverages));
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+                sc.getFeatureTypes(), sc.list(FeatureTypeInfo.class, Predicates.acceptAll()), equalTo(featureTypes));
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), equalTo(coverages));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
     }
 
     @Test
@@ -431,27 +389,15 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         // .. the following should have been wrapped
         assertNotNull(sc.getFeatureTypeByName("topp:states"));
         assertTrue(sc.getFeatureTypeByName("topp:states") instanceof SecuredFeatureTypeInfo);
-        assertTrue(
-                sc.getResourceByName("topp:states", FeatureTypeInfo.class)
-                        instanceof SecuredFeatureTypeInfo);
+        assertTrue(sc.getResourceByName("topp:states", FeatureTypeInfo.class) instanceof SecuredFeatureTypeInfo);
 
         assertThatBoth(
                 sc.getFeatureTypes(),
                 sc.list(FeatureTypeInfo.class, Predicates.acceptAll()),
-                allOf(
-                        (Matcher) hasSize(featureTypes.size()),
-                        (Matcher)
-                                everyItem(
-                                        Matchers.<FeatureTypeInfo>instanceOf(
-                                                SecuredFeatureTypeInfo.class))));
-        assertThatBoth(
-                sc.getCoverages(),
-                sc.list(CoverageInfo.class, Predicates.acceptAll()),
-                equalTo(coverages));
-        assertThatBoth(
-                sc.getWorkspaces(),
-                sc.list(WorkspaceInfo.class, Predicates.acceptAll()),
-                equalTo(workspaces));
+                allOf((Matcher) hasSize(featureTypes.size()), (Matcher)
+                        everyItem(Matchers.<FeatureTypeInfo>instanceOf(SecuredFeatureTypeInfo.class))));
+        assertThatBoth(sc.getCoverages(), sc.list(CoverageInfo.class, Predicates.acceptAll()), equalTo(coverages));
+        assertThatBoth(sc.getWorkspaces(), sc.list(WorkspaceInfo.class, Predicates.acceptAll()), equalTo(workspaces));
 
         assertNotNull(sc.getLayerByName("topp:states"));
         assertTrue(sc.getLayerByName("topp:states") instanceof SecuredLayerInfo);
@@ -480,20 +426,15 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         CatalogFilterAccessManager filter = new CatalogFilterAccessManager();
 
         // make a catalog that uses our layers
-        Catalog withLayers =
-                new AbstractCatalogDecorator(catalog) {
+        Catalog withLayers = new AbstractCatalogDecorator(catalog) {
 
-                    @SuppressWarnings("unchecked")
-                    @Override
-                    public <T extends CatalogInfo> CloseableIterator<T> list(
-                            Class<T> of,
-                            Filter filter,
-                            Integer offset,
-                            Integer count,
-                            SortBy sortBy) {
-                        return new CloseableIteratorAdapter<>((Iterator<T>) layers.iterator());
-                    }
-                };
+            @SuppressWarnings("unchecked")
+            @Override
+            public <T extends CatalogInfo> CloseableIterator<T> list(
+                    Class<T> of, Filter filter, Integer offset, Integer count, SortBy sortBy) {
+                return new CloseableIteratorAdapter<>((Iterator<T>) layers.iterator());
+            }
+        };
         this.catalog = withLayers;
         extensions.singleton("catalog", catalog, Catalog.class);
 
@@ -508,15 +449,13 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         // an example of this happening is when the LocalWorkspaceCatalogFilter
         // detects 'LocalLayer.get' contains the local layer
         // the result is it gets filtered out
-        filter.setCatalogFilters(
-                Collections.singletonList(
-                        new AbstractCatalogFilter() {
+        filter.setCatalogFilters(Collections.singletonList(new AbstractCatalogFilter() {
 
-                            @Override
-                            public boolean hideLayer(LayerInfo layer) {
-                                return layer != statesLayer;
-                            }
-                        }));
+            @Override
+            public boolean hideLayer(LayerInfo layer) {
+                return layer != statesLayer;
+            }
+        }));
 
         assertEquals(1, sc.getLayers().size());
         assertEquals(statesLayer.getName(), sc.getLayers().get(0).getName());
@@ -531,20 +470,15 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         replay(mockIterator);
 
         // make a catalog that uses the mock CloseableIterator
-        Catalog withLayers =
-                new AbstractCatalogDecorator(catalog) {
+        Catalog withLayers = new AbstractCatalogDecorator(catalog) {
 
-                    @SuppressWarnings("unchecked")
-                    @Override
-                    public <T extends CatalogInfo> CloseableIterator<T> list(
-                            Class<T> of,
-                            Filter filter,
-                            Integer offset,
-                            Integer count,
-                            SortBy sortBy) {
-                        return (CloseableIterator<T>) mockIterator;
-                    }
-                };
+            @SuppressWarnings("unchecked")
+            @Override
+            public <T extends CatalogInfo> CloseableIterator<T> list(
+                    Class<T> of, Filter filter, Integer offset, Integer count, SortBy sortBy) {
+                return (CloseableIterator<T>) mockIterator;
+            }
+        };
         this.catalog = withLayers;
         GeoServerExtensionsHelper.singleton("catalog", catalog, Catalog.class);
         buildManager("publicRead.properties");
@@ -644,7 +578,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
 
         assertFalse(namedTreeB.isEnabled());
         Request request = org.easymock.EasyMock.createNiceMock(Request.class);
-        org.easymock.EasyMock.expect(request.getRequest()).andReturn("GetCapabilities").anyTimes();
+        org.easymock.EasyMock.expect(request.getRequest())
+                .andReturn("GetCapabilities")
+                .anyTimes();
         org.easymock.EasyMock.expect(request.getService()).andReturn("WMS").anyTimes();
         org.easymock.EasyMock.replay(request);
         Dispatcher.REQUEST.set(request);
@@ -666,8 +602,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         expect(eoCatalog.getLayerGroupByName("topp", eoStatesLayerGroup.getName()))
                 .andReturn(eoStatesLayerGroup)
                 .anyTimes();
-        expect(eoCatalog.getLayerGroups())
-                .andReturn(Arrays.asList(eoRoadsLayerGroup, eoStatesLayerGroup));
+        expect(eoCatalog.getLayerGroups()).andReturn(Arrays.asList(eoRoadsLayerGroup, eoStatesLayerGroup));
         expect(eoCatalog.list(eq(LayerGroupInfo.class), anyObject(Filter.class)))
                 .andReturn(new CloseableIteratorAdapter<>(Collections.emptyIterator()))
                 .anyTimes();
@@ -934,8 +869,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNotSame(security3, Filter.EXCLUDE);
         // Checks on the workspaces
         List<FeatureTypeInfo> fy = catalog.getFeatureTypes();
-        Iterator<FeatureTypeInfo> it4 =
-                Iterators.filter(fy.iterator(), new PredicateFilter(security));
+        Iterator<FeatureTypeInfo> it4 = Iterators.filter(fy.iterator(), new PredicateFilter(security));
         while (it4.hasNext()) {
             FeatureTypeInfo next = it4.next();
             String name = next.getNamespace().getName();
@@ -1067,8 +1001,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertSame(security3, Filter.INCLUDE);
         // Checks on the featuretypes
         List<FeatureTypeInfo> fy = catalog.getFeatureTypes();
-        Iterator<FeatureTypeInfo> it3 =
-                Iterators.filter(fy.iterator(), new PredicateFilter(security));
+        Iterator<FeatureTypeInfo> it3 = Iterators.filter(fy.iterator(), new PredicateFilter(security));
         hasBasesLayer = false;
         while (it3.hasNext()) {
             FeatureTypeInfo next = it3.next();
@@ -1111,8 +1044,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNotSame(securityMilitary, Filter.INCLUDE);
         // Checks on the workspaces
         List<WorkspaceInfo> ws = catalog.getWorkspaces();
-        Iterator<WorkspaceInfo> it =
-                Iterators.filter(ws.iterator(), new PredicateFilter(securityAnonymous));
+        Iterator<WorkspaceInfo> it = Iterators.filter(ws.iterator(), new PredicateFilter(securityAnonymous));
         while (it.hasNext()) {
             assertSame(it.next(), toppWs);
         }
@@ -1148,18 +1080,16 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         List<PublishedInfo> publisheds = new ArrayList<>();
         publisheds.addAll(layers);
         publisheds.addAll(layerGroups);
-        Collection<LayerInfo> filteredLayers =
-                Collections2.filter(layers, new PredicateFilter(securityAnonymous));
+        Collection<LayerInfo> filteredLayers = Collections2.filter(layers, new PredicateFilter(securityAnonymous));
         Collection<LayerGroupInfo> filteredGroups =
                 Collections2.filter(layerGroups, new PredicateFilter(securityAnonymous));
         Collection<PublishedInfo> filteredPublished =
                 Collections2.filter(publisheds, new PredicateFilter(securityAnonymous));
         assertEquals("anonymous layers", 4, filteredLayers.size());
-        assertEquals("anonymous layer groups", 2, filteredGroups.size());
-        assertEquals("anonymous published", 6, filteredPublished.size());
+        assertEquals("anonymous layer groups", 1, filteredGroups.size());
+        assertEquals("anonymous published", 5, filteredPublished.size());
         // ANON
-        Iterator<LayerInfo> it1 =
-                Iterators.filter(layers.iterator(), new PredicateFilter(securityAnonymous));
+        Iterator<LayerInfo> it1 = Iterators.filter(layers.iterator(), new PredicateFilter(securityAnonymous));
         // Boolean checking the various layers
         boolean hasRoadsLayer = false;
         boolean hasLandmLayer = false;
@@ -1167,13 +1097,9 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
             LayerInfo next = it1.next();
             // topp
             assertNotSame(
-                    "Unexpectedly found bases with securityAnonymous filter " + securityAnonymous,
-                    next,
-                    basesLayer);
+                    "Unexpectedly found bases with securityAnonymous filter " + securityAnonymous, next, basesLayer);
             assertNotSame(
-                    "Unexpectedly found states with securityAnonymous filter " + securityAnonymous,
-                    next,
-                    statesLayer);
+                    "Unexpectedly found states with securityAnonymous filter " + securityAnonymous, next, statesLayer);
             hasLandmLayer |= next.equals(landmarksLayer);
             hasRoadsLayer |= next.equals(roadsLayer);
             // Nurc
@@ -1243,8 +1169,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNotSame(securityMilitary, Filter.INCLUDE);
         // Checks on the workspaces
         List<StyleInfo> sy = catalog.getStyles();
-        Iterator<StyleInfo> it2 =
-                Iterators.filter(sy.iterator(), new PredicateFilter(securityAnonymous));
+        Iterator<StyleInfo> it2 = Iterators.filter(sy.iterator(), new PredicateFilter(securityAnonymous));
         while (it2.hasNext()) {
             StyleInfo next = it2.next();
             WorkspaceInfo wsi = next.getWorkspace();
@@ -1267,6 +1192,15 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         clazz = ResourceInfo.class;
         // Creating filter for anonymous user
         securityAnonymous = resourceManager.getSecurityFilter(anonymous, clazz);
+        // When the filter gets created, if evaluating a ResourceInfo where there is a mismatch
+        // between layer and workspace access, get the resource and get its id rather than the layer
+        // id
+        // in order to exclude it
+        assertTrue(securityAnonymous.toString().contains("[states-id]"));
+        assertFalse(securityAnonymous.toString().contains("[states-lid]"));
+        // Confirming that the security filter creation process can handle a LayerGroup when there
+        // is a layer-workspace mismatch
+        assertTrue(securityAnonymous.toString().contains("[topp:layerGroupTopp-id]"));
         // Creating filter for read write user
         securityReadWriteUser = resourceManager.getSecurityFilter(rwUser, clazz);
         // Creating filter for military user
@@ -1282,8 +1216,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNotSame(securityMilitary, Filter.EXCLUDE);
         // Checks on the featuretypes
         List<FeatureTypeInfo> fy = catalog.getFeatureTypes();
-        Iterator<FeatureTypeInfo> it3 =
-                Iterators.filter(fy.iterator(), new PredicateFilter(securityAnonymous));
+        Iterator<FeatureTypeInfo> it3 = Iterators.filter(fy.iterator(), new PredicateFilter(securityAnonymous));
 
         // Boolean checking the various layers
         hasRoadsLayer = false;
@@ -1362,8 +1295,7 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
 
         // Checks on the featuretypes
         List<CoverageInfo> cy = catalog.getCoverages();
-        Iterator<CoverageInfo> it4 =
-                Iterators.filter(cy.iterator(), new PredicateFilter(securityAnonymous));
+        Iterator<CoverageInfo> it4 = Iterators.filter(cy.iterator(), new PredicateFilter(securityAnonymous));
 
         // Boolean checking the various coverages
         while (it4.hasNext()) {
@@ -1394,22 +1326,20 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertTrue(hasArcGridLayer);
     }
 
-    static <T> void assertThatBoth(
-            List<T> result1, CloseableIterator<T> result2, Matcher<?> expected) throws IOException {
+    static <T> void assertThatBoth(List<T> result1, CloseableIterator<T> result2, Matcher<?> expected)
+            throws IOException {
         assertThat(result1, (Matcher<List<T>>) expected);
         assertThat(collectAndClose(result2), (Matcher<List<T>>) expected);
     }
 
     static <T> List<T> collectAndClose(CloseableIterator<T> it) throws IOException {
         if (it == null) return null;
-        try {
+        try (it) {
             LinkedList<T> list = new LinkedList<>();
             while (it.hasNext()) {
                 list.add(it.next());
             }
             return list;
-        } finally {
-            it.close();
         }
     }
 
@@ -1507,7 +1437,8 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(1, securedSingleGroup.layers().size());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
 
         // check the mil user sees everything instead
         SecurityContextHolder.getContext().setAuthentication(milUser);
@@ -1519,8 +1450,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
     }
 
     @Test
@@ -1571,8 +1504,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
 
         // check the mil user sees everything instead
         SecurityContextHolder.getContext().setAuthentication(milUser);
@@ -1584,8 +1519,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
     }
 
     @Test
@@ -1611,8 +1548,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
 
         // check the mil user sees everything instead
         SecurityContextHolder.getContext().setAuthentication(milUser);
@@ -1624,8 +1563,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
     }
 
     @Test
@@ -1651,7 +1592,8 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(1, securedSingleGroup.layers().size());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
 
         // check the mil user sees everything instead
         SecurityContextHolder.getContext().setAuthentication(milUser);
@@ -1664,8 +1606,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
     }
 
     @Test
@@ -1697,8 +1641,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
     }
 
     @Test
@@ -1733,8 +1679,10 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         LayerGroupInfo securedSingleGroup = sc.getLayerGroupByName(singleGroupC.prefixedName());
         assertNotNull(securedSingleGroup);
         assertEquals(2, securedSingleGroup.layers().size());
-        assertEquals(statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
-        assertEquals(basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
+        assertEquals(
+                statesLayer.prefixedName(), securedSingleGroup.layers().get(0).prefixedName());
+        assertEquals(
+                basesLayer.prefixedName(), securedSingleGroup.layers().get(1).prefixedName());
         LayerGroupInfo wsSpecificGroup = sc.getLayerGroupByName("nurc", "wsContainerD");
         assertNotNull(wsSpecificGroup);
         assertEquals(1, wsSpecificGroup.getLayers().size());
@@ -1835,11 +1783,92 @@ public class SecureCatalogImplTest extends AbstractAuthorizationTest {
         assertNotNull(sc.getLayerByName(arcGridLayer.prefixedName()));
 
         // check access is working also when iterating over all groups
-        try (CloseableIterator<LayerGroupInfo> groupIterator =
-                sc.list(LayerGroupInfo.class, Filter.INCLUDE)) {
+        try (CloseableIterator<LayerGroupInfo> groupIterator = sc.list(LayerGroupInfo.class, Filter.INCLUDE)) {
             ImmutableList<LayerGroupInfo> groups = ImmutableList.copyOf(groupIterator);
             assertEquals(1, groups.size());
             assertEquals("wsContainerD", groups.get(0).getName());
         }
+    }
+
+    @Test
+    public void testLayerPositiveException() throws Exception {
+        // prepare the stage
+        ResourceAccessManager manager = buildManager("layerPositiveException.properties");
+
+        // try with read only user
+        SecurityContextHolder.getContext().setAuthentication(roUser);
+
+        // direct invocation, state is allowed, others not
+        assertNotNull(sc.getLayerByName("topp:states"));
+        assertNull(sc.getLayerByName("topp:roads"));
+
+        // now check the security filter
+        Filter securityFilter = manager.getSecurityFilter(roUser, LayerInfo.class);
+        Filter expected =
+                FF.or(FF.not(FF.equal(RESOURCE_WS_NAME, FF.literal("topp"), false)), layerIdFilter("states-lid"));
+        assertEquals(expected, securityFilter);
+    }
+
+    @Test
+    public void testLayerPositiveException2() throws Exception {
+        // prepare the stage
+        ResourceAccessManager manager = buildManager("layerPositiveException2.properties");
+
+        // try with read only user
+        SecurityContextHolder.getContext().setAuthentication(roUser);
+
+        // direct invocation, state is allowed, others not
+        assertNotNull(sc.getLayerByName("topp:states"));
+        assertNull(sc.getLayerByName("topp:roads"));
+
+        // now check the security filter
+        Filter securityFilter = manager.getSecurityFilter(roUser, LayerInfo.class);
+        Filter expected = layerIdFilter("states-lid");
+        assertEquals(expected, securityFilter);
+    }
+
+    @Test
+    public void testLayerNegativeException() throws Exception {
+        // prepare the stage
+        ResourceAccessManager manager = buildManager("layerNegativeException.properties");
+
+        // try with read only user
+        SecurityContextHolder.getContext().setAuthentication(roUser);
+
+        // direct invocation, state is not allowed, others are
+        assertNull(sc.getLayerByName("topp:states"));
+        assertNotNull(sc.getLayerByName("topp:roads"));
+
+        // now check the security filter
+        Filter securityFilter = manager.getSecurityFilter(roUser, LayerInfo.class);
+        Filter expected =
+                FF.and((FF.equal(RESOURCE_WS_NAME, FF.literal("topp"), false)), FF.not(layerIdFilter("states-lid")));
+        assertEquals(expected, securityFilter);
+    }
+
+    @Test
+    public void testLayerNegativeException2() throws Exception {
+        // prepare the stage
+        ResourceAccessManager manager = buildManager("layerNegativeException2.properties");
+
+        // try with read only user
+        SecurityContextHolder.getContext().setAuthentication(roUser);
+
+        // direct invocation, state is not allowed, others are
+        assertNull(sc.getLayerByName("topp:states"));
+        assertNotNull(sc.getLayerByName("topp:roads"));
+
+        // now check the security filter
+        Filter securityFilter = manager.getSecurityFilter(roUser, LayerInfo.class);
+        Filter expected = FF.not(layerIdFilter("states-lid"));
+        assertEquals(expected, securityFilter);
+    }
+
+    /**
+     * Builds a filter matching a single identifier using the "in" function (same way the DefaultResourceAccessManager
+     * builds a filter)
+     */
+    private static PropertyIsEqualTo layerIdFilter(String id) {
+        return FF.equal(FF.function("in", FF.property("id"), FF.literal(id)), FF.literal(true), false);
     }
 }

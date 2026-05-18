@@ -5,7 +5,7 @@
  */
 package org.geoserver.wps.ppio;
 
-import javax.media.jai.Interpolation;
+import org.eclipse.imagen.Interpolation;
 
 /**
  * Parses interpolation values
@@ -14,7 +14,7 @@ import javax.media.jai.Interpolation;
  */
 public class InterpolationPPIO extends LiteralPPIO {
 
-    protected InterpolationPPIO() {
+    public InterpolationPPIO() {
         super(Interpolation.class);
     }
 

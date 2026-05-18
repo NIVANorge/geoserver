@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.config.GeoServerDataDirectory;
@@ -26,14 +27,16 @@ import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resource.Lock;
 import org.geoserver.platform.resource.Resource.Type;
 import org.geoserver.security.PropertyFileWatcher;
+import org.geoserver.util.AbstractSortedProperties;
 import org.geoserver.util.IOUtils;
+import org.geoserver.util.SortedProperties;
 import org.geotools.util.logging.Logging;
 
 /**
  * Abstract class for security dao's whose configuration is stored in a property file.
  *
- * <p>Subclasses must implement {@link #loadRules(Properties)} and {@link #toProperties()} to
- * provide the mapping back and forth to the underlying properly file.
+ * <p>Subclasses must implement {@link #loadRules(Properties)} and {@link #toProperties()} to provide the mapping back
+ * and forth to the underlying properly file.
  *
  * @author Justin Deoliveira, OpenGeo
  * @param <R> The access rule class.
@@ -48,7 +51,7 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
     PropertyFileWatcher watcher;
 
     /** Stores the time of the last rule list loading */
-    protected long lastModified;
+    protected AtomicLong lastModified = new AtomicLong();
 
     /** The security dir */
     Resource securityDir;
@@ -59,8 +62,7 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
     /** Data directory accessor */
     GeoServerDataDirectory dd;
 
-    protected AbstractAccessRuleDAO(GeoServerDataDirectory dd, String propertyFileName)
-            throws IOException {
+    protected AbstractAccessRuleDAO(GeoServerDataDirectory dd, String propertyFileName) throws IOException {
         this.dd = dd;
         this.securityDir = dd.getSecurity();
         this.propertyFileName = propertyFileName;
@@ -84,8 +86,8 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
     }
 
     /**
-     * Returns the list of rules contained in the property file. The returned rules are sorted
-     * against the <code>R</code> natural order
+     * Returns the list of rules contained in the property file. The returned rules are sorted against the <code>R
+     * </code> natural order
      */
     public List<R> getRules() {
         checkPropertyFile(false);
@@ -98,7 +100,7 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
      * @return true if the set did not contain the rule already, false otherwise
      */
     public synchronized boolean addRule(R rule) {
-        lastModified = System.currentTimeMillis();
+        lastModified.set(System.currentTimeMillis());
         return rules.add(rule);
     }
 
@@ -110,21 +112,21 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
     /** Cleans up the contents of the rule set */
     public void clear() {
         rules.clear();
-        lastModified = System.currentTimeMillis();
+        lastModified.set(System.currentTimeMillis());
     }
 
     /** Removes the rule from rule set */
     public synchronized boolean removeRule(R rule) {
-        lastModified = System.currentTimeMillis();
+        lastModified.set(System.currentTimeMillis());
         return rules.remove(rule);
     }
 
     /**
-     * Returns the last modification date of the rules in this DAO (last time the rules were
-     * reloaded from the property file)
+     * Returns the last modification date of the rules in this DAO (last time the rules were reloaded from the property
+     * file)
      */
     public long getLastModified() {
-        return lastModified;
+        return lastModified.get();
     }
 
     public boolean isModified() {
@@ -133,18 +135,26 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
 
     /** Writes the rules back to file system */
     public synchronized void storeRules() throws IOException {
-        // turn back the users into a users map
+        // turn back the rules into a properties map
         Properties p = toProperties();
+
+        // If callers return a concrete LinkedProperties or SortedProperties, preserve that behavior.
+        // Otherwise default to alphabetical ordering (SortedProperties) for deterministic diffs/merges.
+        if (!(p instanceof AbstractSortedProperties)) {
+            SortedProperties sp = new SortedProperties();
+            sp.putAll(p);
+            p = sp;
+        }
 
         // write out to the data dir
         Resource propFile = securityDir.get(propertyFileName);
         try (OutputStream os = propFile.out()) {
             p.store(os, null);
-            lastModified = System.currentTimeMillis();
+            lastModified.set(System.currentTimeMillis());
             // avoid unnecessary reloads, the file just got fully written
-            if (watcher != null) watcher.setKnownLastModified(lastModified);
+            if (watcher != null) watcher.setKnownLastModified(lastModified.get());
         } catch (Exception e) {
-            if (e instanceof IOException) throw (IOException) e;
+            if (e instanceof IOException exception) throw exception;
             else throw new IOException("Could not write rules to " + propertyFileName, e);
         }
     }
@@ -161,8 +171,7 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
                     Resource layers = securityDir.get(propertyFileName);
                     if (layers.getType() == Type.UNDEFINED) {
                         // try to load a template and copy it over
-                        try (InputStream in =
-                                getClass().getResourceAsStream(propertyFileName + ".template")) {
+                        try (InputStream in = getClass().getResourceAsStream(propertyFileName + ".template")) {
                             if (in != null) {
                                 IOUtils.copy(in, layers.out());
                             }
@@ -179,18 +188,15 @@ public abstract class AbstractAccessRuleDAO<R extends Comparable<R>> {
                         }
                     }
                 }
-                lastModified = System.currentTimeMillis();
+                lastModified.set(System.currentTimeMillis());
             } else if (isModified()) {
                 synchronized (this) {
                     loadRules(watcher.getProperties());
                 }
-                lastModified = System.currentTimeMillis();
+                lastModified.set(System.currentTimeMillis());
             }
         } catch (Exception e) {
-            LOGGER.log(
-                    Level.SEVERE,
-                    "Failed to reload data access rules from layers.properties, keeping old rules",
-                    e);
+            LOGGER.log(Level.SEVERE, "Failed to reload data access rules from layers.properties, keeping old rules", e);
         }
     }
 

@@ -24,7 +24,8 @@ import org.junit.rules.TemporaryFolder;
 
 public class IOUtilsTest {
 
-    @Rule public TemporaryFolder temp = new TemporaryFolder(new File("target"));
+    @Rule
+    public TemporaryFolder temp = new TemporaryFolder(new File("target"));
 
     @Test
     public void testZipUnzip() throws IOException {
@@ -69,5 +70,16 @@ public class IOUtilsTest {
         } catch (IOException e) {
             assertThat(e.getMessage(), startsWith("Entry is outside of the target directory"));
         }
+    }
+
+    @Test
+    public void testRenameCaseChange() throws IOException {
+        File f = temp.newFile("foo.txt");
+        IOUtils.rename(f, "FOO.txt");
+        File renamed = new File(f.getParent(), "FOO.txt");
+
+        // file system can be case sensitive or not, so we can't really test
+        // that the old file is gone, but the new file should be there
+        assertTrue(renamed.exists());
     }
 }

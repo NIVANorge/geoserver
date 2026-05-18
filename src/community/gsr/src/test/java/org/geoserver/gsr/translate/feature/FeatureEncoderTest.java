@@ -7,7 +7,6 @@ package org.geoserver.gsr.translate.feature;
 
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.Date;
 import org.geoserver.gsr.api.GeoServicesJacksonJsonConverter;
@@ -15,6 +14,8 @@ import org.geoserver.gsr.api.ServiceException;
 import org.geoserver.gsr.model.feature.Feature;
 import org.geoserver.gsr.model.geometry.SpatialReferenceWKID;
 import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.data.DataUtilities;
 import org.geotools.feature.SchemaException;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
@@ -23,8 +24,7 @@ import org.junit.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
+import tools.jackson.databind.ObjectMapper;
 
 public class FeatureEncoderTest extends GeoServerSystemTestSupport {
 
@@ -38,24 +38,23 @@ public class FeatureEncoderTest extends GeoServerSystemTestSupport {
         Double doubleValue = Double.valueOf(2.54565);
         Date dateValue = new Date();
 
-        final SimpleFeatureType TYPE =
-                DataUtilities.createType(
-                        "Location",
-                        "the_geom:Point:srid=4326,"
-                                + // <- the geometry attribute: Point type
-                                "stringfield:String,"
-                                + // <- a String attribute
-                                "intfield:Integer,"
-                                + // <- a Integer attribute
-                                "floatfield:Float,"
-                                + // <- a Float attribute
-                                "doublefield:Double,"
-                                + // <- a Double attribute
-                                "datefield:Date,"
-                                + // <- a Date attribute
-                                "booleanfield:Boolean"
-                        // <- a boolean attribute
-                        );
+        final SimpleFeatureType TYPE = DataUtilities.createType(
+                "Location",
+                "the_geom:Point:srid=4326,"
+                        + // <- the geometry attribute: Point type
+                        "stringfield:String,"
+                        + // <- a String attribute
+                        "intfield:Integer,"
+                        + // <- a Integer attribute
+                        "floatfield:Float,"
+                        + // <- a Float attribute
+                        "doublefield:Double,"
+                        + // <- a Double attribute
+                        "datefield:Date,"
+                        + // <- a Date attribute
+                        "booleanfield:Boolean"
+                // <- a boolean attribute
+                );
         GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory();
         SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(TYPE);
 
@@ -69,8 +68,7 @@ public class FeatureEncoderTest extends GeoServerSystemTestSupport {
         featureBuilder.add(true);
         SimpleFeature feature = featureBuilder.buildFeature(null);
 
-        Feature encodedFeature =
-                FeatureEncoder.feature(feature, true, new SpatialReferenceWKID(32615), "id");
+        Feature encodedFeature = FeatureEncoder.feature(feature, true, new SpatialReferenceWKID(32615), "id");
         String featureJson = mapper.writeValueAsString(encodedFeature);
 
         System.out.println(featureJson);

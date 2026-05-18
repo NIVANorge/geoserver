@@ -19,21 +19,20 @@ import org.geoserver.csw.store.CatalogStoreCapabilities;
 import org.geoserver.csw.store.RepositoryItem;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resource.Type;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
 import org.geotools.data.store.FilteringFeatureCollection;
 import org.geotools.data.store.MaxFeaturesFeatureCollection;
 import org.geotools.feature.FeatureCollection;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
 
 /**
- * A simple implementation of {@link CatalogStore} geared towards test support. The store reads CSW
- * records from xml files located in the root folder, it is not meant to be fast or scalable, on the
- * contrary, to keep its implementation as simple as possible it is actually slow and occasionally
- * memory bound.
+ * A simple implementation of {@link CatalogStore} geared towards test support. The store reads CSW records from xml
+ * files located in the root folder, it is not meant to be fast or scalable, on the contrary, to keep its implementation
+ * as simple as possible it is actually slow and occasionally memory bound.
  *
  * <p>Do not use it for production purposes.
  *
@@ -50,31 +49,29 @@ public class SimpleCatalogStore extends AbstractCatalogStore {
 
         if (root.getType() == Type.RESOURCE) {
             throw new IllegalArgumentException(
-                    "Got an existing reference on the file system, but it's not a directory: "
-                            + root.path());
+                    "Got an existing reference on the file system, but it's not a directory: " + root.path());
         }
     }
 
-    public FeatureCollection<FeatureType, Feature> getRecords(Query q, Transaction t)
-            throws IOException {
+    public FeatureCollection<FeatureType, Feature> getRecords(Query q, Transaction t) throws IOException {
         return getRecords(q, t, null);
     }
 
     @Override
     public FeatureCollection<FeatureType, Feature> getRecordsInternal(
-            RecordDescriptor rd, RecordDescriptor outputRd, Query q, Transaction t)
-            throws IOException {
+            RecordDescriptor rd, RecordDescriptor outputRd, Query q, Transaction t) throws IOException {
+
+        Query pq = prepareQuery(q, rd, rd);
 
         int startIndex = 0;
         if (q.getStartIndex() != null) {
             startIndex = q.getStartIndex();
         }
-        FeatureCollection<FeatureType, Feature> records =
-                new RecordsFeatureCollection(root, startIndex);
+        FeatureCollection<FeatureType, Feature> records = new RecordsFeatureCollection(root, startIndex);
 
         // filtering
-        if (q.getFilter() != null && q.getFilter() != Filter.INCLUDE) {
-            Filter filter = q.getFilter();
+        if (pq.getFilter() != null && pq.getFilter() != Filter.INCLUDE) {
+            Filter filter = pq.getFilter();
             CSWAnyExpander expander = new CSWAnyExpander();
             Filter expanded = (Filter) filter.accept(expander, null);
 
@@ -82,10 +79,9 @@ public class SimpleCatalogStore extends AbstractCatalogStore {
         }
 
         // sorting
-        if (q.getSortBy() != null && q.getSortBy().length > 0) {
+        if (pq.getSortBy() != null && pq.getSortBy().length > 0) {
             Feature[] features = records.toArray(new Feature[records.size()]);
-            Comparator<Feature> comparator =
-                    ComplexComparatorFactory.buildComparator(q.getSortBy());
+            Comparator<Feature> comparator = ComplexComparatorFactory.buildComparator(pq.getSortBy());
             Arrays.sort(features, comparator);
 
             records = new MemoryFeatureCollection(records.getSchema(), Arrays.asList(features));
@@ -97,7 +93,7 @@ public class SimpleCatalogStore extends AbstractCatalogStore {
         }
 
         // reducing attributes
-        if (q.getProperties() != null && q.getProperties().size() > 0) {
+        if (q.getProperties() != null && !q.getProperties().isEmpty()) {
             records = new RetypingFeatureCollection<>(records, q.getProperties());
         }
 

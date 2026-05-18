@@ -5,20 +5,23 @@
  */
 package org.geoserver.importer.transform;
 
+import java.io.Serial;
 import org.geoserver.catalog.ResourceInfo;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.importer.ImportTask;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
 
 public class ReprojectTransform extends AbstractTransform implements InlineVectorTransform {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     CoordinateReferenceSystem source, target;
@@ -50,13 +53,13 @@ public class ReprojectTransform extends AbstractTransform implements InlineVecto
     }
 
     @Override
-    public SimpleFeatureType apply(
-            ImportTask task, DataStore dataStore, SimpleFeatureType featureType) throws Exception {
+    public SimpleFeatureType apply(ImportTask task, DataStore dataStore, SimpleFeatureType featureType)
+            throws Exception {
 
         // update the layer metadata
         ResourceInfo r = task.getLayer().getResource();
         r.setNativeCRS(target);
-        r.setSRS(CRS.lookupIdentifier(target, true));
+        r.setSRS(ResourcePool.lookupIdentifier(target, true));
         if (r.getNativeBoundingBox() != null) {
             r.setNativeBoundingBox(r.getNativeBoundingBox().transform(target, true));
         }
@@ -65,8 +68,7 @@ public class ReprojectTransform extends AbstractTransform implements InlineVecto
     }
 
     @Override
-    public SimpleFeature apply(
-            ImportTask task, DataStore dataStore, SimpleFeature oldFeature, SimpleFeature feature)
+    public SimpleFeature apply(ImportTask task, DataStore dataStore, SimpleFeature oldFeature, SimpleFeature feature)
             throws Exception {
         if (transform == null) {
             // compute the reprojection transform
@@ -92,13 +94,6 @@ public class ReprojectTransform extends AbstractTransform implements InlineVecto
 
     @Override
     public String toString() {
-        return "ReprojectTransform{"
-                + "source="
-                + source
-                + ", target="
-                + target
-                + ", transform="
-                + transform
-                + '}';
+        return "ReprojectTransform{" + "source=" + source + ", target=" + target + ", transform=" + transform + '}';
     }
 }

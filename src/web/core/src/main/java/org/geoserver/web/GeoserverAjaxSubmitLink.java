@@ -8,10 +8,7 @@ import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
 import org.apache.wicket.markup.html.form.Form;
 
-/**
- * {@link AjaxSubmitLink} subclass that adds the {@link GeoServerBasePage} feedback panels on every
- * interaction
- */
+/** {@link AjaxSubmitLink} subclass that adds the {@link GeoServerBasePage} feedback panels on every interaction */
 public abstract class GeoserverAjaxSubmitLink extends AjaxSubmitLink {
 
     private final GeoServerBasePage page;
@@ -27,19 +24,19 @@ public abstract class GeoserverAjaxSubmitLink extends AjaxSubmitLink {
     }
 
     @Override
-    protected void onError(AjaxRequestTarget target, Form<?> form) {
-        super.onError(target, form);
+    protected void onError(AjaxRequestTarget target) {
+        super.onError(target);
         page.addFeedbackPanels(target);
     }
 
     @Override
-    protected final void onSubmit(AjaxRequestTarget target, Form<?> form) {
+    protected final void onSubmit(AjaxRequestTarget target) {
         try {
-            onSubmitInternal(target, form);
+            onSubmitInternal(target);
         } finally {
             page.addFeedbackPanels(target);
         }
     }
 
-    protected abstract void onSubmitInternal(AjaxRequestTarget target, Form<?> form);
+    protected abstract void onSubmitInternal(AjaxRequestTarget target);
 }

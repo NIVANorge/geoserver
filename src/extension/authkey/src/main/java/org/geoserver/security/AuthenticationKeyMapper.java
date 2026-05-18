@@ -13,24 +13,23 @@ import org.geoserver.security.validation.FilterConfigException;
 import org.springframework.beans.factory.BeanNameAware;
 
 /**
- * Maps a unique authentication key to a user name. Since user names are unique within a {@link
- * GeoServerUserGroupService} an individual mapper is needed for each service offering this feature.
+ * Maps a unique authentication key to a user name. Since user names are unique within a
+ * {@link GeoServerUserGroupService} an individual mapper is needed for each service offering this feature.
  *
  * @author Andrea Aime - GeoSolution
  */
 public interface AuthenticationKeyMapper extends BeanNameAware {
 
     /**
-     * Maps the key provided in the request to the {@link GeoServerUser} object of the corresponding
-     * user, or returns null if no corresponding user is found
+     * Maps the key provided in the request to the {@link GeoServerUser} object of the corresponding user, or returns
+     * null if no corresponding user is found
      *
-     * <p>Returns <code>null</code> if the user is disabled
+     * <p>Returns {@code null} if the user is disabled
      */
     GeoServerUser getUser(String key) throws IOException;
 
     /**
-     * Assures that each user in the corresponding {@link GeoServerUserGroupService} has an
-     * authentication key.
+     * Assures that each user in the corresponding {@link GeoServerUserGroupService} has an authentication key.
      *
      * <p>returns the number of added authentication keys
      */
@@ -60,4 +59,17 @@ public interface AuthenticationKeyMapper extends BeanNameAware {
 
     /** Validates the given parameter. */
     public void validateParameter(String paramName, String value) throws FilterConfigException;
+
+    /** Set the belonging Auth Filter Name in order to allow the Mapper accessing the auth cache * */
+    public void setAuthenticationFilterName(String authenticationFilterName);
+
+    /**
+     * Sets the cache TTL in seconds.
+     *
+     * @param ttlSeconds TTL in seconds
+     */
+    public void setCacheTtlSeconds(long ttlSeconds);
+
+    /** Returns the current cache TTL in seconds. */
+    public long getCacheTtlSeconds();
 }

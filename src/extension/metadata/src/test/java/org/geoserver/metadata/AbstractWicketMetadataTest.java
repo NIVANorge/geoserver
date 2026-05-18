@@ -14,7 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public abstract class AbstractWicketMetadataTest extends AbstractMetadataTest {
 
-    @Autowired protected GeoServerApplication app;
+    @Autowired
+    protected GeoServerApplication app;
 
     protected WicketTester tester;
 
@@ -33,12 +34,12 @@ public abstract class AbstractWicketMetadataTest extends AbstractMetadataTest {
     }
 
     @Before
-    public void start() {
+    public void start() throws Exception {
         tester = new WicketTester(app, true);
     }
 
     @After
-    public void stop() {
+    public void stop() throws Exception {
         tester.destroy();
     }
 

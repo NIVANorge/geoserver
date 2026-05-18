@@ -4,6 +4,9 @@
  */
 package org.geoserver.taskmanager.web.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.ArrayList;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.OnChangeAjaxBehavior;
@@ -18,57 +21,64 @@ import org.geoserver.taskmanager.util.TaskManagerBeans;
 
 public class NewTaskPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(NewTaskPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -1678565286034119572L;
 
     public NewTaskPanel(String id, Configuration config) {
         super(id);
         add(new FeedbackPanel("feedback").setOutputMarkupId(true));
         add(new TextField<String>("name", new Model<String>()).setRequired(true));
-        add(
-                new DropDownChoice<String>(
-                                "type",
-                                new Model<String>(),
-                                new Model<ArrayList<String>>(getTaskTypeNames(config)))
-                        .setRequired(true)
-                        .setOutputMarkupId(true));
-        add(
-                new DropDownChoice<String>(
-                                "copy",
-                                new Model<String>(),
-                                new Model<ArrayList<String>>(
-                                        new ArrayList<String>(config.getTasks().keySet())))
-                        .setOutputMarkupId(true));
+        add(new DropDownChoice<String>(
+                        "type", new Model<String>(), new Model<ArrayList<String>>(getTaskTypeNames(config)))
+                .setRequired(true)
+                .setOutputMarkupId(true));
+        add(new DropDownChoice<String>(
+                        "copy",
+                        new Model<String>(),
+                        new Model<ArrayList<String>>(
+                                new ArrayList<String>(config.getTasks().keySet())))
+                .setOutputMarkupId(true));
 
-        getCopyField()
-                .add(
-                        new OnChangeAjaxBehavior() {
-                            private static final long serialVersionUID = -5575115165929413404L;
+        getCopyField().add(new OnChangeAjaxBehavior() {
+            @Serial
+            private static final long serialVersionUID = -5575115165929413404L;
 
-                            @Override
-                            protected void onUpdate(AjaxRequestTarget target) {
-                                if (getCopyField().getConvertedInput() != null) {
-                                    getTypeField()
-                                            .getModel()
-                                            .setObject(
-                                                    config.getTasks()
-                                                            .get(getCopyField().getConvertedInput())
-                                                            .getType());
-                                    target.add(getTypeField());
-                                }
-                            }
-                        });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                if (getCopyField().getConvertedInput() != null) {
+                    getTypeField()
+                            .getModel()
+                            .setObject(config.getTasks()
+                                    .get(getCopyField().getConvertedInput())
+                                    .getType());
+                    target.add(getTypeField());
+                }
+            }
+        });
 
-        getTypeField()
-                .add(
-                        new OnChangeAjaxBehavior() {
-                            private static final long serialVersionUID = -1427899086435643578L;
+        getTypeField().add(new OnChangeAjaxBehavior() {
+            @Serial
+            private static final long serialVersionUID = -1427899086435643578L;
 
-                            @Override
-                            protected void onUpdate(AjaxRequestTarget target) {
-                                getCopyField().getModel().setObject(null);
-                                target.add(getCopyField());
-                            }
-                        });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                getCopyField().getModel().setObject(null);
+                target.add(getCopyField());
+            }
+        });
     }
 
     private ArrayList<String> getTaskTypeNames(Configuration config) {

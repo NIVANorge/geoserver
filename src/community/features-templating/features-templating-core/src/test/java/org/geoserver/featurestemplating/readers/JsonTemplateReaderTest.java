@@ -12,9 +12,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
@@ -31,15 +28,18 @@ import org.geoserver.featurestemplating.builders.impl.IteratingBuilder;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.featurestemplating.builders.impl.StaticBuilder;
 import org.geoserver.featurestemplating.expressions.XpathFunction;
+import org.geotools.api.filter.PropertyIsEqualTo;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.function.EnvFunction;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.filter.PropertyIsEqualTo;
-import org.opengis.filter.expression.Function;
-import org.opengis.filter.expression.PropertyName;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.core.json.JsonReadFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 public class JsonTemplateReaderTest {
 
@@ -121,17 +121,13 @@ public class JsonTemplateReaderTest {
     private RootBuilder getBuilderTree(String resourceName) throws IOException {
         InputStream is = getClass().getResource(resourceName).openStream();
         ObjectMapper mapper =
-                new ObjectMapper(new JsonFactory().enable(JsonParser.Feature.ALLOW_COMMENTS));
-        JSONTemplateReader templateReader =
-                new JSONTemplateReader(
-                        mapper.readTree(is),
-                        new TemplateReaderConfiguration(namespaceSuport),
-                        Collections.emptyList());
+                JsonMapper.builder().enable(JsonReadFeature.ALLOW_JAVA_COMMENTS).build();
+        JSONTemplateReader templateReader = new JSONTemplateReader(
+                mapper.readTree(is), new TemplateReaderConfiguration(namespaceSuport), Collections.emptyList());
         return templateReader.getRootBuilder();
     }
 
-    private void testBuildersType(
-            List<TemplateBuilder> builders, Predicate<TemplateBuilder> predicate) {
+    private void testBuildersType(List<TemplateBuilder> builders, Predicate<TemplateBuilder> predicate) {
         for (TemplateBuilder builder : builders) {
             assertTrue(predicate.test(builder));
             if (builder.getChildren() != null) testBuildersType(builder.getChildren(), predicate);

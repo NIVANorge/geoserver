@@ -12,8 +12,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
@@ -23,6 +21,8 @@ import org.geoserver.platform.resource.Resource;
 import org.junit.Before;
 import org.junit.Test;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeType;
 
 public class JSONIncludesTest {
 
@@ -43,33 +43,33 @@ public class JSONIncludesTest {
 
     private void checkArrayInclusion(JsonNode parsed) {
         // basics, the static part was not touched
-        assertEquals("test for array inclusion", parsed.get("name").textValue());
+        assertEquals("test for array inclusion", parsed.get("name").asString());
 
         // the array with inclusions
         JsonNode array = parsed.get("arrayProperty");
         assertEquals(JsonNodeType.ARRAY, array.getNodeType());
-        assertEquals("first", array.get(0).textValue());
+        assertEquals("first", array.get(0).asString());
         // object expansion
         JsonNode object = array.get(1);
         assertEquals(JsonNodeType.OBJECT, object.getNodeType());
         assertEquals(10, object.get("int").intValue());
-        assertEquals("abc", object.get("text").textValue());
+        assertEquals("abc", object.get("text").asString());
         assertEquals(1, object.get("object").get("a").intValue());
         // array expansion (as a value)
         JsonNode na = array.get(2);
         assertEquals(JsonNodeType.ARRAY, na.getNodeType());
-        assertEquals("one", na.get(0).textValue());
-        assertEquals("two", na.get(1).get("name").textValue());
+        assertEquals("one", na.get(0).asString());
+        assertEquals("two", na.get(1).get("name").asString());
         assertEquals(3, na.get(2).intValue());
         // flat array expansion (not container, just adding entries)
-        assertEquals("one", array.get(3).textValue());
-        assertEquals("two", array.get(4).get("name").textValue());
+        assertEquals("one", array.get(3).asString());
+        assertEquals("two", array.get(4).get("name").asString());
         assertEquals(3, array.get(5).intValue());
         // last element is there
-        assertEquals("last", array.get(6).textValue());
+        assertEquals("last", array.get(6).asString());
 
         // the last top level element was preserved as well
-        assertEquals("endMarker", parsed.get("end").textValue());
+        assertEquals("endMarker", parsed.get("end").asString());
     }
 
     @Test
@@ -82,8 +82,7 @@ public class JSONIncludesTest {
 
     @Test
     public void checkObjectInclusionSubdirDownwards() throws Exception {
-        RecursiveJSONParser parser =
-                new RecursiveJSONParser(store.get("includeInObjectSubdir.json"));
+        RecursiveJSONParser parser = new RecursiveJSONParser(store.get("includeInObjectSubdir.json"));
         JsonNode parsed = parser.parse();
 
         checkObjectInclusion(parsed);
@@ -97,8 +96,7 @@ public class JSONIncludesTest {
 
     @Test
     public void checkObjectInclusionSubdirAbsoluteUp() throws IOException {
-        RecursiveJSONParser parser =
-                new RecursiveJSONParser(store.get("subdir/includeInObjectAbsoluteUp.json"));
+        RecursiveJSONParser parser = new RecursiveJSONParser(store.get("subdir/includeInObjectAbsoluteUp.json"));
         JsonNode parsed = parser.parse();
 
         checkObjectInclusion(parsed);
@@ -106,8 +104,7 @@ public class JSONIncludesTest {
 
     @Test
     public void checkObjectInclusionRelativeDot() throws IOException {
-        RecursiveJSONParser parser =
-                new RecursiveJSONParser(store.get("includeInObjectRelativeDot.json"));
+        RecursiveJSONParser parser = new RecursiveJSONParser(store.get("includeInObjectRelativeDot.json"));
         JsonNode parsed = parser.parse();
 
         checkObjectInclusion(parsed);
@@ -115,29 +112,29 @@ public class JSONIncludesTest {
 
     private void checkObjectInclusion(JsonNode parsed) {
         // basics, the static part was not touched
-        assertEquals("test for object inclusion", parsed.get("name").textValue());
+        assertEquals("test for object inclusion", parsed.get("name").asString());
 
         // including a sub-object
         JsonNode object = parsed.get("myObjectProperty");
         assertEquals(JsonNodeType.OBJECT, object.getNodeType());
         assertEquals(10, object.get("int").intValue());
-        assertEquals("abc", object.get("text").textValue());
+        assertEquals("abc", object.get("text").asString());
         assertEquals(1, object.get("object").get("a").intValue());
 
         // including as a sub-array
         JsonNode array = parsed.get("myArrayProperty");
         assertEquals(JsonNodeType.ARRAY, array.getNodeType());
-        assertEquals("one", array.get(0).textValue());
-        assertEquals("two", array.get(1).get("name").textValue());
+        assertEquals("one", array.get(0).asString());
+        assertEquals("two", array.get(1).get("name").asString());
         assertEquals(3, array.get(2).intValue());
 
         // flat inclusion
         assertEquals(10, parsed.get("int").intValue());
-        assertEquals("abc", parsed.get("text").textValue());
+        assertEquals("abc", parsed.get("text").asString());
         assertEquals(1, object.get("object").get("a").intValue());
 
         // the last top level element was preserved as well
-        assertEquals("endMarker", parsed.get("end").textValue());
+        assertEquals("endMarker", parsed.get("end").asString());
     }
 
     @Test
@@ -146,27 +143,25 @@ public class JSONIncludesTest {
         JsonNode parsed = parser.parse();
 
         // basics, the static part was not touched
-        assertEquals("test for nested inclusion", parsed.get("name").textValue());
+        assertEquals("test for nested inclusion", parsed.get("name").asString());
 
         // nested objects
         checkObjectInclusion(parsed.get("obj1"));
         checkArrayInclusion(parsed.get("obj2"));
         JsonNode flat = parsed.get("obj3");
         checkObjectInclusion(flat);
-        assertEquals("first", flat.get("o3First").asText());
-        assertEquals("last", flat.get("o3Last").asText());
+        assertEquals("first", flat.get("o3First").asString());
+        assertEquals("last", flat.get("o3Last").asString());
 
         // the last top level element was preserved as well
-        assertEquals("endMarker", parsed.get("topLevelEnd").textValue());
+        assertEquals("endMarker", parsed.get("topLevelEnd").asString());
     }
 
     @Test
     public void testRecursionLimited() {
         RuntimeException ex = checkThrowingTemplate("recurse.json");
         assertThat(
-                ex.getMessage(),
-                containsString(
-                        "Went beyond maximum expansion depth (51), chain is: [recurse.json"));
+                ex.getMessage(), containsString("Went beyond maximum expansion depth (51), chain is: [recurse.json"));
     }
 
     @Test
@@ -179,9 +174,7 @@ public class JSONIncludesTest {
     public void testRecursionPingPong() {
         // ping and pong import each other in an infinite recursion
         RuntimeException ex = checkThrowingTemplate("ping.json");
-        assertThat(
-                ex.getMessage(),
-                containsString("Went beyond maximum expansion depth (51), chain is: [ping.json"));
+        assertThat(ex.getMessage(), containsString("Went beyond maximum expansion depth (51), chain is: [ping.json"));
         assertThat(ex.getMessage(), containsString("pong.json"));
     }
 
@@ -189,10 +182,8 @@ public class JSONIncludesTest {
     public void testIncludedModificationAreDetected() throws IOException, InterruptedException {
         Resource resource = store.get("includeInObject.json");
         RecursiveJSONParser parser = new RecursiveJSONParser(resource);
-        TemplateReaderConfiguration configuration =
-                new TemplateReaderConfiguration(new NamespaceSupport());
-        JSONTemplateReader reader =
-                new JSONTemplateReader(parser.parse(), configuration, parser.getWatchers());
+        TemplateReaderConfiguration configuration = new TemplateReaderConfiguration(new NamespaceSupport());
+        JSONTemplateReader reader = new JSONTemplateReader(parser.parse(), configuration, parser.getWatchers());
         RootBuilder rootBuilder = reader.getRootBuilder();
         assertFalse(rootBuilder.needsReload());
         Resource included = store.get("object.json");
@@ -214,7 +205,6 @@ public class JSONIncludesTest {
     }
 
     private RuntimeException checkThrowingTemplate(String s) {
-        return assertThrows(
-                RuntimeException.class, () -> new RecursiveJSONParser(store.get(s)).parse());
+        return assertThrows(RuntimeException.class, () -> new RecursiveJSONParser(store.get(s)).parse());
     }
 }

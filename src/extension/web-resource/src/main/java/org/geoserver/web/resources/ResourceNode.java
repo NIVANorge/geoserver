@@ -4,12 +4,12 @@
  */
 package org.geoserver.web.resources;
 
+import java.io.Serial;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Set;
 import java.util.TreeSet;
 import org.apache.wicket.model.IModel;
-import org.geoserver.platform.resource.Paths;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geoserver.web.treeview.TreeNode;
@@ -21,6 +21,7 @@ import org.geoserver.web.treeview.TreeNode;
  */
 public class ResourceNode implements TreeNode<Resource>, Comparable<ResourceNode> {
 
+    @Serial
     private static final long serialVersionUID = 4941394483034830079L;
 
     private Resource resource;
@@ -30,9 +31,9 @@ public class ResourceNode implements TreeNode<Resource>, Comparable<ResourceNode
     private String uniqueId;
 
     public ResourceNode(Resource resource, ResourceExpandedStates expandedStates) {
-        if (Paths.isAbsolute(resource.path())) {
+        if (!resource.isInternal()) {
             // double check resource browser cannot be used to edit
-            // absolute path locations
+            // files outside of resource store
             throw new IllegalStateException("Path location not supported by Resource Browser");
         }
         this.resource = Resources.serializable(resource);
@@ -120,7 +121,7 @@ public class ResourceNode implements TreeNode<Resource>, Comparable<ResourceNode
 
     @Override
     public boolean equals(Object node) {
-        return node instanceof ResourceNode && isSameAs((ResourceNode) node);
+        return node instanceof ResourceNode rn && isSameAs(rn);
     }
 
     @Override

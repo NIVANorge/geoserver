@@ -6,8 +6,8 @@ package org.geoserver.util;
 
 import java.util.Locale;
 import org.apache.commons.lang3.StringUtils;
+import org.geotools.api.util.InternationalString;
 import org.geotools.util.GrowableInternationalString;
-import org.opengis.util.InternationalString;
 
 /** Utility class that provides some methods to deal with InternationalString. */
 public class InternationalStringUtils {
@@ -15,30 +15,26 @@ public class InternationalStringUtils {
     /**
      * Create a GrowableInternationalString from an InternationalString.
      *
-     * @param internationalString the InternationalString from which create a
-     *     GrowableInternationalString.
+     * @param internationalString the InternationalString from which create a GrowableInternationalString.
      * @return a GrowableInternationalString or null.
      */
     public static GrowableInternationalString growable(InternationalString internationalString) {
         GrowableInternationalString result = null;
-        if (internationalString != null)
-            result = new GrowableInternationalString(internationalString);
+        if (internationalString != null) result = new GrowableInternationalString(internationalString);
         return result;
     }
 
     /**
-     * Combine default text and translations.
+     * Combine default text and translations into InternationalString. The {@code textDefault} is registered default
+     * locale provided by {@link GeoServerDefaultLocale}.
      *
      * @param textDefault Default text
      * @param textTranslations Available translations
      * @return
      */
-    public static GrowableInternationalString growable(
-            InternationalString textTranslations, String textDefault) {
+    public static GrowableInternationalString growable(InternationalString textTranslations, String textDefault) {
         if (textTranslations != null) {
-            if (textTranslations instanceof GrowableInternationalString) {
-                GrowableInternationalString translations =
-                        (GrowableInternationalString) textTranslations;
+            if (textTranslations instanceof GrowableInternationalString translations) {
                 GrowableInternationalString combined = new GrowableInternationalString(textDefault);
                 for (Locale locale : translations.getLocales()) {
                     if (locale == null) {
@@ -56,8 +52,8 @@ public class InternationalStringUtils {
     }
 
     /**
-     * Return the string value or the default InternationalString value if the string one is null.
-     * By default is meant the value that matches the {@link GeoServerDefaultLocale}.
+     * Return the string value or the default InternationalString value if the string one is {@code null}. By default is
+     * meant the value that matches the {@link GeoServerDefaultLocale}.
      *
      * @param string the string value.
      * @param internationalString the internationalString instance.
@@ -90,8 +86,8 @@ public class InternationalStringUtils {
     /**
      * First non-blank string ({@code null} and whitespace skipped).
      *
-     * <p>The last item (even if empty) will be used if non of the earlier ones were suitable
-     * allowing {@code ""} to be returned as the final fallback.
+     * <p>The last item (even if empty) will be used if non of the earlier ones were suitable allowing {@code ""} to be
+     * returned as the final fallback.
      *
      * @param strings
      * @return first non-blank string, or {@code null} if none found

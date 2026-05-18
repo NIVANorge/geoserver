@@ -18,14 +18,21 @@ import org.geoserver.openapi.v1.model.WorkspaceSummary;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
 import org.junit.rules.TestName;
 
 /** Integration test suite for {@link CoverageStoresClient} */
 public class CoverageStoresClientIT {
 
-    public @Rule IntegrationTestSupport support = new IntegrationTestSupport();
+    private static GeoServerContainer geoserverContainer = new GeoServerContainer();
+
+    private static IntegrationTestSupport support = new IntegrationTestSupport(geoserverContainer);
+
+    @ClassRule
+    public static RuleChain chain = RuleChain.outerRule(geoserverContainer).around(support);
 
     private WorkspacesClient workspaces;
     private CoverageStoresClient coverages;
@@ -42,8 +49,7 @@ public class CoverageStoresClientIT {
         Assume.assumeTrue(this.support.isAlive());
         this.workspaces = this.support.client().workspaces();
         this.coverages = this.support.client().coverageStores();
-        String wsname =
-                String.format("%s-%d", this.testName.getMethodName(), this.rnd.nextInt((int) 1e6));
+        String wsname = "%s-%d".formatted(this.testName.getMethodName(), this.rnd.nextInt((int) 1e6));
         String wsname2 = wsname + "_2";
 
         this.workspaces.create(wsname);
@@ -106,12 +112,7 @@ public class CoverageStoresClientIT {
         String uri = this.sfdemURI.toString();
         String wsname = this.workspace.getName();
         CoverageStoreResponse created =
-                this.coverages.create(
-                        wsname,
-                        "geotiffStore",
-                        "test geotiff based data store",
-                        TypeEnum.GEOTIFF,
-                        uri);
+                this.coverages.create(wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
         assertNotNull(created);
         assertEquals("geotiffStore", created.getName());
         assertEquals(wsname, created.getWorkspace().getName());
@@ -123,20 +124,14 @@ public class CoverageStoresClientIT {
         String uri = this.sfdemURI.toString();
         String wsname = this.workspace.getName();
         CoverageStoreResponse created =
-                this.coverages.create(
-                        wsname,
-                        "geotiffStore",
-                        "test geotiff based data store",
-                        TypeEnum.GEOTIFF,
-                        uri);
+                this.coverages.create(wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
         assertNotNull(created);
         assertEquals("geotiffStore", created.getName());
         assertEquals(wsname, created.getWorkspace().getName());
         assertEquals("GeoTIFF", created.getType());
         assertEquals(uri, created.getUrl());
         try {
-            this.coverages.create(
-                    wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
+            this.coverages.create(wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
         } catch (ServerException.InternalServerError e) {
             // currently geoserver's API doesn't return a sensible error message when
             // attempting to create a store with a duplicate name
@@ -147,8 +142,7 @@ public class CoverageStoresClientIT {
     private CoverageStoreResponse createGeoTiffStore(URI geotiffUri) {
         String wsname = this.workspace.getName();
         String uri = geotiffUri.toString();
-        return this.coverages.create(
-                wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
+        return this.coverages.create(wsname, "geotiffStore", "test geotiff based data store", TypeEnum.GEOTIFF, uri);
     }
 
     public @Test void testRenameCoverageStore() {

@@ -9,12 +9,12 @@ import java.util.List;
 import org.geoserver.catalog.Info;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.StyleInfo;
+import org.geotools.api.util.InternationalString;
 import org.geotools.util.GrowableInternationalString;
-import org.opengis.util.InternationalString;
 
 /**
- * A LayerGroupStyle providing is a different named configuration (as a set of {@PublishedInfo} and
- * {@StyleInfo}) for a LayerGroup.
+ * A LayerGroupStyle providing is a different named configuration (as a set of {@PublishedInfo} and {@StyleInfo}) for a
+ * LayerGroup.
  */
 public interface LayerGroupStyle extends Serializable, Info {
 

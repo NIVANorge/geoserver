@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.wicket.Component;
 import org.apache.wicket.MarkupContainer;
+import org.apache.wicket.RuntimeConfigurationType;
 import org.apache.wicket.ajax.AjaxEventBehavior;
 import org.apache.wicket.behavior.Behavior;
 import org.apache.wicket.feedback.IFeedbackMessageFilter;
@@ -24,6 +25,7 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.security.GeoServerSecurityTestSupport;
 import org.geoserver.web.wicket.WicketHierarchyPrinter;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSupport {
@@ -35,26 +37,37 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
         GeoServerApplication.DETECT_BROWSER = false;
     }
 
+    @AfterClass
+    public static void cleanupWicketConfiguration() throws Exception {
+        System.clearProperty("wicket.configuration");
+    }
+
     @Override
     protected void onSetUp(SystemTestData testData) throws Exception {
-        // prevent Wicket from bragging about us being in dev mode (and run
-        // the tests as if we were in production all the time)
-        System.setProperty("wicket.configuration", "deployment");
+        System.setProperty("wicket.configuration", getWicketConfiguration().name());
         // Disable CSRF protection for tests, since the test framework doesn't set the Referer
         System.setProperty(GEOSERVER_CSRF_DISABLED, "true");
 
         // make sure that we check the english i18n when needed
         Locale.setDefault(Locale.ENGLISH);
 
-        GeoServerApplication app =
-                (GeoServerApplication) applicationContext.getBean("webApplication");
+        GeoServerApplication app = (GeoServerApplication) applicationContext.getBean("webApplication");
         tester = new WicketTester(app, false);
         app.init();
     }
 
+    /**
+     * Sets up the Wicket mode, deployment or development. By default, deplyment, prevent Wicket from logging about
+     * being in dev mode (and run the tests as if we were in production all the time)
+     */
+    protected RuntimeConfigurationType getWicketConfiguration() {
+        return RuntimeConfigurationType.DEPLOYMENT;
+    }
+
     @After
     public void clearErrorMessages() {
-        if (tester != null && !tester.getFeedbackMessages(IFeedbackMessageFilter.ALL).isEmpty()) {
+        if (tester != null
+                && !tester.getFeedbackMessages(IFeedbackMessageFilter.ALL).isEmpty()) {
             tester.cleanupFeedbackMessages();
         }
     }
@@ -114,14 +127,13 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
     }
 
     /**
-     * Finds the component whose model value equals to the specified content, and the component
-     * class is equal, subclass or implementor of the specified class
+     * Finds the component whose model value equals to the specified content, and the component class is equal, subclass
+     * or implementor of the specified class
      *
      * @param root the component under which the search is to be performed
      * @param componentClass the target class, or null if any component will do
      */
-    public Component findComponentByContent(
-            MarkupContainer root, Object content, Class<?> componentClass) {
+    public Component findComponentByContent(MarkupContainer root, Object content, Class<?> componentClass) {
         ComponentContentFinder finder = new ComponentContentFinder(content);
         root.visitChildren(componentClass, finder);
         return finder.candidate;
@@ -134,33 +146,29 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
      * @param targetClass The desired component's class
      * @return The first child component matching the target class, or null if not found
      */
-    protected String getComponentPath(
-            WebMarkupContainer container, Class<? extends Component> targetClass) {
+    protected String getComponentPath(WebMarkupContainer container, Class<? extends Component> targetClass) {
         AtomicReference<String> result = new AtomicReference<>();
-        container.visitChildren(
-                (component, visit) -> {
-                    if (targetClass.isInstance(component)) {
-                        result.set(component.getPageRelativePath());
-                        visit.stop();
-                    }
-                });
+        container.visitChildren((component, visit) -> {
+            if (targetClass.isInstance(component)) {
+                result.set(component.getPageRelativePath());
+                visit.stop();
+            }
+        });
         return result.get();
     }
 
-    protected String getNthComponentPath(
-            WebMarkupContainer container, Class<? extends Component> targetClass, int n) {
+    protected String getNthComponentPath(WebMarkupContainer container, Class<? extends Component> targetClass, int n) {
         ArrayList<String> results = new ArrayList<>();
 
-        container.visitChildren(
-                (component, visit) -> {
-                    if (targetClass.isInstance(component)) {
-                        results.add(component.getPageRelativePath());
-                    }
-                });
+        container.visitChildren((component, visit) -> {
+            if (targetClass.isInstance(component)) {
+                results.add(component.getPageRelativePath());
+            }
+        });
         return results.get(n);
     }
 
-    class ComponentContentFinder implements IVisitor<Component, Void> {
+    static class ComponentContentFinder implements IVisitor<Component, Void> {
         Component candidate;
         Object content;
 
@@ -177,14 +185,9 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
         }
     }
 
-    /**
-     * Helper method to initialize a standalone WicketTester with the proper customizations to do
-     * message lookups.
-     */
+    /** Helper method to initialize a standalone WicketTester with the proper customizations to do message lookups. */
     public static void initResourceSettings(WicketTester tester) {
-        tester.getApplication()
-                .getResourceSettings()
-                .setResourceStreamLocator(new GeoServerResourceStreamLocator());
+        tester.getApplication().getResourceSettings().setResourceStreamLocator(new GeoServerResourceStreamLocator());
         tester.getApplication()
                 .getResourceSettings()
                 .getStringResourceLoaders()
@@ -199,9 +202,8 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
      */
     protected AjaxEventBehavior getAjaxBehavior(String path, String event) {
         for (Behavior b : tester.getComponentFromLastRenderedPage(path).getBehaviors()) {
-            if (b instanceof AjaxEventBehavior
-                    && ((AjaxEventBehavior) b).getEvent().equals(event)) {
-                return (AjaxEventBehavior) b;
+            if (b instanceof AjaxEventBehavior behavior && behavior.getEvent().equals(event)) {
+                return behavior;
             }
         }
         return null;
@@ -222,8 +224,8 @@ public abstract class GeoServerWicketTestSupport extends GeoServerSecurityTestSu
         tester.executeAjaxEvent(path, event);
     }
     /**
-     * Sets the value of a form component that might not be included in a form (because maybe we are
-     * using it via Ajax). By itself it just prepares the stage for a subsequent Ajax request
+     * Sets the value of a form component that might not be included in a form (because maybe we are using it via Ajax).
+     * By itself it just prepares the stage for a subsequent Ajax request
      *
      * @param component The {@link FormComponent} whose value we are going to set
      * @param value The form value (as we'd set it in a HTML form)

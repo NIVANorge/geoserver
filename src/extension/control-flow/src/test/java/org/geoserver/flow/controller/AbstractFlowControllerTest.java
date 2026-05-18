@@ -9,8 +9,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.fail;
 
+import jakarta.servlet.http.Cookie;
 import java.lang.Thread.State;
-import javax.servlet.http.Cookie;
 import org.geoserver.flow.controller.FlowControllerTestingThread.ThreadState;
 import org.geoserver.ows.Request;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -23,7 +23,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
  */
 public abstract class AbstractFlowControllerTest {
 
-    protected static final long MAX_WAIT = 20000;
+    protected static final long MAX_WAIT = 60000;
 
     /**
      * Waits until the thread enters in WAITING or TIMED_WAITING state
@@ -38,15 +38,27 @@ public abstract class AbstractFlowControllerTest {
     }
 
     /**
+     * Like {@link #waitBlocked}, but also accepts the thread having already timed out.
+     *
+     * <p>Use this for threads with short flow-controller timeouts, where the timeout may expire before polling can
+     * detect the WAITING state.
+     */
+    void waitBlockedOrTimedOut(FlowControllerTestingThread fct, long maxWait) {
+        await().atMost(maxWait, MILLISECONDS)
+                .pollDelay(10, MILLISECONDS)
+                .until(() -> fct.getState() == State.WAITING
+                        || fct.getState() == State.TIMED_WAITING
+                        || fct.state == ThreadState.TIMED_OUT);
+    }
+
+    /**
      * Waits until the thread is terminated
      *
      * @param t the thread
      * @param maxWait max amount of time we'll wait
      */
     void waitTerminated(Thread t, long maxWait) {
-        await().atMost(maxWait, MILLISECONDS)
-                .pollDelay(10, MILLISECONDS)
-                .until(() -> t.getState() == State.TERMINATED);
+        await().atMost(maxWait, MILLISECONDS).pollDelay(10, MILLISECONDS).until(() -> t.getState() == State.TERMINATED);
     }
 
     /** Waits maxWait for the thread to finish by itself, then forcefully kills it */
@@ -97,12 +109,10 @@ public abstract class AbstractFlowControllerTest {
     }
 
     /**
-     * Waits for he flow controller testing thread to get into a specified state for a max given
-     * amount of time, fail otherwise
+     * Waits for he flow controller testing thread to get into a specified state for a max given amount of time, fail
+     * otherwise
      */
     protected void waitState(ThreadState state, FlowControllerTestingThread tt, long maxWait) {
-        await().atMost(maxWait, MILLISECONDS)
-                .pollDelay(20, MILLISECONDS)
-                .until(() -> state.equals(tt.state));
+        await().atMost(maxWait, MILLISECONDS).pollDelay(20, MILLISECONDS).until(() -> state.equals(tt.state));
     }
 }

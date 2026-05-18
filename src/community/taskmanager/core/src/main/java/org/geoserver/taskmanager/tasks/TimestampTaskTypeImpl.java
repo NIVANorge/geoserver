@@ -4,6 +4,7 @@
  */
 package org.geoserver.taskmanager.tasks;
 
+import jakarta.annotation.PostConstruct;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Date;
 import java.util.HashMap;
@@ -11,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.PostConstruct;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.beanutils.expression.DefaultResolver;
@@ -47,9 +47,11 @@ public class TimestampTaskTypeImpl implements TaskType {
 
     public static final String PARAM_LAYER = "layer";
 
-    @Autowired protected Catalog catalog;
+    @Autowired
+    protected Catalog catalog;
 
-    @Autowired protected ExtTypes extTypes;
+    @Autowired
+    protected ExtTypes extTypes;
 
     private String dataTimestampProperty = null;
 
@@ -57,13 +59,11 @@ public class TimestampTaskTypeImpl implements TaskType {
 
     @PostConstruct
     public void initParamInfo() {
-        ParameterInfo paramWorkspace =
-                new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
+        ParameterInfo paramWorkspace = new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
         paramInfo.put(PARAM_WORKSPACE, paramWorkspace);
         paramInfo.put(
                 PARAM_LAYER,
-                new ParameterInfo(PARAM_LAYER, extTypes.internalLayer, true)
-                        .dependsOn(false, paramWorkspace));
+                new ParameterInfo(PARAM_LAYER, extTypes.internalLayer, true).dependsOn(false, paramWorkspace));
     }
 
     @Override
@@ -87,17 +87,14 @@ public class TimestampTaskTypeImpl implements TaskType {
         Date currentTime = new Date();
         try {
             if (dataTimestampProperty != null) {
-                oldTimestampValue =
-                        PropertyUtils.getProperty(rInfo.getMetadata(), dataTimestampProperty);
+                oldTimestampValue = PropertyUtils.getProperty(rInfo.getMetadata(), dataTimestampProperty);
                 initSubmaps(rInfo.getMetadata(), dataTimestampProperty);
                 PropertyUtils.setProperty(rInfo.getMetadata(), dataTimestampProperty, currentTime);
                 if (metadataTimestampProperty != null) {
                     initSubmaps(rInfo.getMetadata(), metadataTimestampProperty);
                     oldMetadataTimestampValue =
-                            PropertyUtils.getProperty(
-                                    rInfo.getMetadata(), metadataTimestampProperty);
-                    PropertyUtils.setProperty(
-                            rInfo.getMetadata(), metadataTimestampProperty, currentTime);
+                            PropertyUtils.getProperty(rInfo.getMetadata(), metadataTimestampProperty);
+                    PropertyUtils.setProperty(rInfo.getMetadata(), metadataTimestampProperty, currentTime);
                 } else {
                     oldMetadataTimestampValue = null;
                 }
@@ -122,19 +119,14 @@ public class TimestampTaskTypeImpl implements TaskType {
                 // put old values back
                 try {
                     if (dataTimestampProperty != null) {
-                        PropertyUtils.setProperty(
-                                rInfo.getMetadata(), dataTimestampProperty, oldTimestampValue);
+                        PropertyUtils.setProperty(rInfo.getMetadata(), dataTimestampProperty, oldTimestampValue);
                         if (metadataTimestampProperty != null) {
                             PropertyUtils.setProperty(
-                                    rInfo.getMetadata(),
-                                    metadataTimestampProperty,
-                                    oldMetadataTimestampValue);
+                                    rInfo.getMetadata(), metadataTimestampProperty, oldMetadataTimestampValue);
                         }
                         catalog.save(rInfo);
                     }
-                } catch (IllegalAccessException
-                        | InvocationTargetException
-                        | NoSuchMethodException e) {
+                } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     LOGGER.log(Level.WARNING, e.getMessage(), e);
                     throw new TaskException(e);
                 }

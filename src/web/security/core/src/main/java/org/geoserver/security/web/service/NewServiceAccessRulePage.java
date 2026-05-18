@@ -42,16 +42,14 @@ public class NewServiceAccessRulePage extends AbstractServiceAccessRulePage {
         @Override
         public void validate(Form<?> form) {
             // only validate on final submit
-            if (form.findSubmittingButton() != form.get("save")) {
+            if (!form.findSubmitter().getInputName().equals("save")) {
                 return;
             }
 
             updateModels();
             ServiceAccessRule rule = (ServiceAccessRule) form.getModelObject();
             if (ServiceAccessRuleDAO.get().getRules().contains(rule)) {
-                form.error(
-                        new ParamResourceModel("duplicateRule", getPage(), rule.getKey())
-                                .getString());
+                form.error(new ParamResourceModel("duplicateRule", getPage(), rule.getKey()).getString());
             }
         }
 

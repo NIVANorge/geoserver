@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.geoserver.gwc.wmts.dimensions.Dimension;
 import org.geoserver.wms.WMS;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.sort.SortOrder;
 import org.geotools.xml.transform.TransformerBase;
 import org.geotools.xml.transform.Translator;
-import org.opengis.filter.sort.SortOrder;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 
@@ -28,7 +28,7 @@ class GetDomainValuesTransformer extends TransformerBase {
         return new TranslatorSupport(handler);
     }
 
-    class TranslatorSupport extends TransformerBase.TranslatorSupport {
+    static class TranslatorSupport extends TransformerBase.TranslatorSupport {
 
         public TranslatorSupport(ContentHandler handler) {
             super(handler, null, null);
@@ -37,18 +37,14 @@ class GetDomainValuesTransformer extends TransformerBase {
         @Override
         public void encode(Object object) throws IllegalArgumentException {
             if (!(object instanceof Domains)) {
-                throw new IllegalArgumentException(
-                        "Expected domains info but instead got: "
-                                + object.getClass().getCanonicalName());
+                throw new IllegalArgumentException("Expected domains info but instead got: "
+                        + object.getClass().getCanonicalName());
             }
             Domains domains = (Domains) object;
-            Attributes nameSpaces =
-                    createAttributes(
-                            new String[] {
-                                "xmlns",
-                                        "http://demo.geo-solutions.it/share/wmts-multidim/wmts_multi_dimensional.xsd",
-                                "xmlns:ows", "http://www.opengis.net/ows/1.1"
-                            });
+            Attributes nameSpaces = createAttributes(new String[] {
+                "xmlns", "http://demo.geo-solutions.it/share/wmts-multidim/wmts_multi_dimensional.xsd",
+                "xmlns:ows", "http://www.opengis.net/ows/1.1"
+            });
             start("DomainValues", nameSpaces);
             Dimension dimension = domains.getDimensions().get(0);
             element("ows:Identifier", dimension.getDimensionName());
@@ -58,10 +54,9 @@ class GetDomainValuesTransformer extends TransformerBase {
                 element("FromValue", domains.getFromValue());
             }
             Query query = new Query(null, domains.getFilter());
-            List<String> values =
-                    dimension.getPagedDomainValuesAsStrings(
-                                    query, domains.getMaxReturnedValues(), domains.getSortOrder())
-                            .second;
+            List<String> values = dimension.getPagedDomainValuesAsStrings(
+                            query, domains.getMaxReturnedValues(), domains.getSortOrder())
+                    .second;
             element("Domain", values.stream().collect(Collectors.joining(",")));
             element("Size", String.valueOf(values.size()));
 

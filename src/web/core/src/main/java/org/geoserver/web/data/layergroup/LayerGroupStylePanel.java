@@ -4,6 +4,8 @@
  */
 package org.geoserver.web.data.layergroup;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -24,16 +26,27 @@ import org.geoserver.web.data.resource.TitleAndAbstractPanel;
 /** UI Component for a single LayerGroupStyle. */
 public abstract class LayerGroupStylePanel extends FormComponentPanel<LayerGroupStyle> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(LayerGroupStylePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     private LayerGroupEntryPanel<LayerGroupStyle> groupEntryPanel;
     private TextField<String> name;
 
-    public LayerGroupStylePanel(
-            String id, LayerGroupStyleModel model, IModel<WorkspaceInfo> workspaceInfo) {
+    public LayerGroupStylePanel(String id, LayerGroupStyleModel model, IModel<WorkspaceInfo> workspaceInfo) {
         super(id, model);
         IModel<StyleInfo> styleNameModel = new PropertyModel<>(model, "name");
         if (styleNameModel.getObject() == null)
-            styleNameModel.setObject(
-                    new StyleInfoImpl((Catalog) GeoServerExtensions.bean("catalog")));
+            styleNameModel.setObject(new StyleInfoImpl((Catalog) GeoServerExtensions.bean("catalog")));
         name = new TextField<>("layerGroupStyleName", model.nameModel());
         name.setRequired(true);
         add(name);
@@ -41,25 +54,23 @@ public abstract class LayerGroupStylePanel extends FormComponentPanel<LayerGroup
                 new TitleAndAbstractPanel("titleAndAbstract", model, "titleMsg", "abstract", this);
         add(titleAndAbstractPanel);
         add(removeLink());
-        this.groupEntryPanel =
-                new LayerGroupEntryPanel<LayerGroupStyle>(
-                        "layerGroupEntryPanel", model, workspaceInfo, true, false) {
-                    @Override
-                    protected List<PublishedInfo> getLayers(LayerGroupStyle object) {
-                        return object.getLayers();
-                    }
+        this.groupEntryPanel = new LayerGroupEntryPanel<>("layerGroupEntryPanel", model, workspaceInfo, true, false) {
+            @Override
+            protected List<PublishedInfo> getLayers(LayerGroupStyle object) {
+                return object.getLayers();
+            }
 
-                    @Override
-                    protected List<StyleInfo> getStyles(LayerGroupStyle object) {
-                        return object.getStyles();
-                    }
-                };
+            @Override
+            protected List<StyleInfo> getStyles(LayerGroupStyle object) {
+                return object.getStyles();
+            }
+        };
         groupEntryPanel.setOutputMarkupId(true);
         add(groupEntryPanel);
     }
 
     private AjaxLink<LayerGroupStyle> removeLink() {
-        return new AjaxLink<LayerGroupStyle>("remove") {
+        return new AjaxLink<>("remove") {
 
             @Override
             public void onClick(AjaxRequestTarget target) {

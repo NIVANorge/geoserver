@@ -6,6 +6,9 @@
 
 package org.geoserver.gwc.web.layer;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -24,62 +27,74 @@ import org.geowebcache.filter.parameters.StringParameterFilter;
  *
  * @author Kevin Smith, OpenGeo
  */
-public class StringParameterFilterSubform
-        extends AbstractParameterFilterSubform<StringParameterFilter> {
+public class StringParameterFilterSubform extends AbstractParameterFilterSubform<StringParameterFilter> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(StringParameterFilterSubform.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -3815153551079914831L;
 
-    private static final IConverter<List<String>> CONVERT =
-            new IConverter<List<String>>() {
+    private static final IConverter<List<String>> CONVERT = new IConverter<>() {
 
-                private static final long serialVersionUID = -7486127358227242772L;
+        @Serial
+        private static final long serialVersionUID = -7486127358227242772L;
 
-                @Override
-                public List<String> convertToObject(String value, Locale locale) {
-                    if (value == null) {
-                        return null;
-                    } else {
-                        String[] strings = StringUtils.split(value, "\r\n");
-                        return Arrays.asList(strings);
-                    }
-                }
+        @Override
+        public List<String> convertToObject(String value, Locale locale) {
+            if (value == null) {
+                return null;
+            } else {
+                String[] strings = StringUtils.split(value, "\r\n");
+                return Arrays.asList(strings);
+            }
+        }
 
-                @Override
-                public String convertToString(List<String> value, Locale locale) {
-                    Iterator<String> i = value.iterator();
-                    StringBuilder sb = new StringBuilder();
-                    if (i.hasNext()) {
-                        sb.append(i.next());
-                    }
-                    while (i.hasNext()) {
-                        sb.append("\r\n");
-                        sb.append(i.next());
-                    }
-                    return sb.toString();
-                }
-            };
+        @Override
+        public String convertToString(List<String> value, Locale locale) {
+            Iterator<String> i = value.iterator();
+            StringBuilder sb = new StringBuilder();
+            if (i.hasNext()) {
+                sb.append(i.next());
+            }
+            while (i.hasNext()) {
+                sb.append("\r\n");
+                sb.append(i.next());
+            }
+            return sb.toString();
+        }
+    };
 
     public StringParameterFilterSubform(String id, IModel<StringParameterFilter> model) {
         super(id, model);
 
-        final Component defaultValue =
-                new TextField<>("defaultValue", new PropertyModel<>(model, "defaultValue"));
+        final Component defaultValue = new TextField<>("defaultValue", new PropertyModel<>(model, "defaultValue"));
         add(defaultValue);
 
-        final TextArea<List<String>> values =
-                new TextArea<List<String>>("values", new PropertyModel<>(model, "values")) {
-                    /** serialVersionUID */
-                    private static final long serialVersionUID = 1L;
+        final TextArea<List<String>> values = new TextArea<>("values", new PropertyModel<>(model, "values")) {
+            /** serialVersionUID */
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @SuppressWarnings("unchecked")
-                    @Override
-                    public <S> IConverter<S> getConverter(Class<S> type) {
-                        if (List.class.isAssignableFrom(type)) {
-                            return (IConverter<S>) CONVERT;
-                        }
-                        return super.getConverter(type);
-                    }
-                };
+            @SuppressWarnings("unchecked")
+            @Override
+            public <S> IConverter<S> getConverter(Class<S> type) {
+                if (List.class.isAssignableFrom(type)) {
+                    return (IConverter<S>) CONVERT;
+                }
+                return super.getConverter(type);
+            }
+        };
         values.setConvertEmptyInputStringToNull(false);
         add(values);
 

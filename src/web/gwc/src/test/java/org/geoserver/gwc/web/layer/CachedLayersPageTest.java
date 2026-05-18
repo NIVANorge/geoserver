@@ -5,15 +5,21 @@
  */
 package org.geoserver.gwc.web.layer;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.matchesRegex;
+import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
-import java.lang.reflect.Method;
+import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
-import org.apache.wicket.AttributeModifier;
-import org.apache.wicket.Component;
-import org.apache.wicket.model.IModel;
+import java.util.stream.Collectors;
+import org.apache.wicket.markup.repeater.data.DataView;
+import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.apache.wicket.util.tester.TagTester;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.LayerGroupInfo;
@@ -31,21 +37,6 @@ import org.junit.Rule;
 import org.junit.Test;
 
 public class CachedLayersPageTest extends GeoServerWicketTestSupport {
-    private static final Method getReplaceModelMethod;
-    /*
-     * Yes, we do need to use reflection here as the stupid wicket model is private and has no setter which
-     * makes it hard to test!
-     * See https://cwiki.apache.org/confluence/display/WICKET/Testing+Pages
-     */
-    static {
-        try {
-            getReplaceModelMethod = AttributeModifier.class.getDeclaredMethod("getReplaceModel");
-            getReplaceModelMethod.setAccessible(true);
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "", e);
-            throw new RuntimeException(e);
-        }
-    }
 
     @Rule
     public GeoServerExtensionsHelper.ExtensionsHelperRule extensions =
@@ -82,8 +73,14 @@ public class CachedLayersPageTest extends GeoServerWicketTestSupport {
 
         tester.startPage(page);
         tester.assertRenderedPage(CachedLayersPage.class);
-
-        // print(page, true, true);
+        List<String> scripts = TagTester.createTags(
+                        tester.getLastResponseAsString(), tag -> tag.getName().equalsIgnoreCase("script"), false)
+                .stream()
+                .map(tag -> tag.getAttribute("src"))
+                .collect(Collectors.toList());
+        String regex =
+                "^.*/" + CachedLayersPage.class.getName() + "/" + CachedLayersPage.class.getSimpleName() + ".*\\.js$";
+        assertThat(scripts, hasItem(matchesRegex(regex)));
     }
 
     @Test
@@ -93,8 +90,7 @@ public class CachedLayersPageTest extends GeoServerWicketTestSupport {
         assertNotNull(tileLayer);
 
         tester.startComponentInPage(
-                new ConfigureCachedLayerAjaxLink(
-                        "test", new TileLayerDetachableModel(tileLayer.getName()), null));
+                new ConfigureCachedLayerAjaxLink("test", new TileLayerDetachableModel(tileLayer.getName()), null));
         // tester.debugComponentTrees();
         tester.executeAjaxEvent("test:link", "click");
         tester.assertNoErrorMessage();
@@ -117,11 +113,10 @@ public class CachedLayersPageTest extends GeoServerWicketTestSupport {
     @Test
     public void testMangleSeedLink() {
         // Mimic a Proxy URL mangler
-        URLMangler testMangler =
-                (base, path, map, type) -> {
-                    base.setLength(0);
-                    base.append("http://rewrite/");
-                };
+        URLMangler testMangler = (base, path, map, type) -> {
+            base.setLength(0);
+            base.append("http://rewrite/");
+        };
         extensions.singleton("testMangler", testMangler, URLMangler.class);
 
         CachedLayersPage page = new CachedLayersPage();
@@ -134,57 +129,32 @@ public class CachedLayersPageTest extends GeoServerWicketTestSupport {
 
     @Test
     public void testNoManglePreviewLink() {
-
         // Don't add a mangler
-
-        CachedLayersPage page = new CachedLayersPage();
-
-        tester.startPage(page);
-        // print(page, true, true);
-        Component component =
-                tester.getComponentFromLastRenderedPage(
-                        "table:listContainer:items:1:itemProperties:6:component:menu");
-        List<AttributeModifier> attr = component.getBehaviors(AttributeModifier.class);
-        try {
-            IModel<?> model = (IModel<?>) getReplaceModelMethod.invoke(attr.get(0));
-            assertTrue(
-                    "Unmangled names fail",
-                    model.getObject()
-                            .toString()
-                            .contains("http://localhost/context/cgf/gwc/demo/cgf"));
-            return;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        assertPreviewLinks("http://localhost/context/cgf/gwc/demo/cgf");
     }
 
     @Test
     public void testManglePreviewLink() {
         // Mimic a Proxy URL mangler
-        URLMangler testMangler =
-                (base, path, map, type) -> {
-                    base.setLength(0);
-                    base.append("http://rewrite/");
-                };
+        URLMangler testMangler = (base, path, map, type) -> {
+            base.setLength(0);
+            base.append("http://rewrite/");
+        };
         extensions.singleton("testMangler", testMangler, URLMangler.class);
+        assertPreviewLinks("http://rewrite/gwc/demo/cgf");
+    }
 
+    private static void assertPreviewLinks(String url) {
         CachedLayersPage page = new CachedLayersPage();
-
         tester.startPage(page);
-        Component component =
-                tester.getComponentFromLastRenderedPage(
-                        "table:listContainer:items:1:itemProperties:6:component:menu");
-        List<AttributeModifier> attr = component.getBehaviors(AttributeModifier.class);
-        try {
-            IModel<?> model = (IModel<?>) getReplaceModelMethod.invoke(attr.get(0));
-
-            assertTrue(
-                    "Mangled names fail",
-                    model.getObject().toString().contains("http://rewrite/gwc/demo/cgf"));
-            return;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        List<TagTester> tags = TagTester.createTags(
+                tester.getLastResponseAsString(),
+                tag -> {
+                    String value = tag.getAttributes().getString("value");
+                    return value != null && value.startsWith(url);
+                },
+                false);
+        assertEquals("Incorrect number of preview links starting with " + url, 20, tags.size());
     }
 
     @Test
@@ -220,8 +190,89 @@ public class CachedLayersPageTest extends GeoServerWicketTestSupport {
         tester.assertVisible("dialog");
 
         // click submit
-        tester.clickLink("dialog:dialog:content:form:submit", true);
+        tester.clickLink("dialog:dialog:modal:overlay:dialog:content:content:form:submit", true);
 
         tester.assertNoErrorMessage();
+    }
+
+    @Test
+    public void testCachingImages() {
+        // test that icons are rendered as CSS icon elements (gs-icon-*), not img tags
+        tester.startPage(CachedLayersPage.class);
+        tester.assertRenderedPage(CachedLayersPage.class);
+        tester.clickLink("table:navigatorBottom:navigator:next", true);
+        List<TagTester> icons = TagTester.createTags(
+                tester.getLastResponseAsString(),
+                tag -> tag.getName().equalsIgnoreCase("i")
+                        && tag.getAttribute("class") != null
+                        && tag.getAttribute("class").toString().contains("gs-icon"),
+                false);
+        assertThat(icons, not(empty()));
+        icons.stream()
+                .map(icon -> icon.getAttribute("class"))
+                .forEach(cls -> assertThat(cls, containsString("gs-icon")));
+    }
+
+    @Test
+    public void testWorkspaceFilter() {
+        PageParameters params = new PageParameters();
+        params.add("workspace", "cite");
+
+        tester.startPage(new CachedLayersPage(params));
+        tester.assertRenderedPage(CachedLayersPage.class);
+
+        // Cast to DataView instead of AbstractPageableView
+        tester.assertComponent("table:listContainer:items", DataView.class);
+        DataView<?> dataView = (DataView<?>) tester.getComponentFromLastRenderedPage("table:listContainer:items");
+
+        // Ensure the table isn't empty
+        assertThat((int) dataView.getItemCount(), org.hamcrest.Matchers.greaterThan(0));
+
+        // Iterate through the actual layer models backing the table rows
+        Iterator<?> it = dataView.getDataProvider().iterator(0, dataView.getItemCount());
+        while (it.hasNext()) {
+            TileLayer layer = (TileLayer) it.next();
+            // Assert every single layer in the table belongs to the 'cite' workspace
+            assertThat(layer.getName(), org.hamcrest.Matchers.startsWith("cite:"));
+        }
+    }
+
+    @Test
+    public void testEmptyWorkspaceParameter() {
+        PageParameters params = new PageParameters();
+        params.add("workspace", ""); // Empty parameter
+
+        tester.startPage(new CachedLayersPage(params));
+        tester.assertRenderedPage(CachedLayersPage.class);
+
+        DataView<?> dataView = (DataView<?>) tester.getComponentFromLastRenderedPage("table:listContainer:items");
+
+        boolean foundCgf = false;
+        boolean foundCite = false;
+
+        Iterator<?> it = dataView.getDataProvider().iterator(0, dataView.getItemCount());
+        while (it.hasNext()) {
+            TileLayer layer = (TileLayer) it.next();
+            if (layer.getName().startsWith("cgf:")) foundCgf = true;
+            if (layer.getName().startsWith("cite:")) foundCite = true;
+        }
+
+        // Assert that layers from multiple different workspaces are present in the table
+        assertThat("Should contain 'cgf:' layers", foundCgf, org.hamcrest.Matchers.is(true));
+        assertThat("Should contain 'cite:' layers", foundCite, org.hamcrest.Matchers.is(true));
+    }
+
+    @Test
+    public void testNonExistentWorkspaceFilter() {
+        PageParameters params = new PageParameters();
+        params.add("workspace", "nonexistent_ws");
+
+        tester.startPage(new CachedLayersPage(params));
+        tester.assertRenderedPage(CachedLayersPage.class);
+
+        DataView<?> dataView = (DataView<?>) tester.getComponentFromLastRenderedPage("table:listContainer:items");
+
+        // Assert the data provider returned exactly 0 rows
+        assertEquals("Table should have 0 rows for a non-existent workspace", 0, dataView.getItemCount());
     }
 }

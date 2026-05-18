@@ -13,24 +13,26 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import org.apache.xml.serializer.TreeWalker;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.sax.SAXResult;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.NamespaceInfo;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.wps.web.InputParameterValues.ParameterType;
 import org.geoserver.wps.web.InputParameterValues.ParameterValue;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.filter.v1_0.OGC;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.gml2.bindings.GML2EncodingUtils;
 import org.geotools.gml3.GML;
 import org.geotools.ows.v1_1.OWS;
-import org.geotools.referencing.CRS;
 import org.geotools.util.Converters;
 import org.geotools.util.logging.Logging;
 import org.geotools.wps.WPS;
 import org.geotools.xlink.XLINK;
 import org.geotools.xml.transform.TransformerBase;
 import org.geotools.xml.transform.Translator;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.w3c.dom.Document;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.EntityResolver;
@@ -104,34 +106,31 @@ class WPSExecuteTransformer extends TransformerBase {
             // we really need to move those namespace declaration down to
             // the single request elements so that we can mix them)
             if (mainProcess) {
-                AttributesImpl attributes =
-                        attributes(
-                                "version",
-                                "1.0.0",
-                                "service",
-                                "WPS",
-                                "xmlns:xsi",
-                                XSI_URI,
-                                "xmlns",
-                                WPS_URI,
-                                "xmlns:wfs",
-                                WFS_URI,
-                                "xmlns:wps",
-                                WPS_URI,
-                                "xmlns:ows",
-                                OWS.NAMESPACE,
-                                "xmlns:gml",
-                                GML.NAMESPACE,
-                                "xmlns:ogc",
-                                OGC.NAMESPACE,
-                                "xmlns:wcs",
-                                WCS_URI,
-                                "xmlns:xlink",
-                                XLINK.NAMESPACE,
-                                "xsi:schemaLocation",
-                                WPS.NAMESPACE
-                                        + " "
-                                        + "http://schemas.opengis.net/wps/1.0.0/wpsAll.xsd");
+                AttributesImpl attributes = attributes(
+                        "version",
+                        "1.0.0",
+                        "service",
+                        "WPS",
+                        "xmlns:xsi",
+                        XSI_URI,
+                        "xmlns",
+                        WPS_URI,
+                        "xmlns:wfs",
+                        WFS_URI,
+                        "xmlns:wps",
+                        WPS_URI,
+                        "xmlns:ows",
+                        OWS.NAMESPACE,
+                        "xmlns:gml",
+                        GML.NAMESPACE,
+                        "xmlns:ogc",
+                        OGC.NAMESPACE,
+                        "xmlns:wcs",
+                        WCS_URI,
+                        "xmlns:xlink",
+                        XLINK.NAMESPACE,
+                        "xsi:schemaLocation",
+                        WPS.NAMESPACE + " " + "http://schemas.opengis.net/wps/1.0.0/wpsAll.xsd");
                 start("wps:Execute", attributes);
             } else {
                 AttributesImpl attributes = attributes("version", "1.0.0", "service", "WPS");
@@ -160,8 +159,7 @@ class WPSExecuteTransformer extends TransformerBase {
         public void handleInputs(List<InputParameterValues> inputs) {
             start("wps:DataInputs");
             for (InputParameterValues pv : inputs) {
-                for (int i = 0; i < pv.values.size(); i++) {
-                    ParameterValue value = pv.values.get(i);
+                for (ParameterValue value : pv.values) {
                     if (value == null || value.value == null) {
                         continue;
                     }
@@ -171,21 +169,19 @@ class WPSExecuteTransformer extends TransformerBase {
                     if (pv.isBoundingBox()) {
                         ReferencedEnvelope env = (ReferencedEnvelope) value.value;
                         start("wps:Data");
-                        String crs = null;
-                        if (env.getCoordinateReferenceSystem() != null) {
+                        String crsId = null;
+                        CoordinateReferenceSystem crs = env.getCoordinateReferenceSystem();
+                        if (crs != null) {
                             try {
-                                crs =
-                                        "EPSG:"
-                                                + CRS.lookupEpsgCode(
-                                                        env.getCoordinateReferenceSystem(), false);
+                                crsId = ResourcePool.lookupIdentifier(crs, false);
                             } catch (Exception e) {
-                                LOGGER.log(Level.WARNING, "Could not get EPSG code for " + crs);
+                                LOGGER.log(Level.WARNING, "Could not get EPSG code for " + crsId);
                             }
                         }
-                        if (crs == null) {
+                        if (crsId == null) {
                             start("wps:BoundingBoxData", attributes("dimensions", "2"));
                         } else {
-                            start("wps:BoundingBoxData", attributes("crs", crs, "dimensions", "2"));
+                            start("wps:BoundingBoxData", attributes("crs", crsId, "dimensions", "2"));
                         }
                         element("ows:LowerCorner", env.getMinX() + " " + env.getMinY());
                         element("ows:UpperCorner", env.getMaxX() + " " + env.getMaxY());
@@ -206,8 +202,7 @@ class WPSExecuteTransformer extends TransformerBase {
                             // write out a warning without blowing pu
                             char[] comment = "Can't handle this data type yet".toCharArray();
                             try {
-                                ((LexicalHandler) contentHandler)
-                                        .comment(comment, 0, comment.length);
+                                ((LexicalHandler) contentHandler).comment(comment, 0, comment.length);
                             } catch (SAXException se) {
                                 throw new RuntimeException(se);
                             }
@@ -229,7 +224,7 @@ class WPSExecuteTransformer extends TransformerBase {
             try {
                 start("wps:Data");
                 final CoordinateReferenceSystem crs = (CoordinateReferenceSystem) value.value;
-                element("wps:LiteralData", CRS.lookupIdentifier(crs, false));
+                element("wps:LiteralData", ResourcePool.lookupIdentifier(crs, false));
                 end("wps:Data");
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -240,13 +235,7 @@ class WPSExecuteTransformer extends TransformerBase {
             RasterLayerConfiguration raster = (RasterLayerConfiguration) value.value;
             start(
                     "wps:Reference",
-                    attributes(
-                            "mimeType",
-                            value.mime,
-                            "xlink:href",
-                            "http://geoserver/wcs",
-                            "method",
-                            "POST"));
+                    attributes("mimeType", value.mime, "xlink:href", "http://geoserver/wcs", "method", "POST"));
             start("wps:Body");
             if (raster != null && raster.getLayerName() != null) {
                 start("wcs:GetCoverage", attributes("service", "WCS", "version", "1.1.1"));
@@ -271,17 +260,10 @@ class WPSExecuteTransformer extends TransformerBase {
             VectorLayerConfiguration vector = (VectorLayerConfiguration) value.value;
             start(
                     "wps:Reference",
-                    attributes(
-                            "mimeType",
-                            value.mime,
-                            "xlink:href",
-                            "http://geoserver/wfs",
-                            "method",
-                            "POST"));
+                    attributes("mimeType", value.mime, "xlink:href", "http://geoserver/wfs", "method", "POST"));
             start("wps:Body");
 
-            AttributesImpl atts =
-                    attributes("service", "WFS", "version", "1.0.0", "outputFormat", "GML2");
+            AttributesImpl atts = attributes("service", "WFS", "version", "1.0.0", "outputFormat", "GML2");
 
             // if the layer name is qualfiied we should include a namespace mapping on the
             // GetFeature request
@@ -319,13 +301,7 @@ class WPSExecuteTransformer extends TransformerBase {
                                 "method",
                                 reference.method.toString()));
             } else {
-                start(
-                        "wps:Reference",
-                        attributes(
-                                "xlink:href",
-                                reference.url,
-                                "method",
-                                reference.method.toString()));
+                start("wps:Reference", attributes("xlink:href", reference.url, "method", reference.method.toString()));
             }
             if (reference.method == ReferenceConfiguration.Method.POST) {
                 start("wps:Body");
@@ -341,13 +317,7 @@ class WPSExecuteTransformer extends TransformerBase {
 
             start(
                     "wps:Reference",
-                    attributes(
-                            "mimeType",
-                            value.mime,
-                            "xlink:href",
-                            "http://geoserver/wps",
-                            "method",
-                            "POST"));
+                    attributes("mimeType", value.mime, "xlink:href", "http://geoserver/wps", "method", "POST"));
             start("wps:Body");
             encode(request, false);
             end("wps:Body");
@@ -378,21 +348,26 @@ class WPSExecuteTransformer extends TransformerBase {
 
         private void dumpAsXML(Document document) {
             try {
-                TreeWalker tw = new TreeWalker(contentHandler);
-                tw.traverse(document);
+                TransformerFactory.newInstance()
+                        .newTransformer()
+                        .transform(new DOMSource(document), new SAXResult(contentHandler));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
         private Document parseAsXML(String data) {
+            if (!data.matches("\\s*<.+/.*>\\s*")) {
+                // crude regex to check for potentially parseable XML strings
+                return null;
+            }
             try {
                 DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
                 factory.setNamespaceAware(true);
                 DocumentBuilder builder = factory.newDocumentBuilder();
                 builder.setEntityResolver(entityResolver);
                 if (!data.startsWith("<?xml")) {
-                    data = "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\n" + data;
+                    data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + data;
                 }
                 return builder.parse(new ByteArrayInputStream(data.getBytes()));
             } catch (IOException | ParserConfigurationException | SAXException t) {

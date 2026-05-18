@@ -6,6 +6,9 @@
 
 package org.geoserver.gwc.web.layer;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import org.apache.wicket.Component;
@@ -22,40 +25,51 @@ import org.geowebcache.filter.parameters.RegexParameterFilter;
  *
  * @author Kevin Smith, OpenGeo
  */
-public class RegexParameterFilterSubform
-        extends AbstractParameterFilterSubform<RegexParameterFilter> {
+public class RegexParameterFilterSubform extends AbstractParameterFilterSubform<RegexParameterFilter> {
 
-    private static final IValidator<String> REGEXP_VALIDATOR =
-            new IValidator<String>() {
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(RegexParameterFilterSubform.class);
 
-                private static final long serialVersionUID = 3753607592277740081L;
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
-                @Override
-                public void validate(IValidatable<String> validatable) {
-                    final String regex = validatable.getValue();
-                    try {
-                        Pattern.compile(regex);
-                    } catch (PatternSyntaxException ex) {
-                        ValidationError error = new ValidationError();
-                        error.setMessage("Invalid Regular expression");
-                        error.addKey(getClass().getSimpleName() + "." + "invalidRegularExpression");
-                        validatable.error(error);
-                    }
-                }
-            };
+    private static final IValidator<String> REGEXP_VALIDATOR = new IValidator<>() {
+
+        @Serial
+        private static final long serialVersionUID = 3753607592277740081L;
+
+        @Override
+        public void validate(IValidatable<String> validatable) {
+            final String regex = validatable.getValue();
+            try {
+                Pattern.compile(regex);
+            } catch (PatternSyntaxException ex) {
+                ValidationError error = new ValidationError();
+                error.setMessage("Invalid Regular expression");
+                error.addKey(getClass().getSimpleName() + "." + "invalidRegularExpression");
+                validatable.error(error);
+            }
+        }
+    };
 
     /** serialVersionUID */
+    @Serial
     private static final long serialVersionUID = 1L;
 
     public RegexParameterFilterSubform(String id, IModel<RegexParameterFilter> model) {
         super(id, model);
 
-        final Component defaultValue =
-                new TextField<>("defaultValue", new PropertyModel<>(model, "defaultValue"));
+        final Component defaultValue = new TextField<>("defaultValue", new PropertyModel<>(model, "defaultValue"));
         add(defaultValue);
 
-        final TextField<String> regex =
-                new TextField<>("regex", new PropertyModel<>(model, "regex"));
+        final TextField<String> regex = new TextField<>("regex", new PropertyModel<>(model, "regex"));
 
         regex.add(REGEXP_VALIDATOR);
 

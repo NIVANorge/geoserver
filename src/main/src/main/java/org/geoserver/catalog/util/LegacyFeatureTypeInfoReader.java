@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
-import org.checkerframework.checker.units.qual.m;
 import org.geoserver.ows.util.XmlCharsetDetector;
 import org.geoserver.platform.resource.Resource;
 import org.locationtech.jts.geom.Envelope;
@@ -164,16 +163,12 @@ public class LegacyFeatureTypeInfoReader {
         if (legendURL != null) {
             Map<String, Object> map = new HashMap<>();
             map.put("width", Integer.parseInt(ReaderUtils.getAttribute(legendURL, "width", true)));
-            map.put(
-                    "height",
-                    Integer.parseInt(ReaderUtils.getAttribute(legendURL, "height", true)));
+            map.put("height", Integer.parseInt(ReaderUtils.getAttribute(legendURL, "height", true)));
             map.put("format", ReaderUtils.getChildText(legendURL, "Format", true));
             map.put(
                     "onlineResource",
                     ReaderUtils.getAttribute(
-                            ReaderUtils.getChildElement(legendURL, "OnlineResource", true),
-                            "xlink:href",
-                            true));
+                            ReaderUtils.getChildElement(legendURL, "OnlineResource", true), "xlink:href", true));
             return map;
         }
 
@@ -233,8 +228,7 @@ public class LegacyFeatureTypeInfoReader {
     }
 
     public int regionateFeatureLimit() {
-        Element regionateFeatureLimit =
-                ReaderUtils.getChildElement(featureType, "regionateFeatureLimit");
+        Element regionateFeatureLimit = ReaderUtils.getChildElement(featureType, "regionateFeatureLimit");
         try {
             return Integer.valueOf(regionateFeatureLimit.getAttribute("value"));
         } catch (Exception e) {

@@ -11,20 +11,20 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.catalog.Catalog;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.filter.expression.Literal;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.FunctionFactory;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Function;
-import org.opengis.filter.expression.Literal;
 
 /**
- * Factory for the functions that do query the GeoServer catalog as well as the support ones used to
- * mix them into larger filters
+ * Factory for the functions that do query the GeoServer catalog as well as the support ones used to mix them into
+ * larger filters
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -62,15 +62,12 @@ public class QueryLayerFunctionFactory implements FunctionFactory {
     public void setMaxFeatures(int maxFeatures) {
         if (maxFeatures <= 0) {
             throw new IllegalArgumentException(
-                    "The max features retrieved by a query layer "
-                            + "function must be a positive number");
+                    "The max features retrieved by a query layer " + "function must be a positive number");
         }
         this.maxFeatures = maxFeatures;
     }
 
-    /**
-     * Sets the maximum number of coordinates to be collected, a non positive value implies no limit
-     */
+    /** Sets the maximum number of coordinates to be collected, a non positive value implies no limit */
     public void setMaxCoordinates(long maxCoordinates) {
         this.maxCoordinates = maxCoordinates;
     }
@@ -96,8 +93,7 @@ public class QueryLayerFunctionFactory implements FunctionFactory {
         } else if (QUERY_COLLECTION.equals(name)) {
             return new QueryFunction(QUERY_COLLECTION, catalog, args, fallback, false, maxFeatures);
         } else if (COLLECT_GEOMETRIES.equals(name)) {
-            return new CollectGeometriesFunction(
-                    COLLECT_GEOMETRIES, args, fallback, maxCoordinates);
+            return new CollectGeometriesFunction(COLLECT_GEOMETRIES, args, fallback, maxCoordinates);
         } else {
             return null;
         }
@@ -116,8 +112,7 @@ public class QueryLayerFunctionFactory implements FunctionFactory {
         if (catalog == null) {
             LOGGER.log(
                     Level.INFO,
-                    "Looking for functions but the catalog still "
-                            + "has not been set into QueryLayerFunctionFactory");
+                    "Looking for functions but the catalog still " + "has not been set into QueryLayerFunctionFactory");
             return false;
         } else {
             return true;

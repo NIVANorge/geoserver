@@ -5,21 +5,25 @@
 package org.geoserver.mapml.tcrs;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.mapml.MapMLConstants;
+import org.geotools.api.geometry.MismatchedDimensionException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.util.logging.Logging;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
 
 /** @author prushforth */
 public class TiledCRS {
     private static final Logger LOGGER = Logging.getLogger("org.geoserver.mapml.tcrs");
+    public static final int SCREEN_RESOLUTION = 96;
+    public static final double METERS_PER_INCH = 0.0254;
 
     private final Transformation transformation;
     private final Projection projection;
@@ -38,19 +42,23 @@ public class TiledCRS {
 
     private final Bounds bounds;
 
+    private final TiledCRSParams params;
+
     /** @param name */
     public TiledCRS(String name) {
-        TiledCRSParams parameters = TiledCRSConstants.tiledCRSDefinitions.get(name);
+        this(name, TiledCRSConstants.tiledCRSDefinitions.get(name));
+    }
+
+    public TiledCRS(String name, TiledCRSParams parameters) {
         if (parameters == null) {
             throw new RuntimeException("Definition for Tiled CRS not found: " + name);
         }
+        this.params = parameters;
         // the bounds are in projected, but not transformed units.
         this.bounds = parameters.getBounds();
         // the tile origin is in projected, but not transformed units.
         this.TILE_ORIGIN = parameters.getOrigin();
-        this.transformation =
-                new Transformation(
-                        1, (-1 * parameters.getOrigin().x), -1, parameters.getOrigin().y);
+        this.transformation = new Transformation(1, (-1 * parameters.getOrigin().x), -1, parameters.getOrigin().y);
         // the projection below is the geotools / EPSG definition
         this.projection = new Projection(parameters.getCode());
         // the 'scales' are the reciprocal of the resolution of the zoom level
@@ -69,6 +77,11 @@ public class TiledCRS {
     /** @return */
     public String getCode() {
         return this.code;
+    }
+
+    /** @return */
+    public TiledCRSParams getParams() {
+        return this.params;
     }
 
     /** @return */
@@ -100,10 +113,9 @@ public class TiledCRS {
      * @return
      */
     public Bounds getPixelBoundsForProjectedBounds(int zoom, Bounds projectedBounds) {
-        Bounds pb =
-                new Bounds(
-                        this.transformation.transform(projectedBounds.min, this.scales[zoom]),
-                        this.transformation.transform(projectedBounds.max, this.scales[zoom]));
+        Bounds pb = new Bounds(
+                this.transformation.transform(projectedBounds.min, this.scales[zoom]),
+                this.transformation.transform(projectedBounds.max, this.scales[zoom]));
         return pb;
     }
 
@@ -114,28 +126,24 @@ public class TiledCRS {
      */
     public Bounds getTileBoundsForProjectedBounds(int zoom, Bounds projectedBounds) {
         Bounds pb = getPixelBoundsForProjectedBounds(zoom, projectedBounds);
-        Bounds tb =
-                new Bounds(pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).floor());
+        Bounds tb = new Bounds(
+                pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).floor());
         return tb;
     }
+
     /**
-     * Transforms the point (in projected units) into a bounds centred on that point, in projected
-     * units, matching the size of the display bounds
+     * Transforms the point (in projected units) into a bounds centred on that point, in projected units, matching the
+     * size of the display bounds
      *
      * @param zoom the zoom at which the bounds will be calculated
      * @param projectedCentre the projected coordinates of the centre of the new bounds
      * @param displayBounds a rectangle with origin at 0,0 of the size of display in px
      * @return
      */
-    public Bounds getProjectedBoundsForDisplayBounds(
-            int zoom, Point projectedCentre, Bounds displayBounds) {
+    public Bounds getProjectedBoundsForDisplayBounds(int zoom, Point projectedCentre, Bounds displayBounds) {
         Point tcrsCentre = transform(projectedCentre, zoom);
-        Point tcrsMin =
-                tcrsCentre.subtract(
-                        new Point(displayBounds.getWidth() / 2, displayBounds.getHeight() / 2));
-        Point tcrsMax =
-                tcrsCentre.add(
-                        new Point(displayBounds.getWidth() / 2, displayBounds.getHeight() / 2));
+        Point tcrsMin = tcrsCentre.subtract(new Point(displayBounds.getWidth() / 2, displayBounds.getHeight() / 2));
+        Point tcrsMax = tcrsCentre.add(new Point(displayBounds.getWidth() / 2, displayBounds.getHeight() / 2));
         return new Bounds(untransform(tcrsMin, zoom), untransform(tcrsMax, zoom));
     }
 
@@ -143,9 +151,10 @@ public class TiledCRS {
     public int getMaxZoom() {
         return Collections.max(tileBounds.keySet());
     }
+
     /**
-     * Returns a zoom at which bounds when rendered at the specified display width and height will
-     * fit, when centered on bounds' centre point.
+     * Returns a zoom at which bounds when rendered at the specified display width and height will fit, when centered on
+     * bounds' centre point.
      *
      * @param bounds
      * @param width
@@ -164,17 +173,14 @@ public class TiledCRS {
                 }
             }
         } catch (MismatchedDimensionException | TransformException ex) {
-            LOGGER.log(
-                    Level.INFO,
-                    "Error transforming lat/lon bounds to projected bounds",
-                    ex.getMessage());
+            LOGGER.log(Level.INFO, "Error transforming lat/lon bounds to projected bounds", ex.getMessage());
         }
         return zoom;
     }
 
     /**
-     * Returns a zoom at which the projected bounds when rendered at the specified display width and
-     * height will fit, when centered on bounds' centre point.
+     * Returns a zoom at which the projected bounds when rendered at the specified display width and height will fit,
+     * when centered on bounds' centre point.
      *
      * @param prjb - the (projected) bounds to find a zoom that fits for
      * @param dsplyb - the pixel bounds which the projected bounds must fit within
@@ -186,12 +192,15 @@ public class TiledCRS {
             zoom = i;
             Bounds pxb = this.getPixelBounds(prjb, i);
             if (!(dsplyb.getWidth() >= pxb.getWidth() && dsplyb.getHeight() >= pxb.getHeight())) {
-                zoom = i - 1;
+                if (zoom != 0) {
+                    zoom = i - 1;
+                }
                 break;
             }
         }
         return zoom;
     }
+
     /**
      * For testing purposes need to be able to set the pagesize.
      *
@@ -223,8 +232,7 @@ public class TiledCRS {
      * @throws MismatchedDimensionException - MismatchedDimensionException
      * @throws TransformException - TransformException
      */
-    public Point latLngToPoint(LatLng latlng, int zoom)
-            throws MismatchedDimensionException, TransformException {
+    public Point latLngToPoint(LatLng latlng, int zoom) throws MismatchedDimensionException, TransformException {
         Point p = this.projection.project(latlng);
         return this.transformation.transform(p, this.scales[zoom]);
     }
@@ -236,11 +244,11 @@ public class TiledCRS {
      * @throws MismatchedDimensionException - MismatchedDimensionException
      * @throws TransformException - TransformException
      */
-    public LatLng pointToLatLng(Point p, int zoom)
-            throws MismatchedDimensionException, TransformException {
+    public LatLng pointToLatLng(Point p, int zoom) throws MismatchedDimensionException, TransformException {
         Point untransformedPoint = this.transformation.untransform(p, this.scales[zoom]);
         return this.projection.unproject(untransformedPoint);
     }
+
     /**
      * @param p * @return Point transformed from PCRS units to pixel units at zoom
      * @param zoom
@@ -257,6 +265,7 @@ public class TiledCRS {
     public Point untransform(Point p, int zoom) {
         return this.transformation.untransform(p, this.scales[zoom]);
     }
+
     /**
      * @param bounds the LatLngBounds that should be transformed to projected, scaled bounds
      * @param zoom the zoom scale at which to transform the bounds
@@ -270,6 +279,7 @@ public class TiledCRS {
         LatLng ne = bounds.northEast;
         return new Bounds(latLngToPoint(sw, zoom), latLngToPoint(ne, zoom));
     }
+
     /**
      * @param bounds - projected, but not scaled bounds
      * @param zoom - the scale at which to transform the bounds
@@ -280,6 +290,7 @@ public class TiledCRS {
         Point max = this.transformation.transform(bounds.max, this.scales[zoom]).round();
         return new Bounds(min, max);
     }
+
     // convenience methods
 
     /**
@@ -301,6 +312,7 @@ public class TiledCRS {
     public LatLng unproject(Point point) throws MismatchedDimensionException, TransformException {
         return this.projection.unproject(point);
     }
+
     /**
      * Count the width of the *tile* bounds at the given zoom level in integral tile units.
      *
@@ -341,21 +353,14 @@ public class TiledCRS {
         // the extent must be expressed in projected, scaled units
         Bounds pb = extent;
         // the min/max in decimal tiles truncated to the next lower integer tile ordinate
-        Bounds tb =
-                new Bounds(pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).floor());
+        Bounds tb = new Bounds(
+                pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).floor());
         long width = tileWidth(zoom, tb);
         List<TileCoordinates> tiles = new ArrayList<>();
-        for (long i = (start > 0 ? (long) tb.min.y + start / width : (long) tb.min.y);
-                i <= tb.max.y;
-                i++) {
-            for (long j = (start > 0 ? (long) tb.min.x + (start % width) : (long) tb.min.x);
-                    j <= tb.max.x;
-                    j++) {
+        for (long i = (start > 0 ? (long) tb.min.y + start / width : (long) tb.min.y); i <= tb.max.y; i++) {
+            for (long j = (start > 0 ? (long) tb.min.x + (start % width) : (long) tb.min.x); j <= tb.max.x; j++) {
                 if (tiles.size() < pageSize) {
-                    if (i >= 0
-                            && i <= tileBounds.get(zoom).max.y
-                            && j >= 0
-                            && j < tileBounds.get(zoom).max.x) {
+                    if (i >= 0 && i <= tileBounds.get(zoom).max.y && j >= 0 && j < tileBounds.get(zoom).max.x) {
                         tiles.add(new TileCoordinates(j, i, zoom));
                     }
                 } else {
@@ -381,12 +386,54 @@ public class TiledCRS {
         try {
             pb = getPixelBounds(extent, zoom);
         } catch (MismatchedDimensionException | TransformException ex) {
-            throw new RuntimeException(
-                    "Error retrieving tiles for lat lon bounds: " + extent.toString(), ex);
+            throw new RuntimeException("Error retrieving tiles for lat lon bounds: " + extent.toString(), ex);
         }
         return getTilesForExtent(pb, zoom, start);
     }
+
     // extent is in projected but not scaled units (e.g. meters)
+
+    /**
+     * Get the Min zoom level that matches the given denominator
+     *
+     * @param denominator the denominator to match
+     * @return the zoom level that matches the given denominator
+     */
+    public Integer getMinZoomForDenominator(double denominator) {
+        // handles the case where denominator is larger than the largest scale or is infinity
+        if (denominator == Double.POSITIVE_INFINITY || denominator >= convertGroundResolutionToScale(scales[0]))
+            return 0;
+        for (int i = 0; i < scales.length; i++) {
+            if (convertGroundResolutionToScale(scales[i]) <= denominator) return i;
+        }
+        return 0;
+    }
+
+    /**
+     * Get the Max zoom level that matches the given denominator
+     *
+     * @param denominator the denominator to match
+     * @return the zoom level that matches the given denominator
+     */
+    public Integer getMaxZoomForDenominator(double denominator) {
+        // handles the case where denominator is larger than the largest scale or is infinity
+        if (denominator == Double.POSITIVE_INFINITY
+                || convertGroundResolutionToScale(scales[scales.length - 1]) >= denominator) return scales.length - 1;
+        for (int i = scales.length - 1; i >= 0; i--) {
+            if (convertGroundResolutionToScale(scales[i]) >= denominator) return i;
+        }
+        return scales.length - 1;
+    }
+
+    /**
+     * Convert a ground resolution to a scale
+     *
+     * @param groundResolution the ground resolution to convert
+     * @return the scale
+     */
+    private Double convertGroundResolutionToScale(double groundResolution) {
+        return ((1 / groundResolution) * SCREEN_RESOLUTION) / METERS_PER_INCH;
+    }
 
     /**
      * @param extent
@@ -395,7 +442,8 @@ public class TiledCRS {
      */
     public Bounds getTileRoundedPixelBoundsForExtent(Bounds extent, int zoom) {
         Bounds pb = getPixelBounds(extent, zoom);
-        Bounds tb = new Bounds(pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).ceil());
+        Bounds tb = new Bounds(
+                pb.min.divideBy(TILESIZE).floor(), pb.max.divideBy(TILESIZE).ceil());
         return new Bounds(tb.min.multiplyBy(TILESIZE), tb.max.multiplyBy(TILESIZE));
     }
 
@@ -413,10 +461,9 @@ public class TiledCRS {
     public Point getOrigin() {
         return TILE_ORIGIN;
     }
-    /**
-     * Compares two tile coordinates and ranks them by distance from the constructed center point.
-     */
-    protected class TileComparator implements Comparator<TileCoordinates> {
+
+    /** Compares two tile coordinates and ranks them by distance from the constructed center point. */
+    protected static class TileComparator implements Comparator<TileCoordinates> {
         private final Point centre;
 
         /** @param centre */
@@ -431,5 +478,39 @@ public class TiledCRS {
             Double d2 = this.centre.distanceTo(new Point(t2.x + 0.5, t2.y + 0.5));
             return d1.compareTo(d2);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TiledCRS tiledCRS = (TiledCRS) o;
+        return TILESIZE == tiledCRS.TILESIZE
+                && pageSize == tiledCRS.pageSize
+                && Objects.equals(transformation, tiledCRS.transformation)
+                && Objects.equals(projection, tiledCRS.projection)
+                && Objects.deepEquals(scales, tiledCRS.scales)
+                && Objects.equals(name, tiledCRS.name)
+                && Objects.equals(TILE_ORIGIN, tiledCRS.TILE_ORIGIN)
+                && Objects.equals(code, tiledCRS.code)
+                && Objects.equals(tileBounds, tiledCRS.tileBounds)
+                && Objects.equals(bounds, tiledCRS.bounds)
+                && Objects.equals(params, tiledCRS.params);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                transformation,
+                projection,
+                Arrays.hashCode(scales),
+                name,
+                TILESIZE,
+                TILE_ORIGIN,
+                pageSize,
+                code,
+                tileBounds,
+                bounds,
+                params);
     }
 }

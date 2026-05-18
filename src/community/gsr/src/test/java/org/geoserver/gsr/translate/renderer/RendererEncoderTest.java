@@ -18,9 +18,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
-import net.sf.json.JSONObject;
-import net.sf.json.util.JSONBuilder;
-import net.sf.json.util.JSONStringer;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.gsr.controller.ControllerTest;
 import org.geoserver.gsr.model.font.Font;
@@ -39,12 +36,15 @@ import org.geoserver.gsr.model.symbol.SimpleLineSymbol;
 import org.geoserver.gsr.model.symbol.SimpleLineSymbolEnum;
 import org.geoserver.gsr.model.symbol.TextSymbol;
 import org.geoserver.gsr.model.symbol.VerticalAlignmentEnum;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyleFactory;
 import org.geotools.factory.CommonFactoryFinder;
-import org.geotools.styling.StyleFactory;
 import org.geotools.xml.styling.SLDParser;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
-import org.opengis.style.Style;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.util.JSONBuilder;
+import org.kordamp.json.util.JSONStringer;
 
 public class RendererEncoderTest extends ControllerTest {
 
@@ -54,8 +54,7 @@ public class RendererEncoderTest extends ControllerTest {
         assertNotNull(polygonInfo);
         Style polygon = polygonInfo.getStyle();
         assertNotNull(polygon);
-        Renderer polygonRenderer =
-                StyleEncoder.styleToRenderer((org.geotools.styling.Style) polygon);
+        Renderer polygonRenderer = StyleEncoder.styleToRenderer((org.geotools.api.style.Style) polygon);
         assertNotNull(polygonRenderer);
         JSONBuilder json = new JSONStringer();
         StyleEncoder.encodeRenderer(json, polygonRenderer);
@@ -67,7 +66,7 @@ public class RendererEncoderTest extends ControllerTest {
         assertNotNull(lineInfo);
         Style line = lineInfo.getStyle();
         assertNotNull(line);
-        Renderer lineRenderer = StyleEncoder.styleToRenderer((org.geotools.styling.Style) line);
+        Renderer lineRenderer = StyleEncoder.styleToRenderer((org.geotools.api.style.Style) line);
         assertNotNull(lineRenderer);
         JSONBuilder json = new JSONStringer();
         StyleEncoder.encodeRenderer(json, lineRenderer);
@@ -79,7 +78,7 @@ public class RendererEncoderTest extends ControllerTest {
         assertNotNull(pointInfo);
         Style point = pointInfo.getStyle();
         assertNotNull(point);
-        Renderer pointRenderer = StyleEncoder.styleToRenderer((org.geotools.styling.Style) point);
+        Renderer pointRenderer = StyleEncoder.styleToRenderer((org.geotools.api.style.Style) point);
         assertNotNull(point);
         JSONBuilder json = new JSONStringer();
         StyleEncoder.encodeRenderer(json, pointRenderer);
@@ -88,14 +87,14 @@ public class RendererEncoderTest extends ControllerTest {
     private Renderer parseAndConvertToRenderer(String sldPath) throws Exception {
         StyleFactory factory = CommonFactoryFinder.getStyleFactory();
         SLDParser parser = new SLDParser(factory, getClass().getResource(sldPath));
-        org.geotools.styling.Style sld = parser.readXML()[0];
+        org.geotools.api.style.Style sld = parser.readXML()[0];
         return StyleEncoder.styleToRenderer(sld);
     }
 
     private List<Label> parseAndConvertToLabelInfo(String sldPath) throws Exception {
         StyleFactory factory = CommonFactoryFinder.getStyleFactory();
         SLDParser parser = new SLDParser(factory, getClass().getResource(sldPath));
-        org.geotools.styling.Style sld = parser.readXML()[0];
+        org.geotools.api.style.Style sld = parser.readXML()[0];
         return StyleEncoder.styleToLabel(sld);
     }
 
@@ -103,7 +102,7 @@ public class RendererEncoderTest extends ControllerTest {
     public void testIconRenderer() throws Exception {
         StyleFactory factory = CommonFactoryFinder.getStyleFactory();
         SLDParser parser = new SLDParser(factory, getClass().getResource("mark.sld"));
-        org.geotools.styling.Style sld = parser.readXML()[0];
+        org.geotools.api.style.Style sld = parser.readXML()[0];
         JSONBuilder json = new JSONStringer();
         Renderer renderer = StyleEncoder.styleToRenderer(sld);
         assertNotNull(renderer);
@@ -238,27 +237,33 @@ public class RendererEncoderTest extends ControllerTest {
         UniqueValueRenderer uvr = (UniqueValueRenderer) renderer;
 
         // first is solid
-        SimpleLineSymbol line0 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(0).getSymbol();
+        SimpleLineSymbol line0 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(0).getSymbol();
         assertEquals(SimpleLineSymbolEnum.SOLID, line0.getStyle());
 
         // second recognized as dash
-        SimpleLineSymbol line1 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(1).getSymbol();
+        SimpleLineSymbol line1 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(1).getSymbol();
         assertEquals(SimpleLineSymbolEnum.DASH, line1.getStyle());
 
         // third recognized as dot
-        SimpleLineSymbol line2 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(2).getSymbol();
+        SimpleLineSymbol line2 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(2).getSymbol();
         assertEquals(SimpleLineSymbolEnum.DOT, line2.getStyle());
 
         // fourth recognized as dash dot
-        SimpleLineSymbol line3 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(3).getSymbol();
+        SimpleLineSymbol line3 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(3).getSymbol();
         assertEquals(SimpleLineSymbolEnum.DASH_DOT, line3.getStyle());
 
         // fourth recognized as dash dot dot
-        SimpleLineSymbol line4 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(4).getSymbol();
+        SimpleLineSymbol line4 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(4).getSymbol();
         assertEquals(SimpleLineSymbolEnum.DASH_DOT_DOT, line4.getStyle());
 
         // fifth not recognized, assigned as a dash as default
-        SimpleLineSymbol line5 = (SimpleLineSymbol) uvr.getUniqueValueInfos().get(5).getSymbol();
+        SimpleLineSymbol line5 =
+                (SimpleLineSymbol) uvr.getUniqueValueInfos().get(5).getSymbol();
         assertEquals(SimpleLineSymbolEnum.DASH, line5.getStyle());
     }
 

@@ -6,9 +6,9 @@ package org.geoserver.ogcapi.v1.stac;
 
 import java.util.Map;
 import java.util.Set;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.visitor.DuplicatingFilterVisitor;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.PropertyName;
 
 /**
  * STAC specific mapper that:
@@ -24,8 +24,7 @@ public class STACPathVisitor extends DuplicatingFilterVisitor {
     private final Set<String> queryables;
     private final Set<String> notIncluded;
 
-    public STACPathVisitor(
-            Map<String, Expression> propertyMap, Set<String> queryables, Set<String> notIncluded) {
+    public STACPathVisitor(Map<String, Expression> propertyMap, Set<String> queryables, Set<String> notIncluded) {
         this.propertyMap = propertyMap;
         this.queryables = queryables;
         this.notIncluded = notIncluded;

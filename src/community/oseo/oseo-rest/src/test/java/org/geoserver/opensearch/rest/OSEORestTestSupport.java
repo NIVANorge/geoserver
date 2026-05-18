@@ -24,17 +24,17 @@ import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geoserver.security.impl.GeoServerRole;
-import org.geotools.data.FeatureStore;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.junit.Before;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-public class OSEORestTestSupport extends OSEOTestSupport {
+public abstract class OSEORestTestSupport extends OSEOTestSupport {
 
-    protected static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    protected static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     @Before
     public void loginAdmin() {
@@ -46,11 +46,8 @@ public class OSEORestTestSupport extends OSEOTestSupport {
         DataStoreInfo ds = getCatalog().getDataStoreByName("oseo");
         OpenSearchAccess access = (OpenSearchAccess) ds.getDataStore(null);
         FeatureStore store = (FeatureStore) access.getCollectionSource();
-        store.removeFeatures(
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("TEST123"),
-                        true));
+        store.removeFeatures(FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")), FF.literal("TEST123"), true));
     }
 
     @Before
@@ -63,8 +60,7 @@ public class OSEORestTestSupport extends OSEOTestSupport {
 
     private void removePublishing(
             Catalog catalog, CascadeDeleteVisitor visitor, String workspace, String resourceName) {
-        CoverageStoreInfo store =
-                catalog.getStoreByName(workspace, resourceName, CoverageStoreInfo.class);
+        CoverageStoreInfo store = catalog.getStoreByName(workspace, resourceName, CoverageStoreInfo.class);
         if (store != null) {
             visitor.visit(store);
         }
@@ -80,13 +76,14 @@ public class OSEORestTestSupport extends OSEOTestSupport {
 
     protected DocumentContext getAsJSONPath(String path, int expectedHttpCode) throws Exception {
         MockHttpServletResponse response = getAsServletResponse(path);
-        if (!isQuietTests()) {
-            System.out.println(response.getContentAsString());
-        }
 
         assertEquals(expectedHttpCode, response.getStatus());
         // allow application/json, application/geo+json, application/schema+json, ...
         assertThat(response.getContentType(), allOf(startsWith("application/"), endsWith("json")));
+        if (!isQuietTests()) {
+            print(json(response));
+        }
+
         return JsonPath.parse(response.getContentAsString());
     }
 
@@ -96,14 +93,9 @@ public class OSEORestTestSupport extends OSEOTestSupport {
 
     protected void createTest123Collection() throws Exception, IOException {
         // create the collection
-        MockHttpServletResponse response =
-                postAsServletResponse(
-                        "rest/oseo/collections",
-                        getTestData("/collection.json"),
-                        MediaType.APPLICATION_JSON_VALUE);
+        MockHttpServletResponse response = postAsServletResponse(
+                "rest/oseo/collections", getTestData("/collection.json"), MediaType.APPLICATION_JSON_VALUE);
         assertEquals(201, response.getStatus());
-        assertEquals(
-                "http://localhost:8080/geoserver/rest/oseo/collections/TEST123",
-                response.getHeader("location"));
+        assertEquals("http://localhost:8080/geoserver/rest/oseo/collections/TEST123", response.getHeader("location"));
     }
 }

@@ -8,12 +8,12 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlType;
 import java.util.ArrayList;
 import java.util.List;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlType;
 
 /**
  * Java class for headContent complex type.
@@ -29,6 +29,7 @@ import javax.xml.bind.annotation.XmlType;
  *         &lt;element ref="{}meta"/&gt;
  *         &lt;element ref="{}title"/&gt;
  *         &lt;group ref="{}links"/&gt;
+ *         &lt;element ref="{}style"/&gt;
  *       &lt;/choice&gt;
  *     &lt;/restriction&gt;
  *   &lt;/complexContent&gt;
@@ -51,6 +52,9 @@ public class HeadContent {
     @XmlElement(name = "map-link", type = Link.class, namespace = "http://www.w3.org/1999/xhtml")
     protected List<Link> links;
 
+    @XmlElement(name = "map-style", namespace = "http://www.w3.org/1999/xhtml")
+    protected String style;
+
     public void setTitle(String title) {
         this.title = title;
     }
@@ -66,9 +70,9 @@ public class HeadContent {
     /**
      * Gets the value of the metas property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the metas property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the metas property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -88,9 +92,9 @@ public class HeadContent {
     /**
      * Gets the value of the links property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the links property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the links property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -105,5 +109,15 @@ public class HeadContent {
             links = new ArrayList<>();
         }
         return this.links;
+    }
+
+    /** Returns the CSS style for the eventual map-span elements */
+    public String getStyle() {
+        return this.style;
+    }
+
+    /** Sets the CSS style for the eventual map-span elements */
+    public void setStyle(String style) {
+        this.style = style;
     }
 }

@@ -8,12 +8,12 @@
 
 package org.geoserver.mapml.xml;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSchemaType;
-import javax.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlAttribute;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSchemaType;
+import jakarta.xml.bind.annotation.XmlType;
 
 /**
  * Java class for anonymous complex type.
@@ -27,7 +27,7 @@ import javax.xml.bind.annotation.XmlType;
  *       &lt;attribute name="href" type="{http://www.w3.org/2001/XMLSchema}anyURI" /&gt;
  *       &lt;attribute name="tref" type="{http://www.w3.org/2001/XMLSchema}anySimpleType" /&gt;
  *       &lt;attribute name="rel" use="required" type="{}relType" /&gt;
- *       &lt;attribute name="projection" type="{}projType" /&gt;
+ *       &lt;attribute name="projection" type="{http://www.w3.org/2001/XMLSchema}anySimpleType" /&gt;
  *       &lt;attribute name="title" type="{http://www.w3.org/2001/XMLSchema}anySimpleType" /&gt;
  *       &lt;attribute name="type" type="{}mimeType" /&gt;
  *       &lt;attribute name="hreflang" type="{http://www.w3.org/2001/XMLSchema}anySimpleType" /&gt;
@@ -39,7 +39,7 @@ import javax.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "")
 @XmlRootElement(name = "map-link", namespace = "http://www.w3.org/1999/xhtml")
-public class Link {
+public class Link implements MapMLElement {
 
     @XmlAttribute(name = "href")
     @XmlSchemaType(name = "anyURI")
@@ -53,7 +53,8 @@ public class Link {
     protected RelType rel;
 
     @XmlAttribute(name = "projection")
-    protected ProjType projection;
+    @XmlSchemaType(name = "anySimpleType")
+    protected String projection;
 
     @XmlAttribute(name = "title")
     @XmlSchemaType(name = "anySimpleType")
@@ -123,18 +124,18 @@ public class Link {
     /**
      * Gets the value of the projection property.
      *
-     * @return possible object is {@link ProjType }
+     * @return possible object is {@link String }
      */
-    public ProjType getProjection() {
+    public String getProjection() {
         return projection;
     }
 
     /**
      * Sets the value of the projection property.
      *
-     * @param value allowed object is {@link ProjType }
+     * @param value allowed object is {@link String }
      */
-    public void setProjection(ProjType value) {
+    public void setProjection(String value) {
         this.projection = value;
     }
 

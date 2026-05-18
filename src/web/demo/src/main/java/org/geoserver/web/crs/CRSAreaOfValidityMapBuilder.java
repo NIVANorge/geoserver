@@ -19,13 +19,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
-import org.geotools.data.DataStore;
-import org.geotools.data.DataStoreFinder;
-import org.geotools.data.FeatureWriter;
-import org.geotools.data.Transaction;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.DataStoreFinder;
+import org.geotools.api.data.FeatureWriter;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.metadata.extent.GeographicBoundingBox;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyleFactory;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.UserLayer;
 import org.geotools.data.memory.MemoryDataStore;
 import org.geotools.data.shapefile.ShapefileDataStoreFactory;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
@@ -37,10 +45,6 @@ import org.geotools.map.MapContent;
 import org.geotools.referencing.CRS;
 import org.geotools.renderer.GTRenderer;
 import org.geotools.renderer.lite.StreamingRenderer;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyleFactory;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.UserLayer;
 import org.geotools.util.factory.GeoTools;
 import org.geotools.xml.styling.SLDParser;
 import org.locationtech.jts.geom.Coordinate;
@@ -49,17 +53,12 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.metadata.extent.GeographicBoundingBox;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
- * Helper class to dynamically create a graphic representation of the area of validity for a {@link
- * CoordinateReferenceSystem coordinate reference system}.
+ * Helper class to dynamically create a graphic representation of the area of validity for a
+ * {@link CoordinateReferenceSystem coordinate reference system}.
  *
  * @author Gabriel Roldan
- * @version $Id$
  */
 class CRSAreaOfValidityMapBuilder {
 
@@ -109,31 +108,16 @@ class CRSAreaOfValidityMapBuilder {
         Geometry geogBoundingGeom;
 
         if (westBoundLongitude < eastBoundLongitude) {
-            geogBoundingGeom =
-                    createBoundingPolygon(
-                            westBoundLongitude,
-                            eastBoundLongitude,
-                            southBoundLatitude,
-                            northBoundLatitude,
-                            numSteps);
+            geogBoundingGeom = createBoundingPolygon(
+                    westBoundLongitude, eastBoundLongitude, southBoundLatitude, northBoundLatitude, numSteps);
         } else {
             // the geographic bounds cross the day line (lon -180/180), trick it into two adjacent
             // polygons
             Polygon eastPolygon =
-                    createBoundingPolygon(
-                            -180,
-                            eastBoundLongitude,
-                            southBoundLatitude,
-                            northBoundLatitude,
-                            numSteps);
+                    createBoundingPolygon(-180, eastBoundLongitude, southBoundLatitude, northBoundLatitude, numSteps);
 
             Polygon westPolygon =
-                    createBoundingPolygon(
-                            westBoundLongitude,
-                            180,
-                            southBoundLatitude,
-                            northBoundLatitude,
-                            numSteps);
+                    createBoundingPolygon(westBoundLongitude, 180, southBoundLatitude, northBoundLatitude, numSteps);
 
             geogBoundingGeom = gf.createMultiPolygon(new Polygon[] {eastPolygon, westPolygon});
         }
@@ -183,8 +167,7 @@ class CRSAreaOfValidityMapBuilder {
     private Style getStyle(final String styleName) {
         Style style = STYLES.get(styleName);
         if (style == null) {
-            StyleFactory styleFactory =
-                    CommonFactoryFinder.getStyleFactory(GeoTools.getDefaultHints());
+            StyleFactory styleFactory = CommonFactoryFinder.getStyleFactory(GeoTools.getDefaultHints());
             SLDParser parser = new SLDParser(styleFactory);
             try {
                 parser.setInput(getClass().getResource(styleName));
@@ -199,8 +182,7 @@ class CRSAreaOfValidityMapBuilder {
         return style;
     }
 
-    public RenderedImage createMapFor(
-            CoordinateReferenceSystem crs, org.locationtech.jts.geom.Envelope areaOfInterest)
+    public RenderedImage createMapFor(CoordinateReferenceSystem crs, org.locationtech.jts.geom.Envelope areaOfInterest)
             throws IOException {
         BufferedImage image = new BufferedImage(mapWidth, mapHeight, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
@@ -228,13 +210,11 @@ class CRSAreaOfValidityMapBuilder {
 
         GTRenderer renderer = new StreamingRenderer();
         renderer.setMapContent(mapContent);
-        RenderingHints hints =
-                new RenderingHints(
-                        RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        RenderingHints hints = new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         renderer.setJava2DHints(hints);
 
-        Map renderingHints = new HashMap();
+        Map renderingHints = new HashMap<>();
         renderingHints.put("optimizedDataLoadingEnabled", Boolean.TRUE);
         renderingHints.put(StreamingRenderer.ADVANCED_PROJECTION_HANDLING_KEY, Boolean.TRUE);
         renderingHints.put(StreamingRenderer.CONTINUOUS_MAP_WRAPPING, Boolean.TRUE);
@@ -328,11 +308,8 @@ class CRSAreaOfValidityMapBuilder {
             for (int lon = -180; lon < 180; lon += 5) {
                 for (int lat = -90; lat < 90; lat += 5) {
 
-                    LineString geom =
-                            gf.createLineString(
-                                    new Coordinate[] {
-                                        new Coordinate(lon, lat), new Coordinate(lon, lat + 5)
-                                    });
+                    LineString geom = gf.createLineString(
+                            new Coordinate[] {new Coordinate(lon, lat), new Coordinate(lon, lat + 5)});
 
                     int level = 1;
                     if (lon % 10 == 0) {
@@ -347,11 +324,8 @@ class CRSAreaOfValidityMapBuilder {
                     f.setAttribute(1, Integer.valueOf(level));
                     writer.write();
 
-                    geom =
-                            gf.createLineString(
-                                    new Coordinate[] {
-                                        new Coordinate(lon, lat), new Coordinate(lon + 5, lat)
-                                    });
+                    geom = gf.createLineString(
+                            new Coordinate[] {new Coordinate(lon, lat), new Coordinate(lon + 5, lat)});
 
                     level = 1;
                     if (lat % 10 == 0) {

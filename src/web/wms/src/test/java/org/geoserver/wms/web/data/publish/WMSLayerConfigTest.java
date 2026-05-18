@@ -42,8 +42,9 @@ import org.geoserver.test.http.MockHttpResponse;
 import org.geoserver.web.ComponentBuilder;
 import org.geoserver.web.FormTestPage;
 import org.geoserver.web.GeoServerWicketTestSupport;
+import org.geoserver.wms.web.publish.CartographyConfigPanel;
 import org.geoserver.wms.web.publish.StylesModel;
-import org.geoserver.wms.web.publish.WMSLayerConfig;
+import org.geoserver.wms.web.publish.WMSRemoteLayerConfig;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -61,8 +62,7 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
     public void testExisting() {
         final LayerInfo layer = getCatalog().getLayerByName(MockData.PONDS.getLocalPart());
         FormTestPage page =
-                new FormTestPage(
-                        (ComponentBuilder) id -> new WMSLayerConfig(id, new Model<>(layer)));
+                new FormTestPage((ComponentBuilder) id -> new CartographyConfigPanel(id, new Model<>(layer)));
         tester.startPage(page);
         tester.assertRenderedPage(FormTestPage.class);
         tester.assertComponent("form", Form.class);
@@ -74,7 +74,6 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         ft.select("panel:styles:defaultStyle", 0);
         ft.submit();
         tester.assertModelValue("form:panel:styles:defaultStyle", target);
-        assertFalse(cascadedControlsVisible(tester));
     }
 
     @Test
@@ -82,8 +81,7 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         final LayerInfo layer = getCatalog().getFactory().createLayer();
         layer.setResource(getCatalog().getFactory().createFeatureType());
         FormTestPage page =
-                new FormTestPage(
-                        (ComponentBuilder) id -> new WMSLayerConfig(id, new Model<>(layer)));
+                new FormTestPage((ComponentBuilder) id -> new CartographyConfigPanel(id, new Model<>(layer)));
         Component layerConfig = page.get("form:panel:styles:defaultStyle");
 
         tester.startPage(page);
@@ -102,7 +100,6 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         ft.select("panel:styles:defaultStyle", 0);
         ft.submit();
         assertFalse(layerConfig.getFeedbackMessages().hasMessage(FeedbackMessage.ERROR));
-        assertFalse(cascadedControlsVisible(tester));
     }
 
     @Test
@@ -116,24 +113,43 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
 
         final LayerInfo layer = getCatalog().getLayerByName(MockData.PONDS.getLocalPart());
         FormTestPage page =
-                new FormTestPage(
-                        (ComponentBuilder) id -> new WMSLayerConfig(id, new Model<>(layer)));
+                new FormTestPage((ComponentBuilder) id -> new CartographyConfigPanel(id, new Model<>(layer)));
         tester.startPage(page);
         tester.assertRenderedPage(FormTestPage.class);
         tester.debugComponentTrees();
 
-        Image img =
-                (Image)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:styles:defaultStyleLegendGraphic");
+        Image img = (Image) tester.getComponentFromLastRenderedPage("form:panel:styles:defaultStyleLegendGraphic");
         assertNotNull(img);
         assertEquals(1, img.getBehaviors().size());
         assertTrue(img.getBehaviors().get(0) instanceof AttributeModifier);
 
         AttributeModifier mod = (AttributeModifier) img.getBehaviors().get(0);
-        assertTrue(mod.toString().contains("wms?REQUEST=GetLegendGraphic"));
+        assertTrue(mod.toString().contains("cite/wms?REQUEST=GetLegendGraphic"));
         assertTrue(mod.toString().contains("style=cite:Ponds"));
-        assertFalse(cascadedControlsVisible(tester));
+
+        // restore style
+        style.setWorkspace(null);
+        catalog.save(style);
+    }
+
+    @Test
+    public void testLegendGraphicURLNoWorkspace() throws Exception {
+        final LayerInfo layer = getCatalog().getLayerByName(MockData.PONDS.getLocalPart());
+        FormTestPage page =
+                new FormTestPage((ComponentBuilder) id -> new CartographyConfigPanel(id, new Model<>(layer)));
+        tester.startPage(page);
+        tester.assertRenderedPage(FormTestPage.class);
+        tester.debugComponentTrees();
+
+        Image img = (Image) tester.getComponentFromLastRenderedPage("form:panel:styles:defaultStyleLegendGraphic");
+        assertNotNull(img);
+        assertEquals(1, img.getBehaviors().size());
+        assertTrue(img.getBehaviors().get(0) instanceof AttributeModifier);
+
+        AttributeModifier mod = (AttributeModifier) img.getBehaviors().get(0);
+        assertFalse(mod.toString().contains("cite/wms?REQUEST=GetLegendGraphic"));
+        assertTrue(mod.toString().contains("wms?REQUEST=GetLegendGraphic"));
+        assertTrue(mod.toString().contains("style=Ponds"));
     }
 
     @Test
@@ -141,8 +157,7 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         final LayerInfo layer = getCatalog().getLayerByName(MockData.PONDS.getLocalPart());
         final Model<LayerInfo> layerModel = new Model<>(layer);
 
-        FormTestPage page =
-                new FormTestPage((ComponentBuilder) id -> new WMSLayerConfig(id, layerModel));
+        FormTestPage page = new FormTestPage((ComponentBuilder) id -> new CartographyConfigPanel(id, layerModel));
 
         tester.startPage(page);
         tester.assertRenderedPage(FormTestPage.class);
@@ -161,7 +176,6 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         ft.submit();
 
         tester.assertModelValue("form:panel:defaultInterpolationMethod", WMSInterpolation.Bicubic);
-        assertFalse(cascadedControlsVisible(tester));
     }
 
     @Test
@@ -192,31 +206,28 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
 
         final Model<LayerInfo> layerModel = new Model<>(gsLayer);
 
-        FormTestPage page =
-                new FormTestPage((ComponentBuilder) id -> new WMSLayerConfig(id, layerModel));
+        FormTestPage page = new FormTestPage((ComponentBuilder) id -> new WMSRemoteLayerConfig(id, layerModel));
 
         tester.startPage(page);
         tester.assertRenderedPage(FormTestPage.class);
 
         // asserting Remote Style UI fields
-        tester.assertModelValue(
-                "form:panel:remotestyles:remoteStylesDropDown", wmsLayer.getForcedRemoteStyle());
-        tester.assertModelValue(
-                "form:panel:remotestyles:extraRemoteStyles",
-                new HashSet<>(wmsLayer.remoteStyles()));
+        tester.assertModelValue("form:panel:remotestyles:remoteStylesDropDown", wmsLayer.getForcedRemoteStyle());
+        tester.assertModelValue("form:panel:remotestyles:extraRemoteStyles", new HashSet<>(wmsLayer.remoteStyles()));
         // make sure remote styles on are not duplicated when loaded on page
         assertEquals(wmsLayer.remoteStyles().size(), remoteStyleCount);
         // asserting Remote Style UI fields
+        tester.assertModelValue("form:panel:remoteformats:remoteFormatsDropDown", wmsLayer.getPreferredFormat());
         tester.assertModelValue(
-                "form:panel:remoteformats:remoteFormatsDropDown", wmsLayer.getPreferredFormat());
-        tester.assertModelValue(
-                "form:panel:remoteformats:remoteFormatsPalette",
-                new HashSet<>(wmsLayer.availableFormats()));
+                "form:panel:remoteformats:remoteFormatsPalette", new HashSet<>(wmsLayer.availableFormats()));
         tester.assertVisible("form:panel:metaDataCheckBoxContainer");
 
         // min max scale UI fields
         tester.assertVisible("form:panel:scaleDenominatorContainer:minScale");
         tester.assertVisible("form:panel:scaleDenominatorContainer:maxScale");
+
+        tester.assertVisible("form:panel:vendorParametersContainer");
+        tester.assertVisible("form:panel:vendorParametersContainer:vendorParameters");
 
         // validation check, setting min scale above max
         FormTester ft = tester.newFormTester("form");
@@ -232,10 +243,8 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         // check visibility of all cscaded controls
         return tester.getComponentFromLastRenderedPage("form:panel:remotestyles") != null
                 && tester.getComponentFromLastRenderedPage("form:panel:remoteformats") != null
-                && tester.getComponentFromLastRenderedPage("form:panel:scaleDenominatorContainer")
-                        != null
-                && tester.getComponentFromLastRenderedPage("form:panel:metaDataCheckBoxContainer")
-                        != null;
+                && tester.getComponentFromLastRenderedPage("form:panel:scaleDenominatorContainer") != null
+                && tester.getComponentFromLastRenderedPage("form:panel:metaDataCheckBoxContainer") != null;
     }
 
     @Test
@@ -248,54 +257,53 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
         XStreamPersister persister = new XStreamPersisterFactory().createXMLPersister();
 
         String xml =
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                        + "<wmsLayer>\n"
-                        + "   <id>WMSLayerInfoImpl-622caab0:16ff63f5f7a:-7ffc</id>\n"
-                        + "   <name>legacy_roads</name>\n"
-                        + "   <nativeName>roads</nativeName>\n"
-                        + "   <title>Legacy</title>\n"
-                        + "   <description>Legacy</description>\n"
-                        + "   <abstract>Legacy</abstract>\n"
-                        + "   <keywords>\n"
-                        + "      <string>census</string>\n"
-                        + "      <string>united</string>\n"
-                        + "      <string>boundaries</string>\n"
-                        + "      <string>state</string>\n"
-                        + "      <string>states</string>\n"
-                        + "   </keywords>\n"
-                        + "   <nativeCRS>GEOGCS[\"WGS 84\", &#xD;\n"
-                        + "  DATUM[\"World Geodetic System 1984\", &#xD;\n"
-                        + "    SPHEROID[\"WGS 84\", 6378137.0, 298.257223563, AUTHORITY[\"EPSG\",\"7030\"]], &#xD;\n"
-                        + "    AUTHORITY[\"EPSG\",\"6326\"]], &#xD;\n"
-                        + "  PRIMEM[\"Greenwich\", 0.0, AUTHORITY[\"EPSG\",\"8901\"]], &#xD;\n"
-                        + "  UNIT[\"degree\", 0.017453292519943295], &#xD;\n"
-                        + "  AXIS[\"Geodetic longitude\", EAST], &#xD;\n"
-                        + "  AXIS[\"Geodetic latitude\", NORTH], &#xD;\n"
-                        + "  AUTHORITY[\"EPSG\",\"4326\"]]</nativeCRS>\n"
-                        + "   <srs>EPSG:4326</srs>\n"
-                        + "   <nativeBoundingBox>\n"
-                        + "      <minx>-124.73142200000001</minx>\n"
-                        + "      <maxx>-66.969849</maxx>\n"
-                        + "      <miny>24.955967</miny>\n"
-                        + "      <maxy>49.371735</maxy>\n"
-                        + "      <crs>EPSG:4326</crs>\n"
-                        + "   </nativeBoundingBox>\n"
-                        + "   <latLonBoundingBox>\n"
-                        + "      <minx>-124.731422</minx>\n"
-                        + "      <maxx>-66.969849</maxx>\n"
-                        + "      <miny>24.955967</miny>\n"
-                        + "      <maxy>49.371735</maxy>\n"
-                        + "      <crs>EPSG:4326</crs>\n"
-                        + "   </latLonBoundingBox>\n"
-                        + "   <projectionPolicy>FORCE_DECLARED</projectionPolicy>\n"
-                        + "   <enabled>true</enabled>\n"
-                        + "   <serviceConfiguration>false</serviceConfiguration>\n"
-                        + "</wmsLayer>";
+                """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <wmsLayer>
+                   <id>WMSLayerInfoImpl-622caab0:16ff63f5f7a:-7ffc</id>
+                   <name>legacy_roads</name>
+                   <nativeName>roads</nativeName>
+                   <title>Legacy</title>
+                   <description>Legacy</description>
+                   <abstract>Legacy</abstract>
+                   <keywords>
+                      <string>census</string>
+                      <string>united</string>
+                      <string>boundaries</string>
+                      <string>state</string>
+                      <string>states</string>
+                   </keywords>
+                   <nativeCRS>GEOGCS["WGS 84", &#xD;
+                  DATUM["World Geodetic System 1984", &#xD;
+                    SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]], &#xD;
+                    AUTHORITY["EPSG","6326"]], &#xD;
+                  PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]], &#xD;
+                  UNIT["degree", 0.017453292519943295], &#xD;
+                  AXIS["Geodetic longitude", EAST], &#xD;
+                  AXIS["Geodetic latitude", NORTH], &#xD;
+                  AUTHORITY["EPSG","4326"]]</nativeCRS>
+                   <srs>EPSG:4326</srs>
+                   <nativeBoundingBox>
+                      <minx>-124.73142200000001</minx>
+                      <maxx>-66.969849</maxx>
+                      <miny>24.955967</miny>
+                      <maxy>49.371735</maxy>
+                      <crs>EPSG:4326</crs>
+                   </nativeBoundingBox>
+                   <latLonBoundingBox>
+                      <minx>-124.731422</minx>
+                      <maxx>-66.969849</maxx>
+                      <miny>24.955967</miny>
+                      <maxy>49.371735</maxy>
+                      <crs>EPSG:4326</crs>
+                   </latLonBoundingBox>
+                   <projectionPolicy>FORCE_DECLARED</projectionPolicy>
+                   <enabled>true</enabled>
+                   <serviceConfiguration>false</serviceConfiguration>
+                </wmsLayer>""";
 
         WMSLayerInfoImpl legacyWmsLayerInfo =
-                (WMSLayerInfoImpl)
-                        persister.load(
-                                new ByteArrayInputStream(xml.getBytes()), WMSLayerInfo.class);
+                (WMSLayerInfoImpl) persister.load(new ByteArrayInputStream(xml.getBytes()), WMSLayerInfo.class);
 
         MockHttpClient wms11Client = new MockHttpClient();
         URL wms11BaseURL = new URL(TestHttpClientProvider.MOCKSERVER + "/wms11");
@@ -325,8 +333,7 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
 
         final Model<LayerInfo> layerModel = new Model<>(gsLayer);
 
-        FormTestPage page =
-                new FormTestPage((ComponentBuilder) id -> new WMSLayerConfig(id, layerModel));
+        FormTestPage page = new FormTestPage((ComponentBuilder) id -> new WMSRemoteLayerConfig(id, layerModel));
 
         tester.startPage(page);
         tester.assertRenderedPage(FormTestPage.class);
@@ -335,37 +342,27 @@ public class WMSLayerConfigTest extends GeoServerWicketTestSupport {
 
         // assert defaults
         // asserting Remote Style UI fields is set to empty
-        tester.assertModelValue(
-                "form:panel:remotestyles:remoteStylesDropDown", wmsLayer.getForcedRemoteStyle());
+        tester.assertModelValue("form:panel:remotestyles:remoteStylesDropDown", wmsLayer.getForcedRemoteStyle());
         // asserting preffered format is set to png
-        tester.assertModelValue(
-                "form:panel:remoteformats:remoteFormatsDropDown", wmsLayer.getPreferredFormat());
+        tester.assertModelValue("form:panel:remoteformats:remoteFormatsDropDown", wmsLayer.getPreferredFormat());
 
         // NOW assert if drop down are showing the defaults as selected on GUI
         @SuppressWarnings("unchecked")
-        DropDownChoice<String> remotStyles =
-                (DropDownChoice<String>)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:remotestyles:remoteStylesDropDown");
+        DropDownChoice<String> remotStyles = (DropDownChoice<String>)
+                tester.getComponentFromLastRenderedPage("form:panel:remotestyles:remoteStylesDropDown");
         @SuppressWarnings("unchecked")
-        DropDownChoice<String> remoteformats =
-                (DropDownChoice<String>)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:remoteformats:remoteFormatsDropDown");
+        DropDownChoice<String> remoteformats = (DropDownChoice<String>)
+                tester.getComponentFromLastRenderedPage("form:panel:remoteformats:remoteFormatsDropDown");
 
         assertFalse(remoteformats.getChoicesModel().getObject().isEmpty());
         assertFalse(remotStyles.getChoicesModel().getObject().isEmpty());
 
         @SuppressWarnings("unchecked")
-        Palette<String> remoteFormatsPalette =
-                (Palette<String>)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:remoteformats:remoteFormatsPalette");
+        Palette<String> remoteFormatsPalette = (Palette<String>)
+                tester.getComponentFromLastRenderedPage("form:panel:remoteformats:remoteFormatsPalette");
         @SuppressWarnings("unchecked")
         Palette<String> extraRemoteStyles =
-                (Palette<String>)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:remotestyles:extraRemoteStyles");
+                (Palette<String>) tester.getComponentFromLastRenderedPage("form:panel:remotestyles:extraRemoteStyles");
 
         // assert palettes have populated choices
         assertFalse(remoteFormatsPalette.getChoices().isEmpty());

@@ -9,34 +9,32 @@ import org.geoserver.platform.ExtensionPriority;
 import org.geoserver.security.AccessLevel;
 import org.geoserver.security.Response;
 import org.geoserver.security.WrapperPolicy;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureLocking;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.SimpleFeatureLocking;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureStore;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
-import org.geotools.data.DataAccess;
-import org.geotools.data.DataStore;
-import org.geotools.data.FeatureLocking;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
-import org.geotools.data.simple.SimpleFeatureLocking;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.ows.wms.WebMapServer;
 import org.geotools.ows.wmts.WebMapTileServer;
 
 /**
- * The default secured wrapper factory, used as a fallback when no other, more specific factory can
- * be used.
+ * The default secured wrapper factory, used as a fallback when no other, more specific factory can be used.
  *
- * <p><b>Implementation note</b>: this factory uses actual decorator objects to perform the secure
- * wrapping. <br>
- * Proxies and invocation handlers could be used instead, the catch is that they would be likely to
- * fail in an event of a refactoring or the wrapped interfaces. <br>
- * Given that it's security we're talking about, a type safe approach that gives a compile error
- * right away has been preferred.
+ * <p><b>Implementation note</b>: this factory uses actual decorator objects to perform the secure wrapping. <br>
+ * Proxies and invocation handlers could be used instead, the catch is that they would be likely to fail in an event of
+ * a refactoring or the wrapped interfaces. <br>
+ * Given that it's security we're talking about, a type safe approach that gives a compile error right away has been
+ * preferred.
  *
  * @author Andrea Aime - TOPP
  */
@@ -67,8 +65,7 @@ public class DefaultSecureDataFactory implements SecuredObjectFactory {
         // wrapping check
         Class<?> clazz = object.getClass();
         if (!canSecure(clazz))
-            throw new IllegalArgumentException(
-                    "Don't know how to wrap objects of class " + object.getClass());
+            throw new IllegalArgumentException("Don't know how to wrap objects of class " + object.getClass());
 
         // scan classes from the most specific to the most general (inheritance
         // wise). Start with data stores and data access, which do provide
@@ -100,13 +97,13 @@ public class DefaultSecureDataFactory implements SecuredObjectFactory {
                             || policy.level == AccessLevel.METADATA
                             || policy.level == AccessLevel.HIDDEN)
                     && policy.response != Response.CHALLENGE) {
-                return new SecuredFeatureSource((FeatureSource) object, policy);
+                return new SecuredFeatureSource<>((FeatureSource) object, policy);
             } else if (FeatureLocking.class.isAssignableFrom(clazz)) {
-                return new SecuredFeatureLocking((FeatureLocking) object, policy);
+                return new SecuredFeatureLocking<>((FeatureLocking) object, policy);
             } else if (FeatureStore.class.isAssignableFrom(clazz)) {
-                return new SecuredFeatureStore((FeatureStore) object, policy);
+                return new SecuredFeatureStore<>((FeatureStore) object, policy);
             } else if (FeatureSource.class.isAssignableFrom(clazz)) {
-                return new SecuredFeatureSource((FeatureSource) object, policy);
+                return new SecuredFeatureSource<>((FeatureSource) object, policy);
             }
         }
 
@@ -114,7 +111,7 @@ public class DefaultSecureDataFactory implements SecuredObjectFactory {
         if (SimpleFeatureCollection.class.isAssignableFrom(clazz)) {
             return new SecuredSimpleFeatureCollection((SimpleFeatureCollection) object, policy);
         } else if (FeatureCollection.class.isAssignableFrom(clazz)) {
-            return new SecuredFeatureCollection((FeatureCollection) object, policy);
+            return new SecuredFeatureCollection<>((FeatureCollection) object, policy);
         } else if (SimpleFeatureIterator.class.isAssignableFrom(clazz)) {
             return new SecuredSimpleFeatureIterator((SimpleFeatureIterator) object);
         } else if (FeatureIterator.class.isAssignableFrom(clazz)) {
@@ -123,8 +120,7 @@ public class DefaultSecureDataFactory implements SecuredObjectFactory {
 
         // try coverage readers and formats
         if (StructuredGridCoverage2DReader.class.isAssignableFrom(clazz)) {
-            return new SecuredStructuredGridCoverage2DReader(
-                    (StructuredGridCoverage2DReader) object, policy);
+            return new SecuredStructuredGridCoverage2DReader((StructuredGridCoverage2DReader) object, policy);
         } else if (GridCoverage2DReader.class.isAssignableFrom(clazz)) {
             return new SecuredGridCoverage2DReader((GridCoverage2DReader) object, policy);
         } else if (AbstractGridFormat.class.isAssignableFrom(clazz)) {
@@ -148,8 +144,7 @@ public class DefaultSecureDataFactory implements SecuredObjectFactory {
         }
 
         // all attempts have been made, we don't know how to handle this object
-        throw new IllegalArgumentException(
-                "Don't know how to wrap objects of class " + object.getClass());
+        throw new IllegalArgumentException("Don't know how to wrap objects of class " + object.getClass());
     }
 
     /** Returns {@link ExtensionPriority#LOWEST} since the wrappers generated by this factory */

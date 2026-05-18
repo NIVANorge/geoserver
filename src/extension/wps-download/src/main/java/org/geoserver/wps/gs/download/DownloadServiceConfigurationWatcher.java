@@ -32,28 +32,25 @@ import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geoserver.security.PropertyFileWatcher;
 import org.geoserver.util.IOUtils;
+import org.geoserver.util.SortedProperties;
 import org.geotools.util.Utilities;
 import org.geotools.util.logging.Logging;
 
 /**
- * Basic property file based {@link DownloadServiceConfigurationGenerator} implementation with
- * ability to reload config when the file changes. If property file is not present, a new one will
- * be created.
+ * Basic property file based {@link DownloadServiceConfigurationGenerator} implementation with ability to reload config
+ * when the file changes. If property file is not present, a new one will be created.
  *
  * @author Simone Giannecchini, GeoSolutions
  */
-public class DownloadServiceConfigurationWatcher extends TimerTask
-        implements DownloadServiceConfigurationGenerator {
+public class DownloadServiceConfigurationWatcher extends TimerTask implements DownloadServiceConfigurationGenerator {
 
     public static final String DOWNLOAD_PROCESS_DIR = "download-process";
 
     public static final String PROPERTYFILENAME = "download.properties";
 
-    public static final String DEFAULT_PROPERTY_PATH =
-            Paths.path(DOWNLOAD_PROCESS_DIR, PROPERTYFILENAME);
+    public static final String DEFAULT_PROPERTY_PATH = Paths.path(DOWNLOAD_PROCESS_DIR, PROPERTYFILENAME);
 
-    public static final Logger LOGGER =
-            Logging.getLogger(DownloadServiceConfigurationWatcher.class);
+    public static final Logger LOGGER = Logging.getLogger(DownloadServiceConfigurationWatcher.class);
 
     /** {@link PropertyFileWatcher} used for loading the property file. */
     private PropertyFileWatcher watcher;
@@ -64,10 +61,7 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
     /** delay in seconds before task is to be executed */
     private long delay = 60 * 2;
 
-    /**
-     * The new {@link DownloadServiceConfiguration} object containing the properties load from the
-     * properties file.
-     */
+    /** The new {@link DownloadServiceConfiguration} object containing the properties load from the properties file. */
     private DownloadServiceConfiguration configuration = new DownloadServiceConfiguration();
 
     /** {@link Timer} object used for periodically watching the properties file */
@@ -88,13 +82,10 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
                 LOGGER.log(Level.FINE, "Properties file not found");
             }
             if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.log(
-                        Level.FINE,
-                        "Copying the default properties file inside the data directory");
+                LOGGER.log(Level.FINE, "Copying the default properties file inside the data directory");
             }
             try (InputStream is =
-                    DownloadServiceConfigurationWatcher.class.getResourceAsStream(
-                            DEFAULT_PROPERTY_PATH)) {
+                    DownloadServiceConfigurationWatcher.class.getResourceAsStream(DEFAULT_PROPERTY_PATH)) {
 
                 // Copy the default property file into the data directory
 
@@ -160,11 +151,10 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
             } else {
                 configuration = new DownloadServiceConfiguration();
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(
-                            "Unable to read configuration file for download service: "
-                                    + file.path()
-                                    + " continuing with default configuration-->\n"
-                                    + configuration);
+                    LOGGER.info("Unable to read configuration file for download service: "
+                            + file.path()
+                            + " continuing with default configuration-->\n"
+                            + configuration);
                 }
             }
         } catch (Exception e) {
@@ -173,11 +163,10 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
             }
             configuration = new DownloadServiceConfiguration();
             if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.info(
-                        "Unable to read confguration file for download service: "
-                                + file.path()
-                                + " continuing with default configuration-->\n"
-                                + configuration);
+                LOGGER.info("Unable to read confguration file for download service: "
+                        + file.path()
+                        + " continuing with default configuration-->\n"
+                        + configuration);
             }
         }
         // return
@@ -185,48 +174,29 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
     }
 
     /**
-     * Parses the properties file for the download process configuration. When it runs into problems
-     * it uses default values
+     * Parses the properties file for the download process configuration. When it runs into problems it uses default
+     * values
      *
      * @param downloadProcessProperties the {@link Properties} file to parse. Cannot be null.
      * @return an instance of {@link DownloadServiceConfiguration}.
      */
-    private DownloadServiceConfiguration parseConfigurationValues(
-            Properties downloadProcessProperties) {
+    private DownloadServiceConfiguration parseConfigurationValues(Properties downloadProcessProperties) {
         Utilities.ensureNonNull("downloadProcessProperties", downloadProcessProperties);
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.log(Level.FINE, "Parsing the properties file");
         }
         // Initialize the configuration fields with default values
-        long maxFeatures =
-                getLongValue(downloadProcessProperties, MAX_FEATURES_NAME, DEFAULT_MAX_FEATURES);
+        long maxFeatures = getLongValue(downloadProcessProperties, MAX_FEATURES_NAME, DEFAULT_MAX_FEATURES);
         long rasterSizeLimits =
-                getLongValue(
-                        downloadProcessProperties,
-                        RASTER_SIZE_LIMITS_NAME,
-                        DEFAULT_RASTER_SIZE_LIMITS);
-        long writeLimits =
-                getLongValue(
-                        downloadProcessProperties, WRITE_LIMITS_NAME, DEFAULT_RASTER_SIZE_LIMITS);
-        long hardOutputLimit =
-                getLongValue(downloadProcessProperties, "hardOutputLimit", DEFAULT_WRITE_LIMITS);
-        int compressionLevel =
-                getIntValue(
-                        downloadProcessProperties, "compressionLevel", DEFAULT_COMPRESSION_LEVEL);
-        int maxFrames =
-                getIntValue(
-                        downloadProcessProperties,
-                        MAX_ANIMATION_FRAMES_NAME,
-                        DEFAULT_MAX_ANIMATION_FRAMES);
+                getLongValue(downloadProcessProperties, RASTER_SIZE_LIMITS_NAME, DEFAULT_RASTER_SIZE_LIMITS);
+        long writeLimits = getLongValue(downloadProcessProperties, WRITE_LIMITS_NAME, DEFAULT_RASTER_SIZE_LIMITS);
+        long hardOutputLimit = getLongValue(downloadProcessProperties, "hardOutputLimit", DEFAULT_WRITE_LIMITS);
+        int compressionLevel = getIntValue(downloadProcessProperties, "compressionLevel", DEFAULT_COMPRESSION_LEVEL);
+        int maxFrames = getIntValue(downloadProcessProperties, MAX_ANIMATION_FRAMES_NAME, DEFAULT_MAX_ANIMATION_FRAMES);
 
         // create the configuration object
         return new DownloadServiceConfiguration(
-                maxFeatures,
-                rasterSizeLimits,
-                writeLimits,
-                hardOutputLimit,
-                compressionLevel,
-                maxFrames);
+                maxFeatures, rasterSizeLimits, writeLimits, hardOutputLimit, compressionLevel, maxFrames);
     }
 
     private long getLongValue(Properties properties, String key, long defaultValue) {
@@ -315,7 +285,9 @@ public class DownloadServiceConfigurationWatcher extends TimerTask
         Properties props = configurationToProperties(configuration);
         Resource resource = watcher.getResource();
         try (OutputStream os = resource.out()) {
-            props.store(os, null);
+            SortedProperties sortedProps = new SortedProperties();
+            sortedProps.putAll(props);
+            sortedProps.store(os, null);
         }
         reloadConfiguration();
     }

@@ -5,10 +5,9 @@
  */
 package org.geoserver.ows;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLDecoder;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.config.GeoServerDataDirectory;
@@ -16,13 +15,14 @@ import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resource.Type;
 import org.geotools.util.URLs;
+import org.springframework.http.MediaType;
 import org.springframework.web.context.support.ServletContextResourceLoader;
 
 /**
  * Controller which publishes styles through a web interface.
  *
- * <p>To use this controller, it should be mapped to a particular url in the url mapping of the
- * spring dispatcher servlet.
+ * <p>To use this controller, it should be mapped to a particular url in the url mapping of the spring dispatcher
+ * servlet.
  *
  * @author Alex Goudine, Boundless
  */
@@ -39,12 +39,26 @@ public class StylePublisher extends AbstractURLPublisher {
     }
 
     @Override
-    protected URL getUrl(HttpServletRequest request) throws IOException {
-        String ctxPath = request.getContextPath();
-        String reqPath = request.getRequestURI();
-        reqPath = URLDecoder.decode(reqPath, "UTF-8");
-        reqPath = reqPath.substring(ctxPath.length());
+    protected String getMimeType(String reqPath, String filename) {
+        String mimeType = super.getMimeType(reqPath, filename);
+        String lowerCaseMime = mimeType.toLowerCase();
+        // force using the static web files directory for html/javascript files to mitigate stored
+        // XSS vulnerabilities
+        if (lowerCaseMime.contains("html") || lowerCaseMime.contains("javascript")) {
+            return MediaType.TEXT_PLAIN_VALUE;
+        }
+        return mimeType;
+    }
 
+    @Override
+    protected boolean isAttachment(String reqPath, String filename, String mime) {
+        // prevent stored XSS using malicious style resources with the
+        // text/xml, application/xml or image/svg+xml mime types
+        return mime.toLowerCase().contains("xml") || super.isAttachment(reqPath, filename, mime);
+    }
+
+    @Override
+    protected URL getUrl(HttpServletRequest request, String reqPath) throws IOException {
         if ((reqPath.length() > 1) && reqPath.startsWith("/")) {
             reqPath = reqPath.substring(1);
         }
@@ -75,7 +89,8 @@ public class StylePublisher extends AbstractURLPublisher {
 
             switch (resource.getType()) {
                 case RESOURCE:
-                    return URLs.fileToUrl(resource.file());
+                    // don't allow access to the style .xml files
+                    return resource.name().endsWith(".xml") ? null : URLs.fileToUrl(resource.file());
                 case DIRECTORY:
                 case UNDEFINED:
                 default:

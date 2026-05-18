@@ -16,8 +16,7 @@ import java.util.Map;
 import org.springframework.security.core.Authentication;
 
 /**
- * Implementation for testing. All {@link Authentication} objects are stored serialized to be
- * prepared for clustering.
+ * Implementation for testing. All {@link Authentication} objects are stored serialized to be prepared for clustering.
  *
  * @author mcr
  */
@@ -117,5 +116,10 @@ public class TestingAuthenticationCache implements AuthenticationCache {
         } catch (IOException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    @Override
+    public void onReset() {
+        removeAll();
     }
 }

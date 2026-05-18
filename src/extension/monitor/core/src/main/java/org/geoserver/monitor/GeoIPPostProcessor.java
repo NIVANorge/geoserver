@@ -7,13 +7,13 @@ package org.geoserver.monitor;
 
 import com.maxmind.geoip.Location;
 import com.maxmind.geoip.LookupService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geotools.util.logging.Logging;
 
@@ -43,7 +43,7 @@ public class GeoIPPostProcessor implements RequestPostProcessor {
         }
 
         if (geoIPLookup == null) {
-            synchronized (this) {
+            synchronized (GeoIPPostProcessor.class) {
                 if (geoIPLookup == null) {
                     geoIPLookup = lookupGeoIPDatabase();
                 }
@@ -76,14 +76,11 @@ public class GeoIPPostProcessor implements RequestPostProcessor {
             if (!warned.get()) {
                 warned.set(true);
 
-                String path =
-                        new File(loader.getBaseDirectory(), "monitoring/GeoLiteCity.dat")
-                                .getAbsolutePath();
-                LOGGER.warning(
-                        "GeoIP database "
-                                + path
-                                + " is not available. "
-                                + "Please install the file to enable GeoIP lookups.");
+                String path = new File(loader.getBaseDirectory(), "monitoring/GeoLiteCity.dat").getAbsolutePath();
+                LOGGER.warning("GeoIP database "
+                        + path
+                        + " is not available. "
+                        + "Please install the file to enable GeoIP lookups.");
             }
             return null;
 

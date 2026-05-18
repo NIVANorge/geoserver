@@ -9,7 +9,7 @@
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>community</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
   <groupId>org.geoserver.community</groupId>
   <artifactId>gs-mbtiles</artifactId>
@@ -29,23 +29,31 @@
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
-      <artifactId>gs-wms</artifactId>
+      <artifactId>gs-wms-core</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geoserver.extension</groupId>
-      <artifactId>gs-geopkg-output</artifactId>
+      <artifactId>gs-geopkg-output-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver.extension</groupId>
+      <artifactId>gs-geopkg-output-wms</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.geoserver.extension</groupId>
+      <artifactId>gs-geopkg-output-wfs</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-mbtiles</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-render</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geoserver.extension</groupId>
@@ -68,7 +76,7 @@
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>
-      <artifactId>gs-wms</artifactId>
+      <artifactId>gs-wms-core</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
@@ -81,12 +89,21 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-sample-data</artifactId>
-      <version>${gt.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geowebcache</groupId>
       <artifactId>gwc-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.wicket</groupId>
+      <artifactId>wicket-tester</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.geoserver.web</groupId>
@@ -114,6 +131,18 @@
       <classifier>tests</classifier>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.geoserver</groupId>
+      <artifactId>gs-wms1_1</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- TODO WICKET8 - this fix isn't WICKET8 specific -->
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-iau-wkt</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -123,5 +152,4 @@
       </testResource>
     </testResources>
   </build>
-
 </project>

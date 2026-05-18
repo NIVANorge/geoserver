@@ -13,55 +13,52 @@ package org.geoserver.gsr;
 import java.util.Date;
 import java.util.NoSuchElementException;
 import java.util.logging.Logger;
-import net.sf.json.JSONException;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.geoserver.gsr.model.geometry.SpatialRelationship;
 import org.geoserver.gsr.translate.geometry.GeometryEncoder;
 import org.geoserver.gsr.translate.geometry.SpatialReferenceEncoder;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.api.referencing.operation.TransformException;
+import org.geotools.api.temporal.Instant;
+import org.geotools.api.temporal.Period;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.geotools.temporal.object.DefaultInstant;
 import org.geotools.temporal.object.DefaultPeriod;
 import org.geotools.temporal.object.DefaultPosition;
+import org.kordamp.json.JSONException;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.JSONSerializer;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.TransformException;
-import org.opengis.temporal.Instant;
-import org.opengis.temporal.Period;
 
 /** Utility methods needed throughout GSR */
 public class Utils {
 
-    protected static final FilterFactory2 FILTERS = CommonFactoryFinder.getFilterFactory2();
+    protected static final FilterFactory FILTERS = CommonFactoryFinder.getFilterFactory();
 
-    private static final Logger LOG =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.global");
+    private static final Logger LOG = org.geotools.util.logging.Logging.getLogger("org.geoserver.global");
 
     /**
      * Constructs a geometry {@link Filter} based on the provided parameters
      *
-     * @param geometryType The type of geometry specified by the geometry parameter. Values:
-     *     esriGeometryPoint | esriGeometryMultipoint | esriGeometryPolyline | esriGeometryPolygon |
-     *     esriGeometryEnvelope
+     * @param geometryType The type of geometry specified by the geometry parameter. Values: esriGeometryPoint |
+     *     esriGeometryMultipoint | esriGeometryPolyline | esriGeometryPolygon | esriGeometryEnvelope
      * @param geometryText A geometry representing a spatial filter to filter the features by
-     * @param requestCRS The spatial reference of the input geometry. If the inSR is not specified,
-     *     the geometry is assumed to be in the spatial reference of the map.
-     * @param spatialRel The spatial relationship to be applied on the input geometry while
-     *     performing the query. Values: esriSpatialRelIntersects | esriSpatialRelContains |
-     *     esriSpatialRelCrosses | esriSpatialRelEnvelopeIntersects | esriSpatialRelIndexIntersects
-     *     | esriSpatialRelOverlaps | esriSpatialRelTouches | esriSpatialRelWithin
-     * @param geometryProperty The name of the geometry property from the schema the filter is being
-     *     applied to
-     * @param relationPattern The spatial relate function that can be applied while performing the
-     *     query operation. An example for this spatial relate function is "FFFTTT***"
+     * @param requestCRS The spatial reference of the input geometry. If the inSR is not specified, the geometry is
+     *     assumed to be in the spatial reference of the map.
+     * @param spatialRel The spatial relationship to be applied on the input geometry while performing the query.
+     *     Values: esriSpatialRelIntersects | esriSpatialRelContains | esriSpatialRelCrosses |
+     *     esriSpatialRelEnvelopeIntersects | esriSpatialRelIndexIntersects | esriSpatialRelOverlaps |
+     *     esriSpatialRelTouches | esriSpatialRelWithin
+     * @param geometryProperty The name of the geometry property from the schema the filter is being applied to
+     * @param relationPattern The spatial relate function that can be applied while performing the query operation. An
+     *     example for this spatial relate function is "FFFTTT***"
      * @param nativeCRS The native CRS of the schema the filter is being applied to
      * @return
      */
@@ -80,8 +77,7 @@ public class Utils {
                 mathTx = CRS.findMathTransform(requestCRS, nativeCRS, true);
             } catch (FactoryException e) {
                 throw new IllegalArgumentException(
-                        "Unable to translate between input and native coordinate reference systems",
-                        e);
+                        "Unable to translate between input and native coordinate reference systems", e);
             }
         } else {
             mathTx = null;
@@ -97,8 +93,7 @@ public class Utils {
                         e = JTS.transform(e, mathTx);
                     } catch (TransformException e1) {
                         throw new IllegalArgumentException(
-                                "Error while converting envelope from input to native coordinate system",
-                                e1);
+                                "Error while converting envelope from input to native coordinate system", e1);
                     }
                 }
                 return spatialRel.createEnvelopeFilter(geometryProperty, e, relationPattern);
@@ -114,15 +109,14 @@ public class Utils {
                         p = (org.locationtech.jts.geom.Point) JTS.transform(p, mathTx);
                     } catch (TransformException e) {
                         throw new IllegalArgumentException(
-                                "Error while converting point from input to native coordinate system",
-                                e);
+                                "Error while converting point from input to native coordinate system", e);
                     }
                 }
                 return spatialRel.createGeometryFilter(geometryProperty, p, relationPattern);
             } // else fall through to the catch-all exception at the end
         } else {
             try {
-                net.sf.json.JSON json = JSONSerializer.toJSON(geometryText);
+                org.kordamp.json.JSON json = JSONSerializer.toJSON(geometryText);
                 org.locationtech.jts.geom.Geometry g = GeometryEncoder.jsonToJtsGeometry(json);
                 if (mathTx != null) {
                     g = JTS.transform(g, mathTx);
@@ -132,16 +126,14 @@ public class Utils {
                 // fall through here to the catch-all exception at the end
             } catch (TransformException e) {
                 throw new IllegalArgumentException(
-                        "Error while converting geometry from input to native coordinate system",
-                        e);
+                        "Error while converting geometry from input to native coordinate system", e);
             }
         }
-        throw new IllegalArgumentException(
-                "Can't determine geometry filter from GeometryType \""
-                        + geometryType
-                        + "\" and geometry \""
-                        + geometryText
-                        + "\"");
+        throw new IllegalArgumentException("Can't determine geometry filter from GeometryType \""
+                + geometryType
+                + "\" and geometry \""
+                + geometryText
+                + "\"");
     }
 
     private static Envelope parseShortEnvelope(String text) {
@@ -164,7 +156,7 @@ public class Utils {
     }
 
     private static Envelope parseJsonEnvelope(String text) {
-        net.sf.json.JSON json = JSONSerializer.toJSON(text);
+        org.kordamp.json.JSON json = JSONSerializer.toJSON(text);
         try {
             return GeometryEncoder.jsonToEnvelope(json);
         } catch (JSONException e) {
@@ -191,11 +183,11 @@ public class Utils {
     }
 
     private static org.locationtech.jts.geom.Point parseJsonPoint(String text) {
-        net.sf.json.JSON json = JSONSerializer.toJSON(text);
+        org.kordamp.json.JSON json = JSONSerializer.toJSON(text);
         try {
             org.locationtech.jts.geom.Geometry geometry = GeometryEncoder.jsonToJtsGeometry(json);
-            if (geometry instanceof org.locationtech.jts.geom.Point) {
-                return (org.locationtech.jts.geom.Point) geometry;
+            if (geometry instanceof org.locationtech.jts.geom.Point point) {
+                return point;
             } else {
                 return null;
             }
@@ -216,32 +208,28 @@ public class Utils {
             } catch (FactoryException e) {
                 // this means we successfully parsed the integer, but it is not
                 // a valid SRID. Raise it up the stack.
-                throw new NoSuchElementException(
-                        "Could not find spatial reference for ID " + srText);
+                throw new NoSuchElementException("Could not find spatial reference for ID " + srText);
             }
 
             try {
-                net.sf.json.JSON json = JSONSerializer.toJSON(srText);
+                org.kordamp.json.JSON json = JSONSerializer.toJSON(srText);
                 return SpatialReferenceEncoder.coordinateReferenceSystemFromJSON(json);
             } catch (JSONException e) {
-                throw new IllegalArgumentException(
-                        "Failed to parse JSON spatial reference: " + srText);
+                throw new IllegalArgumentException("Failed to parse JSON spatial reference: " + srText);
             }
         }
     }
 
     /**
-     * Read the input spatial reference. This may be specified as an attribute of the geometry (if
-     * the geometry is sent as JSON) or else in the 'inSR' query parameter. If both are provided,
-     * the JSON property wins.
+     * Read the input spatial reference. This may be specified as an attribute of the geometry (if the geometry is sent
+     * as JSON) or else in the 'inSR' query parameter. If both are provided, the JSON property wins.
      */
-    public static CoordinateReferenceSystem parseSpatialReference(
-            String srText, String geometryText) {
+    public static CoordinateReferenceSystem parseSpatialReference(String srText, String geometryText) {
         try {
             JSONObject jsonObject = JSONObject.fromObject(geometryText);
             Object sr = jsonObject.get("spatialReference");
-            if (sr instanceof JSONObject)
-                return SpatialReferenceEncoder.coordinateReferenceSystemFromJSON((JSONObject) sr);
+            if (sr instanceof JSONObject object)
+                return SpatialReferenceEncoder.coordinateReferenceSystemFromJSON(object);
             else return parseSpatialReference(srText);
         } catch (JSONException e) {
             return parseSpatialReference(srText);
@@ -264,8 +252,7 @@ public class Utils {
                 Date d1 = parseDate(parts[0]);
                 Date d2 = parseDate(parts[1]);
                 if (d1 == null && d2 == null) {
-                    throw new IllegalArgumentException(
-                            "TIME may not have NULL for both start and end times");
+                    throw new IllegalArgumentException("TIME may not have NULL for both start and end times");
                 } else if (d1 == null) {
                     return FILTERS.before(FILTERS.property(temporalProperty), FILTERS.literal(d2));
                 } else if (d2 == null) {
@@ -274,19 +261,16 @@ public class Utils {
                     Instant start = new DefaultInstant(new DefaultPosition(d1));
                     Instant end = new DefaultInstant(new DefaultPosition(d2));
                     Period p = new DefaultPeriod(start, end);
-                    return FILTERS.toverlaps(
-                            FILTERS.property(temporalProperty), FILTERS.literal(p));
+                    return FILTERS.toverlaps(FILTERS.property(temporalProperty), FILTERS.literal(p));
                 }
             } else if (parts.length == 1) {
                 Date d = parseDate(parts[0]);
                 if (d == null) {
-                    throw new IllegalArgumentException(
-                            "TIME may not have NULL for single-instant filter");
+                    throw new IllegalArgumentException("TIME may not have NULL for single-instant filter");
                 }
                 return FILTERS.tequals(FILTERS.property(temporalProperty), FILTERS.literal(d));
             } else {
-                throw new IllegalArgumentException(
-                        "TIME parameter must comply to POSINT/NULL (, POSINT/NULL)");
+                throw new IllegalArgumentException("TIME parameter must comply to POSINT/NULL (, POSINT/NULL)");
             }
         }
     }

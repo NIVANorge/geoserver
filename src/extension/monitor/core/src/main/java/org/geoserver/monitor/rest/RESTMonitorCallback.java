@@ -5,10 +5,10 @@
  */
 package org.geoserver.monitor.rest;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.monitor.Monitor;
 import org.geoserver.monitor.RequestData;
 import org.geoserver.monitor.RequestData.Category;
@@ -48,8 +48,7 @@ public class RESTMonitorCallback extends DispatcherCallbackAdapter {
     }
 
     @Override
-    public void dispatched(
-            HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public void dispatched(HttpServletRequest request, HttpServletResponse response, Object handler) {
         RequestData data = monitor.current();
         if (data == null) {
             // will happen in cases where the filter is not active

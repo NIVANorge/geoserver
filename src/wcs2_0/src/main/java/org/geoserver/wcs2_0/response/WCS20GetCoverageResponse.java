@@ -20,8 +20,8 @@ import org.geoserver.platform.Operation;
 import org.geoserver.wcs.responses.CoverageResponseDelegate;
 import org.geoserver.wcs.responses.CoverageResponseDelegateFinder;
 import org.geoserver.wcs2_0.exception.WCS20Exception;
+import org.geotools.api.coverage.grid.GridCoverage;
 import org.geotools.coverage.grid.GridCoverage2D;
-import org.opengis.coverage.grid.GridCoverage;
 
 /**
  * Returns a single coverage encoded in the specified output format (eventually the native one)
@@ -49,9 +49,7 @@ public class WCS20GetCoverageResponse extends Response {
             CoverageResponseDelegate delegate = responseFactory.encoderFor(format);
             if (delegate == null) {
                 throw new WCS20Exception(
-                        "Unsupported format " + format,
-                        OWSExceptionCode.InvalidParameterValue,
-                        "format");
+                        "Unsupported format " + format, OWSExceptionCode.InvalidParameterValue, "format");
             } else {
                 return format;
             }

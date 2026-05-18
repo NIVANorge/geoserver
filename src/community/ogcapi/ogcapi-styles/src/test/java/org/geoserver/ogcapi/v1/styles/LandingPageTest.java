@@ -7,8 +7,10 @@ package org.geoserver.ogcapi.v1.styles;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.jayway.jsonpath.DocumentContext;
+import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.platform.Service;
 import org.geotools.util.Version;
@@ -16,6 +18,7 @@ import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 
 public class LandingPageTest extends StylesTestSupport {
@@ -78,16 +81,14 @@ public class LandingPageTest extends StylesTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/styles/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/styles/v1?f=application/yaml");
         // System.out.println(yaml);
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -112,9 +113,7 @@ public class LandingPageTest extends StylesTestSupport {
         assertEquals(12, (int) json.read("links.length()", Integer.class));
         // check landing page links
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
                 "links[?(@.type != 'application/json' && @.href =~ /.*ogc\\/styles\\/v1\\/\\?.*/)].rel",
@@ -139,15 +138,25 @@ public class LandingPageTest extends StylesTestSupport {
                 Link.REL_CONFORMANCE_URI,
                 Link.REL_CONFORMANCE_URI);
         // check collection links
-        assertJSONList(
-                json,
-                "links[?(@.href =~ /.*ogc\\/styles\\/v1\\/styles.*/)].rel",
-                "styles",
-                "styles",
-                "styles");
+        assertJSONList(json, "links[?(@.href =~ /.*ogc\\/styles\\/v1\\/styles.*/)].rel", "styles", "styles", "styles");
         // check title
-        assertEquals("Styles server", json.read("title"));
+        assertEquals("Styles Service", json.read("title"));
         // check description
-        assertEquals("", json.read("description"));
+        assertTrue(((String) json.read("description")).contains("OGCAPI-Styles"));
+    }
+
+    @Test
+    public void testDisabledService() throws Exception {
+        GeoServer gs = getGeoServer();
+        StylesServiceInfo service = gs.getService(StylesServiceInfo.class);
+        service.setEnabled(false);
+        gs.save(service);
+        try {
+            MockHttpServletResponse httpServletResponse = getAsMockHttpServletResponse("ogc/styles/v1", 404);
+            assertEquals("Service Styles is disabled", httpServletResponse.getErrorMessage());
+        } finally {
+            service.setEnabled(true);
+            gs.save(service);
+        }
     }
 }

@@ -4,6 +4,7 @@
  */
 package org.geoserver.security.auth;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -21,6 +22,7 @@ import org.geoserver.security.web.auth.AuthenticationPage;
 import org.geoserver.security.web.auth.WebAuthProviderPanel;
 import org.geoserver.security.web.auth.WebAuthProviderPanelInfo;
 import org.geoserver.security.web.role.RoleServiceChoice;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -57,8 +59,7 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
     public void clearAuthProvider() throws Exception {
         GeoServerSecurityManager secMgr = getSecurityManager();
         if (secMgr.listAuthenticationProviders().contains(webAuthProviderName)) {
-            SecurityAuthProviderConfig config =
-                    secMgr.loadAuthenticationProviderConfig(webAuthProviderName);
+            SecurityAuthProviderConfig config = secMgr.loadAuthenticationProviderConfig(webAuthProviderName);
             secMgr.removeAuthenticationProvider(config);
         }
     }
@@ -83,13 +84,9 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
 
         navigateToNewWebAuthPanel(webAuthProviderName);
         // set url value
-        formTester.setValue(
-                "panel:content:connectionURL",
-                "http://localhost:5000/auth?user={user}&pass={password}");
+        formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth?user={user}&pass={password}");
 
-        formTester.setValue(
-                "panel:content:webAuthorizationContainer:roleRegex",
-                "^.*?roles\"\\s*.\\s*\"([^\"]+)\".*$");
+        formTester.setValue("panel:content:webAuthorizationContainer:roleRegex", "^.*?roles\"\\s*.\\s*\"([^\"]+)\".*$");
         formTester.setValue("panel:content:allowHTTPConnection", true);
 
         clickSave();
@@ -97,8 +94,7 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
         // assert configuration
 
         WebAuthenticationConfig savedConfig =
-                (WebAuthenticationConfig)
-                        getSecurityManager().loadAuthenticationProviderConfig(webAuthProviderName);
+                (WebAuthenticationConfig) getSecurityManager().loadAuthenticationProviderConfig(webAuthProviderName);
         assertNotNull(savedConfig);
         assertNotNull(savedConfig.getRoleRegex());
     }
@@ -113,27 +109,21 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
 
         String roleServiceName = getSecurityManager().getActiveRoleService().getName();
         // set url value
-        formTester.setValue(
-                "panel:content:connectionURL",
-                "http://localhost:5000/auth?user={user}&pass={password}");
+        formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth?user={user}&pass={password}");
         formTester.setValue("panel:content:allowHTTPConnection", true);
 
         // selecting a role service
-        RoleServiceChoice roleChoice =
-                (RoleServiceChoice)
-                        tester.getComponentFromLastRenderedPage(
-                                "form:panel:content:roleAuthorizationContainer:roleServiceName",
-                                false);
+        RoleServiceChoice roleChoice = (RoleServiceChoice) tester.getComponentFromLastRenderedPage(
+                "form:panel:content:roleAuthorizationContainer:roleServiceName", false);
         roleChoice.setModelObject(roleServiceName);
         clickSave();
         tester.assertNoErrorMessage();
 
         // assert configuration
         WebAuthenticationConfig savedConfig =
-                (WebAuthenticationConfig)
-                        getSecurityManager().loadAuthenticationProviderConfig(webAuthProviderName);
+                (WebAuthenticationConfig) getSecurityManager().loadAuthenticationProviderConfig(webAuthProviderName);
         assertNotNull(savedConfig);
-        assertNotNull(savedConfig.getRoleServiceName().equalsIgnoreCase(roleServiceName));
+        assertThat(savedConfig.getRoleServiceName(), Matchers.equalToIgnoringCase(roleServiceName));
     }
 
     @Test
@@ -144,10 +134,9 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
         formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth");
         formTester.setValue("panel:content:allowHTTPConnection", true);
         clickSave();
-        assertTrue(
-                findErrorMessage(
-                        "Web Authentication Service URL http://localhost:5000/auth does not have place holders {user} and {password}",
-                        FeedbackMessage.ERROR));
+        assertTrue(findErrorMessage(
+                "Web Authentication Service URL http://localhost:5000/auth does not have place holders {user} and {password}",
+                FeedbackMessage.ERROR));
 
         // test the place holders are not required when using headers
         navigateToNewWebAuthPanel(webAuthProviderName);
@@ -162,9 +151,7 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
     public void testInvalidRolesRegexValidation() throws Exception {
 
         navigateToNewWebAuthPanel(webAuthProviderName);
-        formTester.setValue(
-                "panel:content:connectionURL",
-                "http://localhost:5000/auth?user={user}&pass={password}");
+        formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth?user={user}&pass={password}");
 
         formTester.setValue("panel:content:webAuthorizationContainer:roleRegex", "[");
         formTester.setValue("panel:content:allowHTTPConnection", true);
@@ -180,9 +167,7 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
         // select role serice radio button
         formTester.select("panel:content:authorizationOption", 0);
         // set url value
-        formTester.setValue(
-                "panel:content:connectionURL",
-                "http://localhost:5000/auth?user={user}&pass={password}");
+        formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth?user={user}&pass={password}");
         formTester.setValue("panel:content:allowHTTPConnection", true);
 
         // no role service is selected and click save
@@ -198,10 +183,9 @@ public class WebAuthPanelTest extends AbstractSecurityNamedServicePanelTest {
         formTester.setValue("panel:content:connectionURL", "http://localhost:5000/auth");
         formTester.setValue("panel:content:useHeader", true);
         clickSave();
-        assertTrue(
-                findErrorMessage(
-                        "HTTP connections is not allowed. If you really want to allow it flag the Allow HTTP connection checkbox",
-                        FeedbackMessage.ERROR));
+        assertTrue(findErrorMessage(
+                "HTTP connections is not allowed. If you really want to allow it flag the Allow HTTP connection checkbox",
+                FeedbackMessage.ERROR));
     }
 
     private boolean findErrorMessage(String msg, int level) {

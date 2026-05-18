@@ -15,14 +15,14 @@ import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.schemalessfeatures.mongodb.data.MongoSchemalessDataStoreFactory;
 import org.geoserver.test.GeoServerSystemTestSupport;
-import org.geotools.data.DataAccess;
-import org.geotools.data.FeatureSource;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
 import org.geotools.feature.NameImpl;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.test.FixtureUtilities;
 import org.junit.Before;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
 
 public abstract class AbstractMongoDBOnlineTestSupport extends GeoServerSystemTestSupport {
 
@@ -114,13 +114,11 @@ public abstract class AbstractMongoDBOnlineTestSupport extends GeoServerSystemTe
             store.setName(storeName);
             store.setWorkspace(ws);
             store.setEnabled(true);
-            String connectionString =
-                    fixture.getProperty("mongo.connectionString") + "/" + databaseName;
+            String connectionString = fixture.getProperty("mongo.connectionString") + "/" + databaseName;
             NamespaceInfo namespace = catalog.getNamespaceByPrefix(ws.getName());
             store.getConnectionParameters()
                     .put(MongoSchemalessDataStoreFactory.CONNECTION_STRING.key, connectionString);
-            store.getConnectionParameters()
-                    .put(MongoSchemalessDataStoreFactory.NAMESPACE.key, namespace.getURI());
+            store.getConnectionParameters().put(MongoSchemalessDataStoreFactory.NAMESPACE.key, namespace.getURI());
             store.getConnectionParameters().put("dbtype", "MongoDB Schemaless");
             store.setType(new MongoSchemalessDataStoreFactory().getDisplayName());
             catalog.add(store);
@@ -128,8 +126,7 @@ public abstract class AbstractMongoDBOnlineTestSupport extends GeoServerSystemTe
         return catalog.getDataStoreByName(ws.getName(), storeName);
     }
 
-    protected void addMongoSchemalessLayer(WorkspaceInfo ws, DataStoreInfo store, String typeName)
-            throws IOException {
+    protected void addMongoSchemalessLayer(WorkspaceInfo ws, DataStoreInfo store, String typeName) throws IOException {
         Catalog catalog = getCatalog();
         CatalogBuilder builder = new CatalogBuilder(catalog);
         builder.setWorkspace(ws);
@@ -138,8 +135,7 @@ public abstract class AbstractMongoDBOnlineTestSupport extends GeoServerSystemTe
         Map<String, FeatureTypeInfo> featureTypesByNativeName = new HashMap<>();
         @SuppressWarnings("unchecked")
         FeatureSource fs =
-                ((DataAccess<FeatureType, Feature>) dataAccess)
-                        .getFeatureSource(new NameImpl(ws.getName(), typeName));
+                ((DataAccess<FeatureType, Feature>) dataAccess).getFeatureSource(new NameImpl(ws.getName(), typeName));
         FeatureTypeInfo ftinfo = featureTypesByNativeName.get(typeName);
         if (ftinfo == null) {
             ftinfo = builder.buildFeatureType(fs);

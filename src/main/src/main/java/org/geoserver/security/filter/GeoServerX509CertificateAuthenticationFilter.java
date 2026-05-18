@@ -6,9 +6,9 @@
 
 package org.geoserver.security.filter;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.security.cert.X509Certificate;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
 import org.springframework.security.web.authentication.preauth.x509.SubjectDnX509PrincipalExtractor;
 import org.springframework.security.web.authentication.preauth.x509.X509PrincipalExtractor;
@@ -18,8 +18,8 @@ import org.springframework.security.web.authentication.preauth.x509.X509Principa
  *
  * @author mcr
  */
-public class GeoServerX509CertificateAuthenticationFilter
-        extends GeoServerJ2eeBaseAuthenticationFilter {
+@SuppressWarnings("deprecation") // TODO: remove and provide a X500 provider instead?
+public class GeoServerX509CertificateAuthenticationFilter extends GeoServerJ2eeBaseAuthenticationFilter {
 
     private X509PrincipalExtractor principalExtractor;
 
@@ -35,14 +35,13 @@ public class GeoServerX509CertificateAuthenticationFilter
 
     @Override
     protected String getPreAuthenticatedPrincipalName(HttpServletRequest request) {
-        X509Certificate[] certs =
-                (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
+        X509Certificate[] certs = (X509Certificate[]) request.getAttribute("javax.servlet.request.X509Certificate");
         if (certs == null || certs.length == 0) return null;
 
         X509Certificate cert = certs[0];
         String principal = (String) principalExtractor.extractPrincipal(cert);
 
-        if (principal != null && principal.trim().length() == 0) principal = null;
+        if (principal != null && principal.trim().isEmpty()) principal = null;
 
         return principal;
     }

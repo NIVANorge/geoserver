@@ -6,14 +6,14 @@
 
 package org.geoserver.security.filter;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
 import org.geoserver.security.impl.GeoServerUser;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -38,16 +38,15 @@ public class GeoServerAnonymousAuthenticationFilter extends GeoServerSecurityFil
         super.initializeFromConfig(config);
     }
 
-    private AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails>
-            authenticationDetailsSource = new WebAuthenticationDetailsSource();
+    private AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails> authenticationDetailsSource =
+            new WebAuthenticationDetailsSource();
 
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
             throws IOException, ServletException {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            SecurityContextHolder.getContext()
-                    .setAuthentication(createAuthentication((HttpServletRequest) req));
+            SecurityContextHolder.getContext().setAuthentication(createAuthentication((HttpServletRequest) req));
         }
 
         chain.doFilter(req, res);
@@ -64,8 +63,7 @@ public class GeoServerAnonymousAuthenticationFilter extends GeoServerSecurityFil
     }
 
     public void setAuthenticationDetailsSource(
-            AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails>
-                    authenticationDetailsSource) {
+            AuthenticationDetailsSource<HttpServletRequest, WebAuthenticationDetails> authenticationDetailsSource) {
         Assert.notNull(authenticationDetailsSource, "AuthenticationDetailsSource required");
         this.authenticationDetailsSource = authenticationDetailsSource;
     }

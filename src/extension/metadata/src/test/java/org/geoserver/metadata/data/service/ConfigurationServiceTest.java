@@ -4,13 +4,16 @@
  */
 package org.geoserver.metadata.data.service;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import java.io.IOException;
 import java.util.List;
 import org.geoserver.metadata.AbstractMetadataTest;
 import org.geoserver.metadata.data.dto.AttributeConfiguration;
+import org.geoserver.metadata.data.dto.AttributeTypeConfiguration;
 import org.geoserver.metadata.data.dto.GeonetworkMappingConfiguration;
 import org.geoserver.metadata.data.dto.MetadataConfiguration;
-import org.junit.Assert;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -21,49 +24,61 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class ConfigurationServiceTest extends AbstractMetadataTest {
 
-    @Autowired private ConfigurationService yamlService;
+    @Autowired
+    private ConfigurationService yamlService;
 
     @Test
     public void testFileRegistry() throws IOException {
         MetadataConfiguration configuration = yamlService.getMetadataConfiguration();
-        Assert.assertNotNull(configuration);
-        Assert.assertEquals(15, configuration.getAttributes().size());
-        Assert.assertEquals(3, configuration.getGeonetworks().size());
-        Assert.assertEquals(5, configuration.getTypes().size());
+        assertNotNull(configuration);
+        assertEquals(16, configuration.getAttributes().size());
+        assertEquals(3, configuration.getGeonetworks().size());
+        assertEquals(5, configuration.getTypes().size());
 
         // test csv's were imported
-        Assert.assertEquals(3, configuration.findAttribute("source").getValues().size());
-        Assert.assertEquals(3, configuration.findAttribute("target").getValues().size());
+        assertEquals(3, configuration.findAttribute("source").getValues().size());
+        assertEquals(3, configuration.findAttribute("target").getValues().size());
 
-        Assert.assertEquals(
+        assertEquals(
                 "identifier-single",
-                findAttribute(configuration.getAttributes(), "identifier-single").getLabel());
-        Assert.assertEquals(
+                findAttribute(configuration.getAttributes(), "identifier-single")
+                        .getLabel());
+        assertEquals(
                 "identifier-single",
-                findAttribute(configuration.getAttributes(), "identifier-single").getLabel());
-        Assert.assertEquals(
+                findAttribute(configuration.getAttributes(), "identifier-single")
+                        .getLabel());
+        assertEquals(
                 "dropdown-field",
                 findAttribute(configuration.getAttributes(), "dropdown-field").getLabel());
-        Assert.assertEquals(
+        assertEquals(
                 "refsystem as list",
-                findAttribute(configuration.getAttributes(), "refsystem-as-list").getLabel());
+                findAttribute(configuration.getAttributes(), "refsystem-as-list")
+                        .getLabel());
 
         List<AttributeConfiguration> complexAttributes =
                 configuration.findType("referencesystem").getAttributes();
-        Assert.assertEquals("Code", findAttribute(complexAttributes, "code").getLabel());
+        assertEquals("Code", findAttribute(complexAttributes, "code").getLabel());
+    }
+
+    @Test
+    public void testFeatureCatalog() {
+        AttributeTypeConfiguration featureAtt =
+                yamlService.getMetadataConfiguration().findType("featureAttribute");
+        assertNotNull(featureAtt);
+        AttributeConfiguration attType = featureAtt.findAttribute("type");
+        assertNotNull(attType);
+        assertEquals(7, attType.getValues().size());
     }
 
     @Test
     public void testGeonetworkMappingRegistry() throws IOException {
-        GeonetworkMappingConfiguration configuration =
-                yamlService.getGeonetworkMappingConfiguration();
-        Assert.assertNotNull(configuration);
-        Assert.assertEquals(10, configuration.getGeonetworkmapping().size());
-        Assert.assertEquals(2, configuration.getObjectmapping().size());
+        GeonetworkMappingConfiguration configuration = yamlService.getGeonetworkMappingConfiguration();
+        assertNotNull(configuration);
+        assertEquals(10, configuration.getGeonetworkmapping().size());
+        assertEquals(2, configuration.getObjectmapping().size());
     }
 
-    private AttributeConfiguration findAttribute(
-            List<AttributeConfiguration> configurations, String key) {
+    private AttributeConfiguration findAttribute(List<AttributeConfiguration> configurations, String key) {
         for (AttributeConfiguration attribute : configurations) {
             if (attribute.getKey().equals(key)) {
                 return attribute;

@@ -4,15 +4,18 @@
  */
 package org.geoserver.rest.catalog;
 
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.ResourceInfo;
+import org.geoserver.catalog.StoreInfo;
+import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.platform.resource.Paths;
 import org.geoserver.platform.resource.Resource;
@@ -25,6 +28,7 @@ import org.geoserver.rest.util.MediaTypeExtensions;
 import org.geoserver.rest.util.RESTUtils;
 import org.geoserver.rest.wrapper.RestWrapper;
 import org.geotools.util.logging.Logging;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -62,12 +66,10 @@ import org.springframework.web.bind.annotation.RestController;
         path = {
             RestBaseController.ROOT_PATH + "/templates",
             RestBaseController.ROOT_PATH + "/workspaces/{workspaceName}/templates",
-            RestBaseController.ROOT_PATH
-                    + "/workspaces/{workspaceName}/datastores/{storeName}/templates",
+            RestBaseController.ROOT_PATH + "/workspaces/{workspaceName}/datastores/{storeName}/templates",
             RestBaseController.ROOT_PATH
                     + "/workspaces/{workspaceName}/datastores/{storeName}/featuretypes/{featureTypeName}/templates",
-            RestBaseController.ROOT_PATH
-                    + "/workspaces/{workspaceName}/coveragestores/{storeName}/templates",
+            RestBaseController.ROOT_PATH + "/workspaces/{workspaceName}/coveragestores/{storeName}/templates",
             RestBaseController.ROOT_PATH
                     + "/workspaces/{workspaceName}/coveragestores/{storeName}/coverages/{featureTypeName}/templates"
         })
@@ -91,6 +93,7 @@ public class TemplateController extends AbstractCatalogController {
             @PathVariable(required = false) String featureTypeName,
             @PathVariable String templateName) {
 
+        validate(workspaceName, storeName, featureTypeName);
         String filename = templateName + "." + MediaTypeExtensions.FTL_EXTENSION;
         String path = Paths.path(path(workspaceName, storeName, featureTypeName), filename);
         Resource resource = resources.get(path);
@@ -100,8 +103,7 @@ public class TemplateController extends AbstractCatalogController {
         }
         boolean removed = resource.delete();
         if (!removed) {
-            throw new RestException(
-                    "Template '" + path + "' not removed", HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new RestException("Template '" + path + "' not removed", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -116,6 +118,7 @@ public class TemplateController extends AbstractCatalogController {
             @PathVariable String templateName,
             HttpServletResponse response) {
 
+        validate(workspaceName, storeName, featureTypeName);
         String filename = templateName + "." + MediaTypeExtensions.FTL_EXTENSION;
         String path = Paths.path(path(workspaceName, storeName, featureTypeName), filename);
         Resource resource = resources.get(path);
@@ -135,8 +138,7 @@ public class TemplateController extends AbstractCatalogController {
                 output.flush();
             }
         } catch (IOException problem) {
-            throw new RestException(
-                    problem.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, problem);
+            throw new RestException(problem.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, problem);
         }
     }
 
@@ -152,6 +154,7 @@ public class TemplateController extends AbstractCatalogController {
             @PathVariable String templateName,
             HttpServletRequest request) {
 
+        validate(workspaceName, storeName, featureTypeName);
         String filename = templateName + "." + MediaTypeExtensions.FTL_EXTENSION;
         String path = path(workspaceName, storeName, featureTypeName);
         Resource directory = resources.get(path);
@@ -184,6 +187,7 @@ public class TemplateController extends AbstractCatalogController {
             @PathVariable(required = false) String storeName,
             @PathVariable(required = false) String featureTypeName) {
 
+        validate(workspaceName, storeName, featureTypeName);
         String path = path(workspaceName, storeName, featureTypeName);
         Resource directory = resources.get(path);
         switch (directory.getType()) {
@@ -191,8 +195,7 @@ public class TemplateController extends AbstractCatalogController {
             case UNDEFINED:
                 throw new ResourceNotFoundException("Directory not found: '" + path + "'");
             default:
-                List<Resource> files =
-                        Resources.list(directory, new Resources.ExtensionFilter("FTL"), false);
+                List<Resource> files = Resources.list(directory, new Resources.ExtensionFilter("FTL"), false);
                 List<TemplateInfo> list = new ArrayList<>();
                 for (Resource file : files) {
                     list.add(new TemplateInfo(file));
@@ -203,17 +206,12 @@ public class TemplateController extends AbstractCatalogController {
     /** Verifies mime type */
     private Resource fileUpload(Resource directory, String filename, HttpServletRequest request) {
         if (LOGGER.isLoggable(Level.INFO)) {
-            LOGGER.info(
-                    "PUT file: mimetype="
-                            + request.getContentType()
-                            + ", path="
-                            + directory.path());
+            LOGGER.info("PUT file: mimetype=" + request.getContentType() + ", path=" + directory.path());
         }
         try {
             return RESTUtils.handleBinUpload(filename, directory, false, request);
         } catch (IOException problem) {
-            throw new RestException(
-                    problem.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, problem);
+            throw new RestException(problem.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, problem);
         }
     }
 
@@ -239,5 +237,53 @@ public class TemplateController extends AbstractCatalogController {
             }
         }
         return Paths.path(path.toArray(new String[] {}));
+    }
+
+    private void validate(
+            @Nullable String workspaceName, @Nullable String storeName, @Nullable String resourceTypeName) {
+        WorkspaceInfo workspace = validateWorkspace(workspaceName);
+        if (workspace != null) {
+            StoreInfo store = validateStore(workspace, storeName);
+            if (store != null) {
+                validateResource(store, resourceTypeName);
+            }
+        }
+    }
+
+    private WorkspaceInfo validateWorkspace(@Nullable String workspaceName) {
+        if (workspaceName == null) {
+            return null;
+        }
+        WorkspaceInfo workspace = catalog.getWorkspaceByName(workspaceName);
+        if (workspace == null) {
+            throw new RestException("Workspace " + workspaceName + " does not exist", HttpStatus.NOT_FOUND);
+        }
+        return workspace;
+    }
+
+    private StoreInfo validateStore(WorkspaceInfo workspace, @Nullable String storeName) {
+        if (storeName == null) {
+            return null;
+        }
+        StoreInfo store = catalog.getStoreByName(workspace, storeName, StoreInfo.class);
+        if (store == null) {
+            throw new RestException(
+                    "Store %s:%s does not exist".formatted(workspace.getName(), storeName), HttpStatus.NOT_FOUND);
+        }
+        return store;
+    }
+
+    private void validateResource(StoreInfo store, @Nullable String resourceName) {
+        if (resourceName == null) {
+            return;
+        }
+
+        ResourceInfo resource = catalog.getResourceByStore(store, resourceName, ResourceInfo.class);
+        if (resource == null) {
+            throw new RestException(
+                    "Resouce %s:%s does not exist"
+                            .formatted(store.getWorkspace().getName(), resourceName),
+                    HttpStatus.NOT_FOUND);
+        }
     }
 }

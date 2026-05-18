@@ -6,7 +6,6 @@ package org.geoserver.opensearch.eo.response;
 
 import static org.geoserver.opensearch.eo.store.OpenSearchAccess.EO_NAMESPACE;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import freemarker.ext.beans.BeanModel;
 import freemarker.ext.beans.SimpleMapModel;
 import freemarker.template.Template;
@@ -44,8 +43,18 @@ import org.geoserver.ows.URLMangler;
 import org.geoserver.ows.util.ResponseUtils;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.OWS20Exception;
-import org.geotools.data.Parameter;
-import org.geotools.data.Query;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.GeometryAttribute;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.geometry.MismatchedDimensionException;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.NameImpl;
@@ -57,20 +66,11 @@ import org.geotools.util.Converters;
 import org.geotools.util.logging.Logging;
 import org.geotools.xsd.Encoder;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.Feature;
-import org.opengis.feature.GeometryAttribute;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * Loads, caches and processes Freemarker templates against a stream of features. It's meant to be
- * used for a single request, as it caches the template and won't react to on disk template changes.
+ * Loads, caches and processes Freemarker templates against a stream of features. It's meant to be used for a single
+ * request, as it caches the template and won't react to on disk template changes.
  */
 public class TemplatesProcessor {
 
@@ -99,8 +99,7 @@ public class TemplatesProcessor {
      * @param templateName The template name (with no extension)
      * @param feature The feature to be applied
      */
-    public String processTemplate(String collection, String templateName, Feature feature)
-            throws IOException {
+    public String processTemplate(String collection, String templateName, Feature feature) throws IOException {
         Template template = getTemplate(collection, templateName);
         StringWriter sw = new StringWriter();
         HashMap<String, Object> model = setupModel(feature);
@@ -112,13 +111,12 @@ public class TemplatesProcessor {
         return sw.toString();
     }
 
-    public String processTemplate(SearchResults searchResults)
-            throws IOException, TemplateException {
+    public String processTemplate(SearchResults searchResults) throws IOException, TemplateException {
         HashMap<String, Object> model = setupGenericHeaderModel(searchResults);
         StringWriter sw = new StringWriter();
         Template header = getTemplate("", "generic" + "-header");
         header.process(model, sw);
-        FeatureCollection results = searchResults.getResults();
+        FeatureCollection<FeatureType, Feature> results = searchResults.getResults();
 
         try (FeatureIterator<Feature> featureIterator = results.features()) {
             while (featureIterator.hasNext()) {
@@ -136,12 +134,7 @@ public class TemplatesProcessor {
                 }
 
                 if (templateName.equals("product")) {
-                    collectionName =
-                            (String)
-                                    value(
-                                            feature,
-                                            ProductClass.GENERIC.getNamespace(),
-                                            "parentIdentifier");
+                    collectionName = (String) value(feature, ProductClass.GENERIC.getNamespace(), "parentIdentifier");
                 } else if (templateName.equals("collection")) {
                     collectionName = (String) value(feature, EO_NAMESPACE, "identifier");
                 }
@@ -162,7 +155,8 @@ public class TemplatesProcessor {
         HashMap<String, Object> model = new HashMap<>();
         model.put("model", feature);
         if (Dispatcher.REQUEST.get() != null) {
-            final String baseURL = ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
+            final String baseURL =
+                    ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
             model.put("baseURL", baseURL);
             addUtilityFunctions(baseURL, model);
         }
@@ -176,7 +170,8 @@ public class TemplatesProcessor {
         model.put("searchResults", searchResults);
 
         if (Dispatcher.REQUEST.get() != null) {
-            final String baseURL = ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
+            final String baseURL =
+                    ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
             model.put("baseURL", baseURL);
             addUtilityFunctions(baseURL, model);
         }
@@ -208,7 +203,8 @@ public class TemplatesProcessor {
 
         model.put("model", feature);
         if (Dispatcher.REQUEST.get() != null) {
-            final String baseURL = ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
+            final String baseURL =
+                    ResponseUtils.baseURL(Dispatcher.REQUEST.get().getHttpRequest());
             model.put("baseURL", baseURL);
             addUtilityFunctions(baseURL, model);
         }
@@ -216,8 +212,7 @@ public class TemplatesProcessor {
         return model;
     }
 
-    private void prepareGenericHeaderModel(
-            SearchResults searchResults, HashMap<String, Object> model) {
+    private void prepareGenericHeaderModel(SearchResults searchResults, HashMap<String, Object> model) {
         model.put("Query", getQueryAttributes(searchResults.getRequest()));
         String organization = gs.getSettings().getContact().getContactOrganization();
         if (organization != null) {
@@ -228,8 +223,7 @@ public class TemplatesProcessor {
             model.put("title", title);
         }
         model.put("updated", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-        model.put(
-                "builder", new PaginationLinkBuilder(searchResults, info, AtomSearchResponse.MIME));
+        model.put("builder", new PaginationLinkBuilder(searchResults, info, AtomSearchResponse.MIME));
     }
 
     private void putDatesToContentModel(Feature feature, HashMap<String, Object> model) {
@@ -242,7 +236,7 @@ public class TemplatesProcessor {
 
             // dc:date, can be a range
             String spec;
-            if (start != null && end != null && start.equals(end)) {
+            if (start != null && start.equals(end)) {
                 spec = DateTimeFormatter.ISO_INSTANT.format(start.toInstant());
             } else {
                 spec = start != null ? DateTimeFormatter.ISO_INSTANT.format(start.toInstant()) : "";
@@ -254,79 +248,54 @@ public class TemplatesProcessor {
     }
 
     /**
-     * Adds the <code>oseoLink</code> and <code>oseoLink</code> functions to the model, for usage in
-     * the template, and the bbox extraction ones.
+     * Adds the <code>oseoLink</code> and <code>oseoLink</code> functions to the model, for usage in the template, and
+     * the bbox extraction ones.
      */
     protected void addUtilityFunctions(String baseURL, Map<String, Object> model) {
-        model.put(
-                "oseoLink",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            Map<String, String> kvp = new LinkedHashMap<>();
-                            if (arguments.size() > 1 && (arguments.size() % 2) != 1) {
-                                throw new IllegalArgumentException(
-                                        "Expected a path argument, followed by an optional list of keys and values. Found a key that is not matched to a value: "
-                                                + arguments);
-                            }
-                            int i = 1;
-                            while (i < arguments.size()) {
-                                kvp.put(toString(arguments.get(i++)), toString(arguments.get(i++)));
-                            }
-                            return ResponseUtils.buildURL(
-                                    baseURL,
-                                    ResponseUtils.appendPath("oseo", toString(arguments.get(0))),
-                                    kvp,
-                                    URLMangler.URLType.SERVICE);
-                        });
-        model.put(
-                "resourceLink",
-                (TemplateMethodModelEx)
-                        arguments ->
-                                ResponseUtils.buildURL(
-                                        baseURL,
-                                        toString(arguments.get(0)),
-                                        null,
-                                        URLMangler.URLType.RESOURCE));
+        model.put("oseoLink", (TemplateMethodModelEx) arguments -> {
+            Map<String, String> kvp = new LinkedHashMap<>();
+            if (arguments.size() > 1 && (arguments.size() % 2) != 1) {
+                throw new IllegalArgumentException(
+                        "Expected a path argument, followed by an optional list of keys and values. Found a key that is not matched to a value: "
+                                + arguments);
+            }
+            int i = 1;
+            while (i < arguments.size()) {
+                kvp.put(toString(arguments.get(i++)), toString(arguments.get(i++)));
+            }
+            return ResponseUtils.buildURL(
+                    baseURL,
+                    ResponseUtils.appendPath("oseo", toString(arguments.get(0))),
+                    kvp,
+                    URLMangler.URLType.SERVICE);
+        });
+        model.put("resourceLink", (TemplateMethodModelEx) arguments ->
+                ResponseUtils.buildURL(baseURL, toString(arguments.get(0)), null, URLMangler.URLType.RESOURCE));
         // bbox extraction functions
-        model.put(
-                "minx",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            Geometry g = toGeometry(arguments.get(0));
-                            return g.getEnvelopeInternal().getMinX();
-                        });
-        model.put(
-                "miny",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            Geometry g = toGeometry(arguments.get(0));
-                            return g.getEnvelopeInternal().getMinY();
-                        });
-        model.put(
-                "maxx",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            Geometry g = toGeometry(arguments.get(0));
-                            return g.getEnvelopeInternal().getMaxX();
-                        });
-        model.put(
-                "maxy",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            Geometry g = toGeometry(arguments.get(0));
-                            return g.getEnvelopeInternal().getMaxY();
-                        });
-        model.put(
-                "gml",
-                (TemplateMethodModelEx)
-                        arguments -> {
-                            try {
-                                Geometry g = toGeometry(arguments.get(0));
-                                return encodeToGML(g);
-                            } catch (IOException e) {
-                                throw new RuntimeException("Failed to encode geometry", e);
-                            }
-                        });
+        model.put("minx", (TemplateMethodModelEx) arguments -> {
+            Geometry g = toGeometry(arguments.get(0));
+            return g.getEnvelopeInternal().getMinX();
+        });
+        model.put("miny", (TemplateMethodModelEx) arguments -> {
+            Geometry g = toGeometry(arguments.get(0));
+            return g.getEnvelopeInternal().getMinY();
+        });
+        model.put("maxx", (TemplateMethodModelEx) arguments -> {
+            Geometry g = toGeometry(arguments.get(0));
+            return g.getEnvelopeInternal().getMaxX();
+        });
+        model.put("maxy", (TemplateMethodModelEx) arguments -> {
+            Geometry g = toGeometry(arguments.get(0));
+            return g.getEnvelopeInternal().getMaxY();
+        });
+        model.put("gml", (TemplateMethodModelEx) arguments -> {
+            try {
+                Geometry g = toGeometry(arguments.get(0));
+                return encodeToGML(g);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to encode geometry", e);
+            }
+        });
         model.put("loadJSON", parseJSON());
     }
 
@@ -336,14 +305,12 @@ public class TemplatesProcessor {
 
     private String loadJSON(String filePath) {
         try {
-            GeoServerDataDirectory geoServerDataDirectory =
-                    GeoServerExtensions.bean(GeoServerDataDirectory.class);
+            GeoServerDataDirectory geoServerDataDirectory = GeoServerExtensions.bean(GeoServerDataDirectory.class);
 
             File file = geoServerDataDirectory.findFile(filePath);
             if (file == null) {
                 LOGGER.warning("File is outside of data directory");
-                throw new RuntimeException(
-                        "File " + filePath + " is outside of the data directory");
+                throw new RuntimeException("File " + filePath + " is outside of the data directory");
             }
 
             ObjectMapper mapper = new ObjectMapper();
@@ -369,22 +336,22 @@ public class TemplatesProcessor {
     }
 
     private String toString(Object argument) throws TemplateModelException {
-        if (argument instanceof TemplateScalarModel) {
-            return ((TemplateScalarModel) argument).getAsString();
+        if (argument instanceof TemplateScalarModel model) {
+            return model.getAsString();
         }
         // in case it's an attribute, unwrap the raw value and convert
-        if (argument instanceof SimpleMapModel) {
-            argument = ((SimpleMapModel) argument).get("rawValue");
+        if (argument instanceof SimpleMapModel model) {
+            argument = model.get("rawValue");
         }
         return Converters.convert(argument, String.class);
     }
 
     private Geometry toGeometry(Object argument) throws TemplateModelException {
         // in case it's an attribute, unwrap the raw value and convert
-        if (argument instanceof SimpleMapModel) {
-            argument = ((SimpleMapModel) argument).get("rawValue");
-        } else if (argument instanceof BeanModel) {
-            argument = ((BeanModel) argument).getWrappedObject();
+        if (argument instanceof SimpleMapModel model1) {
+            argument = model1.get("rawValue");
+        } else if (argument instanceof BeanModel model) {
+            argument = model.getWrappedObject();
         }
         return Converters.convert(argument, Geometry.class);
     }
@@ -405,24 +372,16 @@ public class TemplatesProcessor {
             return null;
         } else {
             Object value = property.getValue();
-            if (value instanceof Geometry) {
+            if (value instanceof Geometry g) {
                 // cheap re-projection support since there is no re-projecting collection
                 // wrapper for complex features
                 CoordinateReferenceSystem nativeCRS =
-                        ((GeometryDescriptor) property.getDescriptor())
-                                .getCoordinateReferenceSystem();
-                if (nativeCRS != null
-                        && !CRS.equalsIgnoreMetadata(nativeCRS, OpenSearchParameters.OUTPUT_CRS)) {
-                    Geometry g = (Geometry) value;
+                        ((GeometryDescriptor) property.getDescriptor()).getCoordinateReferenceSystem();
+                if (nativeCRS != null && !CRS.equalsIgnoreMetadata(nativeCRS, OpenSearchParameters.OUTPUT_CRS)) {
                     try {
-                        return JTS.transform(
-                                g,
-                                CRS.findMathTransform(nativeCRS, OpenSearchParameters.OUTPUT_CRS));
-                    } catch (MismatchedDimensionException
-                            | TransformException
-                            | FactoryException e) {
-                        throw new OWS20Exception(
-                                "Failed to reproject geometry to EPSG:4326 lat/lon", e);
+                        return JTS.transform(g, CRS.findMathTransform(nativeCRS, OpenSearchParameters.OUTPUT_CRS));
+                    } catch (MismatchedDimensionException | TransformException | FactoryException e) {
+                        throw new OWS20Exception("Failed to reproject geometry to EPSG:4326 lat/lon", e);
                     }
                 }
             }
@@ -456,19 +415,14 @@ public class TemplatesProcessor {
         return parameters;
     }
 
-    private void encodeOgcLinksFromFeature(
-            Feature feature, SearchRequest request, HashMap<String, Object> model) {
+    private void encodeOgcLinksFromFeature(Feature feature, SearchRequest request, HashMap<String, Object> model) {
         // build ogc links if available
-        Collection<Property> linkProperties =
-                feature.getProperties(OpenSearchAccess.OGC_LINKS_PROPERTY_NAME);
+        Collection<Property> linkProperties = feature.getProperties(OpenSearchAccess.OGC_LINKS_PROPERTY_NAME);
         if (linkProperties != null) {
-            Map<String, List<SimpleFeature>> linksByOffering =
-                    linkProperties.stream()
-                            .map(p -> (SimpleFeature) p)
-                            .sorted(LinkFeatureComparator.INSTANCE)
-                            .collect(
-                                    Collectors.groupingBy(
-                                            f -> (String) f.getAttribute("offering")));
+            Map<String, List<SimpleFeature>> linksByOffering = linkProperties.stream()
+                    .map(p -> (SimpleFeature) p)
+                    .sorted(LinkFeatureComparator.INSTANCE)
+                    .collect(Collectors.groupingBy(f -> (String) f.getAttribute("offering")));
             String hrefBase = getHRefBase(request);
             encodeOgcLinks(linksByOffering, hrefBase, model);
         }
@@ -484,20 +438,17 @@ public class TemplatesProcessor {
     }
 
     private void encodeOgcLinks(
-            Map<String, List<SimpleFeature>> linksByOffering,
-            String hrefBase,
-            HashMap<String, Object> model) {
+            Map<String, List<SimpleFeature>> linksByOffering, String hrefBase, HashMap<String, Object> model) {
         ArrayList<Offering> offerings = new ArrayList<>();
 
-        linksByOffering.forEach(
-                (offering, links) -> {
-                    ArrayList<OfferingDetail> offeringDetailList = new ArrayList<>();
+        linksByOffering.forEach((offering, links) -> {
+            ArrayList<OfferingDetail> offeringDetailList = new ArrayList<>();
 
-                    for (SimpleFeature link : links) {
-                        offeringDetailList.add(encodeOgcLink(link, hrefBase));
-                    }
-                    offerings.add(new Offering(offering, offeringDetailList));
-                });
+            for (SimpleFeature link : links) {
+                offeringDetailList.add(encodeOgcLink(link, hrefBase));
+            }
+            offerings.add(new Offering(offering, offeringDetailList));
+        });
         model.put("offerings", offerings);
     }
 
@@ -506,9 +457,7 @@ public class TemplatesProcessor {
         String code = (String) link.getAttribute("code");
         String type = (String) link.getAttribute("type");
         String href = (String) link.getAttribute("href");
-        String hrefExpanded =
-                QuickTemplate.replaceVariables(
-                        href, Collections.singletonMap(BASE_URL_KEY, hrefBase));
+        String hrefExpanded = QuickTemplate.replaceVariables(href, Collections.singletonMap(BASE_URL_KEY, hrefBase));
         return new OfferingDetail(method, code, type, hrefExpanded);
     }
 

@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.geoserver.util.SortedProperties;
 import org.geotools.util.logging.Logging;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.Resource;
@@ -33,8 +34,7 @@ import org.springframework.core.io.Resource;
  *  &lt;/bean>
  * </pre>
  *
- * The location <tt>myDirectory/myFile.properties</tt> will be resolved relative to the data
- * directory.
+ * The location <tt>myDirectory/myFile.properties</tt> will be resolved relative to the data directory.
  *
  * <p>In the same spring context the configurer is used as follows:
  *
@@ -45,10 +45,9 @@ import org.springframework.core.io.Resource;
  *  &lt;/bean>
  * </pre>
  *
- * If the file <tt>myDirectory/myFile.properties</tt> exists then the property values will be loaded
- * from it, otherwise the defaults declared on the property configurer will be used. By default when
- * the resource is not found it will be copied out into the data directory. However {@link
- * #setCopyOutTemplate(boolean)} can be used to control this.
+ * If the file <tt>myDirectory/myFile.properties</tt> exists then the property values will be loaded from it, otherwise
+ * the defaults declared on the property configurer will be used. By default when the resource is not found it will be
+ * copied out into the data directory. However {@link #setCopyOutTemplate(boolean)} can be used to control this.
  *
  * @author Justin Deoliveira, OpenGeo
  */
@@ -82,8 +81,8 @@ public class GeoServerPropertyConfigurer extends PropertySourcesPlaceholderConfi
     public void setLocation(Resource location) {
         try {
             location = SpringResourceAdaptor.relative(location, data.getResourceStore());
-            if (location instanceof SpringResourceAdaptor) {
-                configFile = ((SpringResourceAdaptor) location).getResource();
+            if (location instanceof SpringResourceAdaptor adaptor) {
+                configFile = adaptor.getResource();
             }
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Error reading resource " + location, e);
@@ -105,17 +104,16 @@ public class GeoServerPropertyConfigurer extends PropertySourcesPlaceholderConfi
             // location was not found, create
             if (configFile != null && copyOutTemplate) {
                 try (OutputStream fout = configFile.out()) {
-                    props.store(fout, comments);
+                    SortedProperties sortedProps = new SortedProperties();
+                    sortedProps.putAll(props);
+                    sortedProps.store(fout, comments);
                     fout.flush();
                 }
             }
         }
     }
 
-    /**
-     * Force reloading the properties which may have been updated in the meanwhile; after a restore
-     * as an instance.
-     */
+    /** Force reloading the properties which may have been updated in the meanwhile; after a restore as an instance. */
     public void reload() throws IOException {
         if (localProperties != null) {
             for (Properties props : localProperties) {

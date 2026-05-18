@@ -26,66 +26,62 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.style.AnchorPoint;
+import org.geotools.api.style.ChannelSelection;
+import org.geotools.api.style.ColorMap;
+import org.geotools.api.style.ColorMapEntry;
+import org.geotools.api.style.ContrastEnhancement;
+import org.geotools.api.style.Displacement;
+import org.geotools.api.style.ExternalGraphic;
+import org.geotools.api.style.FeatureTypeConstraint;
+import org.geotools.api.style.FeatureTypeStyle;
+import org.geotools.api.style.Fill;
+import org.geotools.api.style.Font;
+import org.geotools.api.style.Graphic;
+import org.geotools.api.style.GraphicalSymbol;
+import org.geotools.api.style.Halo;
+import org.geotools.api.style.ImageOutline;
+import org.geotools.api.style.LinePlacement;
+import org.geotools.api.style.LineSymbolizer;
+import org.geotools.api.style.Mark;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.OverlapBehavior;
+import org.geotools.api.style.PointPlacement;
+import org.geotools.api.style.PointSymbolizer;
+import org.geotools.api.style.PolygonSymbolizer;
+import org.geotools.api.style.RasterSymbolizer;
+import org.geotools.api.style.Rule;
+import org.geotools.api.style.SelectedChannelType;
+import org.geotools.api.style.ShadedRelief;
+import org.geotools.api.style.Stroke;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyleVisitor;
+import org.geotools.api.style.StyledLayer;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.Symbol;
+import org.geotools.api.style.Symbolizer;
+import org.geotools.api.style.TextSymbolizer;
+import org.geotools.api.style.UserLayer;
 import org.geotools.filter.FilterAttributeExtractor;
 import org.geotools.renderer.style.ExpressionExtractor;
-import org.geotools.styling.AnchorPoint;
-import org.geotools.styling.ChannelSelection;
-import org.geotools.styling.ColorMap;
-import org.geotools.styling.ColorMapEntry;
-import org.geotools.styling.ContrastEnhancement;
-import org.geotools.styling.Displacement;
-import org.geotools.styling.ExternalGraphic;
-import org.geotools.styling.FeatureTypeConstraint;
-import org.geotools.styling.FeatureTypeStyle;
-import org.geotools.styling.Fill;
-import org.geotools.styling.Font;
-import org.geotools.styling.Graphic;
-import org.geotools.styling.Halo;
-import org.geotools.styling.ImageOutline;
-import org.geotools.styling.LinePlacement;
-import org.geotools.styling.LineSymbolizer;
-import org.geotools.styling.Mark;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.OverlapBehavior;
-import org.geotools.styling.PointPlacement;
-import org.geotools.styling.PointSymbolizer;
-import org.geotools.styling.PolygonSymbolizer;
-import org.geotools.styling.RasterSymbolizer;
-import org.geotools.styling.Rule;
-import org.geotools.styling.SelectedChannelType;
-import org.geotools.styling.ShadedRelief;
-import org.geotools.styling.Stroke;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyleVisitor;
-import org.geotools.styling.StyledLayer;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.Symbol;
-import org.geotools.styling.Symbolizer;
-import org.geotools.styling.TextSymbolizer;
-import org.geotools.styling.TextSymbolizer2;
-import org.geotools.styling.UserLayer;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.geometry.Geometry;
-import org.opengis.style.GraphicalSymbol;
+import org.locationtech.jts.geom.Geometry;
 
 /**
- * A clone of StyleAttributeExtractor that can provide hints about the data type needed for
- * properties. Will be moved back to GeoTools once we have some time to write proper tests for it.
+ * A clone of StyleAttributeExtractor that can provide hints about the data type needed for properties. Will be moved
+ * back to GeoTools once we have some time to write proper tests for it.
  */
 public class StyleAttributeExtractor extends FilterAttributeExtractor implements StyleVisitor {
 
     /** if the default geometry is used, this will be true. See GEOS-469 */
     boolean defaultGeometryUsed = false;
 
-    /**
-     * Symbolizer geometry is enabled by default, but there are relevant cases in which we don't
-     * desire that
-     */
+    /** Symbolizer geometry is enabled by default, but there are relevant cases in which we don't desire that */
     boolean symbolizerGeometriesVisitEnabled = true;
 
     Map<PropertyName, Class<?>> propertyTypes = new LinkedHashMap<>();
@@ -213,24 +209,24 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
     /** @see StyleVisitor#visit(Symbolizer) */
     @Override
     public void visit(Symbolizer sym) {
-        if (sym instanceof PointSymbolizer) {
-            visit((PointSymbolizer) sym);
+        if (sym instanceof PointSymbolizer symbolizer) {
+            visit(symbolizer);
         }
 
-        if (sym instanceof LineSymbolizer) {
-            visit((LineSymbolizer) sym);
+        if (sym instanceof LineSymbolizer symbolizer) {
+            visit(symbolizer);
         }
 
-        if (sym instanceof PolygonSymbolizer) {
-            visit((PolygonSymbolizer) sym);
+        if (sym instanceof PolygonSymbolizer symbolizer) {
+            visit(symbolizer);
         }
 
-        if (sym instanceof TextSymbolizer) {
-            visit((TextSymbolizer) sym);
+        if (sym instanceof TextSymbolizer symbolizer) {
+            visit(symbolizer);
         }
 
-        if (sym instanceof RasterSymbolizer) {
-            visit((RasterSymbolizer) sym);
+        if (sym instanceof RasterSymbolizer symbolizer) {
+            visit(symbolizer);
         }
     }
 
@@ -318,10 +314,7 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
             }
         }
 
-        if (text instanceof TextSymbolizer2) {
-            if (((TextSymbolizer2) text).getGraphic() != null)
-                ((TextSymbolizer2) text).getGraphic().accept(this);
-        }
+        if (text.getGraphic() != null) text.getGraphic().accept(this);
 
         if (text.getFill() != null) {
             text.getFill().accept(this);
@@ -373,8 +366,8 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
     @Override
     public void visit(Graphic gr) {
         for (GraphicalSymbol symbol : gr.graphicalSymbols()) {
-            if (symbol instanceof Symbol) {
-                ((Symbol) symbol).accept(this);
+            if (symbol instanceof Symbol symbol1) {
+                symbol1.accept(this);
             } else {
                 throw new RuntimeException("Don't know how to visit " + symbol);
             }
@@ -430,10 +423,10 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
         visitCqlExpression(exgr.getFormat());
 
         try {
-            if (exgr.getLocation() != null) visitCqlExpression(exgr.getLocation().toString());
+            if (exgr.getLocation() != null)
+                visitCqlExpression(exgr.getLocation().toString());
         } catch (MalformedURLException e) {
-            throw new RuntimeException(
-                    "Errors while inspecting " + "the location of an external graphic", e);
+            throw new RuntimeException("Errors while inspecting " + "the location of an external graphic", e);
         }
     }
 
@@ -502,10 +495,10 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
         StyledLayer[] layers = sld.getStyledLayers();
 
         for (StyledLayer layer : layers) {
-            if (layer instanceof NamedLayer) {
-                ((NamedLayer) layer).accept(this);
-            } else if (layer instanceof UserLayer) {
-                ((UserLayer) layer).accept(this);
+            if (layer instanceof NamedLayer namedLayer) {
+                namedLayer.accept(this);
+            } else if (layer instanceof UserLayer userLayer) {
+                userLayer.accept(this);
             }
         }
     }
@@ -576,8 +569,8 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
         AttributeDescriptor ad = (AttributeDescriptor) expression.evaluate(featureType);
         if (ad != null) {
             propertyTypes.put(expression, ad.getType().getBinding());
-        } else if (data instanceof Class) {
-            propertyTypes.put(expression, (Class<?>) data);
+        } else if (data instanceof Class<?> class1) {
+            propertyTypes.put(expression, class1);
         } else {
             propertyTypes.put(expression, Object.class);
         }
@@ -586,10 +579,9 @@ public class StyleAttributeExtractor extends FilterAttributeExtractor implements
     }
 
     /**
-     * Returns a map from PropertyName to its data type, either retrieved from the feature type if
-     * available, or guessed from the style property necessities, otherwise. When multiple types
-     * would be allowed thanks to converters, the most specific is used (e.g., Color instead of
-     * String)
+     * Returns a map from PropertyName to its data type, either retrieved from the feature type if available, or guessed
+     * from the style property necessities, otherwise. When multiple types would be allowed thanks to converters, the
+     * most specific is used (e.g., Color instead of String)
      */
     public Map<PropertyName, Class<?>> getPropertyTypes() {
         return Collections.unmodifiableMap(propertyTypes);

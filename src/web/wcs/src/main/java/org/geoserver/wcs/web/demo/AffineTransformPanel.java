@@ -5,6 +5,8 @@
  */
 package org.geoserver.wcs.web.demo;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.awt.geom.AffineTransform;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
@@ -20,6 +22,19 @@ import org.apache.wicket.model.PropertyModel;
  * @author Andrea Aime, GeoSolutions
  */
 public class AffineTransformPanel extends FormComponentPanel<AffineTransform> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AffineTransformPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     Double scaleX, shearX, originX, scaleY, shearY, originY;
     private WebMarkupContainer originXContainer;
@@ -85,22 +100,18 @@ public class AffineTransformPanel extends FormComponentPanel<AffineTransform> {
     }
 
     public AffineTransformPanel setReadOnly(final boolean readOnly) {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    component.setEnabled(!readOnly);
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            component.setEnabled(!readOnly);
+        });
 
         return this;
     }
 
     @Override
     public void convertInput() {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).processInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).processInput();
+        });
 
         // update the grid envelope
         if (isResolutionModeEnabled() && scaleX != null && scaleY != null) {
@@ -111,8 +122,7 @@ public class AffineTransformPanel extends FormComponentPanel<AffineTransform> {
                 && scaleY != null
                 && shearY != null
                 && originY != null) {
-            setConvertedInput(
-                    new AffineTransform(scaleX, shearX, shearY, scaleY, originX, originY));
+            setConvertedInput(new AffineTransform(scaleX, shearX, shearY, scaleY, originX, originY));
         } else {
             setConvertedInput(null);
         }
@@ -123,11 +133,9 @@ public class AffineTransformPanel extends FormComponentPanel<AffineTransform> {
         // when the client programmatically changed the model, update the fields
         // so that the textfields will change too
         updateFields();
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).clearInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).clearInput();
+        });
     }
 
     /** Turns the editor in a pure resolution editor */

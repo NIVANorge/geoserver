@@ -10,10 +10,10 @@ import java.util.Set;
 import javax.xml.namespace.QName;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.ResourceInfo;
+import org.geotools.api.filter.Id;
+import org.geotools.api.filter.identity.FeatureId;
+import org.geotools.api.filter.identity.Identifier;
 import org.geotools.filter.visitor.DefaultFilterVisitor;
-import org.opengis.filter.Id;
-import org.opengis.filter.identity.FeatureId;
-import org.opengis.filter.identity.Identifier;
 
 /**
  * Extracts feature type names from any Id filters.
@@ -32,8 +32,7 @@ public class TypeNameExtractingVisitor extends DefaultFilterVisitor {
     @Override
     public Object visit(Id filter, Object data) {
         for (Identifier id : filter.getIdentifiers()) {
-            if (id instanceof FeatureId) {
-                FeatureId fid = (FeatureId) id;
+            if (id instanceof FeatureId fid) {
                 if (fid.getID() != null) {
                     String[] split = fid.getID().split("\\.");
                     if (split.length > 1) {

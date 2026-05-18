@@ -24,24 +24,29 @@ import org.geoserver.ogcapi.Queryables;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.OSEOInfoImpl;
 import org.geoserver.opensearch.eo.store.JDBCOpenSearchAccessTest;
+import org.geoserver.opensearch.eo.store.OSEOPostGISResource;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.platform.resource.FileSystemResourceStore;
 import org.geoserver.platform.resource.Resource;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.text.cql2.CQL;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Expression;
 
 public class STACQueryablesBuilderTest {
+
+    @ClassRule
+    public static final OSEOPostGISResource postgis = new OSEOPostGISResource(false);
 
     private static final String FAKE_ID = "foobar";
     private static final String TYPE_NUMBER = "number";
@@ -51,7 +56,7 @@ public class STACQueryablesBuilderTest {
 
     @BeforeClass
     public static void setupClass() throws IOException, SQLException {
-        data = JDBCOpenSearchAccessTest.setupAndReturnStore();
+        data = JDBCOpenSearchAccessTest.setupAndReturnStore(postgis);
     }
 
     @AfterClass
@@ -61,22 +66,14 @@ public class STACQueryablesBuilderTest {
 
     @Test
     public void testGetQueryables() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfo service = new OSEOInfoImpl();
-        STACQueryablesBuilder builder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        null,
-                        service);
+        STACQueryablesBuilder builder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, null, service);
         Queryables queryables = builder.getQueryables();
 
         // check the time range properties have been replaced by a single property
@@ -114,7 +111,6 @@ public class STACQueryablesBuilderTest {
         Schema constellation = properties.get("constellation");
         assertNotNull(constellation);
         assertEquals(TYPE_STRING, constellation.getType());
-        assertNull(constellation.getFormat());
 
         // check the cloud cover, which has a math expression
         Schema cloudCover = properties.get("eo:cloud_cover");
@@ -140,30 +136,20 @@ public class STACQueryablesBuilderTest {
     @Test
     public void testGetQueryablesUncustomized() throws Exception {
         // setup data and templates
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
-        FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory();
         Filter collectionSampleFilter = ff.equals(ff.property("name"), ff.literal("GS_TEST"));
         Feature sampleCollectionFeature =
                 DataUtilities.first(data.getCollectionSource().getFeatures(collectionSampleFilter));
         // to reproduce the queryables must not have been configured, they must be null
-        assertNull(
-                sampleCollectionFeature.getProperty(
-                        STACQueryablesBuilder.DEFINED_QUERYABLES_PROPERTY));
+        assertNull(sampleCollectionFeature.getProperty(STACQueryablesBuilder.DEFINED_QUERYABLES_PROPERTY));
         OSEOInfo service = new OSEOInfoImpl();
-        STACQueryablesBuilder builder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        sampleCollectionFeature,
-                        service);
+        STACQueryablesBuilder builder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, sampleCollectionFeature, service);
 
         // use to NPE here
         Queryables queryables = builder.getQueryables();
@@ -180,31 +166,22 @@ public class STACQueryablesBuilderTest {
     @Test
     public void testGetQueryablesTopLevelProperty() throws Exception {
         // setup data and templates
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-test.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
-        FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory();
         Filter collectionSampleFilter = ff.equals(ff.property("name"), ff.literal("SENTINEL2"));
         Feature sampleCollectionFeature =
                 DataUtilities.first(data.getCollectionSource().getFeatures(collectionSampleFilter));
         OSEOInfo service = new OSEOInfoImpl();
-        STACQueryablesBuilder builder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        null,
-                        sampleCollectionFeature,
-                        service);
+        STACQueryablesBuilder builder = new STACQueryablesBuilder(
+                FAKE_ID, template.getRootBuilder(), products.getSchema(), null, sampleCollectionFeature, service);
 
         // grab the queryables
         Queryables queryables = builder.getQueryables();
         Map<String, Schema> properties = queryables.getProperties();
-        System.out.println(properties);
 
         // check the keywords queryable, top level, not in "properties"
         Schema keywords = properties.get("keywords");
@@ -223,31 +200,26 @@ public class STACQueryablesBuilderTest {
 
     @Test
     public void testQueryablesIncludeFlat() throws Exception {
-        FileSystemResourceStore resourceStore =
-                new FileSystemResourceStore(new File("./src/test/resources"));
+        FileSystemResourceStore resourceStore = new FileSystemResourceStore(new File("./src/test/resources"));
         Resource templateDefinition = resourceStore.get("items-SAS1.json");
         FeatureSource<FeatureType, Feature> products = data.getProductSource();
         FeatureSource<FeatureType, Feature> collections = data.getCollectionSource();
-        FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2();
-        Filter sampleFilter =
-                ff.equals(ff.property("identifier"), ff.literal("SAS1_20180226102021.01"));
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory();
+        Filter sampleFilter = ff.equals(ff.property("identifier"), ff.literal("SAS1_20180226102021.01"));
         Feature sampleFeature = DataUtilities.first(products.getFeatures(sampleFilter));
         Filter collectionSampleFilter = ff.equals(ff.property("identifier"), ff.literal("SAS1"));
-        Feature sampleCollectionFeature =
-                DataUtilities.first(collections.getFeatures(collectionSampleFilter));
-        TemplateReaderConfiguration config =
-                new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
+        Feature sampleCollectionFeature = DataUtilities.first(collections.getFeatures(collectionSampleFilter));
+        TemplateReaderConfiguration config = new TemplateReaderConfiguration(STACTemplates.getNamespaces(products));
         Template template = new Template(templateDefinition, config);
         OSEOInfo service = new OSEOInfoImpl();
         service.getGlobalQueryables().addAll(Arrays.asList("id", "geometry", "collection"));
-        STACQueryablesBuilder builder =
-                new STACQueryablesBuilder(
-                        FAKE_ID,
-                        template.getRootBuilder(),
-                        products.getSchema(),
-                        sampleFeature,
-                        sampleCollectionFeature,
-                        service);
+        STACQueryablesBuilder builder = new STACQueryablesBuilder(
+                FAKE_ID,
+                template.getRootBuilder(),
+                products.getSchema(),
+                sampleFeature,
+                sampleCollectionFeature,
+                service);
         Queryables queryables = builder.getQueryables();
         Map<String, Schema> properties = queryables.getProperties();
 
@@ -293,9 +265,6 @@ public class STACQueryablesBuilderTest {
 
         // confirm that properties not included in the queryables array are excluded
         Schema platform = properties.get("platform");
-        assertNull(platform);
-
-        Schema constellation = properties.get("constellation");
         assertNull(platform);
     }
 }

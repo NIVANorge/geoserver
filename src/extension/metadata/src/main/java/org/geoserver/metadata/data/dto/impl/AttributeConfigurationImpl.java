@@ -4,11 +4,13 @@
  */
 package org.geoserver.metadata.data.dto.impl;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.metadata.data.dto.AttributeConfiguration;
 import org.geoserver.metadata.data.dto.FieldTypeEnum;
 import org.geoserver.metadata.data.dto.OccurrenceEnum;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * Object that matches yaml structure.
@@ -19,6 +21,7 @@ import org.geoserver.metadata.data.dto.OccurrenceEnum;
  */
 public class AttributeConfigurationImpl implements AttributeConfiguration {
 
+    @Serial
     private static final long serialVersionUID = 3130368513874060531L;
 
     String key;
@@ -36,6 +39,9 @@ public class AttributeConfigurationImpl implements AttributeConfiguration {
     String derivedFrom;
 
     String condition;
+
+    @JsonDeserialize(using = CommaSeparatedDeserializer.class)
+    List<String> tab;
 
     public AttributeConfigurationImpl() {}
 
@@ -101,5 +107,10 @@ public class AttributeConfigurationImpl implements AttributeConfiguration {
     @Override
     public String getCondition() {
         return condition;
+    }
+
+    @Override
+    public List<String> getTab() {
+        return tab;
     }
 }

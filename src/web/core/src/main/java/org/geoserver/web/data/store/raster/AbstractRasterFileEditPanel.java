@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.data.store.raster;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
@@ -24,16 +26,25 @@ import org.geoserver.web.wicket.browser.ExtensionFileFilter;
 @SuppressWarnings("serial")
 public abstract class AbstractRasterFileEditPanel extends StoreEditPanel {
 
-    public AbstractRasterFileEditPanel(
-            final String componentId, final Form storeEditForm, String... fileExtensions) {
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AbstractRasterFileEditPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    public AbstractRasterFileEditPanel(final String componentId, final Form storeEditForm, String... fileExtensions) {
         this(componentId, storeEditForm, false, fileExtensions);
     }
 
     public AbstractRasterFileEditPanel(
-            final String componentId,
-            final Form storeEditForm,
-            boolean useDirectoryChooser,
-            String... fileExtensions) {
+            final String componentId, final Form storeEditForm, boolean useDirectoryChooser, String... fileExtensions) {
         super(componentId, storeEditForm);
 
         final IModel model = storeEditForm.getModel();
@@ -41,19 +52,10 @@ public abstract class AbstractRasterFileEditPanel extends StoreEditPanel {
 
         FileParamPanel file;
         if (useDirectoryChooser) {
-            file =
-                    new DirectoryParamPanel(
-                            "url",
-                            new PropertyModel<>(model, "URL"),
-                            new ResourceModel("url", "URL"),
-                            true);
+            file = new DirectoryParamPanel(
+                    "url", new PropertyModel<>(model, "URL"), new ResourceModel("url", "URL"), true);
         } else {
-            file =
-                    new FileParamPanel(
-                            "url",
-                            new PropertyModel<>(model, "URL"),
-                            new ResourceModel("url", "URL"),
-                            true);
+            file = new FileParamPanel("url", new PropertyModel<>(model, "URL"), new ResourceModel("url", "URL"), true);
         }
 
         file.getFormComponent().add(new FileExistsValidator());

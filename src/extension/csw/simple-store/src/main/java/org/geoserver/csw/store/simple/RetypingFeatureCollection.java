@@ -8,16 +8,16 @@ package org.geoserver.csw.store.simple;
 import java.util.Iterator;
 import java.util.List;
 import org.geoserver.csw.feature.AbstractFeatureCollection;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.sort.SortBy;
 import org.geotools.feature.FeatureCollection;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.filter.sort.SortBy;
 
 /**
- * Very basic retyper, can only shave off root attributes and does not really reduce the feature
- * type, but only the attributes in the returned features.
+ * Very basic retyper, can only shave off root attributes and does not really reduce the feature type, but only the
+ * attributes in the returned features.
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -27,8 +27,7 @@ public class RetypingFeatureCollection<T extends FeatureType, F extends Feature>
     FeatureCollection<T, F> delegate;
     List<PropertyName> properties;
 
-    public RetypingFeatureCollection(
-            FeatureCollection<T, F> delegate, List<PropertyName> properties) {
+    public RetypingFeatureCollection(FeatureCollection<T, F> delegate, List<PropertyName> properties) {
         super(delegate.getSchema());
         this.delegate = delegate;
         this.properties = properties;
@@ -53,8 +52,8 @@ public class RetypingFeatureCollection<T extends FeatureType, F extends Feature>
 
     @Override
     protected void closeIterator(Iterator<F> close) {
-        if (close instanceof RetypingIterator) {
-            ((RetypingIterator) close).close();
+        if (close instanceof RetypingIterator iterator) {
+            iterator.close();
         }
     }
 }

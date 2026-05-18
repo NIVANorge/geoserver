@@ -9,22 +9,24 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Ordering;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.xml.namespace.QName;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.wps.WPSTestSupport;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.visitor.UniqueVisitor;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
+import org.kordamp.json.JSONSerializer;
 import org.mockito.Mockito;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 public class PagedUniqueProcessTest extends WPSTestSupport {
 
@@ -148,15 +150,14 @@ public class PagedUniqueProcessTest extends WPSTestSupport {
         final AtomicInteger counter = new AtomicInteger();
         // mock optimized store behaviour to always
         // use hasLimits
-        Mockito.doAnswer(
-                        invocation -> {
-                            UniqueVisitor visitor = (UniqueVisitor) invocation.getArguments()[0];
-                            if (visitor.hasLimits()) {
-                                counter.incrementAndGet();
-                            }
-                            visitor.setValue(Arrays.asList("a", "b", "c", "d"));
-                            return null;
-                        })
+        Mockito.doAnswer(invocation -> {
+                    UniqueVisitor visitor = (UniqueVisitor) invocation.getArguments()[0];
+                    if (visitor.hasLimits()) {
+                        counter.incrementAndGet();
+                    }
+                    visitor.setValue(Arrays.asList("a", "b", "c", "d"));
+                    return null;
+                })
                 .when(features)
                 .accepts(Mockito.any(UniqueVisitor.class), Mockito.any());
         process.execute(features, FIELD_NAME, 0, 2);
@@ -189,7 +190,7 @@ public class PagedUniqueProcessTest extends WPSTestSupport {
         int size = json.getInt("size");
         assertEquals(3, size);
         assertEquals(2, values.size());
-        assertTrue(Ordering.natural().reverse().isOrdered(values));
+        assertTrue(Ordering.natural().reverse().isOrdered(asStringList(values)));
         for (Object value : values) {
             assertTrue(((String) value).matches(".*(?i:a)?.*"));
         }
@@ -257,7 +258,7 @@ public class PagedUniqueProcessTest extends WPSTestSupport {
         JSONArray values = json.getJSONArray("values");
         int size = json.getInt("size");
         assertEquals(TOTAL_DISTINCT, size);
-        assertTrue(Ordering.natural().isOrdered(values));
+        assertTrue(Ordering.natural().isOrdered(asStringList(values)));
     }
 
     @Test
@@ -269,112 +270,108 @@ public class PagedUniqueProcessTest extends WPSTestSupport {
         JSONArray values = json.getJSONArray("values");
         int size = json.getInt("size");
         assertEquals(TOTAL_DISTINCT, size);
-        assertTrue(Ordering.natural().reverse().isOrdered(values));
+        assertTrue(Ordering.natural().reverse().isOrdered(asStringList(values)));
+    }
+
+    private List<String> asStringList(JSONArray values) {
+        List<String> result = new ArrayList<>(values.size());
+        for (Object value : values) {
+            result.add((String) value);
+        }
+        return result;
     }
 
     private String buildInputXml(
-            String fieldName,
-            String fieldFilter,
-            Integer startIndex,
-            Integer maxFeatures,
-            String sort) {
+            String fieldName, String fieldFilter, Integer startIndex, Integer maxFeatures, String sort) {
 
-        String xml =
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                        + "<wps:Execute version=\"1.0.0\" service=\"WPS\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.opengis.net/wps/1.0.0\" xmlns:wfs=\"http://www.opengis.net/wfs\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:gml=\"http://www.opengis.net/gml\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:wcs=\"http://www.opengis.net/wcs/1.1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.opengis.net/wps/1.0.0 http://schemas.opengis.net/wps/1.0.0/wpsAll.xsd\">\n"
-                        + "  <ows:Identifier>gs:PagedUnique</ows:Identifier>\n"
-                        + "  <wps:DataInputs>\n"
-                        + "    <wps:Input>\n"
-                        + "     <ows:Identifier>features</ows:Identifier>\n"
-                        + "     <wps:Reference mimeType=\"text/xml\" xlink:href=\"http://geoserver/wfs\" method=\"POST\">\n"
-                        + "      <wps:Body>\n"
-                        + "       <wfs:GetFeature service=\"WFS\" version=\"1.0.0\" outputFormat=\"GML2\" xmlns:"
-                        + MockData.SF_PREFIX
-                        + "=\""
-                        + MockData.SF_URI
-                        + "\">\n"
-                        + "          <wfs:Query typeName=\"sf:states\">\n";
+        String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<wps:Execute version=\"1.0.0\" service=\"WPS\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.opengis.net/wps/1.0.0\" xmlns:wfs=\"http://www.opengis.net/wfs\" xmlns:wps=\"http://www.opengis.net/wps/1.0.0\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:gml=\"http://www.opengis.net/gml\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:wcs=\"http://www.opengis.net/wcs/1.1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.opengis.net/wps/1.0.0 http://schemas.opengis.net/wps/1.0.0/wpsAll.xsd\">\n"
+                + "  <ows:Identifier>gs:PagedUnique</ows:Identifier>\n"
+                + "  <wps:DataInputs>\n"
+                + "    <wps:Input>\n"
+                + "     <ows:Identifier>features</ows:Identifier>\n"
+                + "     <wps:Reference mimeType=\"text/xml\" xlink:href=\"http://geoserver/wfs\" method=\"POST\">\n"
+                + "      <wps:Body>\n"
+                + "       <wfs:GetFeature service=\"WFS\" version=\"1.0.0\" outputFormat=\"GML2\" xmlns:"
+                + MockData.SF_PREFIX
+                + "=\""
+                + MockData.SF_URI
+                + "\">\n"
+                + "          <wfs:Query typeName=\"sf:states\">\n";
         if (fieldFilter != null) {
-            xml =
-                    xml
-                            + "     <ogc:Filter>\n"
-                            + "                  <ogc:PropertyIsLike wildCard=\"*\" singleChar=\"?\" escape=\"\\\\\" matchCase=\"false\">\n"
-                            + "                    <ogc:PropertyName>"
-                            + fieldName
-                            + "</ogc:PropertyName>\n"
-                            + "                    <ogc:Literal>"
-                            + fieldFilter
-                            + "</ogc:Literal>\n"
-                            + "                  </ogc:PropertyIsLike>\n"
-                            + "               </ogc:Filter>\n";
+            xml = xml
+                    + "     <ogc:Filter>\n"
+                    + "                  <ogc:PropertyIsLike wildCard=\"*\" singleChar=\"?\" escape=\"\\\\\" matchCase=\"false\">\n"
+                    + "                    <ogc:PropertyName>"
+                    + fieldName
+                    + "</ogc:PropertyName>\n"
+                    + "                    <ogc:Literal>"
+                    + fieldFilter
+                    + "</ogc:Literal>\n"
+                    + "                  </ogc:PropertyIsLike>\n"
+                    + "               </ogc:Filter>\n";
         }
         if (sort != null) {
-            xml =
-                    xml
-                            + "     <ogc:SortBy>\n"
-                            + "                 <ogc:SortProperty>\n"
-                            + "                  <ogc:PropertyName>"
-                            + fieldName
-                            + "</ogc:PropertyName>\n"
-                            + "                  <ogc:SortOrder>"
-                            + sort
-                            + "</ogc:SortOrder>\n"
-                            + "                 </ogc:SortProperty>\n"
-                            + "                </ogc:SortBy>\n";
+            xml = xml
+                    + "     <ogc:SortBy>\n"
+                    + "                 <ogc:SortProperty>\n"
+                    + "                  <ogc:PropertyName>"
+                    + fieldName
+                    + "</ogc:PropertyName>\n"
+                    + "                  <ogc:SortOrder>"
+                    + sort
+                    + "</ogc:SortOrder>\n"
+                    + "                 </ogc:SortProperty>\n"
+                    + "                </ogc:SortBy>\n";
         }
-        xml =
-                xml
-                        + "        </wfs:Query>\n"
-                        + "         </wfs:GetFeature>\n"
-                        + "         </wps:Body>\n"
-                        + "       </wps:Reference>\n"
-                        + "     </wps:Input>\n";
+        xml = xml
+                + "        </wfs:Query>\n"
+                + "         </wfs:GetFeature>\n"
+                + "         </wps:Body>\n"
+                + "       </wps:Reference>\n"
+                + "     </wps:Input>\n";
 
-        xml =
-                xml
-                        + "    <wps:Input>\n"
-                        + "      <ows:Identifier>fieldName</ows:Identifier>\n"
-                        + "      <wps:Data>\n"
-                        + "        <wps:LiteralData>"
-                        + fieldName
-                        + "</wps:LiteralData>\n"
-                        + "      </wps:Data>\n"
-                        + "    </wps:Input>\n";
+        xml = xml
+                + "    <wps:Input>\n"
+                + "      <ows:Identifier>fieldName</ows:Identifier>\n"
+                + "      <wps:Data>\n"
+                + "        <wps:LiteralData>"
+                + fieldName
+                + "</wps:LiteralData>\n"
+                + "      </wps:Data>\n"
+                + "    </wps:Input>\n";
 
         if (startIndex != null) {
-            xml =
-                    xml
-                            + "    <wps:Input>\n"
-                            + "      <ows:Identifier>startIndex</ows:Identifier>\n"
-                            + "      <wps:Data>\n"
-                            + "        <wps:LiteralData>"
-                            + startIndex
-                            + "</wps:LiteralData>\n"
-                            + "      </wps:Data>\n"
-                            + "    </wps:Input>\n";
+            xml = xml
+                    + "    <wps:Input>\n"
+                    + "      <ows:Identifier>startIndex</ows:Identifier>\n"
+                    + "      <wps:Data>\n"
+                    + "        <wps:LiteralData>"
+                    + startIndex
+                    + "</wps:LiteralData>\n"
+                    + "      </wps:Data>\n"
+                    + "    </wps:Input>\n";
         }
         if (maxFeatures != null) {
-            xml =
-                    xml
-                            + "    <wps:Input>\n"
-                            + "      <ows:Identifier>maxFeatures</ows:Identifier>\n"
-                            + "      <wps:Data>\n"
-                            + "        <wps:LiteralData>"
-                            + maxFeatures
-                            + "</wps:LiteralData>\n"
-                            + "      </wps:Data>\n"
-                            + "    </wps:Input>\n";
+            xml = xml
+                    + "    <wps:Input>\n"
+                    + "      <ows:Identifier>maxFeatures</ows:Identifier>\n"
+                    + "      <wps:Data>\n"
+                    + "        <wps:LiteralData>"
+                    + maxFeatures
+                    + "</wps:LiteralData>\n"
+                    + "      </wps:Data>\n"
+                    + "    </wps:Input>\n";
         }
 
-        xml =
-                xml
-                        + "  </wps:DataInputs>\n"
-                        + "  <wps:ResponseForm>\n"
-                        + "    <wps:RawDataOutput mimeType=\"application/json\">\n"
-                        + "      <ows:Identifier>result</ows:Identifier>\n"
-                        + "    </wps:RawDataOutput>\n"
-                        + "  </wps:ResponseForm>\n"
-                        + "</wps:Execute>";
+        xml = xml
+                + "  </wps:DataInputs>\n"
+                + "  <wps:ResponseForm>\n"
+                + "    <wps:RawDataOutput mimeType=\"application/json\">\n"
+                + "      <ows:Identifier>result</ows:Identifier>\n"
+                + "    </wps:RawDataOutput>\n"
+                + "  </wps:ResponseForm>\n"
+                + "</wps:Execute>";
         return xml;
     }
 }

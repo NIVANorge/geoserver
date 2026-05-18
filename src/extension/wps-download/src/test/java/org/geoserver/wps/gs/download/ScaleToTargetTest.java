@@ -12,10 +12,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.List;
-import javax.media.jai.Interpolation;
 import org.apache.commons.io.IOUtils;
+import org.eclipse.imagen.Interpolation;
 import org.geoserver.data.util.CoverageUtils;
 import org.geoserver.wcs.CoverageCleanerCallback;
+import org.geotools.api.geometry.Bounds;
+import org.geotools.api.parameter.GeneralParameterDescriptor;
+import org.geotools.api.parameter.GeneralParameterValue;
+import org.geotools.api.parameter.ParameterValueGroup;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridEnvelope2D;
 import org.geotools.coverage.grid.GridGeometry2D;
@@ -31,10 +35,6 @@ import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.geometry.Envelope;
-import org.opengis.parameter.GeneralParameterDescriptor;
-import org.opengis.parameter.GeneralParameterValue;
-import org.opengis.parameter.ParameterValueGroup;
 
 public class ScaleToTargetTest {
 
@@ -72,7 +72,7 @@ public class ScaleToTargetTest {
             reader = new GeoTiffReader(inputTempFile);
             assertNotNull(reader);
 
-            Envelope fullSizeEnvelope = reader.getOriginalEnvelope();
+            Bounds fullSizeEnvelope = reader.getOriginalEnvelope();
             ScaleToTarget scalingFullSize = new ScaleToTarget(reader, fullSizeEnvelope);
             scalingFullSize.setTargetSize(160, null);
             Integer[] targetSize = scalingFullSize.getTargetSize();
@@ -109,13 +109,13 @@ public class ScaleToTargetTest {
             reader = new GeoTiffReader(inputTempFile);
             assertNotNull(reader);
 
-            Envelope fullSizeEnvelope = reader.getOriginalEnvelope();
+            Bounds fullSizeEnvelope = reader.getOriginalEnvelope();
 
             ScaleToTarget noScaling = new ScaleToTarget(reader, fullSizeEnvelope);
             // I deliberately omit setting the target size: only interpolation will be performed
             // set interpolation method to something other than NEAREST
             noScaling.setInterpolation(Interpolation.getInstance(Interpolation.INTERP_BILINEAR));
-            gc = noScaling.scale(reader.read(null));
+            gc = noScaling.scale(reader.read());
             assertNotNull(gc);
             // TODO: this only proves the code ran without throwing exceptions: how do I actually
             // test that the interpolation was done?
@@ -136,12 +136,7 @@ public class ScaleToTargetTest {
         final double[] expectedReadResolution = EXP_NATIVE_RES;
         final int[] expectedGridSize = {360, 360}; // full size image
 
-        testFullSize(
-                targetSizeX,
-                targetSizeY,
-                expectedRequestedResolution,
-                expectedReadResolution,
-                expectedGridSize);
+        testFullSize(targetSizeX, targetSizeY, expectedRequestedResolution, expectedReadResolution, expectedGridSize);
     }
 
     @Test
@@ -151,12 +146,7 @@ public class ScaleToTargetTest {
         final double[] expectedReadResolution = expectedRequestedResolution;
         final int[] expectedGridSize = {targetSizeX, targetSizeY}; // matches 90x90 overview
 
-        testFullSize(
-                targetSizeX,
-                targetSizeY,
-                expectedRequestedResolution,
-                expectedReadResolution,
-                expectedGridSize);
+        testFullSize(targetSizeX, targetSizeY, expectedRequestedResolution, expectedReadResolution, expectedGridSize);
     }
 
     @Test
@@ -166,15 +156,9 @@ public class ScaleToTargetTest {
         final double[] expectedReadResolution = {0.0166666667, 0.0166666667};
         final int[] expectedGridSize = {90, 90}; // closest overview: 90x90
 
-        testFullSize(
-                targetSizeX,
-                targetSizeY,
-                expectedRequestedResolution,
-                expectedReadResolution,
-                expectedGridSize);
+        testFullSize(targetSizeX, targetSizeY, expectedRequestedResolution, expectedReadResolution, expectedGridSize);
     }
 
-    @SuppressWarnings("PMD.SimplifiableTestAssertion") // envelope equality with tolerance
     private void testFullSize(
             int targetSizeX,
             int targetSizeY,
@@ -191,7 +175,7 @@ public class ScaleToTargetTest {
             assertNotNull(inputReader);
 
             // read the entire coverage
-            Envelope fullSizeEnvelope = inputReader.getOriginalEnvelope();
+            Bounds fullSizeEnvelope = inputReader.getOriginalEnvelope();
             ScaleToTarget oneFourth = new ScaleToTarget(inputReader, fullSizeEnvelope);
             oneFourth.setTargetSize(targetSizeX, targetSizeY);
 
@@ -216,7 +200,7 @@ public class ScaleToTargetTest {
             // write scaled coverage to temp file
             outputTempFile = File.createTempFile("scale2target_", "_out");
             writer = new GeoTiffWriter(outputTempFile);
-            writer.write(gc, null);
+            writer.write(gc);
 
             // verify coverage has been scaled
             outputReader = new GeoTiffReader(outputTempFile);
@@ -237,12 +221,7 @@ public class ScaleToTargetTest {
         final double[] expectedReadResolution = expectedRequestedResolution;
         final int[] expectedGridSize = {180, 60}; // matches 180x180 overview
 
-        testROI(
-                targetSizeX,
-                targetSizeY,
-                expectedRequestedResolution,
-                expectedReadResolution,
-                expectedGridSize);
+        testROI(targetSizeX, targetSizeY, expectedRequestedResolution, expectedReadResolution, expectedGridSize);
     }
 
     @Test
@@ -252,15 +231,9 @@ public class ScaleToTargetTest {
         final double[] expectedReadResolution = {0.0083333333, 0.0083333333};
         final int[] expectedGridSize = {180, 60}; // targetSize * requestedRes / readRes
 
-        testROI(
-                targetSizeX,
-                targetSizeY,
-                expectedRequestedResolution,
-                expectedReadResolution,
-                expectedGridSize);
+        testROI(targetSizeX, targetSizeY, expectedRequestedResolution, expectedReadResolution, expectedGridSize);
     }
 
-    @SuppressWarnings("PMD.SimplifiableTestAssertion") // envelope equality with tolerance
     private void testROI(
             int targetSizeX,
             int targetSizeY,
@@ -311,7 +284,7 @@ public class ScaleToTargetTest {
             // write scaled coverage to temp file
             outputTempFile = File.createTempFile("scale2target_", "_out");
             writer = new GeoTiffWriter(outputTempFile);
-            writer.write(gc, null);
+            writer.write(gc);
 
             // verify coverage has been scaled
             outputReader = new GeoTiffReader(outputTempFile);
@@ -357,19 +330,17 @@ public class ScaleToTargetTest {
         assertEquals(expectedResolution[1], actualResolution[1], DELTA);
     }
 
-    private GeneralParameterValue[] getReaderParams(
-            GridCoverage2DReader reader, GridGeometry2D gridGeometry) {
+    private GeneralParameterValue[] getReaderParams(GridCoverage2DReader reader, GridGeometry2D gridGeometry) {
         // setup reader parameters to have it exploit overviews
         final ParameterValueGroup readParametersDescriptor = reader.getFormat().getReadParameters();
         final List<GeneralParameterDescriptor> parameterDescriptors =
                 readParametersDescriptor.getDescriptor().descriptors();
         GeneralParameterValue[] readParameters = {};
-        readParameters =
-                CoverageUtils.mergeParameter(
-                        parameterDescriptors,
-                        readParameters,
-                        gridGeometry,
-                        AbstractGridFormat.READ_GRIDGEOMETRY2D.getName().getCode());
+        readParameters = CoverageUtils.mergeParameter(
+                parameterDescriptors,
+                readParameters,
+                gridGeometry,
+                AbstractGridFormat.READ_GRIDGEOMETRY2D.getName().getCode());
 
         return readParameters;
     }

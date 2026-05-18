@@ -5,6 +5,7 @@
  */
 package org.geoserver.sldservice.rest;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.Color;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -13,7 +14,6 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletResponse;
 import javax.xml.transform.TransformerException;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CoverageInfo;
@@ -28,19 +28,19 @@ import org.geoserver.sldservice.utils.classifier.impl.GrayColorRamp;
 import org.geoserver.sldservice.utils.classifier.impl.JetColorRamp;
 import org.geoserver.sldservice.utils.classifier.impl.RandomColorRamp;
 import org.geoserver.sldservice.utils.classifier.impl.RedColorRamp;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.style.ColorMap;
+import org.geotools.api.style.FeatureTypeStyle;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.RasterSymbolizer;
+import org.geotools.api.style.Rule;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.Symbolizer;
 import org.geotools.factory.CommonFactoryFinder;
-import org.geotools.styling.ColorMap;
-import org.geotools.styling.FeatureTypeStyle;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.RasterSymbolizer;
-import org.geotools.styling.Rule;
-import org.geotools.styling.Style;
 import org.geotools.styling.StyleBuilder;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.Symbolizer;
 import org.geotools.styling.visitor.DuplicatingStyleVisitor;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.CacheControl;
@@ -68,13 +68,13 @@ public class RasterizerController extends BaseSLDServiceController {
         JET,
         RANDOM,
         CUSTOM
-    };
+    }
 
     public enum COLORMAP_TYPE {
         RAMP,
         INTERVALS,
         VALUES
-    };
+    }
 
     private static final String DEFAULT_MIN = "0.0";
 
@@ -95,19 +95,13 @@ public class RasterizerController extends BaseSLDServiceController {
 
     @GetMapping(
             path = "/{layerName}/rasterize",
-            produces = {
-                MediaType.APPLICATION_JSON_VALUE,
-                MediaType.APPLICATION_XML_VALUE,
-                MediaType.TEXT_HTML_VALUE
-            })
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE, MediaType.TEXT_HTML_VALUE})
     public Object rasterize(
             @PathVariable String layerName,
             @RequestParam(value = "min", required = false, defaultValue = DEFAULT_MIN) double min,
             @RequestParam(value = "max", required = false, defaultValue = DEFAULT_MAX) double max,
-            @RequestParam(value = "classes", required = false, defaultValue = DEFAULT_CLASSES)
-                    int classes,
-            @RequestParam(value = "digits", required = false, defaultValue = DEFAULT_DIGITS)
-                    int digits,
+            @RequestParam(value = "classes", required = false, defaultValue = DEFAULT_CLASSES) int classes,
+            @RequestParam(value = "digits", required = false, defaultValue = DEFAULT_DIGITS) int digits,
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "startColor", required = false) String startColor,
             @RequestParam(value = "endColor", required = false) String endColor,
@@ -136,8 +130,7 @@ public class RasterizerController extends BaseSLDServiceController {
             }
         }
 
-        COLORRAMP_TYPE rampType =
-                (ramp != null ? COLORRAMP_TYPE.valueOf(ramp.toUpperCase()) : COLORRAMP_TYPE.RED);
+        COLORRAMP_TYPE rampType = (ramp != null ? COLORRAMP_TYPE.valueOf(ramp.toUpperCase()) : COLORRAMP_TYPE.RED);
 
         if (min == max) min = min - Double.MIN_VALUE;
 
@@ -159,20 +152,19 @@ public class RasterizerController extends BaseSLDServiceController {
 
                 Style rasterized;
                 try {
-                    rasterized =
-                            remapStyle(
-                                    defaultStyle,
-                                    rasterSymbolizer1,
-                                    min,
-                                    max,
-                                    classes,
-                                    rampType,
-                                    layerName,
-                                    digits,
-                                    colormapType,
-                                    startColor,
-                                    endColor,
-                                    midColor);
+                    rasterized = remapStyle(
+                            defaultStyle,
+                            rasterSymbolizer1,
+                            min,
+                            max,
+                            classes,
+                            rampType,
+                            layerName,
+                            digits,
+                            colormapType,
+                            startColor,
+                            endColor,
+                            midColor);
 
                 } catch (Exception e) {
                     throw new InvalidSymbolizer();
@@ -188,8 +180,7 @@ public class RasterizerController extends BaseSLDServiceController {
                     if (LOGGER.isLoggable(Level.FINE))
                         LOGGER.log(
                                 Level.FINE,
-                                "Exception occurred while transforming the style "
-                                        + e.getLocalizedMessage(),
+                                "Exception occurred while transforming the style " + e.getLocalizedMessage(),
                                 e);
                 }
             }
@@ -198,10 +189,8 @@ public class RasterizerController extends BaseSLDServiceController {
         return wrapList(new ArrayList<>(), ArrayList.class);
     }
 
-    @ResponseStatus(
-            value = HttpStatus.EXPECTATION_FAILED,
-            reason = "RasterSymbolizer SLD expected!")
-    private class InvalidSymbolizer extends RuntimeException {
+    @ResponseStatus(value = HttpStatus.EXPECTATION_FAILED, reason = "RasterSymbolizer SLD expected!")
+    private static class InvalidSymbolizer extends RuntimeException {
         private static final long serialVersionUID = 5453377766415209696L;
     }
 
@@ -281,9 +270,8 @@ public class RasterizerController extends BaseSLDServiceController {
             realColorRamp.addAll(colorRamp.getRamp());
 
             resampledColorMap =
-                    sb.createColorMap(
-                            labels, quantities, realColorRamp.toArray(new Color[1]), colorMapType);
-            FilterFactory2 filterFactory = CommonFactoryFinder.getFilterFactory2(null);
+                    sb.createColorMap(labels, quantities, realColorRamp.toArray(new Color[1]), colorMapType);
+            FilterFactory filterFactory = CommonFactoryFinder.getFilterFactory(null);
             resampledColorMap.getColorMapEntry(0).setOpacity(filterFactory.literal(0));
         } else {
             return defaultStyle.getStyle();
@@ -299,12 +287,11 @@ public class RasterizerController extends BaseSLDServiceController {
         RasterSymbolizer rasterSymbolizer = null;
 
         try {
-            for (FeatureTypeStyle ftStyle :
-                    sInfo.getStyle().featureTypeStyles().toArray(new FeatureTypeStyle[0])) {
+            for (FeatureTypeStyle ftStyle : sInfo.getStyle().featureTypeStyles().toArray(new FeatureTypeStyle[0])) {
                 for (Rule rule : ftStyle.rules().toArray(new Rule[0])) {
                     for (Symbolizer sym : rule.symbolizers()) {
-                        if (sym instanceof RasterSymbolizer) {
-                            rasterSymbolizer = (RasterSymbolizer) sym;
+                        if (sym instanceof RasterSymbolizer symbolizer) {
+                            rasterSymbolizer = symbolizer;
                             break;
                         }
                     }
@@ -316,10 +303,7 @@ public class RasterizerController extends BaseSLDServiceController {
             }
         } catch (IOException e) {
             if (LOGGER.isLoggable(Level.FINE))
-                LOGGER.log(
-                        Level.FINE,
-                        "The following exception has occurred " + e.getLocalizedMessage(),
-                        e);
+                LOGGER.log(Level.FINE, "The following exception has occurred " + e.getLocalizedMessage(), e);
             return null;
         }
 

@@ -4,6 +4,9 @@
  */
 package org.geoserver.web.resources;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import org.apache.wicket.markup.ComponentTag;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.form.TextArea;
@@ -11,7 +14,7 @@ import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.Model;
-import org.geoserver.platform.resource.Paths;
+import org.geoserver.platform.resource.Resource;
 
 /**
  * Panel for editing.
@@ -20,28 +23,42 @@ import org.geoserver.platform.resource.Paths;
  */
 public class PanelEdit extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(PanelEdit.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -31594049414032328L;
 
-    public PanelEdit(String id, String resource, boolean isNew, String contents) {
+    public PanelEdit(String id, Resource resource, boolean isNew, String contents) {
         super(id);
-        if (Paths.isAbsolute(resource)) {
+        if (!resource.isInternal()) {
             // double check resource browser cannot be used to edit
-            // absolute path locations
+            // files outside of resource store
             throw new IllegalStateException("Path location not supported by Resource Browser");
         }
         add(new FeedbackPanel("feedback").setOutputMarkupId(true));
-        add(
-                new TextField<String>("resource", new Model<>(resource)) {
-                    private static final long serialVersionUID = 1019950718780805835L;
+        add(new TextField<>("resource", new Model<>(resource.toString())) {
+            @Serial
+            private static final long serialVersionUID = 1019950718780805835L;
 
-                    @Override
-                    protected void onComponentTag(final ComponentTag tag) {
-                        super.onComponentTag(tag);
-                        if (!isNew) {
-                            tag.put("readonly", "readonly");
-                        }
-                    }
-                });
+            @Override
+            protected void onComponentTag(final ComponentTag tag) {
+                super.onComponentTag(tag);
+                if (!isNew) {
+                    tag.put("readonly", "readonly");
+                }
+            }
+        });
         add(new WebMarkupContainer("createDirectory").setVisible(isNew));
         add(new TextArea<>("contents", new Model<>(contents)));
     }

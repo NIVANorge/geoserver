@@ -4,7 +4,7 @@
  */
 package org.geoserver.geofence;
 
-import static net.sf.ezmorph.test.ArrayAssertions.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import java.util.Arrays;
@@ -87,13 +87,10 @@ public class RuleFilterBuilderTest {
     }
 
     private Authentication getAuthentication() {
-        Authentication authentication =
-                new UsernamePasswordAuthenticationToken(
-                        "username",
-                        "password",
-                        Arrays.asList(
-                                new SimpleGrantedAuthority("ROLE_ONE"),
-                                new SimpleGrantedAuthority("ROLE_TWO")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                "username",
+                "password",
+                Arrays.asList(new SimpleGrantedAuthority("ROLE_ONE"), new SimpleGrantedAuthority("ROLE_TWO")));
         return authentication;
     }
 }

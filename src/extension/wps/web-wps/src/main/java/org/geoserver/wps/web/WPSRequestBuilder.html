@@ -2,16 +2,18 @@
 <body>
 <wicket:extend>
     <form wicket:id="form">
-      <div wicket:id="requestBuilder"></div>
-      <ul>
-        <li class="button-group selfclear">
-          <button wicket:id="execute" type="submit"><wicket:message key="execute">execute</wicket:message></button>
-          <button wicket:id="executeXML" type="submit"><wicket:message key="showXML">show xml</wicket:message></button>
-        </li>
-      </ul>
+        <input type="text" wicket:id="xml" id="xml" name="xml"></input>
+
+        <div wicket:id="requestBuilder"></div>
+      <div class="gs-unordered-list-class">
+        <div class="gs-list-item-class button-group selfclear">
+            <button wicket:id="execute" type="submit"><wicket:message key="requestBuilder">requestBuilder</wicket:message></button>
+            <button wicket:id="setXml" type="submit"><wicket:message key="execute">execute</wicket:message></button>
+            <button wicket:id="executeXML" type="submit"><wicket:message key="showXML">show xml</wicket:message></button>
+        </div>
+      </div>
     </form>
     <div wicket:id="xmlWindow"></div>
-    <div wicket:id="responseWindow"></div>
 </wicket:extend>    
 </body>
 </html>

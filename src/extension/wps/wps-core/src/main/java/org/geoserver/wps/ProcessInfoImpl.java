@@ -6,14 +6,16 @@ package org.geoserver.wps;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.wps.validator.WPSInputValidator;
-import org.opengis.feature.type.Name;
+import org.geotools.api.feature.type.Name;
 
 public class ProcessInfoImpl implements ProcessInfo {
 
+    @Serial
     private static final long serialVersionUID = -8791361642137777632L;
 
     private Boolean enabled;

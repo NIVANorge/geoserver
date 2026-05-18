@@ -15,8 +15,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.fileupload.util.LimitedInputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.MetadataLinkInfo;
 import org.geotools.geopkg.GeoPackage;
@@ -64,21 +64,11 @@ class MetadataManager {
                     metadata = metadatas.getMetadata(metadataId);
                 }
 
-                GeoPkgMetadataReference reference =
-                        new GeoPkgMetadataReference(
-                                GeoPkgMetadataReference.Scope.Table,
-                                ft.getName(),
-                                null,
-                                null,
-                                new Date(),
-                                metadata,
-                                null);
+                GeoPkgMetadataReference reference = new GeoPkgMetadataReference(
+                        GeoPkgMetadataReference.Scope.Table, ft.getName(), null, null, new Date(), metadata, null);
                 metadatas.addReference(reference);
             } catch (Exception e) {
-                LOGGER.log(
-                        Level.FINE,
-                        "Skipping metadata " + link + " as an error occurred during its processing",
-                        e);
+                LOGGER.log(Level.FINE, "Skipping metadata " + link + " as an error occurred during its processing", e);
             }
         }
     }
@@ -92,8 +82,7 @@ class MetadataManager {
         String metadataBody = getMetadataBody(link);
         String metadataURI = Optional.ofNullable(link.getAbout()).orElse(DEFAULT_LINK);
         GeoPkgMetadata metadata =
-                new GeoPkgMetadata(
-                        GeoPkgMetadata.Scope.Dataset, metadataURI, link.getType(), metadataBody);
+                new GeoPkgMetadata(GeoPkgMetadata.Scope.Dataset, metadataURI, link.getType(), metadataBody);
         metadatas.addMetadata(metadata);
 
         return metadata;
@@ -104,16 +93,12 @@ class MetadataManager {
         client.setConnectTimeout(METADATA_CONNECT_TIMEOUT);
         client.setReadTimeout(METADATA_READ_TIMEOUT);
         HTTPResponse response = client.get(new URL(link.getContent()));
-        try (InputStream is =
-                new LimitedInputStream(response.getResponseStream(), MAX_METADATA_SIZE_BYTES) {
-                    @Override
-                    protected void raiseError(long pSizeMax, long pCount) throws IOException {
-                        throw new IOException(
-                                "Metadata document size exceeds maximum size of "
-                                        + pSizeMax / 1024
-                                        + " KBs");
-                    }
-                }) {
+        try (InputStream is = new BoundedInputStream(response.getResponseStream(), MAX_METADATA_SIZE_BYTES) {
+            @Override
+            protected void onMaxLength(long pSizeMax, long pCount) throws IOException {
+                throw new IOException("Metadata document size exceeds maximum size of " + pSizeMax / 1024 + " KBs");
+            }
+        }) {
             return IOUtils.toString(
                     is, Optional.ofNullable(response.getResponseCharset()).orElse("UTF-8"));
         }

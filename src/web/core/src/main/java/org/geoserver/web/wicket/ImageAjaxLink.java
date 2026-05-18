@@ -5,14 +5,21 @@
  */
 package org.geoserver.web.wicket;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.attributes.IAjaxCallListener;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
+import org.apache.wicket.markup.html.WebComponent;
 import org.apache.wicket.markup.html.basic.Label;
+import org.apache.wicket.markup.html.image.ContextImage;
 import org.apache.wicket.markup.html.image.Image;
 import org.apache.wicket.markup.html.panel.Panel;
+import org.apache.wicket.request.resource.ContextRelativeResource;
+import org.apache.wicket.request.resource.ContextRelativeResourceReference;
 import org.apache.wicket.request.resource.PackageResourceReference;
+import org.apache.wicket.request.resource.ResourceReference;
 
 /**
  * A panel which encapsulates a link containing a image and an optional label.
@@ -21,34 +28,81 @@ import org.apache.wicket.request.resource.PackageResourceReference;
  */
 @SuppressWarnings("serial")
 public abstract class ImageAjaxLink<T> extends Panel {
-    protected Image image;
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ImageAjaxLink.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    protected WebComponent image;
     protected AjaxLink<T> link;
 
     /** Constructs the panel with a link containing an image. */
-    public ImageAjaxLink(String id, PackageResourceReference imageRef) {
+    public ImageAjaxLink(String id, ResourceReference imageRef) {
         this(id, imageRef, "");
     }
 
     /** Constructs the panel with a link containing an image and a label. */
-    public ImageAjaxLink(String id, PackageResourceReference imageRef, String label) {
+    public ImageAjaxLink(String id, ResourceReference imageRef, String label) {
         super(id);
-        link =
-                new AjaxLink<T>("link") {
-                    @Override
-                    public void onClick(AjaxRequestTarget target) {
-                        ImageAjaxLink.this.onClick(target);
-                    }
+        link = new AjaxLink<>("link") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                ImageAjaxLink.this.onClick(target);
+            }
 
-                    @Override
-                    protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
-                        super.updateAjaxAttributes(attributes);
-                        attributes
-                                .getAjaxCallListeners()
-                                .add(ImageAjaxLink.this.getAjaxCallListener());
-                    }
-                };
+            @Override
+            protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+                super.updateAjaxAttributes(attributes);
+                attributes.getAjaxCallListeners().add(ImageAjaxLink.this.getAjaxCallListener());
+            }
+        };
         add(link);
-        link.add(image = new Image("image", imageRef));
+        if (imageRef instanceof PackageResourceReference) {
+            image = new CachingImage("image", imageRef);
+        } else if (imageRef instanceof ContextRelativeResourceReference) {
+            ContextRelativeResource resource = ((ContextRelativeResourceReference) imageRef).getResource();
+            String path = (String) resource.getCacheKey();
+            path = path.substring(path.indexOf("//") + 2);
+            image = new ContextImage("image", path);
+        } else {
+            image = new Image("image", imageRef);
+        }
+        link.add(image);
+        link.add(new Label("label", label));
+    }
+
+    /** Constructs the panel with a link containing a CSS icon. */
+    public ImageAjaxLink(String id, String cssClass) {
+        this(id, cssClass, "");
+    }
+
+    /** Constructs the panel with a link containing a CSS icon and a label. */
+    public ImageAjaxLink(String id, String cssClass, String label) {
+        super(id);
+        link = new AjaxLink<>("link") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                ImageAjaxLink.this.onClick(target);
+            }
+
+            @Override
+            protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
+                super.updateAjaxAttributes(attributes);
+                attributes.getAjaxCallListeners().add(ImageAjaxLink.this.getAjaxCallListener());
+            }
+        };
+        add(link);
+        image = new GsIcon("image", cssClass);
+        link.add(image);
         link.add(new Label("label", label));
     }
 
@@ -57,13 +111,13 @@ public abstract class ImageAjaxLink<T> extends Panel {
     }
 
     /** Returns the image contained in this link (allows playing with its attributes) */
-    public Image getImage() {
+    public WebComponent getImage() {
         return image;
     }
 
     /**
-     * Returns the link wrapped by the {@link ImageAjaxLink} panel (allows playing with its
-     * attributes and enable/disable the link)
+     * Returns the link wrapped by the {@link ImageAjaxLink} panel (allows playing with its attributes and
+     * enable/disable the link)
      */
     public AjaxLink<T> getLink() {
         return link;

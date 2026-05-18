@@ -5,19 +5,21 @@
  */
 package org.geoserver.ows;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
+import java.security.SecureRandom;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.util.concurrent.atomic.AtomicLong;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.Service;
+import org.geotools.util.SuppressFBWarnings;
 
 /**
- * A collection of the informations collected and parsed by the {@link Dispatcher} while doing its
- * dispatching work. In case of dispatching exceptions some fields may be left blank, depending how
- * far the dispatching went.
+ * A collection of the informations collected and parsed by the {@link Dispatcher} while doing its dispatching work. In
+ * case of dispatching exceptions some fields may be left blank, depending how far the dispatching went.
  *
  * @author Justin DeOliveira
  * @author Andrea Aime
@@ -51,12 +53,15 @@ public class Request {
     /** XML root element name as parsed from a POST request with an xml request body */
     protected String postRequestElementName;
 
-    /** OWS protocol version (combined with service and request) */
+    /** OWS protocol version (combined with service and request). Can be the result of negotiation */
     protected String version;
 
+    /** OWS acceptVersions parameter, if present */
+    protected List<String> acceptVersions;
+
     /**
-     * xml namespace used in request body, only relevant for post requests and when request body
-     * content is namespace qualified
+     * xml namespace used in request body, only relevant for post requests and when request body content is namespace
+     * qualified
      */
     protected String namespace;
 
@@ -78,20 +83,20 @@ public class Request {
     protected Date timestamp;
 
     /**
-     * The Operation used to call the service code. Available only after dispatching is done, it
-     * will give access to the current service object, and the parsed request
+     * The Operation used to call the service code. Available only after dispatching is done, it will give access to the
+     * current service object, and the parsed request
      */
     protected Operation operation;
 
     /** Uniquely identifies this request */
-    protected UUID identifier;
+    protected String identifier;
 
     /** SOAP namespace used in the request */
     private String soapNamespace;
 
     public Request() {
         timestamp = new Date();
-        identifier = UUID.randomUUID();
+        identifier = RequestIdGenerator.nextId();
     }
 
     /**
@@ -153,8 +158,8 @@ public class Request {
     }
 
     /**
-     * The input as read from the http request. The {@link Dispatcher} will perform some preventive
-     * reading on the input so never use the raw {@link HttpServletRequest} one
+     * The input as read from the http request. The {@link Dispatcher} will perform some preventive reading on the input
+     * so never use the raw {@link HttpServletRequest} one
      */
     public BufferedReader getInput() {
         return input;
@@ -175,6 +180,11 @@ public class Request {
         return version;
     }
 
+    /** The OWS acceptVersions parameter, if present */
+    public List<String> getAcceptVersions() {
+        return acceptVersions;
+    }
+
     /** The request namespace */
     public String getNamespace() {
         return namespace;
@@ -191,8 +201,8 @@ public class Request {
     }
 
     /**
-     * The Operation used to call the service code. Available only after dispatching is done, it
-     * provides access to the current service object, and the parsed request
+     * The Operation used to call the service code. Available only after dispatching is done, it provides access to the
+     * current service object, and the parsed request
      */
     public Operation getOperation() {
         return operation;
@@ -247,8 +257,7 @@ public class Request {
     /**
      * Allows callbacks to change the parsed KVP map
      *
-     * <p>Clients should consider calling {@link #setOrAppendKvp(java.util.Map)} to retain the
-     * existing kvp map.
+     * <p>Clients should consider calling {@link #setOrAppendKvp(java.util.Map)} to retain the existing kvp map.
      *
      * @param kvp Parsed kvp values.
      */
@@ -306,18 +315,18 @@ public class Request {
     }
 
     /**
-     * The xml root element name (e.g. {@code GetMap}, {@code GetFeature}, {@code
-     * StyledLayerDescriptor}. etc.), as pre-parsed during a Dispatcher POST request initialization,
-     * since it may differ from the final {@link #getRequest() request name}
+     * The xml root element name (e.g. {@code GetMap}, {@code GetFeature}, {@code StyledLayerDescriptor}. etc.), as
+     * pre-parsed during a Dispatcher POST request initialization, since it may differ from the final
+     * {@link #getRequest() request name}
      */
     String getPostRequestElementName() {
         return postRequestElementName;
     }
 
     /**
-     * The xml root element name (e.g. {@code GetMap}, {@code GetFeature}, {@code
-     * StyledLayerDescriptor}. etc.), as pre-parsed during a Dispatcher POST request initialization,
-     * since it may differ from the final {@link #getRequest() request name}
+     * The xml root element name (e.g. {@code GetMap}, {@code GetFeature}, {@code StyledLayerDescriptor}. etc.), as
+     * pre-parsed during a Dispatcher POST request initialization, since it may differ from the final
+     * {@link #getRequest() request name}
      */
     void setPostRequestElementName(String rootXmlElementName) {
         this.postRequestElementName = rootXmlElementName;
@@ -330,6 +339,15 @@ public class Request {
      */
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    /**
+     * Sets the accepts version list (used by the Dispatcher when acceptVersions is present in the request)
+     *
+     * @param acceptVersions OWS acceptVersions
+     */
+    public void setAcceptVersions(List<String> acceptVersions) {
+        this.acceptVersions = acceptVersions;
     }
 
     /** Sets the request namespace */
@@ -465,5 +483,34 @@ public class Request {
     /** Returns the SOAP namespace used in the request, or null if the request was not a SOAP one */
     public String getSOAPNamespace() {
         return soapNamespace;
+    }
+
+    /**
+     * Low-contention globally unique identifier that avoids per-request synchronization. A random JVM-wide prefix is
+     * generated once at startup, and combined with a monotonically increasing counter.
+     *
+     * <p>The counter is a signed 64-bit value with 2^63 positive numbers. Even at a sustained rate of 1,000,000
+     * generated ids per second, exhausting that space would take:
+     *
+     * <p>2^63 / 1_000_000 / 60 / 60 / 24 / 365 ~= 292,000 years
+     *
+     * <p>Therefore, rollover is not handled: the counter only needs to be unique within the lifetime of a single JVM,
+     * and the random prefix ensures uniqueness across JVMs and machines.
+     *
+     * <p>It is reasonable to assume that a GeoServer instance will be restarted long before the counter space is
+     * exhausted.
+     */
+    @SuppressFBWarnings("DMI_RANDOM_USED_ONLY_ONCE") // actually used twice, inlining does not fix
+    private static final class RequestIdGenerator {
+        private static final SecureRandom RANDOM = new SecureRandom();
+
+        private static final String JVM_ID = Long.toUnsignedString(RANDOM.nextLong(), 36);
+
+        private static final AtomicLong COUNTER = new AtomicLong(RANDOM.nextLong() & Long.MAX_VALUE);
+
+        public static String nextId() {
+            long id = COUNTER.getAndIncrement();
+            return Long.toUnsignedString(id, 36) + "-" + JVM_ID;
+        }
     }
 }

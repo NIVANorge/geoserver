@@ -14,21 +14,19 @@ import org.geoserver.ows.Response;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wcs2_0.response.WCS20GetCoverageResponse;
-import org.opengis.coverage.grid.GridCoverage;
+import org.geotools.api.coverage.grid.GridCoverage;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapts all output formats able to encode a WCS {@link org.opengis.coverage.grid.GridCoverage} to
- * a {@link org.springframework.http.converter.HttpMessageConverter} encoding a {@link
- * CoveragesResponse}. Allows to reuse all existing WCS output formats in the OGC Coverages API
- * implementation.
+ * Adapts all output formats able to encode a WCS {@link org.geotools.api.coverage.grid.GridCoverage} to a
+ * {@link org.springframework.http.converter.HttpMessageConverter} encoding a {@link CoveragesResponse}. Allows to reuse
+ * all existing WCS output formats in the OGC Coverages API implementation.
  */
 @Component
-public class CoverageResponseMessageConverter
-        extends MessageConverterResponseAdapter<CoveragesResponse> {
+public class CoverageResponseMessageConverter extends MessageConverterResponseAdapter<CoveragesResponse> {
 
     public CoverageResponseMessageConverter() {
         super(CoveragesResponse.class, GridCoverage.class);
@@ -36,10 +34,7 @@ public class CoverageResponseMessageConverter
 
     @Override
     protected void writeResponse(
-            CoveragesResponse value,
-            HttpOutputMessage httpOutputMessage,
-            Operation operation,
-            Response response)
+            CoveragesResponse value, HttpOutputMessage httpOutputMessage, Operation operation, Response response)
             throws IOException {
         try {
             setHeaders(value.getResponse(), operation, response, httpOutputMessage);
@@ -58,8 +53,7 @@ public class CoverageResponseMessageConverter
     }
 
     @Override
-    protected void setHeaders(
-            Object result, Operation operation, Response response, HttpOutputMessage message) {
+    protected void setHeaders(Object result, Operation operation, Response response, HttpOutputMessage message) {
         // nothing to do so far
     }
 
@@ -69,8 +63,7 @@ public class CoverageResponseMessageConverter
         // need to update the request with the requested media type
         GetCoverageType request = (GetCoverageType) result.getRequest();
         request.setFormat(mediaType.toString());
-        return new Operation(
-                "GetCoverage", op.getService(), op.getMethod(), new Object[] {request});
+        return new Operation("GetCoverage", op.getService(), op.getMethod(), new Object[] {request});
     }
 
     @Override

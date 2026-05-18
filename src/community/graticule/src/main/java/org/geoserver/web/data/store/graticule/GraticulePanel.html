@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<html xmlns:wicket="http://wicket.apache.org/">
+  <body>
+    <wicket:panel>
+      <div class="gs-panel-GraticulePanel">
+        <div class="gs-form">
+          <div class="gs-form-group">
+            <label>
+              <wicket:message key="bounds">Bounds</wicket:message>
+            </label>
+            <div>
+              <div wicket:id="bounds" class="selfclear"/>
+              <button wicket:id="generateBoundsFromCRS" type="submit">
+                <wicket:message key="generateBoundsFromSRS"/>
+              </button>
+            </div>
+          </div>
+          <div class="gs-list-item-class">
+            <span id="steps" wicket:id="steps"/>
+          </div>
+        </div>
+      </div>
+    </wicket:panel>
+  </body>
+</html>

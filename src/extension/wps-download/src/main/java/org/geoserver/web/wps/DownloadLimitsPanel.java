@@ -4,6 +4,8 @@
  */
 package org.geoserver.web.wps;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,6 +24,19 @@ import org.geotools.util.logging.Logging;
 /** Extension to the WPS admin panel, allowing to edit the download limits */
 public class DownloadLimitsPanel extends AdminPagePanel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(DownloadLimitsPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     static final Logger LOGGER = Logging.getLogger(DownloadLimitsPanel.class);
 
     public DownloadLimitsPanel(String id, IModel<?> model) {
@@ -30,8 +45,7 @@ public class DownloadLimitsPanel extends AdminPagePanel {
         ConfigurationModel cm = new ConfigurationModel();
         setDefaultModel(cm);
 
-        TextField<Long> maxFeatures =
-                new TextField<>("maxFeatures", new PropertyModel<>(cm, "maxFeatures"));
+        TextField<Long> maxFeatures = new TextField<>("maxFeatures", new PropertyModel<>(cm, "maxFeatures"));
         maxFeatures.add(RangeValidator.minimum(0l));
         add(maxFeatures);
 
@@ -40,8 +54,7 @@ public class DownloadLimitsPanel extends AdminPagePanel {
         rasterSizeLimit.add(RangeValidator.minimum(0l));
         add(rasterSizeLimit);
 
-        TextField<Long> writeLimits =
-                new TextField<>("writeLimits", new PropertyModel<>(cm, "writeLimits"));
+        TextField<Long> writeLimits = new TextField<>("writeLimits", new PropertyModel<>(cm, "writeLimits"));
         writeLimits.add(RangeValidator.minimum(0l));
         add(writeLimits);
 
@@ -51,8 +64,7 @@ public class DownloadLimitsPanel extends AdminPagePanel {
         add(hardOutputLimit);
 
         TextField<Long> maxAnimationFrames =
-                new TextField<>(
-                        "maxAnimationFrames", new PropertyModel<>(cm, "maxAnimationFrames"));
+                new TextField<>("maxAnimationFrames", new PropertyModel<>(cm, "maxAnimationFrames"));
         maxAnimationFrames.add(RangeValidator.minimum(0));
         add(maxAnimationFrames);
 
@@ -68,8 +80,7 @@ public class DownloadLimitsPanel extends AdminPagePanel {
 
     @Override
     public void onMainFormSubmit() {
-        DownloadServiceConfiguration config =
-                (DownloadServiceConfiguration) getDefaultModelObject();
+        DownloadServiceConfiguration config = (DownloadServiceConfiguration) getDefaultModelObject();
         try {
             getConfigurationPersister().setConfiguration(config);
         } catch (IOException e) {

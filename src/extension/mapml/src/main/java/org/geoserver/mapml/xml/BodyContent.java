@@ -8,12 +8,14 @@
 
 package org.geoserver.mapml.xml;
 
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlElements;
+import jakarta.xml.bind.annotation.XmlType;
 import java.util.ArrayList;
 import java.util.List;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlType;
+import java.util.stream.Collectors;
 
 /**
  * Java class for bodyContent complex type.
@@ -43,34 +45,34 @@ import javax.xml.bind.annotation.XmlType;
 public class BodyContent {
 
     @XmlElement(name = "map-extent", namespace = "http://www.w3.org/1999/xhtml")
-    protected Extent extent;
+    protected List<Extent> extents;
 
     @XmlElement(name = "map-link", namespace = "http://www.w3.org/1999/xhtml")
     protected List<Link> links;
 
-    @XmlElement(name = "map-feature", namespace = "http://www.w3.org/1999/xhtml")
-    protected List<Feature> features;
-
-    @XmlElement(name = "map-tile", namespace = "http://www.w3.org/1999/xhtml")
-    protected List<Tile> tiles;
+    @XmlElements({
+        @XmlElement(name = "map-tile", namespace = "http://www.w3.org/1999/xhtml", type = Tile.class),
+        @XmlElement(name = "map-feature", namespace = "http://www.w3.org/1999/xhtml", type = Feature.class)
+    })
+    protected List<MapMLElement> tilesOrFeatures;
 
     @XmlElement(name = "map-image", namespace = "http://www.w3.org/1999/xhtml")
     protected List<Image> images;
 
-    public Extent getExtent() {
-        return extent;
+    public List<Extent> getExtents() {
+        return extents;
     }
 
-    public void setExtent(Extent extent) {
-        this.extent = extent;
+    public void setExtents(List<Extent> extents) {
+        this.extents = extents;
     }
 
     /**
      * Gets the value of the links property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the links property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the links property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -86,17 +88,30 @@ public class BodyContent {
     }
 
     public List<Feature> getFeatures() {
-        if (features == null) {
-            features = new ArrayList<>();
+        if (tilesOrFeatures == null) {
+            tilesOrFeatures = new ArrayList<>();
         }
-        return this.features;
+        return this.tilesOrFeatures.stream()
+                .filter(Feature.class::isInstance)
+                .map(Feature.class::cast)
+                .collect(Collectors.toList());
     }
 
     public List<Tile> getTiles() {
-        if (tiles == null) {
-            tiles = new ArrayList<>();
+        if (tilesOrFeatures == null) {
+            tilesOrFeatures = new ArrayList<>();
         }
-        return this.tiles;
+        return this.tilesOrFeatures.stream()
+                .filter(Tile.class::isInstance)
+                .map(Tile.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    public List<MapMLElement> getTilesOrFeatures() {
+        if (tilesOrFeatures == null) {
+            tilesOrFeatures = new ArrayList<>();
+        }
+        return this.tilesOrFeatures;
     }
 
     public List<Image> getImages() {

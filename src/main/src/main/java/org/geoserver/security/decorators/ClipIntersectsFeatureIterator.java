@@ -6,19 +6,18 @@ package org.geoserver.security.decorators;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.feature.type.Name;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.collection.ClippedFeatureIterator;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.feature.type.Name;
 
 /**
- * A SimpleFeatureCollection that can filter features' geometries by a clip (crop) spatialFilter and
- * by an intersects spatialFilter. If a geometry is hit by both the result of the two filters is
- * merged.
+ * A SimpleFeatureCollection that can filter features' geometries by a clip (crop) spatialFilter and by an intersects
+ * spatialFilter. If a geometry is hit by both the result of the two filters is merged.
  */
 class ClipIntersectsFeatureIterator extends ClippedFeatureIterator {
     private Geometry intersects;
@@ -53,12 +52,10 @@ class ClipIntersectsFeatureIterator extends ClippedFeatureIterator {
             Map<Name, Geometry> intersectedGeometries = null;
             if (intersects != null) {
                 Map<Name, Geometry> geometryAttributes = extractGeometryAttributes(f);
-                intersectedGeometries =
-                        getIntersectingGeometries(geometryAttributes, f.getFeatureType());
+                intersectedGeometries = getIntersectingGeometries(geometryAttributes, f.getFeatureType());
                 // if there is at least one geometryCollection or not all the geometry
                 // attributes were intersected performs also the clip
-                if (intersectedGeometries != null)
-                    doTheClip = geometryAttributes.size() > intersectedGeometries.size();
+                if (intersectedGeometries != null) doTheClip = geometryAttributes.size() > intersectedGeometries.size();
             }
 
             boolean clippedOut = false;

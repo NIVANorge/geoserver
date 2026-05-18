@@ -52,17 +52,16 @@ public class JDBCConnectionPanelTest extends AbstractSecurityWicketTestSupport {
 
     protected void setupPanel(JDBCSecurityServiceConfig theConfig) {
         this.config = theConfig;
-        tester.startPage(
-                new FormTestPage(
-                        new ComponentBuilder() {
-                            private static final long serialVersionUID = 1L;
+        tester.startPage(new FormTestPage(
+                new ComponentBuilder() {
+                    private static final long serialVersionUID = 1L;
 
-                            @Override
-                            public Component buildComponent(String id) {
-                                return current = new JDBCConnectionPanel<>(id, new Model<>(config));
-                            };
-                        },
-                        new CompoundPropertyModel<>(config)));
+                    @Override
+                    public Component buildComponent(String id) {
+                        return current = new JDBCConnectionPanel<>(id, new Model<>(config));
+                    }
+                },
+                new CompoundPropertyModel<>(config)));
     }
 
     @Test
@@ -104,15 +103,15 @@ public class JDBCConnectionPanelTest extends AbstractSecurityWicketTestSupport {
         FormTester ftester = tester.newFormTester("form");
         ftester.setValue(relBase + "userName", "user1");
         ftester.setValue(relBase + "password", "pw");
-        ftester.setValue(relBase + "driverClassName", "org.h2.Driver");
-        ftester.setValue(relBase + "connectURL", "jdbc:h2");
+        ftester.setValue(relBase + "driverClassName", "org.hsqldb.jdbc.JDBCDriver");
+        ftester.setValue(relBase + "connectURL", "jdbc:hsqldb:file");
         ftester.submit();
 
         tester.assertNoErrorMessage();
         assertEquals("user1", config.getUserName());
         assertEquals("pw", config.getPassword());
-        assertEquals("org.h2.Driver", config.getDriverClassName());
-        assertEquals("jdbc:h2", config.getConnectURL());
+        assertEquals("org.hsqldb.jdbc.JDBCDriver", config.getDriverClassName());
+        assertEquals("jdbc:hsqldb:file", config.getConnectURL());
     }
 
     @Test
@@ -120,7 +119,7 @@ public class JDBCConnectionPanelTest extends AbstractSecurityWicketTestSupport {
         JDBCUserGroupServiceConfig theConfig = new JDBCUserGroupServiceConfig();
         theConfig.setUserName("user1");
         theConfig.setPassword("pw");
-        theConfig.setDriverClassName("org.h2.Driver");
+        theConfig.setDriverClassName("org.hsqldb.jdbc.JDBCDriver");
         theConfig.setConnectURL("jdbc:foo");
 
         setupPanel(theConfig);
@@ -135,8 +134,8 @@ public class JDBCConnectionPanelTest extends AbstractSecurityWicketTestSupport {
         JDBCUserGroupServiceConfig theConfig = new JDBCUserGroupServiceConfig();
         theConfig.setUserName("user1");
         theConfig.setPassword("pw");
-        theConfig.setDriverClassName("org.h2.Driver");
-        theConfig.setConnectURL("jdbc:h2:file:target/db");
+        theConfig.setDriverClassName("org.hsqldb.jdbc.JDBCDriver");
+        theConfig.setConnectURL("jdbc:hsqldb:file:target/db");
 
         setupPanel(theConfig);
         tester.assertRenderedPage(FormTestPage.class);
@@ -149,11 +148,7 @@ public class JDBCConnectionPanelTest extends AbstractSecurityWicketTestSupport {
             tester.assertComponent(base + "jndiName", TextField.class);
             tester.assertVisible(base + "jndiName");
         } else {
-            for (String c :
-                    Arrays.asList(
-                            new String[] {
-                                "driverClassName", "connectURL", "userName", "password"
-                            })) {
+            for (String c : Arrays.asList(new String[] {"driverClassName", "connectURL", "userName", "password"})) {
                 tester.assertComponent(base + c, FormComponent.class);
                 tester.assertVisible(base + c);
             }

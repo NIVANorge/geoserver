@@ -18,26 +18,25 @@ import net.opengis.cat.csw20.ElementSetType;
 import net.opengis.cat.csw20.GetRecordsType;
 import net.opengis.cat.csw20.QueryType;
 import net.opengis.cat.csw20.ResultType;
-import org.geoserver.csw.records.CSWRecordDescriptor;
 import org.geoserver.csw.records.RecordDescriptor;
 import org.geoserver.csw.response.CSWRecordsResult;
 import org.geoserver.csw.store.CatalogStore;
 import org.geoserver.feature.CompositeFeatureCollection;
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.csw.CSW;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.type.Types;
 import org.geotools.util.factory.Hints;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
 
 /**
  * Runs the GetRecords request
@@ -46,7 +45,7 @@ import org.opengis.filter.expression.PropertyName;
  */
 public class GetRecords {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     public static final Hints.Key KEY_BASEURL = new Hints.Key(String.class);
 
@@ -109,9 +108,7 @@ public class GetRecords {
             int numberOfRecordsMatched = 0;
             int[] counts = new int[queries.size()];
             for (int i = 0; i < queries.size(); i++) {
-                counts[i] =
-                        store.getRecordsCount(
-                                queries.get(i).query, Transaction.AUTO_COMMIT, queries.get(i).rd);
+                counts[i] = store.getRecordsCount(queries.get(i).query, Transaction.AUTO_COMMIT, queries.get(i).rd);
                 numberOfRecordsMatched += counts[i];
             }
 
@@ -177,23 +174,21 @@ public class GetRecords {
                 numberOfRecordsReturned = 0;
             }
 
-            CSWRecordsResult result =
-                    new CSWRecordsResult(
-                            elementSet,
-                            request.getOutputSchema(),
-                            numberOfRecordsMatched,
-                            numberOfRecordsReturned,
-                            nextRecord,
-                            timestamp,
-                            records);
+            CSWRecordsResult result = new CSWRecordsResult(
+                    elementSet,
+                    request.getOutputSchema(),
+                    numberOfRecordsMatched,
+                    numberOfRecordsReturned,
+                    nextRecord,
+                    timestamp,
+                    records);
             return result;
         } catch (IOException e) {
             throw new ServiceException("Request failed due to: " + e.getMessage(), e);
         }
     }
 
-    private List<WrappedQuery> toGtQueries(
-            List<RecordDescriptor> outputRds, QueryType query, GetRecordsType request)
+    private List<WrappedQuery> toGtQueries(List<RecordDescriptor> outputRds, QueryType query, GetRecordsType request)
             throws IOException {
         // prepare to build the queries
         Filter filter = query.getConstraint() != null ? query.getConstraint().getFilter() : null;
@@ -217,8 +212,6 @@ public class GetRecords {
                             "typeNames");
                 }
 
-                RecordDescriptor rd = getRecordDescriptor(typeName);
-
                 Query q = new Query(typeName.getLocalPart());
                 q.setFilter(filter);
                 q.setProperties(getPropertyNames(outputRd, query));
@@ -228,19 +221,13 @@ public class GetRecords {
                 } catch (URISyntaxException e) {
                 }
 
-                // perform some necessary query adjustments
-                Query adapted = rd.adaptQuery(q);
-
-                // the specification demands that we throw an error if a spatial operator
-                // is used against a non spatial property
-                if (q.getFilter() != null) {
-                    rd.verifySpatialFilters(q.getFilter());
-                }
+                // prepare later for multiple queryables mappings support
+                q.getHints().put(CatalogStore.KEY_UNPREPARED, true);
 
                 // smuggle base url
-                adapted.getHints().put(KEY_BASEURL, request.getBaseUrl());
+                q.getHints().put(KEY_BASEURL, request.getBaseUrl());
 
-                result.add(new WrappedQuery(adapted, outputRd));
+                result.add(new WrappedQuery(q, outputRd));
             }
         }
 
@@ -254,7 +241,7 @@ public class GetRecords {
             // of the elements in the feature's schema
             List<PropertyName> result = new ArrayList<>();
             for (QName qn : query.getElementName()) {
-                result.add(store.translateProperty(rd, Types.toTypeName(qn)));
+                result.addAll(store.translateToPropertyNames(rd, Types.toTypeName(qn)));
             }
             return result;
         } else {
@@ -263,7 +250,7 @@ public class GetRecords {
             if (properties != null) {
                 List<PropertyName> result = new ArrayList<>();
                 for (Name pn : properties) {
-                    result.add(store.translateProperty(rd, pn));
+                    result.addAll(store.translateToPropertyNames(rd, pn));
                 }
                 return result;
             } else {
@@ -274,7 +261,7 @@ public class GetRecords {
     }
 
     private ElementSetType getElementSet(QueryType query) {
-        if (query.getElementName() != null && query.getElementName().size() > 0) {
+        if (query.getElementName() != null && !query.getElementName().isEmpty()) {
             return ElementSetType.FULL;
         }
         ElementSetType elementSet =
@@ -295,29 +282,7 @@ public class GetRecords {
         return result;
     }
 
-    /**
-     * Search for the record descriptor maching the typename, throws a service exception in case
-     * none is found
-     */
-    private RecordDescriptor getRecordDescriptor(Name typeName) {
-        if (typeName == null) {
-            return CSWRecordDescriptor.getInstance();
-        }
-
-        for (RecordDescriptor rd : recordDescriptors) {
-            if (typeName.equals(rd.getFeatureDescriptor().getName())) {
-                return rd;
-            }
-        }
-
-        throw new ServiceException(
-                "Unknown type: " + typeName, ServiceException.INVALID_PARAMETER_VALUE, "typeNames");
-    }
-
-    /**
-     * Search for the record descriptor maching the request, throws a service exception in case none
-     * is found
-     */
+    /** Search for the record descriptor maching the request, throws a service exception in case none is found */
     protected List<RecordDescriptor> getRecordDescriptors(GetRecordsType request) {
         String outputSchema = request.getOutputSchema();
         if (outputSchema == null) {

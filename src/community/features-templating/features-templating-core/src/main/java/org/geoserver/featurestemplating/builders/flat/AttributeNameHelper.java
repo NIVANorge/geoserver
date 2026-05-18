@@ -5,7 +5,7 @@
 package org.geoserver.featurestemplating.builders.flat;
 
 import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
-import org.opengis.filter.expression.Expression;
+import org.geotools.api.filter.expression.Expression;
 
 /** An helper class to help creating attribute names when producing a flat geoJson output */
 class AttributeNameHelper {
@@ -26,11 +26,9 @@ class AttributeNameHelper {
         String parentKey = this.parentKey;
         String key =
                 this.key != null ? this.key.evaluate(context.getCurrentObj()).toString() : null;
-        if (parentKey != null && !parentKey.equals(PROPERTIES_KEY) && key != null)
-            key = parentKey + separator + key;
+        if (parentKey != null && !parentKey.equals(PROPERTIES_KEY) && key != null) key = parentKey + separator + key;
         else if (key == null) key = parentKey;
-        if (separator != "_" && key != null)
-            key = replaceDefaultSeparatorWithCustom(key, separator);
+        if (separator != "_" && key != null) key = replaceDefaultSeparatorWithCustom(key, separator);
         return key;
     }
 
@@ -41,16 +39,14 @@ class AttributeNameHelper {
             if (key != null && !key.equals(PROPERTIES_KEY)) key = parentKey + separator + key;
             else if (key == null || key.equals(PROPERTIES_KEY)) key = parentKey;
         }
-        if (separator != "_" && key != null)
-            key = replaceDefaultSeparatorWithCustom(key, separator);
+        if (separator != "_" && key != null) key = replaceDefaultSeparatorWithCustom(key, separator);
         return key;
     }
 
     String getCompleteIteratingAttributeName(int elementsSize, int index) {
         String key = this.key != null ? this.key.evaluate(null).toString() : null;
         String parentKey = this.parentKey;
-        if (parentKey != null && !parentKey.equals(PROPERTIES_KEY))
-            key = parentKey + separator + key;
+        if (parentKey != null && !parentKey.equals(PROPERTIES_KEY)) key = parentKey + separator + key;
         key = replaceDefaultSeparatorWithCustom(key, separator);
         String itKey;
         if (elementsSize > 0) itKey = key + separator + (index);

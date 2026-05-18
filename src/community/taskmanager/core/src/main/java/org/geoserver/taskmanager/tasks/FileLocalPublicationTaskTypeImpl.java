@@ -4,13 +4,13 @@
  */
 package org.geoserver.taskmanager.tasks;
 
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.CatalogFactory;
@@ -32,10 +32,10 @@ import org.geoserver.taskmanager.schedule.TaskContext;
 import org.geoserver.taskmanager.schedule.TaskException;
 import org.geoserver.taskmanager.schedule.TaskResult;
 import org.geoserver.taskmanager.schedule.TaskType;
+import org.geotools.api.feature.type.Name;
 import org.geotools.coverage.grid.io.GridFormatFinder;
 import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.util.decorate.Wrapper;
-import org.opengis.feature.type.Name;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -52,12 +52,13 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
 
     public static final String PARAM_FILE_SERVICE = "fileService";
 
-    protected final Map<String, ParameterInfo> paramInfo =
-            new LinkedHashMap<String, ParameterInfo>();
+    protected final Map<String, ParameterInfo> paramInfo = new LinkedHashMap<String, ParameterInfo>();
 
-    @Autowired protected ExtTypes extTypes;
+    @Autowired
+    protected ExtTypes extTypes;
 
-    @Autowired protected Catalog catalog;
+    @Autowired
+    protected Catalog catalog;
 
     @Override
     public String getName() {
@@ -66,20 +67,14 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
 
     @PostConstruct
     public void initParamInfo() {
-        ParameterInfo fileService =
-                new ParameterInfo(PARAM_FILE_SERVICE, extTypes.fileService, true);
+        ParameterInfo fileService = new ParameterInfo(PARAM_FILE_SERVICE, extTypes.fileService, true);
         paramInfo.put(PARAM_FILE_SERVICE, fileService);
         paramInfo.put(
-                PARAM_FILE,
-                new ParameterInfo(PARAM_FILE, extTypes.file(true, true), true)
-                        .dependsOn(fileService));
-        ParameterInfo paramWorkspace =
-                new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
+                PARAM_FILE, new ParameterInfo(PARAM_FILE, extTypes.file(true, true), true).dependsOn(fileService));
+        ParameterInfo paramWorkspace = new ParameterInfo(PARAM_WORKSPACE, extTypes.workspace, false);
         paramInfo.put(PARAM_WORKSPACE, paramWorkspace);
         paramInfo.put(
-                PARAM_LAYER,
-                new ParameterInfo(PARAM_LAYER, extTypes.name, true)
-                        .dependsOn(false, paramWorkspace));
+                PARAM_LAYER, new ParameterInfo(PARAM_LAYER, extTypes.name, true).dependsOn(false, paramWorkspace));
     }
 
     @Override
@@ -92,50 +87,28 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
         CatalogFactory catalogFac = new CatalogFactoryImpl(catalog);
 
         final Name layerName = (Name) ctx.getParameterValues().get(PARAM_LAYER);
-        final NamespaceInfo ns = catalog.getNamespaceByURI(layerName.getNamespaceURI());
-        final WorkspaceInfo ws = catalog.getWorkspaceByName(ns.getName());
+        final WorkspaceInfo ws = getWorkspace(ctx, catalog.getNamespaceByURI(layerName.getNamespaceURI()));
 
-        FileReference fileRef =
-                (FileReference)
-                        ctx.getBatchContext()
-                                .get(
-                                        ctx.getParameterValues().get(PARAM_FILE),
-                                        new BatchContext.Dependency() {
-                                            @Override
-                                            public void revert() throws TaskException {
-                                                StoreInfo store =
-                                                        catalog.getStoreByName(
-                                                                ws,
-                                                                layerName.getLocalPart(),
-                                                                StoreInfo.class);
-                                                FileReference fileRef =
-                                                        (FileReference)
-                                                                ctx.getBatchContext()
-                                                                        .get(
-                                                                                ctx.getParameterValues()
-                                                                                        .get(
-                                                                                                PARAM_FILE));
-                                                final URI uri =
-                                                        process(
-                                                                fileRef.getService()
-                                                                        .getURI(
-                                                                                fileRef
-                                                                                        .getLatestVersion()),
-                                                                ctx);
-                                                if (store instanceof CoverageStoreInfo) {
-                                                    ((CoverageStoreInfo) store)
-                                                            .setURL(uri.toString());
-                                                } else {
-                                                    try {
-                                                        store.getConnectionParameters()
-                                                                .put("url", uri.toURL());
-                                                    } catch (MalformedURLException e) {
-                                                        throw new TaskException(e);
-                                                    }
-                                                }
-                                                catalog.save(store);
-                                            }
-                                        });
+        FileReference fileRef = (FileReference)
+                ctx.getBatchContext().get(ctx.getParameterValues().get(PARAM_FILE), new BatchContext.Dependency() {
+                    @Override
+                    public void revert() throws TaskException {
+                        StoreInfo store = catalog.getStoreByName(ws, layerName.getLocalPart(), StoreInfo.class);
+                        FileReference fileRef = (FileReference) ctx.getBatchContext()
+                                .get(ctx.getParameterValues().get(PARAM_FILE));
+                        final URI uri = process(fileRef.getService().getURI(fileRef.getLatestVersion()), ctx);
+                        if (store instanceof CoverageStoreInfo info) {
+                            info.setURL(uri.toString());
+                        } else {
+                            try {
+                                store.getConnectionParameters().put("url", uri.toURL());
+                            } catch (MalformedURLException e) {
+                                throw new TaskException(e);
+                            }
+                        }
+                        catalog.save(store);
+                    }
+                });
         final URI uri = process(fileRef.getService().getURI(fileRef.getLatestVersion()), ctx);
 
         final boolean createLayer = catalog.getLayerByName(layerName) == null;
@@ -157,17 +130,13 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
         final boolean isDatastore = isShapeFile || isAppSchema;
 
         if (createLayer) {
-            final StoreInfo _store =
-                    catalog.getStoreByName(ws, layerName.getLocalPart(), StoreInfo.class);
+            final StoreInfo _store = catalog.getStoreByName(ws, layerName.getLocalPart(), StoreInfo.class);
             final CoverageInfo _resource = catalog.getResourceByName(layerName, CoverageInfo.class);
             createStore = _store == null;
             createResource = _resource == null;
 
             if (createStore) {
-                store =
-                        isDatastore
-                                ? catalogFac.createDataStore()
-                                : catalogFac.createCoverageStore();
+                store = isDatastore ? catalogFac.createDataStore() : catalogFac.createCoverageStore();
                 store.setWorkspace(ws);
                 store.setName(layerName.getLocalPart());
                 if (isDatastore) {
@@ -177,17 +146,14 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
                     }
                 } else {
                     if (url == null) {
-                        ((CoverageStoreInfo) store)
-                                .setType(determineFormatFromScheme(uri.getScheme()));
+                        ((CoverageStoreInfo) store).setType(determineFormatFromScheme(uri.getScheme()));
                     } else {
                         if (uri.getScheme().equalsIgnoreCase("file")
                                 || uri.getScheme().equalsIgnoreCase("resource")) {
                             ((CoverageStoreInfo) store)
-                                    .setType(
-                                            GridFormatFinder.findFormat(
-                                                            Resources.fromURL(uri.toString())
-                                                                    .toString())
-                                                    .getName());
+                                    .setType(GridFormatFinder.findFormat(Resources.fromURL(uri.toString())
+                                                    .toString())
+                                            .getName());
                         } else {
                             ((CoverageStoreInfo) store)
                                     .setType(GridFormatFinder.findFormat(uri).getName());
@@ -206,18 +172,12 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
                 builder.setStore(store);
                 try {
                     if (isShapeFile) {
-                        resource =
-                                builder.buildFeatureType(
-                                        ((ShapefileDataStore)
-                                                        ((DataStoreInfo) store).getDataStore(null))
-                                                .getFeatureSource());
+                        resource = builder.buildFeatureType(
+                                ((ShapefileDataStore) ((DataStoreInfo) store).getDataStore(null)).getFeatureSource());
                         builder.setupBounds(resource);
                     } else if (isDatastore) {
-                        resource =
-                                builder.buildFeatureType(
-                                        ((DataStoreInfo) store)
-                                                .getDataStore(null)
-                                                .getFeatureSource(layerName));
+                        resource = builder.buildFeatureType(
+                                ((DataStoreInfo) store).getDataStore(null).getFeatureSource(layerName));
                         builder.setupBounds(resource);
                     } else {
                         resource = builder.buildCoverage();
@@ -254,8 +214,7 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
             @Override
             public void commit() throws TaskException {
                 if (createResource) {
-                    ResourceInfo editResource =
-                            catalog.getResource(resource.getId(), ResourceInfo.class);
+                    ResourceInfo editResource = catalog.getResource(resource.getId(), ResourceInfo.class);
                     editResource.setAdvertised(true);
                     catalog.save(editResource);
                 }
@@ -276,14 +235,21 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
         };
     }
 
+    private WorkspaceInfo getWorkspace(TaskContext ctx, NamespaceInfo ns) throws TaskException {
+        WorkspaceInfo ws = (WorkspaceInfo) ctx.getParameterValues().get(PARAM_WORKSPACE);
+        if (ws == null) {
+            ws = catalog.getWorkspaceByName(ns.getName());
+        }
+        return ws;
+    }
+
     @Override
     public void cleanup(TaskContext ctx) throws TaskException {
         final Name layerName = (Name) ctx.getParameterValues().get(PARAM_LAYER);
-        final String workspace = catalog.getNamespaceByURI(layerName.getNamespaceURI()).getPrefix();
+        final WorkspaceInfo ws = getWorkspace(ctx, catalog.getNamespaceByURI(layerName.getNamespaceURI()));
 
         final LayerInfo layer = catalog.getLayerByName(layerName);
-        final StoreInfo store =
-                catalog.getStoreByName(workspace, layerName.getLocalPart(), StoreInfo.class);
+        final StoreInfo store = catalog.getStoreByName(ws.getName(), layerName.getLocalPart(), StoreInfo.class);
         final ResourceInfo resource = catalog.getResourceByName(layerName, ResourceInfo.class);
 
         catalog.remove(layer);
@@ -297,8 +263,8 @@ public class FileLocalPublicationTaskTypeImpl implements TaskType {
     }
 
     private static <T> T unwrap(T o, Class<T> clazz) {
-        if (o instanceof Wrapper) {
-            return ((Wrapper) o).unwrap(clazz);
+        if (o instanceof Wrapper wrapper) {
+            return wrapper.unwrap(clazz);
         } else {
             return o;
         }

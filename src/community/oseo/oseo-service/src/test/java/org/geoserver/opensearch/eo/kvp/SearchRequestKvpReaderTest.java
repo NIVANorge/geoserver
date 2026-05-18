@@ -36,50 +36,60 @@ import org.geoserver.opensearch.eo.OSEOTestSupport;
 import org.geoserver.opensearch.eo.OpenSearchParameters;
 import org.geoserver.opensearch.eo.ProductClass;
 import org.geoserver.opensearch.eo.SearchRequest;
+import org.geoserver.opensearch.eo.store.OSEOPostGISResource;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.OWS20Exception;
-import org.geotools.data.Parameter;
-import org.geotools.data.Query;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.And;
+import org.geotools.api.filter.BinaryComparisonOperator;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.Or;
+import org.geotools.api.filter.PropertyIsEqualTo;
+import org.geotools.api.filter.PropertyIsGreaterThan;
+import org.geotools.api.filter.PropertyIsGreaterThanOrEqualTo;
+import org.geotools.api.filter.PropertyIsLessThan;
+import org.geotools.api.filter.PropertyIsLessThanOrEqualTo;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.spatial.BinarySpatialOperator;
+import org.geotools.api.filter.spatial.Contains;
+import org.geotools.api.filter.spatial.Disjoint;
+import org.geotools.api.filter.spatial.Intersects;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.IsEqualsToImpl;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.Converters;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKTReader;
-import org.opengis.filter.And;
-import org.opengis.filter.BinaryComparisonOperator;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.Or;
-import org.opengis.filter.PropertyIsEqualTo;
-import org.opengis.filter.PropertyIsGreaterThan;
-import org.opengis.filter.PropertyIsGreaterThanOrEqualTo;
-import org.opengis.filter.PropertyIsLessThan;
-import org.opengis.filter.PropertyIsLessThanOrEqualTo;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.filter.spatial.BinarySpatialOperator;
-import org.opengis.filter.spatial.Contains;
-import org.opengis.filter.spatial.Disjoint;
-import org.opengis.filter.spatial.Intersects;
 
 public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
+    @ClassRule
+    public static final OSEOPostGISResource postgis = new OSEOPostGISResource(false);
+
+    @Override
+    protected OSEOPostGISResource getOSEOPostGIS() {
+        return postgis;
+    }
+
     private SearchRequestKvpReader reader;
 
-    private static FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    private static FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     @Before
     public void getReader() {
         reader = GeoServerExtensions.bean(SearchRequestKvpReader.class);
     }
 
-    private Map<String, String> toMap(String... kvp) {
-        Map params = new LinkedHashMap<>();
+    private Map<String, Object> toMap(String... kvp) {
+        Map<String, Object> params = new LinkedHashMap<>();
         for (int i = 0; i < kvp.length; i += 2) {
             String name = kvp[i];
             String value = kvp[i + 1];
@@ -88,7 +98,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
         return params;
     }
 
-    private SearchRequest parseSearchRequest(Map<String, String> map) throws Exception {
+    private SearchRequest parseSearchRequest(Map<String, Object> map) throws Exception {
         return (SearchRequest) reader.read(reader.createRequest(), map, map);
     }
 
@@ -106,7 +116,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testParseSearchTerms() throws Exception {
         final String searchTermsValue = "a b \"c and d\"";
-        Map<String, String> map = toMap(SEARCH_TERMS.key, searchTermsValue);
+        Map<String, Object> map = toMap(SEARCH_TERMS.key, searchTermsValue);
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -122,7 +132,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     /** From spec the parameter keys are case sensitive, and unknown ones should be ignored */
     @Test
     public void testParseSearchTermsWrongCase() throws Exception {
-        Map<String, String> map = toMap(SEARCH_TERMS.key.toUpperCase(), "a b \"c and d\"");
+        Map<String, Object> map = toMap(SEARCH_TERMS.key.toUpperCase(), "a b \"c and d\"");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -131,7 +141,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testParseGeoUid() throws Exception {
-        Map<String, String> map = toMap(GEO_UID.key, "abcd");
+        Map<String, Object> map = toMap(GEO_UID.key, "abcd");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -145,7 +155,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testParseTimeBox() throws Exception {
-        Map<String, String> map = toMap(GEO_BOX.key, "10,20,30,40");
+        Map<String, Object> map = toMap(GEO_BOX.key, "10,20,30,40");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -159,7 +169,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testParseBBoxWholeWorld() throws Exception {
-        Map<String, String> map = toMap(GEO_BOX.key, "-180,-90,180,90");
+        Map<String, Object> map = toMap(GEO_BOX.key, "-180,-90,180,90");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -170,19 +180,18 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testParseBBoxDatelineCrossing() throws Exception {
-        Map<String, String> map = toMap(GEO_BOX.key, "170,-90,-170,90");
+        Map<String, Object> map = toMap(GEO_BOX.key, "170,-90,-170,90");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
         assertNotNull(query);
-        final String expectedCql =
-                "BBOX(, 170.0,-90.0,180.0,90.0) OR BBOX(, -180.0,-90.0,-170.0,90.0)";
+        final String expectedCql = "BBOX(, 170.0,-90.0,180.0,90.0) OR BBOX(, -180.0,-90.0,-170.0,90.0)";
         assertEquals(expectedCql, ECQL.toCQL(query.getFilter()));
     }
 
     @Test
     public void testPaging() throws Exception {
-        Map<String, String> map = toMap(START_INDEX.key, "10", COUNT_KEY, "5");
+        Map<String, Object> map = toMap(START_INDEX.key, "10", COUNT_KEY, "5");
         SearchRequest request = parseSearchRequest(map);
         assertEquals(null, request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -271,7 +280,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     @Ignore
     public void testParentId() throws Exception {
-        Map<String, String> map = toMap(PARENT_ID_KEY, "SENTINEL2");
+        Map<String, Object> map = toMap(PARENT_ID_KEY, "SENTINEL2");
         SearchRequest request = parseSearchRequest(map);
         assertEquals("SENTINEL2", request.getParentIdentifier());
         final Query query = request.getQuery();
@@ -282,8 +291,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testDistanceFromPoint() throws Exception {
-        Map<String, String> map =
-                toMap(GEO_LON.key, "12", GEO_LAT.key, "45", GEO_RADIUS.key, "20000");
+        Map<String, Object> map = toMap(GEO_LON.key, "12", GEO_LAT.key, "45", GEO_RADIUS.key, "20000");
         SearchRequest request = parseSearchRequest(map);
         final Query query = request.getQuery();
         assertNotNull(query);
@@ -294,8 +302,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testNegativeDistanceFromPoint() throws Exception {
         try {
-            Map<String, String> map =
-                    toMap(GEO_LON.key, "12", GEO_LAT.key, "45", GEO_RADIUS.key, "-10");
+            Map<String, Object> map = toMap(GEO_LON.key, "12", GEO_LAT.key, "45", GEO_RADIUS.key, "-10");
             parseSearchRequest(map);
             fail("Should have failed");
         } catch (OWS20Exception e) {
@@ -306,7 +313,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testTimeRelationInvalid() throws Exception {
         try {
-            Map<String, String> map = toMap(TIME_RELATION.key, "abcd");
+            Map<String, Object> map = toMap(TIME_RELATION.key, "abcd");
             parseSearchRequest(map);
             fail("Should have failed");
         } catch (OWS20Exception e) {
@@ -318,7 +325,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testTimeRelationAlone() throws Exception {
         try {
-            Map<String, String> map = toMap(TIME_RELATION.key, "intersects");
+            Map<String, Object> map = toMap(TIME_RELATION.key, "intersects");
             parseSearchRequest(map);
             fail("Should have failed");
         } catch (OWS20Exception e) {
@@ -330,7 +337,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testTimeStartInvalid() throws Exception {
         try {
-            Map<String, String> map = toMap(TIME_START.key, "abcd");
+            Map<String, Object> map = toMap(TIME_START.key, "abcd");
             parseSearchRequest(map);
             fail("Should have failed");
         } catch (OWS20Exception e) {
@@ -342,7 +349,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     @Test
     public void testTimeEndInvalid() throws Exception {
         try {
-            Map<String, String> map = toMap(TIME_END.key, "abcd");
+            Map<String, Object> map = toMap(TIME_END.key, "abcd");
             parseSearchRequest(map);
             fail("Should have failed");
         } catch (OWS20Exception e) {
@@ -353,22 +360,16 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testTimeFilterStartOnly() throws Exception {
-        Map<String, String> map;
+        Map<String, Object> map;
         // intersection behavior, the features must overlap the provided range
         map = toMap(TIME_START.key, "2010-09-01T00:00:00Z");
-        assertEquals(
-                ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"), parseAndGetFilter(map));
         // intersection behavior again, explicit
         map = toMap(TIME_START.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "intersects");
-        assertEquals(
-                ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"), parseAndGetFilter(map));
         // contains (the feature must contain the requested interval)
         map = toMap(TIME_START.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "contains");
-        assertEquals(
-                ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z and timeEnd IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z and timeEnd IS NULL"), parseAndGetFilter(map));
         // during (the features are inside the requested interval)
         map = toMap(TIME_START.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "during");
         assertEquals(ECQL.toFilter("timeStart >= 2010-09-01T00:00:00Z"), parseAndGetFilter(map));
@@ -377,29 +378,21 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
         assertEquals(ECQL.toFilter("timeEnd < 2010-09-01T00:00:00Z"), parseAndGetFilter(map));
         // equal (the features have the same interval of validity
         map = toMap(TIME_START.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "equals");
-        assertEquals(
-                ECQL.toFilter("timeStart = 2010-09-01T00:00:00Z and timeEnd IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeStart = 2010-09-01T00:00:00Z and timeEnd IS NULL"), parseAndGetFilter(map));
     }
 
     @Test
     public void testTimeFilterEndOnly() throws Exception {
-        Map<String, String> map;
+        Map<String, Object> map;
         // intersection behavior, the features must overlap the provided range
         map = toMap(TIME_END.key, "2010-09-01T00:00:00Z");
-        assertEquals(
-                ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z OR timeStart IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z OR timeStart IS NULL"), parseAndGetFilter(map));
         // intersection behavior again, explicit
         map = toMap(TIME_END.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "intersects");
-        assertEquals(
-                ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z OR timeStart IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeStart <= 2010-09-01T00:00:00Z OR timeStart IS NULL"), parseAndGetFilter(map));
         // contains (the feature must contain the requested interval)
         map = toMap(TIME_END.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "contains");
-        assertEquals(
-                ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z and timeStart IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z and timeStart IS NULL"), parseAndGetFilter(map));
         // during (the features are inside the requested interval)
         map = toMap(TIME_END.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "during");
         assertEquals(ECQL.toFilter("timeEnd <= 2010-09-01T00:00:00Z"), parseAndGetFilter(map));
@@ -408,14 +401,12 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
         assertEquals(ECQL.toFilter("timeStart > 2010-09-01T00:00:00Z"), parseAndGetFilter(map));
         // equal (the features have the same interval of validity
         map = toMap(TIME_END.key, "2010-09-01T00:00:00Z", TIME_RELATION.key, "equals");
-        assertEquals(
-                ECQL.toFilter("timeEnd = 2010-09-01T00:00:00Z and timeStart IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeEnd = 2010-09-01T00:00:00Z and timeStart IS NULL"), parseAndGetFilter(map));
     }
 
     @Test
     public void testTimeFilterStartEndOnly() throws Exception {
-        Map<String, String> map;
+        Map<String, Object> map;
         // intersection behavior, the features must overlap the provided range
         map = toMap(TIME_START.key, "2010-08-01T00:00:00Z", TIME_END.key, "2010-09-01T00:00:00Z");
         assertEquals(
@@ -423,84 +414,74 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
                         "(timeStart <= 2010-09-01T00:00:00Z or timeStart IS NULL) AND (timeEnd >= 2010-08-01T00:00:00Z or timeEnd IS NULL)"),
                 parseAndGetFilter(map));
         // intersection behavior again, explicit
-        map =
-                toMap(
-                        TIME_START.key,
-                        "2010-08-01T00:00:00Z",
-                        TIME_END.key,
-                        "2010-09-01T00:00:00Z",
-                        TIME_RELATION.key,
-                        "intersects");
+        map = toMap(
+                TIME_START.key,
+                "2010-08-01T00:00:00Z",
+                TIME_END.key,
+                "2010-09-01T00:00:00Z",
+                TIME_RELATION.key,
+                "intersects");
         assertEquals(
                 ECQL.toFilter(
                         "(timeStart <= 2010-09-01T00:00:00Z or timeStart IS NULL) AND (timeEnd >= 2010-08-01T00:00:00Z or timeEnd IS NULL)"),
                 parseAndGetFilter(map));
         // contains (the feature must contain the requested interval)
-        map =
-                toMap(
-                        TIME_START.key,
-                        "2010-08-01T00:00:00Z",
-                        TIME_END.key,
-                        "2010-09-01T00:00:00Z",
-                        TIME_RELATION.key,
-                        "contains");
+        map = toMap(
+                TIME_START.key,
+                "2010-08-01T00:00:00Z",
+                TIME_END.key,
+                "2010-09-01T00:00:00Z",
+                TIME_RELATION.key,
+                "contains");
         assertEquals(
-                ECQL.toFilter(
-                        "timeStart <= 2010-08-01T00:00:00Z and timeEnd >= 2010-09-01T00:00:00Z"),
+                ECQL.toFilter("timeStart <= 2010-08-01T00:00:00Z and timeEnd >= 2010-09-01T00:00:00Z"),
                 parseAndGetFilter(map));
         // during (the features are inside the requested interval)
-        map =
-                toMap(
-                        TIME_START.key,
-                        "2010-08-01T00:00:00Z",
-                        TIME_END.key,
-                        "2010-09-01T00:00:00Z",
-                        TIME_RELATION.key,
-                        "during");
+        map = toMap(
+                TIME_START.key,
+                "2010-08-01T00:00:00Z",
+                TIME_END.key,
+                "2010-09-01T00:00:00Z",
+                TIME_RELATION.key,
+                "during");
         assertEquals(
-                ECQL.toFilter(
-                        "timeStart >= 2010-08-01T00:00:00Z and timeEnd <= 2010-09-01T00:00:00Z"),
+                ECQL.toFilter("timeStart >= 2010-08-01T00:00:00Z and timeEnd <= 2010-09-01T00:00:00Z"),
                 parseAndGetFilter(map));
         // disjoint (the features are outside the requested interval)
-        map =
-                toMap(
-                        TIME_START.key,
-                        "2010-08-01T00:00:00Z",
-                        TIME_END.key,
-                        "2010-09-01T00:00:00Z",
-                        TIME_RELATION.key,
-                        "disjoint");
+        map = toMap(
+                TIME_START.key,
+                "2010-08-01T00:00:00Z",
+                TIME_END.key,
+                "2010-09-01T00:00:00Z",
+                TIME_RELATION.key,
+                "disjoint");
         assertEquals(
                 ECQL.toFilter("timeStart > 2010-09-01T00:00:00Z or timeEnd < 2010-08-01T00:00:00Z"),
                 parseAndGetFilter(map));
         // equal (the features have the same interval of validity
-        map =
-                toMap(
-                        TIME_START.key,
-                        "2010-08-01T00:00:00Z",
-                        TIME_END.key,
-                        "2010-09-01T00:00:00Z",
-                        TIME_RELATION.key,
-                        "equals");
+        map = toMap(
+                TIME_START.key,
+                "2010-08-01T00:00:00Z",
+                TIME_END.key,
+                "2010-09-01T00:00:00Z",
+                TIME_RELATION.key,
+                "equals");
         assertEquals(
-                ECQL.toFilter(
-                        "timeStart = 2010-08-01T00:00:00Z and timeEnd = 2010-09-01T00:00:00Z"),
+                ECQL.toFilter("timeStart = 2010-08-01T00:00:00Z and timeEnd = 2010-09-01T00:00:00Z"),
                 parseAndGetFilter(map));
     }
 
     @Test
     public void testTimeStartOnlyDate() throws Exception {
-        Map<String, String> map;
+        Map<String, Object> map;
         // intersection behavior, the features must overlap the provided range
         map = toMap(TIME_START.key, "2010-09-01");
-        assertEquals(
-                ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"),
-                parseAndGetFilter(map));
+        assertEquals(ECQL.toFilter("timeEnd >= 2010-09-01T00:00:00Z OR timeEnd IS NULL"), parseAndGetFilter(map));
     }
 
     @Test
     public void testCollectionSensorTypeSingle() throws Exception {
-        Map<String, String> map = toMap("sensorType", "OPTICAL");
+        Map<String, Object> map = toMap("sensorType", "OPTICAL");
         Filter filter = parseAndGetFilter(map);
         assertThat(filter, instanceOf(PropertyIsEqualTo.class));
         assertBinaryFilter(filter, OpenSearchAccess.EO_NAMESPACE, "sensorType", "OPTICAL");
@@ -508,11 +489,10 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCollectionSensorTypeCustom() throws Exception {
-        Map<String, String> map = toMap("sensorType", GS_PRODUCT.getName());
+        Map<String, Object> map = toMap("sensorType", GS_PRODUCT.getName());
         Filter filter = parseAndGetFilter(map);
         assertThat(filter, instanceOf(PropertyIsEqualTo.class));
-        assertBinaryFilter(
-                filter, OpenSearchAccess.EO_NAMESPACE, "sensorType", GS_PRODUCT.getName());
+        assertBinaryFilter(filter, OpenSearchAccess.EO_NAMESPACE, "sensorType", GS_PRODUCT.getName());
     }
 
     private void assertBinaryFilter(
@@ -528,7 +508,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCollectionSensorTypeList() throws Exception {
-        Map<String, String> map = toMap("sensorType", "OPTICAL,RADAR,ALTIMETRIC");
+        Map<String, Object> map = toMap("sensorType", "OPTICAL,RADAR,ALTIMETRIC");
         Filter filter = parseAndGetFilter(map);
         assertThat(filter, instanceOf(Or.class));
         Or or = (Or) filter;
@@ -536,13 +516,12 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
         assertEquals(3, children.size());
         assertBinaryFilter(children.get(0), OpenSearchAccess.EO_NAMESPACE, "sensorType", "OPTICAL");
         assertBinaryFilter(children.get(1), OpenSearchAccess.EO_NAMESPACE, "sensorType", "RADAR");
-        assertBinaryFilter(
-                children.get(2), OpenSearchAccess.EO_NAMESPACE, "sensorType", "ALTIMETRIC");
+        assertBinaryFilter(children.get(2), OpenSearchAccess.EO_NAMESPACE, "sensorType", "ALTIMETRIC");
     }
 
     @Test
     public void testCloudCoverEmpty() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         assertThat(filter, equalTo(Filter.INCLUDE));
@@ -550,7 +529,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCloudCoverGreater() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "[30");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "[30");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         assertThat(filter, instanceOf(PropertyIsGreaterThanOrEqualTo.class));
@@ -558,18 +537,15 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
     }
 
     /**
-     * Checks the filter is an And between a parentId check and another filter, extracts the other
-     * filter
+     * Checks the filter is an And between a parentId check and another filter, extracts the other filter
      *
      * @param filter
      * @param parentId
      * @return
      */
     private Filter getResidualFilter(Filter filter, String parentId) {
-        PropertyIsEqualTo expectedParentFilter =
-                FF.equals(FF.property(PARENT_ID_KEY), FF.literal(parentId));
-        if (filter instanceof And) {
-            And and = (And) filter;
+        PropertyIsEqualTo expectedParentFilter = FF.equals(FF.property(PARENT_ID_KEY), FF.literal(parentId));
+        if (filter instanceof And and) {
             List<Filter> children = and.getChildren();
             assertEquals(expectedParentFilter, children.get(0));
             if (children.size() == 2) return children.get(1);
@@ -582,7 +558,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCloudCoverSmaller() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "20]");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "20]");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         assertThat(filter, instanceOf(PropertyIsLessThanOrEqualTo.class));
@@ -591,7 +567,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCloudCoverClosedRange() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "[20,40]");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "[20,40]");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         assertThat(filter, instanceOf(And.class));
@@ -608,7 +584,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCloudCoverOpenRange() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "]20,40[");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "cloudCover", "]20,40[");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         assertThat(filter, instanceOf(And.class));
@@ -651,8 +627,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
         assertBinarySpatialFilter(filter, "", point);
     }
 
-    private void assertBinarySpatialFilter(
-            Filter filter, String expectedName, Object expectedValue) {
+    private void assertBinarySpatialFilter(Filter filter, String expectedName, Object expectedValue) {
         BinarySpatialOperator bso = (BinarySpatialOperator) filter;
         assertThat(bso.getExpression1(), instanceOf(PropertyName.class));
         PropertyName pn = (PropertyName) bso.getExpression1();
@@ -663,20 +638,16 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testEopCreationDate() throws Exception {
-        Map<String, String> map =
-                toMap("parentIdentifier", "SENTINEL2", "creationDate", "]2016-01-01");
+        Map<String, Object> map = toMap("parentIdentifier", "SENTINEL2", "creationDate", "]2016-01-01");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "SENTINEL2");
         BinaryComparisonOperator op = (BinaryComparisonOperator) filter;
         assertThat(op, instanceOf(PropertyIsGreaterThan.class));
         assertBinaryFilter(
-                op,
-                ProductClass.GENERIC.getNamespace(),
-                "creationDate",
-                Converters.convert("2016-01-01", Date.class));
+                op, ProductClass.GENERIC.getNamespace(), "creationDate", Converters.convert("2016-01-01", Date.class));
     }
 
-    private Filter parseAndGetFilter(Map<String, String> map) throws Exception {
+    private Filter parseAndGetFilter(Map<String, Object> map) throws Exception {
         SearchRequest request = parseSearchRequest(map);
         final Query query = request.getQuery();
         assertNotNull(query);
@@ -687,7 +658,7 @@ public class SearchRequestKvpReaderTest extends OSEOTestSupport {
 
     @Test
     public void testCustomProperty() throws Exception {
-        Map<String, String> map = toMap("parentIdentifier", "gsTestCollection", "test", "abcde");
+        Map<String, Object> map = toMap("parentIdentifier", "gsTestCollection", "test", "abcde");
         Filter filter = parseAndGetFilter(map);
         filter = getResidualFilter(filter, "gsTestCollection");
         assertThat(filter, instanceOf(IsEqualsToImpl.class));

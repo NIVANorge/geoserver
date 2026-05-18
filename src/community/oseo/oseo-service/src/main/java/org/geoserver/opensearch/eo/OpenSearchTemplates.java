@@ -19,22 +19,18 @@ import org.geoserver.featurestemplating.validation.AbstractTemplateValidator;
 import org.geoserver.opensearch.eo.response.AtomSearchResponse;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.resource.Resource;
-import org.geotools.data.FeatureSource;
-import org.geotools.factory.CommonFactoryFinder;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.util.SuppressFBWarnings;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /** Provides access to the product templates used for the OpenSearch GeoJSON outputs */
+@SuppressFBWarnings("AT_OPERATION_SEQUENCE_ON_CONCURRENT_ABSTRACTION")
 public class OpenSearchTemplates extends AbstractTemplates {
 
     static final Logger LOGGER = Logging.getLogger(OpenSearchTemplates.class);
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
 
     private Template defaultCollectionsTemplate;
     private Template defaultProductsTemplate;
@@ -43,8 +39,7 @@ public class OpenSearchTemplates extends AbstractTemplates {
 
     ResourcePatternResolver resourceResolver = new PathMatchingResourcePatternResolver();
 
-    public OpenSearchTemplates(GeoServerDataDirectory dd, OpenSearchAccessProvider accessProvider)
-            throws IOException {
+    public OpenSearchTemplates(GeoServerDataDirectory dd, OpenSearchAccessProvider accessProvider) throws IOException {
         super(dd, accessProvider);
     }
 
@@ -55,14 +50,15 @@ public class OpenSearchTemplates extends AbstractTemplates {
         // HTML templates
         copyResources(
                 oseo,
-                "classpath:/"
-                        + AtomSearchResponse.class.getPackage().getName().replace(".", "/")
-                        + "/*.ftl");
+                "classpath:/" + AtomSearchResponse.class.getPackage().getName().replace(".", "/") + "/*.ftl");
         // metadata templates
         copyResources(
                 oseo,
                 "classpath:/"
-                        + DefaultOpenSearchEoService.class.getPackage().getName().replace(".", "/")
+                        + DefaultOpenSearchEoService.class
+                                .getPackage()
+                                .getName()
+                                .replace(".", "/")
                         + "/*.ftl");
     }
 
@@ -78,6 +74,7 @@ public class OpenSearchTemplates extends AbstractTemplates {
         }
     }
 
+    @Override
     public void reloadTemplates() {
         try {
             copyHTMLTemplates();
@@ -90,8 +87,7 @@ public class OpenSearchTemplates extends AbstractTemplates {
             try {
                 reloadProductTemplate(dd, getNamespaces(access.getProductSource()));
             } catch (Exception e) {
-                LOGGER.log(
-                        Level.SEVERE, "Failed to load OpenSearch for EO JSON product templates", e);
+                LOGGER.log(Level.SEVERE, "Failed to load OpenSearch for EO JSON product templates", e);
             } finally {
                 reloadCollectionTemplate(dd, getNamespaces(access.getCollectionSource()));
             }
@@ -100,28 +96,11 @@ public class OpenSearchTemplates extends AbstractTemplates {
         }
     }
 
-    static NamespaceSupport getNamespaces(FeatureSource<FeatureType, Feature> fs) {
-        // collect properties from all namespaces
-        FeatureType schema = fs.getSchema();
-        NamespaceSupport namespaces = new NamespaceSupport();
-        for (PropertyDescriptor pd : schema.getDescriptors()) {
-            String uri = pd.getName().getNamespaceURI();
-            String prefix = (String) pd.getUserData().get(OpenSearchAccess.PREFIX);
-            if (prefix == null) throw new RuntimeException("No prefix available for " + uri);
-            namespaces.declarePrefix(prefix, uri);
-        }
-        // done last, to avoid overrides
-        namespaces.declarePrefix("", schema.getName().getNamespaceURI());
-        return namespaces;
-    }
-
-    private void reloadProductTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces)
-            throws IOException {
+    private void reloadProductTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces) throws IOException {
         // setup the items template
         Resource items = dd.get("templates/os-eo/products.json");
         copyDefault(items, "products.json");
-        this.defaultProductsTemplate =
-                new Template(items, new TemplateReaderConfiguration(namespaces));
+        this.defaultProductsTemplate = new Template(items, new TemplateReaderConfiguration(namespaces));
     }
 
     /** Returns the products template */
@@ -137,11 +116,8 @@ public class OpenSearchTemplates extends AbstractTemplates {
                 template = productsTemplates.get(collectionId);
                 if (template == null) {
                     OpenSearchAccess access = accessProvider.getOpenSearchAccess();
-                    template =
-                            new Template(
-                                    resource,
-                                    new TemplateReaderConfiguration(
-                                            getNamespaces(access.getProductSource())));
+                    template = new Template(
+                            resource, new TemplateReaderConfiguration(getNamespaces(access.getProductSource())));
                     productsTemplates.put(collectionId, template);
                 }
             }
@@ -167,13 +143,11 @@ public class OpenSearchTemplates extends AbstractTemplates {
         return builder;
     }
 
-    private void reloadCollectionTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces)
-            throws IOException {
+    private void reloadCollectionTemplate(GeoServerDataDirectory dd, NamespaceSupport namespaces) throws IOException {
         // setup the collections template
         Resource items = dd.get("templates/os-eo/collections.json");
         copyDefault(items, "collections.json");
-        this.defaultCollectionsTemplate =
-                new Template(items, new TemplateReaderConfiguration(namespaces));
+        this.defaultCollectionsTemplate = new Template(items, new TemplateReaderConfiguration(namespaces));
     }
 
     /** Returns the collections template */
@@ -189,11 +163,8 @@ public class OpenSearchTemplates extends AbstractTemplates {
                 template = collectionsTemplates.get(collectionId);
                 if (template == null) {
                     OpenSearchAccess access = accessProvider.getOpenSearchAccess();
-                    template =
-                            new Template(
-                                    resource,
-                                    new TemplateReaderConfiguration(
-                                            getNamespaces(access.getProductSource())));
+                    template = new Template(
+                            resource, new TemplateReaderConfiguration(getNamespaces(access.getProductSource())));
                     collectionsTemplates.put(collectionId, template);
                 }
             }

@@ -5,7 +5,10 @@
  */
 package org.geoserver.security.web.user;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -22,6 +25,20 @@ import org.geoserver.web.GeoServerApplication;
 /** A form component that can be used to edit user to group assignments */
 public class UserGroupPaletteFormComponent extends PaletteFormComponent<GeoServerUserGroup> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(UserGroupPaletteFormComponent.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1L;
 
     GeoServerUser user;
@@ -31,24 +48,15 @@ public class UserGroupPaletteFormComponent extends PaletteFormComponent<GeoServe
     }
 
     public UserGroupPaletteFormComponent(
-            String id,
-            IModel<List<GeoServerUserGroup>> model,
-            final String ugServiceName,
-            GeoServerUser user) {
-        super(
-                id,
-                model,
-                new GroupsModel(ugServiceName),
-                new ChoiceRenderer<>("groupname", "groupname"));
+            String id, IModel<List<GeoServerUserGroup>> model, final String ugServiceName, GeoServerUser user) {
+        super(id, model, new GroupsModel(ugServiceName), new ChoiceRenderer<>("groupname", "groupname"));
 
-        add(
-                new SubmitLink("addGroup") {
-                    @Override
-                    public void onSubmit() {
-                        setResponsePage(
-                                new NewGroupPage(ugServiceName).setReturnPage(this.getPage()));
-                    }
-                });
+        add(new SubmitLink("addGroup") {
+            @Override
+            public void onSubmit() {
+                setResponsePage(new NewGroupPage(ugServiceName).setReturnPage(this.getPage()));
+            }
+        });
     }
 
     public List<GeoServerUserGroup> getSelectedGroups() {
@@ -76,9 +84,8 @@ public class UserGroupPaletteFormComponent extends PaletteFormComponent<GeoServe
         public SelectedGroupsModel(String ugServiceName, GeoServerUser user) {
             try {
                 GeoServerSecurityManager secMgr = GeoServerApplication.get().getSecurityManager();
-                setObject(
-                        new ArrayList<>(
-                                secMgr.loadUserGroupService(ugServiceName).getGroupsForUser(user)));
+                setObject(new ArrayList<>(
+                        secMgr.loadUserGroupService(ugServiceName).getGroupsForUser(user)));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -93,9 +100,6 @@ public class UserGroupPaletteFormComponent extends PaletteFormComponent<GeoServe
         public void setObject(List<GeoServerUserGroup> object) {
             this.groups = object;
         }
-
-        @Override
-        public void detach() {}
     }
 
     @Override
@@ -104,7 +108,7 @@ public class UserGroupPaletteFormComponent extends PaletteFormComponent<GeoServe
     }
 
     @Override
-    protected String getAvaliableHeaderPropertyKey() {
+    protected String getAvailableHeaderPropertyKey() {
         return "UserGroupPaletteFormComponent.availableHeader";
     }
 }

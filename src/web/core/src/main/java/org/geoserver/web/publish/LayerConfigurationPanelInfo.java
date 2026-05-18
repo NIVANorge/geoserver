@@ -14,14 +14,13 @@ import org.geoserver.catalog.PublishedInfo;
 /**
  * Extension point for sections of the configuration pages for individual layers.
  *
- * @author David Winslow <dwinslow@openplans.org>
+ * @author David Winslow dwinslow@openplans.org
  * @author Niels Charlier
  */
 public class LayerConfigurationPanelInfo extends PublishedConfigurationPanelInfo<LayerInfo> {
-    public static final long serialVersionUID = -1l;
+    public static final long serialVersionUID = -4013252211140367780L;
 
-    private static Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.config");
+    private static Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.geoserver.config");
 
     private List<String> myHandleableClasses;
 
@@ -51,13 +50,21 @@ public class LayerConfigurationPanelInfo extends PublishedConfigurationPanelInfo
                         return true;
                     }
                 } catch (ClassNotFoundException cnfe) {
-                    LOGGER.severe(
-                            "Couldn't find class "
-                                    + className
-                                    + "; please check your applicationContext.xml");
+                    LOGGER.severe("Couldn't find class " + className + "; please check your applicationContext.xml");
                 }
             }
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("LayerConfigurationPanelInfo{");
+        sb.append("id='").append(getId()).append('\'');
+        sb.append(", componentClass=").append(getComponentClass().getSimpleName());
+        sb.append(", order=").append(order);
+        sb.append(", myHandleableClasses=").append(myHandleableClasses);
+        sb.append('}');
+        return sb.toString();
     }
 }

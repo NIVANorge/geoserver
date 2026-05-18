@@ -6,13 +6,12 @@
 
 package org.geoserver.security.filter;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 
 /** @author christian */
 public class GeoServerWebAuthenticationDetailsSource
-        implements AuthenticationDetailsSource<
-                HttpServletRequest, GeoServerWebAuthenticationDetails> {
+        implements AuthenticationDetailsSource<HttpServletRequest, GeoServerWebAuthenticationDetails> {
 
     @Override
     public GeoServerWebAuthenticationDetails buildDetails(HttpServletRequest context) {

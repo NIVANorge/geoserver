@@ -6,18 +6,19 @@
 package org.geoserver.security.web.data;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import org.apache.wicket.Component;
 import org.apache.wicket.Page;
 import org.apache.wicket.ajax.AjaxRequestTarget;
-import org.apache.wicket.markup.html.form.RadioChoice;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.apache.wicket.util.tester.FormTester;
 import org.geoserver.data.test.MockData;
+import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.security.AccessMode;
 import org.geoserver.security.impl.DataAccessRule;
 import org.geoserver.security.impl.DataAccessRuleDAO;
@@ -40,12 +41,8 @@ public class DataSecurityPageTest extends AbstractListPageTest<DataAccessRule> {
     @Override
     protected Page editPage(Object... params) {
         if (params.length == 0)
-            return new EditDataAccessRulePage(
-                    new DataAccessRule(
-                            "it.geosolutions",
-                            "layer.dots",
-                            AccessMode.READ,
-                            Collections.singleton("ROLE_ABC")));
+            return new EditDataAccessRulePage(new DataAccessRule(
+                    "it.geosolutions", "layer.dots", AccessMode.READ, Collections.singleton("ROLE_ABC")));
         else return new EditDataAccessRulePage((DataAccessRule) params[0]);
     }
 
@@ -58,20 +55,16 @@ public class DataSecurityPageTest extends AbstractListPageTest<DataAccessRule> {
     protected boolean checkEditForm(String objectString) {
         String[] array = objectString.split("\\.");
         return array[0].equals(
-                        tester.getComponentFromLastRenderedPage("form:root")
-                                .getDefaultModelObject())
-                && array[1].equals(
-                        tester.getComponentFromLastRenderedPage(
-                                        "form:layerContainer:layerAndLabel:layer")
-                                .getDefaultModelObject());
+                        tester.getComponentFromLastRenderedPage("form:root").getDefaultModelObject())
+                && array[1].equals(tester.getComponentFromLastRenderedPage("form:layerContainer:layerAndLabel:layer")
+                        .getDefaultModelObject());
     }
 
     @Override
     protected String getSearchString() throws Exception {
         for (DataAccessRule rule : DataAccessRuleDAO.get().getRules()) {
             if (MockData.CITE_PREFIX.equals(rule.getRoot())
-                    && MockData.BRIDGES.getLocalPart().equals(rule.getLayer()))
-                return rule.getKey();
+                    && MockData.BRIDGES.getLocalPart().equals(rule.getLayer())) return rule.getKey();
         }
         return null;
     }
@@ -80,13 +73,10 @@ public class DataSecurityPageTest extends AbstractListPageTest<DataAccessRule> {
     protected void simulateDeleteSubmit() throws Exception {
 
         DataAccessRuleDAO.get().reload();
-        assertTrue(DataAccessRuleDAO.get().getRules().size() > 0);
+        assertFalse(DataAccessRuleDAO.get().getRules().isEmpty());
 
         SelectionDataRuleRemovalLink link = (SelectionDataRuleRemovalLink) getRemoveLink();
-        Method m =
-                link.delegate
-                        .getClass()
-                        .getDeclaredMethod("onSubmit", AjaxRequestTarget.class, Component.class);
+        Method m = link.delegate.getClass().getDeclaredMethod("onSubmit", AjaxRequestTarget.class, Component.class);
         m.invoke(link.delegate, null, null);
 
         DataAccessRuleDAO.get().reload();
@@ -100,7 +90,7 @@ public class DataSecurityPageTest extends AbstractListPageTest<DataAccessRule> {
         tester.assertRenderedPage(DataSecurityPage.class);
         assertEquals(
                 "HIDE",
-                tester.getComponentFromLastRenderedPage("catalogModeForm:catalogMode")
+                tester.getComponentFromLastRenderedPage("otherSettingsForm:catalogMode")
                         .getDefaultModelObject()
                         .toString());
     }
@@ -113,27 +103,45 @@ public class DataSecurityPageTest extends AbstractListPageTest<DataAccessRule> {
         // simple test
         assertNotEquals(
                 "CHALLENGE",
-                tester.getComponentFromLastRenderedPage("catalogModeForm:catalogMode")
+                tester.getComponentFromLastRenderedPage("otherSettingsForm:catalogMode")
                         .getDefaultModelObject());
 
         // edit catalogMode value
-        final FormTester form = tester.newFormTester("catalogModeForm");
+        final FormTester form = tester.newFormTester("otherSettingsForm");
 
         form.select("catalogMode", 1);
 
-        form.getForm()
-                .visitChildren(
-                        RadioChoice.class,
-                        (component, visit) -> {
-                            if (component.getId().equals("catalogMode")) {
-                                ((RadioChoice) component).onSelectionChanged();
-                            }
-                        });
-
         assertEquals(
                 "MIXED",
-                tester.getComponentFromLastRenderedPage("catalogModeForm:catalogMode")
+                tester.getComponentFromLastRenderedPage("otherSettingsForm:catalogMode")
                         .getDefaultModelObject()
                         .toString());
+    }
+
+    @Test
+    public void testSandbox() throws Exception {
+        // setup a sandbox
+        File sandbox = new File("./target/sandbox").getCanonicalFile();
+        sandbox.mkdirs();
+        File notThere = new File("./target/notThere").getCanonicalFile();
+
+        tester.startPage(DataSecurityPage.class);
+        tester.assertRenderedPage(DataSecurityPage.class);
+
+        // test non existing sandbox
+        FormTester form = tester.newFormTester("otherSettingsForm");
+        form.setValue("sandboxContainer:sandbox:border:border_body:paramValue", notThere.getAbsolutePath());
+        form.submit("save");
+        tester.assertErrorMessages("The sandbox directory does not exist");
+        tester.clearFeedbackMessages();
+
+        // test existing sandbox
+        form = tester.newFormTester("otherSettingsForm");
+        form.setValue("sandboxContainer:sandbox:border:border_body:paramValue", sandbox.getAbsolutePath());
+        form.submit("save");
+        tester.assertNoErrorMessage();
+
+        DataAccessRuleDAO dao = GeoServerExtensions.bean(DataAccessRuleDAO.class, applicationContext);
+        assertEquals(sandbox.getAbsolutePath().replace("\\", "/"), dao.getFilesystemSandbox());
     }
 }

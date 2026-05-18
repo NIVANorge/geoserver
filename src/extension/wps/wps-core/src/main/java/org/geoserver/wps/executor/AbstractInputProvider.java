@@ -20,7 +20,7 @@ import org.geoserver.wps.ppio.ComplexPPIO;
 import org.geoserver.wps.ppio.ProcessParameterIO;
 import org.geoserver.wps.validator.MaxSizeValidator;
 import org.geoserver.wps.validator.Validators;
-import org.opengis.util.ProgressListener;
+import org.geotools.api.util.ProgressListener;
 import org.springframework.context.ApplicationContext;
 import org.springframework.validation.Validator;
 
@@ -30,6 +30,8 @@ import org.springframework.validation.Validator;
  * @author Andrea Aime - GeoSolutions
  */
 public abstract class AbstractInputProvider implements InputProvider {
+
+    static boolean disableHostnameVerification = Boolean.getBoolean("geoserver.wps.remoteInput.insecureHostname");
 
     /** Creates an input provider */
     public static InputProvider getInputProvider(
@@ -58,12 +60,12 @@ public abstract class AbstractInputProvider implements InputProvider {
             } else {
                 int maxSizeMB = Validators.getMaxSizeMB(validators);
                 validators = Validators.filterOutClasses(validators, MaxSizeValidator.class);
-                provider =
-                        new RemoteRequestInputProvider(
-                                input,
-                                (ComplexPPIO) ppio,
-                                executor.getConnectionTimeout(),
-                                maxSizeMB * 1024 * 1024);
+                provider = new RemoteRequestInputProvider(
+                        input,
+                        (ComplexPPIO) ppio,
+                        executor.getConnectionTimeout(),
+                        (long) maxSizeMB * 1024 * 1024,
+                        disableHostnameVerification);
             }
         } else {
             provider = new SimpleInputProvider(input, ppio);

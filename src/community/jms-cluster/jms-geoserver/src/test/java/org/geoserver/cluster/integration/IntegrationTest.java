@@ -18,16 +18,20 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.geoserver.catalog.AttributionInfo;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.CoverageStoreInfo;
+import org.geoserver.catalog.DataLinkInfo;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.catalog.Keyword;
 import org.geoserver.catalog.LayerGroupInfo;
 import org.geoserver.catalog.LayerGroupInfo.Mode;
 import org.geoserver.catalog.LayerInfo;
+import org.geoserver.catalog.MetadataLinkInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.ProjectionPolicy;
 import org.geoserver.catalog.PublishedType;
@@ -38,10 +42,12 @@ import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.catalog.impl.AttributionInfoImpl;
 import org.geoserver.catalog.impl.CoverageInfoImpl;
 import org.geoserver.catalog.impl.CoverageStoreInfoImpl;
+import org.geoserver.catalog.impl.DataLinkInfoImpl;
 import org.geoserver.catalog.impl.DataStoreInfoImpl;
 import org.geoserver.catalog.impl.FeatureTypeInfoImpl;
 import org.geoserver.catalog.impl.LayerGroupInfoImpl;
 import org.geoserver.catalog.impl.LayerInfoImpl;
+import org.geoserver.catalog.impl.MetadataLinkInfoImpl;
 import org.geoserver.catalog.impl.NamespaceInfoImpl;
 import org.geoserver.catalog.impl.StyleInfoImpl;
 import org.geoserver.catalog.impl.WMSLayerInfoImpl;
@@ -58,15 +64,21 @@ import org.geoserver.platform.resource.Resource;
 import org.geoserver.util.IOUtils;
 import org.geoserver.wms.WMSInfo;
 import org.geoserver.wms.WMSInfoImpl;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.coverage.grid.GeneralGridEnvelope;
+import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
+import org.geotools.util.GrowableInternationalString;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Integration tests for JMS that tests that GeoServer configurations events and GeoServer catalog
- * events are correctly propagated and handled.
+ * Integration tests for JMS that tests that GeoServer configurations events and GeoServer catalog events are correctly
+ * propagated and handled.
  */
 public final class IntegrationTest {
 
@@ -83,12 +95,10 @@ public final class IntegrationTest {
     @Before
     public void resetInstances() {
         // disable JMS before equalizing the instances configuration and catalog
-        Arrays.stream(INSTANCES)
-                .forEach(
-                        instance -> {
-                            instance.disableJmsMaster();
-                            instance.disableJmsSlave();
-                        });
+        Arrays.stream(INSTANCES).forEach(instance -> {
+            instance.disableJmsMaster();
+            instance.disableJmsSlave();
+        });
         // equalize the configuration and the catalog
         equalizeInstances(INSTANCES);
         // reset JMS configuration and events count
@@ -242,9 +252,7 @@ public final class IntegrationTest {
         assertThat(differences.size(), is(0));
     }
 
-    /**
-     * Helper methods that waits a specified amount of time and checks that no events were consumed.
-     */
+    /** Helper methods that waits a specified amount of time and checks that no events were consumed. */
     private void waitNoEvents(GeoServerInstance instance, int waitTimeMs) {
         try {
             // wait the specified amount of time
@@ -258,18 +266,18 @@ public final class IntegrationTest {
     }
 
     /**
-     * Waits for the expected number of events to be consumed or for the timeout of two seconds to
-     * be reached and then checks if the expected number of events were consumed.
+     * Waits for the expected number of events to be consumed or for the timeout of two seconds to be reached and then
+     * checks if the expected number of events were consumed.
      */
     private void waitAndCheckEvents(GeoServerInstance instance, int expectedEvents) {
-        instance.waitEvents(expectedEvents, 10_000);
+        instance.waitEvents(expectedEvents, 2000);
         assertThat(instance.getConsumedEventsCount(), is(expectedEvents));
         instance.resetConsumedEventsCount();
     }
 
     /**
-     * Helper method that adds some new services and settings to the provided GeoServer instance and
-     * also modifies some existing ones.
+     * Helper method that adds some new services and settings to the provided GeoServer instance and also modifies some
+     * existing ones.
      */
     private void applyAddModifyConfigurationChanges(GeoServerInstance instance) {
         GeoServer geoServer = instance.getGeoServer();
@@ -301,9 +309,7 @@ public final class IntegrationTest {
         geoServer.add(workspaceWmsService);
     }
 
-    /**
-     * Helper method that removes some services and settings from the provided GeoServer instance.
-     */
+    /** Helper method that removes some services and settings from the provided GeoServer instance. */
     private void applyDeleteConfigurationChanges(GeoServerInstance instance) {
         GeoServer geoServer = instance.getGeoServer();
         Catalog catalog = instance.getCatalog();
@@ -315,11 +321,13 @@ public final class IntegrationTest {
     }
 
     /** Helper method that add some new catalog elements to the provided GeoServer instance. */
-    private void applyAddCatalogChanges(GeoServerInstance instance) {
+    private void applyAddCatalogChanges(GeoServerInstance instance) throws FactoryException {
         // instantiate some common objects
         Catalog catalog = instance.getCatalog();
-        ReferencedEnvelope envelope =
-                new ReferencedEnvelope(-1.0, 1.0, -2.0, 2.0, DefaultGeographicCRS.WGS84);
+        // going through wkt as otherwise the equality between in memory and deserialized will fail
+        CoordinateReferenceSystem crs = CRS.decode("EPSG:4326", true);
+        String wkt = crs.toWKT();
+        ReferencedEnvelope envelope = new ReferencedEnvelope(-1.0, 1.0, -2.0, 2.0, CRS.parseWKT(wkt));
         AttributionInfo attribution = new AttributionInfoImpl();
         attribution.setTitle("attribution-Title");
         attribution.setHref("attribution-Href");
@@ -405,6 +413,8 @@ public final class IntegrationTest {
         coverage.setAdvertised(false);
         coverage.setNativeCoverageName("coverage-NativeCoverageName");
         coverage.setProjectionPolicy(ProjectionPolicy.FORCE_DECLARED);
+        coverage.setGrid(new GridGeometry2D(
+                new GeneralGridEnvelope(new int[] {0, 0}, new int[] {100, 100}), new ReferencedEnvelope(envelope)));
         catalog.add(coverage);
         // add style info and style file
         copyStyle(instance, "/test_style.sld", "test_style.sld");
@@ -476,6 +486,19 @@ public final class IntegrationTest {
         // change feature type
         FeatureTypeInfo featureType = catalog.getFeatureTypeByName("featureType-Name");
         featureType.setDescription("featureType-Description-modified");
+        featureType.setNativeBoundingBox(new ReferencedEnvelope(-180, -90, 180, 90, DefaultGeographicCRS.WGS84));
+        GrowableInternationalString title = new GrowableInternationalString("This is a test");
+        title.add(Locale.ITALIAN, "Questo è un test");
+        featureType.setInternationalTitle(title);
+        featureType.getKeywords().add(new Keyword("test-keyword"));
+        MetadataLinkInfo metadata = new MetadataLinkInfoImpl();
+        metadata.setType("text/xml");
+        metadata.setContent("abcd");
+        featureType.getMetadataLinks().add(metadata);
+        DataLinkInfo dataLink = new DataLinkInfoImpl();
+        dataLink.setContent("abcd");
+        dataLink.setType("application/zip");
+        featureType.getDataLinks().add(dataLink);
         catalog.save(featureType);
         // change coverage
         CoverageInfo coverage = catalog.getCoverageByName("coverage-Name");
@@ -536,8 +559,7 @@ public final class IntegrationTest {
 
     /** Helper method that copies a style file to the provided GeoServer instance. */
     private void copyStyle(GeoServerInstance instance, String resource, String fileName) {
-        Resource styleResource =
-                instance.getDataDirectory().get("styles" + File.separator + fileName);
+        Resource styleResource = instance.getDataDirectory().get("styles" + File.separator + fileName);
         try (OutputStream output = styleResource.out();
                 InputStream input = this.getClass().getResourceAsStream(resource)) {
             IOUtils.copy(input, output);

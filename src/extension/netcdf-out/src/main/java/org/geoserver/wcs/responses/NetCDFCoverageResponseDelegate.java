@@ -5,13 +5,18 @@
  */
 package org.geoserver.wcs.responses;
 
+import static java.util.Map.entry;
+import static org.geotools.imageio.netcdf.utilities.NetCDFUtilities.NETCDF;
+import static org.geotools.imageio.netcdf.utilities.NetCDFUtilities.NETCDF3_MIMETYPE;
+import static org.geotools.imageio.netcdf.utilities.NetCDFUtilities.NETCDF4;
+import static org.geotools.imageio.netcdf.utilities.NetCDFUtilities.NETCDF4_MIMETYPE;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -22,7 +27,6 @@ import org.geoserver.platform.ServiceException;
 import org.geoserver.wcs2_0.response.GranuleStack;
 import org.geoserver.wcs2_0.response.MultidimensionalCoverageResponse;
 import org.geotools.coverage.grid.GridCoverage2D;
-import org.geotools.imageio.netcdf.utilities.NetCDFUtilities;
 import org.geotools.util.logging.Logging;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -35,42 +39,28 @@ import ucar.ma2.InvalidRangeException;
  * @author Daniele Romagnoli, GeoSolutions SAS
  */
 public class NetCDFCoverageResponseDelegate extends BaseCoverageResponseDelegate
-        implements CoverageResponseDelegate,
-                ApplicationContextAware,
-                MultidimensionalCoverageResponse {
+        implements CoverageResponseDelegate, ApplicationContextAware, MultidimensionalCoverageResponse {
 
-    public static final Logger LOGGER =
-            Logging.getLogger("org.geoserver.wcs.responses.NetCDFCoverageResponseDelegate");
+    public static final Logger LOGGER = Logging.getLogger("org.geoserver.wcs.responses.NetCDFCoverageResponseDelegate");
     private List<NetCDFEncoderFactory> encoderFactories;
 
-    @SuppressWarnings("serial")
     public NetCDFCoverageResponseDelegate(GeoServer geoserver) {
         super(
                 geoserver,
-                Arrays.asList(NetCDFUtilities.NETCDF, NetCDFUtilities.NETCDF4),
-                new HashMap<String, String>() { // file extensions
-                    {
-                        put(NetCDFUtilities.NETCDF, "nc");
-                        put(NetCDFUtilities.NETCDF.toLowerCase(), "nc");
-                        put(NetCDFUtilities.NETCDF.toUpperCase(), "nc");
-                        put(NetCDFUtilities.NETCDF3_MIMETYPE, "nc");
-                        put(NetCDFUtilities.NETCDF4_MIMETYPE, "nc");
-                    }
-                },
-                new HashMap<String, String>() { // mime types
-                    {
-                        put(NetCDFUtilities.NETCDF, NetCDFUtilities.NETCDF3_MIMETYPE);
-                        put(NetCDFUtilities.NETCDF.toLowerCase(), NetCDFUtilities.NETCDF3_MIMETYPE);
-                        put(NetCDFUtilities.NETCDF.toUpperCase(), NetCDFUtilities.NETCDF3_MIMETYPE);
-                        put(NetCDFUtilities.NETCDF4, NetCDFUtilities.NETCDF4_MIMETYPE);
-                        put(
-                                NetCDFUtilities.NETCDF4.toLowerCase(),
-                                NetCDFUtilities.NETCDF4_MIMETYPE);
-                        put(
-                                NetCDFUtilities.NETCDF4.toUpperCase(),
-                                NetCDFUtilities.NETCDF4_MIMETYPE);
-                    }
-                });
+                Arrays.asList(NETCDF, NETCDF4),
+                Map.ofEntries(
+                        entry(NETCDF, "nc"),
+                        entry(NETCDF.toLowerCase(), "nc"),
+                        entry(NETCDF.toUpperCase(), "nc"),
+                        entry(NETCDF3_MIMETYPE, "nc"),
+                        entry(NETCDF4_MIMETYPE, "nc")),
+                Map.ofEntries(
+                        entry(NETCDF, NETCDF3_MIMETYPE),
+                        entry(NETCDF.toLowerCase(), NETCDF3_MIMETYPE),
+                        entry(NETCDF.toUpperCase(), NETCDF3_MIMETYPE),
+                        entry(NETCDF4, NETCDF4_MIMETYPE),
+                        entry(NETCDF4.toLowerCase(), NETCDF4_MIMETYPE),
+                        entry(NETCDF4.toUpperCase(), NETCDF4_MIMETYPE)));
     }
 
     @Override
@@ -86,9 +76,7 @@ public class NetCDFCoverageResponseDelegate extends BaseCoverageResponseDelegate
         try {
             tempFile = File.createTempFile("tempNetCDF", ".nc");
             for (NetCDFEncoderFactory factory : encoderFactories) {
-                NetCDFEncoder encoder =
-                        factory.getEncoderFor(
-                                granuleStack, tempFile, encodingParameters, outputFormat);
+                NetCDFEncoder encoder = factory.getEncoderFor(granuleStack, tempFile, encodingParameters, outputFormat);
                 if (encoder != null) {
                     encoder.write();
                     encoder.close();
@@ -110,14 +98,12 @@ public class NetCDFCoverageResponseDelegate extends BaseCoverageResponseDelegate
 
     public GranuleStack toGranuleStack(GridCoverage2D sourceCoverage) {
         if (sourceCoverage == null) {
-            throw new IllegalStateException(
-                    new StringBuffer("It seems prepare() has not been called")
-                            .append(" or has not succeed")
-                            .toString());
+            throw new IllegalStateException(new StringBuffer("It seems prepare() has not been called")
+                    .append(" or has not succeed")
+                    .toString());
         }
         if (!(sourceCoverage instanceof GranuleStack)) {
-            throw new IllegalArgumentException(
-                    "NetCDF encoding only supports granuleStack coverages");
+            throw new IllegalArgumentException("NetCDF encoding only supports granuleStack coverages");
         }
         return (GranuleStack) sourceCoverage;
     }

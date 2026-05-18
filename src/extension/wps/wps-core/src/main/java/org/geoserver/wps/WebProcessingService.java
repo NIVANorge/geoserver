@@ -6,8 +6,8 @@
 
 package org.geoserver.wps;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import net.opengis.wps10.DescribeProcessType;
 import net.opengis.wps10.ExecuteResponseType;
 import net.opengis.wps10.ExecuteType;
@@ -34,8 +34,8 @@ public interface WebProcessingService {
     Object getExecutions(GetExecutionsType request) throws WPSException;
 
     /**
-     * Returns the status of a given process execution, either as a {@link ExecuteResponseType} or
-     * as a stored response File
+     * Returns the status of a given process execution, either as a {@link ExecuteResponseType} or as a stored response
+     * File
      */
     Object getExecutionStatus(GetExecutionStatusType request) throws WPSException;
 

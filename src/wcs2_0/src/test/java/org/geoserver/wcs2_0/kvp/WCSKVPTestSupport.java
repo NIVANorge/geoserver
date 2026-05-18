@@ -25,17 +25,16 @@ import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.geoserver.config.GeoServer;
 import org.geoserver.ows.util.KvpUtils;
 import org.geoserver.wcs.WCSInfo;
-import org.geoserver.wcs.kvp.GetCoverageRequestReader;
 import org.geoserver.wcs2_0.WCSTestSupport;
 import org.geoserver.wcs2_0.WebCoverageService20;
+import org.geotools.api.coverage.grid.GridCoverage;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
 import org.geotools.referencing.CRS;
 import org.geotools.wcs.v1_1.WCSConfiguration;
 import org.junit.Before;
-import org.opengis.coverage.grid.GridCoverage;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /** @author Simone Giannecchini, GeoSolutions SAS */
 public abstract class WCSKVPTestSupport extends WCSTestSupport {
@@ -45,7 +44,6 @@ public abstract class WCSKVPTestSupport extends WCSTestSupport {
 
     static final double EPS = 10E-6;
     WCSConfiguration configuration;
-    GetCoverageRequestReader kvpreader;
     WebCoverageService20 service;
 
     static {
@@ -65,10 +63,9 @@ public abstract class WCSKVPTestSupport extends WCSTestSupport {
         super();
     }
 
-    @SuppressWarnings("unchecked")
     protected GetCoverageType parse(String url) throws Exception {
-        Map<String, Object> rawKvp = new CaseInsensitiveMap(KvpUtils.parseQueryString(url));
-        Map<String, Object> kvp = new CaseInsensitiveMap(parseKvp(rawKvp));
+        Map<String, Object> rawKvp = new CaseInsensitiveMap<>(KvpUtils.parseQueryString(url));
+        Map<String, Object> kvp = new CaseInsensitiveMap<>(parseKvp(rawKvp));
         WCS20GetCoverageRequestReader reader = new WCS20GetCoverageRequestReader();
         GetCoverageType gc = (GetCoverageType) reader.createRequest();
         return (GetCoverageType) reader.read(gc, kvp, rawKvp);
@@ -78,10 +75,7 @@ public abstract class WCSKVPTestSupport extends WCSTestSupport {
         // collect extensions
         Map<String, Object> extensions = new HashMap<>();
         for (ExtensionItemType item : gc.getExtension().getContents()) {
-            Object value =
-                    item.getSimpleContent() != null
-                            ? item.getSimpleContent()
-                            : item.getObjectContent();
+            Object value = item.getSimpleContent() != null ? item.getSimpleContent() : item.getObjectContent();
             extensions.put(item.getNamespace() + ":" + item.getName(), value);
         }
         return extensions;
@@ -112,9 +106,6 @@ public abstract class WCSKVPTestSupport extends WCSTestSupport {
 
     @Before
     public void setup() {
-        kvpreader =
-                (GetCoverageRequestReader)
-                        applicationContext.getBean("wcs111GetCoverageRequestReader");
         service = (WebCoverageService20) applicationContext.getBean("wcs20ServiceTarget");
         configuration = new WCSConfiguration();
     }

@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 import org.geoserver.importer.job.ProgressMonitor;
-import org.geotools.data.DataStore;
-import org.geotools.data.DataStoreFactorySpi;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.DataStoreFactorySpi;
 import org.geotools.jdbc.JDBCDataStoreFactory;
 import org.vfny.geoserver.util.DataStoreUtils;
 
@@ -53,8 +53,7 @@ public class Database extends ImportData {
     @Override
     public void prepare(ProgressMonitor m) throws IOException {
         tables = new ArrayList<>();
-        DataStoreFactorySpi factory =
-                (DataStoreFactorySpi) DataStoreUtils.aquireFactory(parameters);
+        DataStoreFactorySpi factory = (DataStoreFactorySpi) DataStoreUtils.aquireFactory(parameters);
         if (factory == null) {
             throw new IOException("Unable to find data store for specified parameters");
         }

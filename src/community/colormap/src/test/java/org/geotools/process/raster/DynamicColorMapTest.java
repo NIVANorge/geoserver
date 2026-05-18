@@ -26,16 +26,16 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.data.test.SystemTestData.LayerProperty;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.geoserver.wms.map.GetMapKvpRequestReader;
+import org.geotools.api.coverage.grid.GridCoverageReader;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.style.ColorMap;
+import org.geotools.api.style.ColorMapEntry;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.factory.CommonFactoryFinder;
-import org.geotools.styling.ColorMap;
-import org.geotools.styling.ColorMapEntry;
 import org.geotools.util.NumberRange;
 import org.geotools.xml.styling.SLDTransformer;
 import org.junit.Test;
-import org.opengis.coverage.grid.GridCoverageReader;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.expression.Function;
 
 public class DynamicColorMapTest extends GeoServerSystemTestSupport {
 
@@ -53,7 +53,7 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
 
         Catalog catalog = getCatalog();
 
-        Map<String, String> namespaces = new HashMap<String, String>();
+        Map<String, String> namespaces = new HashMap<>();
         namespaces.put("html", "http://www.w3.org/1999/xhtml");
         namespaces.put("sld", "http://www.opengis.net/sld");
         namespaces.put("ogc", "http://www.opengis.net/ogc");
@@ -62,8 +62,7 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
         XMLUnit.setXpathNamespaceContext(new SimpleNamespaceContext(namespaces));
         xp = XMLUnit.newXpathEngine();
 
-        testData.addStyle(
-                "style_rgb", "test-data/style_rgb.sld", DynamicColorMapTest.class, catalog);
+        testData.addStyle("style_rgb", "test-data/style_rgb.sld", DynamicColorMapTest.class, catalog);
         Map<LayerProperty, Object> properties = new HashMap<>();
         properties.put(LayerProperty.STYLE, "style_rgb");
         testData.addRasterLayer(
@@ -77,7 +76,7 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
         // setup manual statistics
         CoverageInfo coverage = getCatalog().getCoverageByName("watertemp_dynamic");
         CoverageDimensionInfo di = coverage.getDimensions().get(0);
-        di.setRange(new NumberRange<Double>(Double.class, 0., 0.5));
+        di.setRange(new NumberRange<>(Double.class, 0., 0.5));
         getCatalog().save(coverage);
     }
 
@@ -96,11 +95,11 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
         FilterFunction_gridCoverageStats funcStat = new FilterFunction_gridCoverageStats();
 
         GridCoverageReader reader = ci.getGridCoverageReader(null, null);
-        GridCoverage2D gridCoverage = (GridCoverage2D) reader.read(null);
+        GridCoverage2D gridCoverage = (GridCoverage2D) reader.read();
         double min = (Double) funcStat.evaluate(gridCoverage, "minimum");
         double max = (Double) funcStat.evaluate(gridCoverage, "maximum");
-        assertEquals(min, 13.1369, TOLERANCE);
-        assertEquals(max, 20.665, TOLERANCE);
+        assertEquals(13.1369, min, TOLERANCE);
+        assertEquals(20.665, max, TOLERANCE);
         ImageIOUtilities.disposeImage(gridCoverage.getRenderedImage());
     }
 
@@ -120,45 +119,29 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
         Function maxStat = ff.function("bandStats", ff.literal(0), ff.literal("maximum"));
 
         GridCoverageReader reader = ci.getGridCoverageReader(null, null);
-        GridCoverage2D gridCoverage = (GridCoverage2D) reader.read(null);
+        GridCoverage2D gridCoverage = (GridCoverage2D) reader.read();
         double min = (Double) minStat.evaluate(gridCoverage);
         double max = (Double) maxStat.evaluate(gridCoverage);
-        assertEquals(min, 0, TOLERANCE);
-        assertEquals(max, 0.5, TOLERANCE);
+        assertEquals(0, min, TOLERANCE);
+        assertEquals(0.5, max, TOLERANCE);
         ImageIOUtilities.disposeImage(gridCoverage.getRenderedImage());
     }
 
     @Test
-    public void testSvgColorMapFilterFunctionRGB() throws Exception {
+    public void testSvgColorMapFilterFunctionRGB() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
-        final ColorMap colorMap =
-                (ColorMap)
-                        func.evaluate(
-                                "rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)",
-                                10,
-                                100,
-                                null,
-                                null,
-                                false,
-                                MAX_PALETTE_COLORS);
+        final ColorMap colorMap = (ColorMap)
+                func.evaluate("rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)", 10, 100, null, null, false, MAX_PALETTE_COLORS);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
         check(entries);
     }
 
     @Test
-    public void testSvgColorMapFilterFunctionHEX() throws Exception {
+    public void testSvgColorMapFilterFunctionHEX() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
         final ColorMap colorMap =
-                (ColorMap)
-                        func.evaluate(
-                                "#0000FF;#00FF00;#FF0000",
-                                10,
-                                100,
-                                null,
-                                null,
-                                false,
-                                MAX_PALETTE_COLORS);
+                (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, MAX_PALETTE_COLORS);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
         check(entries);
@@ -175,24 +158,19 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testSvgColorMapFilterFunctionRGBWithExpression() throws Exception {
+    public void testSvgColorMapFilterFunctionRGBWithExpression() {
         FilterFactory ff = CommonFactoryFinder.getFilterFactory(null);
-        checkFunction(
-                ff.function(
-                        "colormap",
-                        ff.literal("rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)"),
-                        ff.literal(10),
-                        ff.literal(100)));
-        checkFunction(
-                ff.function(
-                        "colormap",
-                        ff.literal("rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)"),
-                        ff.literal(10),
-                        ff.literal(100),
-                        ff.literal(null),
-                        ff.literal(null),
-                        ff.literal("false"),
-                        ff.literal(MAX_PALETTE_COLORS)));
+        checkFunction(ff.function(
+                "colormap", ff.literal("rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)"), ff.literal(10), ff.literal(100)));
+        checkFunction(ff.function(
+                "colormap",
+                ff.literal("rgb(0,0,255);rgb(0,255,0);rgb(255,0,0)"),
+                ff.literal(10),
+                ff.literal(100),
+                ff.literal(null),
+                ff.literal(null),
+                ff.literal("false"),
+                ff.literal(MAX_PALETTE_COLORS)));
     }
 
     private void checkFunction(Function colorMapFunction) {
@@ -203,18 +181,10 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testBeforeAfterColor() throws Exception {
+    public void testBeforeAfterColor() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
-        final ColorMap colorMap =
-                (ColorMap)
-                        func.evaluate(
-                                "#0000FF;#00FF00;#FF0000",
-                                10,
-                                100,
-                                "#FFFFFF",
-                                "#000000",
-                                false,
-                                MAX_PALETTE_COLORS);
+        final ColorMap colorMap = (ColorMap)
+                func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, "#FFFFFF", "#000000", false, MAX_PALETTE_COLORS);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
         assertColorMapEntry(entries[0], "#FFFFFF", 1.0, 9.99);
@@ -224,17 +194,15 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
         assertColorMapEntry(entries[4], "#000000", 1.0, 100d);
     }
 
-    void assertColorMapEntry(
-            ColorMapEntry cme, String expectedColor, Double expectedOpacity, Double expectedValue) {
+    void assertColorMapEntry(ColorMapEntry cme, String expectedColor, Double expectedOpacity, Double expectedValue) {
         if (expectedColor != null) {
             assertEquals(expectedColor, cme.getColor().evaluate(null, String.class));
         }
         if (expectedOpacity != null) {
             if (cme.getOpacity() == null || cme.getOpacity().evaluate(null) == null) {
-                assertEquals(expectedOpacity, 1d, TOLERANCE);
+                assertEquals(1d, expectedOpacity, TOLERANCE);
             } else {
-                assertEquals(
-                        expectedOpacity, cme.getOpacity().evaluate(null, Double.class), TOLERANCE);
+                assertEquals(expectedOpacity, cme.getOpacity().evaluate(null, Double.class), TOLERANCE);
             }
         }
         if (expectedValue != null) {
@@ -243,18 +211,10 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testLogarithmic() throws Exception {
+    public void testLogarithmic() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
         final ColorMap colorMap =
-                (ColorMap)
-                        func.evaluate(
-                                "#0000FF;#00FF00;#FF0000",
-                                10,
-                                100,
-                                null,
-                                null,
-                                true,
-                                MAX_PALETTE_COLORS);
+                (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, true, MAX_PALETTE_COLORS);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
         assertEquals(FilterFunction_svgColorMap.LOG_SAMPLING_DEFAULT + 2, entries.length);
@@ -276,10 +236,7 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
             final double v = logMin + step * i;
             double expected = Math.exp(v);
             assertEquals(
-                    "Failed at " + i,
-                    expected,
-                    entries[i + 1].getQuantity().evaluate(null, Double.class),
-                    TOLERANCE);
+                    "Failed at " + i, expected, entries[i + 1].getQuantity().evaluate(null, Double.class), TOLERANCE);
         }
         assertEquals(
                 100,
@@ -290,10 +247,9 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testOneColor() throws Exception {
+    public void testOneColor() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
-        final ColorMap colorMap =
-                (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 1);
+        final ColorMap colorMap = (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 1);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
         assertEquals(3, entries.length);
@@ -303,10 +259,9 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testTwoColors() throws Exception {
+    public void testTwoColors() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
-        final ColorMap colorMap =
-                (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 2);
+        final ColorMap colorMap = (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 2);
         // logColorMap(colorMap);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 
@@ -328,10 +283,9 @@ public class DynamicColorMapTest extends GeoServerSystemTestSupport {
     }
 
     @Test
-    public void testThreeColors() throws Exception {
+    public void testThreeColors() {
         final FilterFunction_svgColorMap func = new FilterFunction_svgColorMap();
-        final ColorMap colorMap =
-                (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 3);
+        final ColorMap colorMap = (ColorMap) func.evaluate("#0000FF;#00FF00;#FF0000", 10, 100, null, null, false, 3);
         // logColorMap(colorMap);
         final ColorMapEntry[] entries = colorMap.getColorMapEntries();
 

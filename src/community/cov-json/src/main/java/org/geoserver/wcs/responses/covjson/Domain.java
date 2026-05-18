@@ -20,17 +20,17 @@ import java.util.Set;
 import java.util.TimeZone;
 import org.geoserver.wcs2_0.response.DimensionBean;
 import org.geoserver.wcs2_0.response.GranuleStack;
+import org.geotools.api.coverage.grid.GridEnvelope;
+import org.geotools.api.referencing.ReferenceIdentifier;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.GeographicCRS;
+import org.geotools.api.referencing.crs.ProjectedCRS;
+import org.geotools.api.referencing.cs.AxisDirection;
+import org.geotools.api.referencing.cs.CoordinateSystemAxis;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.util.DateRange;
 import org.geotools.util.NumberRange;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.referencing.ReferenceIdentifier;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.crs.GeographicCRS;
-import org.opengis.referencing.crs.ProjectedCRS;
-import org.opengis.referencing.cs.AxisDirection;
-import org.opengis.referencing.cs.CoordinateSystemAxis;
 
 @JsonPropertyOrder({"type", "domainType", "axes", "referencing"})
 public abstract class Domain extends CoverageJson {
@@ -39,7 +39,8 @@ public abstract class Domain extends CoverageJson {
 
     private static final String TYPE = "Domain";
 
-    @JsonProperty protected String domainType;
+    @JsonProperty
+    protected String domainType;
 
     @JsonProperty(required = true)
     private Map<String, Axis> axes;
@@ -116,8 +117,7 @@ public abstract class Domain extends CoverageJson {
     protected abstract void buildGeoAxis(
             CoordinateReferenceSystem crs, GridGeometry2D gridGeometry, Map<String, Axis> axes);
 
-    private void buildZetaAxis(
-            List<DimensionBean> dimensions, GranuleStack granuleStack, Map<String, Axis> axes) {
+    private void buildZetaAxis(List<DimensionBean> dimensions, GranuleStack granuleStack, Map<String, Axis> axes) {
         for (DimensionBean dimension : dimensions) {
             if (isElevation(dimension)) {
                 String dimensionName = dimension.getName();
@@ -127,10 +127,10 @@ public abstract class Domain extends CoverageJson {
                 for (GridCoverage2D granule : granuleStack.getGranules()) {
                     Object object = granule.getProperty(dimensionName);
                     Number value = null;
-                    if (object instanceof Number) {
-                        value = (Number) object;
-                    } else if (object instanceof NumberRange) {
-                        value = ((NumberRange) object).getMinimum();
+                    if (object instanceof Number number) {
+                        value = number;
+                    } else if (object instanceof NumberRange range) {
+                        value = range.getMinimum();
                     }
                     if (value != null) {
                         uniqueValues.add(value);
@@ -146,8 +146,7 @@ public abstract class Domain extends CoverageJson {
         }
     }
 
-    private void buildTimeAxis(
-            List<DimensionBean> dimensions, GranuleStack granuleStack, Map<String, Axis> axes) {
+    private void buildTimeAxis(List<DimensionBean> dimensions, GranuleStack granuleStack, Map<String, Axis> axes) {
         for (DimensionBean dimension : dimensions) {
             if (isTime(dimension)) {
                 String dimensionName = dimension.getName();
@@ -159,10 +158,10 @@ public abstract class Domain extends CoverageJson {
                 for (GridCoverage2D granule : granuleStack.getGranules()) {
                     Object object = granule.getProperty(dimensionName);
                     Date value = null;
-                    if (object instanceof Date) {
-                        value = (Date) object;
-                    } else if (object instanceof DateRange) {
-                        value = ((DateRange) object).getMinValue();
+                    if (object instanceof Date date) {
+                        value = date;
+                    } else if (object instanceof DateRange range) {
+                        value = range.getMinValue();
                     }
                     uniqueValues.add(isoFormatter.format(value));
                 }
@@ -212,13 +211,11 @@ public abstract class Domain extends CoverageJson {
     }
 
     private boolean isTime(DimensionBean dimension) {
-        return dimension != null
-                && DimensionBean.DimensionType.TIME.equals(dimension.getDimensionType());
+        return dimension != null && DimensionBean.DimensionType.TIME.equals(dimension.getDimensionType());
     }
 
     private boolean isElevation(DimensionBean dimension) {
-        return dimension != null
-                && DimensionBean.DimensionType.ELEVATION.equals(dimension.getDimensionType());
+        return dimension != null && DimensionBean.DimensionType.ELEVATION.equals(dimension.getDimensionType());
     }
 
     protected String getKey(CoordinateSystemAxis axis) {

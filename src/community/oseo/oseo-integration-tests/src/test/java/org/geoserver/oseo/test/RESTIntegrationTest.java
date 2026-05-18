@@ -8,11 +8,21 @@ import static org.junit.Assert.assertEquals;
 
 import com.jayway.jsonpath.DocumentContext;
 import org.geoserver.ogcapi.v1.stac.STACQueryablesBuilder;
+import org.geoserver.opensearch.eo.store.OSEOPostGISResource;
 import org.geoserver.opensearch.rest.OSEORestTestSupport;
+import org.junit.ClassRule;
 import org.junit.Test;
 
 /** Checks integration between STAC and the OpenSearch REST management API */
 public class RESTIntegrationTest extends OSEORestTestSupport {
+
+    @ClassRule
+    public static final OSEOPostGISResource postgis = new OSEOPostGISResource(false);
+
+    @Override
+    protected OSEOPostGISResource getOSEOPostGIS() {
+        return postgis;
+    }
 
     @Test
     public void testEmptyCollectionQueriables() throws Exception {
@@ -20,18 +30,12 @@ public class RESTIntegrationTest extends OSEORestTestSupport {
         createTest123Collection();
 
         DocumentContext json = getAsJSONPath("ogc/stac/v1/collections/TEST123/queryables", 200);
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/stac/v1/collections/TEST123/queryables",
-                json.read("$.$id"));
+        assertEquals("http://localhost:8080/geoserver/ogc/stac/v1/collections/TEST123/queryables", json.read("$.$id"));
 
         // only has the basic built-ins
-        assertEquals(
-                STACQueryablesBuilder.GEOMETRY_SCHEMA_REF, json.read("properties.geometry.$ref"));
-        assertEquals(
-                STACQueryablesBuilder.DATETIME_SCHEMA_REF, json.read("properties.datetime.$ref"));
-        assertEquals(
-                STACQueryablesBuilder.COLLECTION_SCHEMA_REF,
-                json.read("properties.collection.$ref"));
+        assertEquals(STACQueryablesBuilder.GEOMETRY_SCHEMA_REF, json.read("properties.geometry.$ref"));
+        assertEquals(STACQueryablesBuilder.DATETIME_SCHEMA_REF, json.read("properties.datetime.$ref"));
+        assertEquals(STACQueryablesBuilder.COLLECTION_SCHEMA_REF, json.read("properties.collection.$ref"));
         assertEquals(STACQueryablesBuilder.ID_SCHEMA_REF, json.read("properties.id.$ref"));
     }
 }

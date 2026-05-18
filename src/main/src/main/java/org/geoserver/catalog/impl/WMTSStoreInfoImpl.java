@@ -9,8 +9,9 @@ import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.ResourcePool;
 import org.geoserver.catalog.WMTSStoreInfo;
+import org.geoserver.config.util.patch.PatchProperty;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wmts.WebMapTileServer;
-import org.opengis.util.ProgressListener;
 
 @SuppressWarnings("serial")
 public class WMTSStoreInfoImpl extends StoreInfoImpl implements WMTSStoreInfo {
@@ -22,7 +23,10 @@ public class WMTSStoreInfoImpl extends StoreInfoImpl implements WMTSStoreInfo {
     public static final int DEFAULT_READ_TIMEOUT = 60;
 
     String capabilitiesURL;
+
+    @PatchProperty("username")
     private String user;
+
     private String password;
     private int maxConnections;
     private int readTimeout;
@@ -31,6 +35,7 @@ public class WMTSStoreInfoImpl extends StoreInfoImpl implements WMTSStoreInfo {
     // Map<String, String> headers;
     private String headerName; // todo: replace with Map<String, String>
     private String headerValue; // todo: replace with Map<String, String>
+    private String authKey;
 
     protected WMTSStoreInfoImpl() {}
 
@@ -116,6 +121,16 @@ public class WMTSStoreInfoImpl extends StoreInfoImpl implements WMTSStoreInfo {
     @Override
     public void setHeaderValue(String headerValue) {
         this.headerValue = headerValue;
+    }
+
+    @Override
+    public String getAuthKey() {
+        return authKey;
+    }
+
+    @Override
+    public void setAuthKey(String authKey) {
+        this.authKey = authKey;
     }
 
     @Override

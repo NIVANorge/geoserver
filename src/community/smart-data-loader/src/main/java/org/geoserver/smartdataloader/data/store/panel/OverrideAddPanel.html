@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!DOCTYPE html>
+<html xmlns:wicket="http://wicket.apache.org/">
+  <wicket:head>
+    <style>
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .form-group label {
+            width: 100px;
+            margin-right: 10px;
+        }
+        .form-group input {
+            flex: 1;
+        }
+        .form-group button {
+            margin-left: 110px;
+        }
+        .bordered-div {
+            border: 1px solid black;
+            padding: 10px;
+        }
+    </style>
+  </wicket:head>
+  <body>
+    <wicket:panel class="bordered-div">
+      <div class="gs-panel-OverrideAddPanel">
+        <h4>Add Override rule</h4>
+        <form class="gs-form" wicket:id="addOverrideForm">
+          <div class="gs-form-group">
+            <label>Key:</label>
+            <input type="text" wicket:id="addOverrideKey"/>
+          </div>
+          <div class="gs-form-group">
+            <label>Expression:</label>
+            <input type="text" wicket:id="addOverrideExpression"/>
+          </div>
+          <div class="gs-list-item-class">
+            <button type="submit" wicket:id="addOverrideSubmitButton">Add Override expression</button>
+          </div>
+        </form>
+        <div wicket:id="addOverrideFeedback"/>
+      </div>
+    </wicket:panel>
+  </body>
+</html>

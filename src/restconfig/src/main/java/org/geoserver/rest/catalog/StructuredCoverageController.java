@@ -14,8 +14,6 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.geoserver.catalog.AttributeTypeInfo;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
@@ -31,22 +29,21 @@ import org.geoserver.rest.RestException;
 import org.geoserver.rest.converters.XStreamMessageConverter;
 import org.geoserver.rest.util.MediaTypeExtensions;
 import org.geoserver.rest.wrapper.RestWrapper;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.coverage.grid.io.GranuleRemovalPolicy;
 import org.geotools.coverage.grid.io.GranuleSource;
 import org.geotools.coverage.grid.io.GranuleStore;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureTypes;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.factory.Hints;
-import org.geotools.util.logging.Logging;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.MethodParameter;
@@ -66,14 +63,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @ControllerAdvice
 @RequestMapping(
-        path =
-                RestBaseController.ROOT_PATH
-                        + "/workspaces/{workspaceName}/coveragestores/{storeName}/coverages/{coverageName}/index")
+        path = RestBaseController.ROOT_PATH
+                + "/workspaces/{workspaceName}/coveragestores/{storeName}/coverages/{coverageName}/index")
 public class StructuredCoverageController extends AbstractCatalogController {
 
-    private static final Logger LOGGER = Logging.getLogger(StructuredCoverageController.class);
-
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     /**
      * Just holds a list of attributes
@@ -100,15 +94,12 @@ public class StructuredCoverageController extends AbstractCatalogController {
                 MediaTypeExtensions.TEXT_JSON_VALUE
             })
     public RestWrapper<IndexSchema> indexGet(
-            @PathVariable String workspaceName,
-            @PathVariable String storeName,
-            @PathVariable String coverageName)
+            @PathVariable String workspaceName, @PathVariable String storeName, @PathVariable String coverageName)
             throws IOException {
 
         GranuleSource source = getGranuleSource(workspaceName, storeName, coverageName);
         SimpleFeatureType schema = source.getSchema();
-        List<AttributeTypeInfo> attributes =
-                new CatalogBuilder(catalog).getAttributes(schema, null);
+        List<AttributeTypeInfo> attributes = new CatalogBuilder(catalog).getAttributes(schema, null);
 
         IndexSchema indexSchema = new IndexSchema(attributes);
         return wrapObject(indexSchema, IndexSchema.class);
@@ -134,9 +125,6 @@ public class StructuredCoverageController extends AbstractCatalogController {
 
         GranuleSource source = getGranuleSource(workspaceName, storeName, coverageName);
         Query q = toQuery(filter, offset, limit);
-
-        LOGGER.log(Level.SEVERE, "Still need to parse the filters");
-
         return forceNonNullNamespace(source.getGranules(q));
     }
 
@@ -153,8 +141,7 @@ public class StructuredCoverageController extends AbstractCatalogController {
 
         if (updateBBox == null) updateBBox = false;
         Query q = toQuery(filter, 0, 1);
-        granulesDeleteInternal(
-                workspaceName, storeName, coverageName, purge, q.getFilter(), updateBBox);
+        granulesDeleteInternal(workspaceName, storeName, coverageName, purge, q.getFilter(), updateBBox);
     }
 
     /*
@@ -179,10 +166,7 @@ public class StructuredCoverageController extends AbstractCatalogController {
         SimpleFeatureCollection granules = source.getGranules(q);
         if (granules.isEmpty()) {
             throw new ResourceNotFoundException(
-                    "Could not find a granule with id "
-                            + granuleId
-                            + " in coverage "
-                            + coverageName);
+                    "Could not find a granule with id " + granuleId + " in coverage " + coverageName);
         }
 
         SimpleFeatureCollection collection = forceNonNullNamespace(granules);
@@ -269,9 +253,7 @@ public class StructuredCoverageController extends AbstractCatalogController {
 
     @Override
     public boolean supports(
-            MethodParameter methodParameter,
-            Type targetType,
-            Class<? extends HttpMessageConverter<?>> converterType) {
+            MethodParameter methodParameter, Type targetType, Class<? extends HttpMessageConverter<?>> converterType) {
         return IndexSchema.class.isAssignableFrom(methodParameter.getParameterType());
     }
 
@@ -282,29 +264,24 @@ public class StructuredCoverageController extends AbstractCatalogController {
         xstream.alias("Attribute", AttributeTypeInfo.class);
         xstream.omitField(AttributeTypeInfoImpl.class, "featureType");
         xstream.omitField(AttributeTypeInfoImpl.class, "metadata");
-        ReflectionConverter rc =
-                new ReflectionConverter(xstream.getMapper(), xstream.getReflectionProvider()) {
-                    @Override
-                    public boolean canConvert(Class type) {
-                        return type.equals(IndexSchema.class);
-                    }
+        ReflectionConverter rc = new ReflectionConverter(xstream.getMapper(), xstream.getReflectionProvider()) {
+            @Override
+            public boolean canConvert(Class type) {
+                return type.equals(IndexSchema.class);
+            }
 
-                    @Override
-                    public void marshal(
-                            Object original,
-                            HierarchicalStreamWriter writer,
-                            MarshallingContext context) {
-                        super.marshal(original, writer, context);
-                        converter.encodeLink("granules", writer);
-                    }
-                };
+            @Override
+            public void marshal(Object original, HierarchicalStreamWriter writer, MarshallingContext context) {
+                super.marshal(original, writer, context);
+                converter.encodeLink("granules", writer);
+            }
+        };
         xstream.registerConverter(rc);
     }
 
-    private GranuleSource getGranuleSource(
-            String workspaceName, String storeName, String coverageName) throws IOException {
-        CoverageInfo coverage =
-                getExistingStructuredCoverage(workspaceName, storeName, coverageName);
+    private GranuleSource getGranuleSource(String workspaceName, String storeName, String coverageName)
+            throws IOException {
+        CoverageInfo coverage = getExistingStructuredCoverage(workspaceName, storeName, coverageName);
 
         StructuredGridCoverage2DReader reader =
                 (StructuredGridCoverage2DReader) coverage.getGridCoverageReader(null, null);
@@ -313,33 +290,30 @@ public class StructuredCoverageController extends AbstractCatalogController {
         return reader.getGranules(nativeCoverageName, true);
     }
 
-    private GranuleStore getGranuleStore(
-            String workspaceName, String storeName, String coverageName) throws IOException {
-        CoverageInfo coverage =
-                getExistingStructuredCoverage(workspaceName, storeName, coverageName);
+    private GranuleStore getGranuleStore(String workspaceName, String storeName, String coverageName)
+            throws IOException {
+        CoverageInfo coverage = getExistingStructuredCoverage(workspaceName, storeName, coverageName);
 
         StructuredGridCoverage2DReader reader =
                 (StructuredGridCoverage2DReader) coverage.getGridCoverageReader(null, null);
         if (reader.isReadOnly()) {
             throw new RestException(
-                    "Coverage " + coverage.prefixedName() + " is read ony",
-                    HttpStatus.METHOD_NOT_ALLOWED);
+                    "Coverage " + coverage.prefixedName() + " is read ony", HttpStatus.METHOD_NOT_ALLOWED);
         }
         String nativeCoverageName = getNativeCoverageName(coverage, reader);
 
         return (GranuleStore) reader.getGranules(nativeCoverageName, false);
     }
 
-    private String getNativeCoverageName(
-            CoverageInfo coverage, StructuredGridCoverage2DReader reader) throws IOException {
+    private String getNativeCoverageName(CoverageInfo coverage, StructuredGridCoverage2DReader reader)
+            throws IOException {
         String nativeCoverageName = coverage.getNativeCoverageName();
         if (nativeCoverageName == null) {
             if (reader.getGridCoverageNames().length > 1) {
-                throw new IllegalStateException(
-                        "The grid coverage configuration for "
-                                + coverage.getName()
-                                + " does not specify a native coverage name, yet the reader provides more than one coverage. "
-                                + "Please assign a native coverage name (the GUI does so automatically)");
+                throw new IllegalStateException("The grid coverage configuration for "
+                        + coverage.getName()
+                        + " does not specify a native coverage name, yet the reader provides more than one coverage. "
+                        + "Please assign a native coverage name (the GUI does so automatically)");
             } else {
                 nativeCoverageName = reader.getGridCoverageNames()[0];
             }
@@ -347,23 +321,18 @@ public class StructuredCoverageController extends AbstractCatalogController {
         return nativeCoverageName;
     }
 
-    private SimpleFeatureCollection forceNonNullNamespace(SimpleFeatureCollection features)
-            throws IOException {
+    private SimpleFeatureCollection forceNonNullNamespace(SimpleFeatureCollection features) throws IOException {
         SimpleFeatureType sourceSchema = features.getSchema();
         if (sourceSchema.getName().getNamespaceURI() == null) {
             try {
                 String targetNs = "http://www.geoserver.org/rest/granules";
-                AttributeDescriptor[] attributes =
-                        sourceSchema
-                                .getAttributeDescriptors()
-                                .toArray(
-                                        new AttributeDescriptor
-                                                [sourceSchema.getAttributeDescriptors().size()]);
-                SimpleFeatureType targetSchema =
-                        FeatureTypes.newFeatureType(
-                                attributes,
-                                sourceSchema.getName().getLocalPart(),
-                                new URI(targetNs));
+                AttributeDescriptor[] attributes = sourceSchema
+                        .getAttributeDescriptors()
+                        .toArray(
+                                new AttributeDescriptor
+                                        [sourceSchema.getAttributeDescriptors().size()]);
+                SimpleFeatureType targetSchema = FeatureTypes.newFeatureType(
+                        attributes, sourceSchema.getName().getLocalPart(), new URI(targetNs));
                 return new RetypingFeatureCollection(features, targetSchema);
             } catch (Exception e) {
                 throw new IOException(
@@ -376,8 +345,7 @@ public class StructuredCoverageController extends AbstractCatalogController {
         }
     }
 
-    private CoverageInfo getExistingStructuredCoverage(
-            String workspaceName, String storeName, String coverageName) {
+    private CoverageInfo getExistingStructuredCoverage(String workspaceName, String storeName, String coverageName) {
         WorkspaceInfo ws = catalog.getWorkspaceByName(workspaceName);
         if (ws == null) {
             throw new ResourceNotFoundException("No such workspace : " + workspaceName);
@@ -386,11 +354,10 @@ public class StructuredCoverageController extends AbstractCatalogController {
         if (store == null) {
             throw new ResourceNotFoundException("No such coverage store: " + storeName);
         }
-        Optional<CoverageInfo> optCoverage =
-                catalog.getCoveragesByStore(store).stream()
-                        .filter(si -> coverageName.equals(si.getName()))
-                        .findFirst();
-        if (!optCoverage.isPresent()) {
+        Optional<CoverageInfo> optCoverage = catalog.getCoveragesByStore(store).stream()
+                .filter(si -> coverageName.equals(si.getName()))
+                .findFirst();
+        if (optCoverage.isEmpty()) {
             throw new ResourceNotFoundException("No such coverage in store: " + coverageName);
         }
         return optCoverage.get();
@@ -406,8 +373,7 @@ public class StructuredCoverageController extends AbstractCatalogController {
                 Filter ogcFilter = ECQL.toFilter(filter);
                 q.setFilter(ogcFilter);
             } catch (CQLException e) {
-                throw new RestException(
-                        "Invalid cql syntax: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+                throw new RestException("Invalid cql syntax: " + e.getMessage(), HttpStatus.BAD_REQUEST);
             }
         }
 

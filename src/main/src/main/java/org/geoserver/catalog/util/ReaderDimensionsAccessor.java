@@ -26,14 +26,20 @@ import java.util.TimeZone;
 import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.catalog.StructuredCoverageViewReader;
+import org.geoserver.data.DimensionFilterBuilder;
 import org.geoserver.ows.kvp.TimeParser;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.PropertyIsBetween;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.coverage.grid.io.AbstractGridCoverage2DReader;
 import org.geotools.coverage.grid.io.DimensionDescriptor;
 import org.geotools.coverage.grid.io.GranuleSource;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
-import org.geotools.data.Query;
+import org.geotools.data.DataUtilities;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.visitor.UniqueVisitor;
@@ -44,13 +50,9 @@ import org.geotools.util.Range;
 import org.geotools.util.Utilities;
 import org.geotools.util.factory.Hints;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.PropertyIsBetween;
-import org.opengis.filter.expression.PropertyName;
 
 /**
- * Centralizes the metadata extraction and parsing used to read dimension information out of a
- * coverage reader
+ * Centralizes the metadata extraction and parsing used to read dimension information out of a coverage reader
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -66,57 +68,45 @@ public class ReaderDimensionsAccessor {
     private static FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     /** Comparator for the TreeSet made either by Date objects, or by DateRange objects */
-    public static final Comparator<Object> TEMPORAL_COMPARATOR =
-            (o1, o2) -> {
-                // the domain can be a mix of dates and ranges
-                if (o1 instanceof Date) {
-                    if (o2 instanceof DateRange) {
-                        return ((Date) o1).compareTo(((DateRange) o2).getMinValue());
-                    } else {
-                        return ((Date) o1).compareTo((Date) o2);
-                    }
-                } else if (o1 instanceof DateRange) {
-                    if (o2 instanceof Date) {
-                        return ((DateRange) o1).getMinValue().compareTo((Date) o2);
-                    } else {
-                        return ((DateRange) o1)
-                                .getMinValue()
-                                .compareTo(((DateRange) o2).getMinValue());
-                    }
-                }
-                throw new IllegalArgumentException(
-                        "Unxpected object type found, was expecting date or date range but found "
-                                + o1
-                                + " and "
-                                + o2);
-            };
+    public static final Comparator<Object> TEMPORAL_COMPARATOR = (o1, o2) -> {
+        // the domain can be a mix of dates and ranges
+        if (o1 instanceof Date date1) {
+            if (o2 instanceof DateRange range) {
+                return date1.compareTo(range.getMinValue());
+            } else {
+                return date1.compareTo((Date) o2);
+            }
+        } else if (o1 instanceof DateRange range) {
+            if (o2 instanceof Date date) {
+                return range.getMinValue().compareTo(date);
+            } else {
+                return range.getMinValue().compareTo(((DateRange) o2).getMinValue());
+            }
+        }
+        throw new IllegalArgumentException(
+                "Unxpected object type found, was expecting date or date range but found " + o1 + " and " + o2);
+    };
 
     /** Comparator for TreeSet made either by Double objects, or by NumberRange objects */
     @SuppressWarnings("unchecked")
-    public static final Comparator<Object> ELEVATION_COMPARATOR =
-            (o1, o2) -> {
-                if (o1 instanceof Double) {
-                    if (o2 instanceof Double) {
-                        return ((Double) o1).compareTo((Double) o2);
-                    } else if (o2 instanceof NumberRange) {
-                        NumberRange<Double> nrd = (NumberRange<Double>) o2;
-                        return ((Double) o1).compareTo(nrd.getMinValue());
-                    }
-                } else if (o1 instanceof NumberRange) {
-                    if (o2 instanceof NumberRange) {
-                        return ((NumberRange<Double>) o1)
-                                .getMinValue()
-                                .compareTo(((NumberRange<Double>) o2).getMinValue());
-                    } else {
-                        return ((NumberRange<Double>) o1).getMinValue().compareTo((Double) o2);
-                    }
-                }
-                throw new IllegalArgumentException(
-                        "Unxpected object type found, was expecting double or range of doubles but found "
-                                + o1
-                                + " and "
-                                + o2);
-            };
+    public static final Comparator<Object> ELEVATION_COMPARATOR = (o1, o2) -> {
+        if (o1 instanceof Double double2) {
+            if (o2 instanceof Double double1) {
+                return double2.compareTo(double1);
+            } else if (o2 instanceof NumberRange) {
+                NumberRange<Double> nrd = (NumberRange<Double>) o2;
+                return ((Double) o1).compareTo(nrd.getMinValue());
+            }
+        } else if (o1 instanceof NumberRange) {
+            if (o2 instanceof NumberRange) {
+                return ((NumberRange<Double>) o1).getMinValue().compareTo(((NumberRange<Double>) o2).getMinValue());
+            } else {
+                return ((NumberRange<Double>) o1).getMinValue().compareTo((Double) o2);
+            }
+        }
+        throw new IllegalArgumentException(
+                "Unxpected object type found, was expecting double or range of doubles but found " + o1 + " and " + o2);
+    };
 
     private final GridCoverage2DReader reader;
 
@@ -137,9 +127,8 @@ public class ReaderDimensionsAccessor {
     }
 
     /**
-     * Returns the full set of time values supported by the raster, sorted by time. They are either
-     * {@link Date} objects, or {@link DateRange} objects, according to what the underlying reader
-     * provides.
+     * Returns the full set of time values supported by the raster, sorted by time. They are either {@link Date}
+     * objects, or {@link DateRange} objects, according to what the underlying reader provides.
      */
     public TreeSet<Object> getTimeDomain() throws IOException {
         if (!hasTime()) {
@@ -161,9 +150,8 @@ public class ReaderDimensionsAccessor {
     }
 
     /**
-     * Returns the set of time values supported by the raster, sorted by time, in the specified
-     * range. They are either {@link Date} objects, or {@link DateRange} objects, according to what
-     * the underlying reader provides.
+     * Returns the set of time values supported by the raster, sorted by time, in the specified range. They are either
+     * {@link Date} objects, or {@link DateRange} objects, according to what the underlying reader provides.
      */
     public TreeSet<Object> getTimeDomain(DateRange range, int maxEntries) throws IOException {
         if (!hasTime()) {
@@ -171,8 +159,7 @@ public class ReaderDimensionsAccessor {
         }
 
         TreeSet<Object> result = null;
-        if (reader instanceof StructuredGridCoverage2DReader) {
-            StructuredGridCoverage2DReader sr = (StructuredGridCoverage2DReader) reader;
+        if (reader instanceof StructuredGridCoverage2DReader sr) {
             result = getDimensionValuesInRange("time", range, maxEntries, sr);
         }
 
@@ -182,12 +169,12 @@ public class ReaderDimensionsAccessor {
             TreeSet<Object> fullDomain = getTimeDomain();
 
             for (Object o : fullDomain) {
-                if (o instanceof Date) {
-                    if (range.contains((Date) o)) {
+                if (o instanceof Date date) {
+                    if (range.contains(date)) {
                         result.add(o);
                     }
-                } else if (o instanceof DateRange) {
-                    if (range.intersects((DateRange) o)) {
+                } else if (o instanceof DateRange dateRange) {
+                    if (range.intersects(dateRange)) {
                         result.add(o);
                     }
                 }
@@ -218,10 +205,7 @@ public class ReaderDimensionsAccessor {
         }
     }
 
-    /**
-     * Parses the specified value as a NumberRange if it's in the min/max form, as a Double
-     * otherwise
-     */
+    /** Parses the specified value as a NumberRange if it's in the min/max form, as a Double otherwise */
     private Object parseNumberOrRange(String val) {
         if (val.contains("/")) {
             String[] splitted = val.split("/");
@@ -239,15 +223,14 @@ public class ReaderDimensionsAccessor {
     }
 
     /**
-     * Returns the max value for the time, either as a single {@link Date} or {@link DateRange}
-     * according to what the underlying reader provides
+     * Returns the max value for the time, either as a single {@link Date} or {@link DateRange} according to what the
+     * underlying reader provides
      */
     public Date getMaxTime() throws IOException {
         if (!hasTime()) {
             return null;
         }
-        final String currentTime =
-                reader.getMetadataValue(AbstractGridCoverage2DReader.TIME_DOMAIN_MAXIMUM);
+        final String currentTime = reader.getMetadataValue(AbstractGridCoverage2DReader.TIME_DOMAIN_MAXIMUM);
         if (currentTime == null) {
             return null;
         }
@@ -263,8 +246,7 @@ public class ReaderDimensionsAccessor {
         if (!hasTime()) {
             return null;
         }
-        final String currentTime =
-                reader.getMetadataValue(AbstractGridCoverage2DReader.TIME_DOMAIN_MINIMUM);
+        final String currentTime = reader.getMetadataValue(AbstractGridCoverage2DReader.TIME_DOMAIN_MINIMUM);
         if (currentTime == null) {
             return null;
         }
@@ -287,10 +269,7 @@ public class ReaderDimensionsAccessor {
         return "true".equalsIgnoreCase(reader.getMetadataValue(HAS_ELEVATION_DOMAIN));
     }
 
-    /**
-     * Returns the full set of elevation values (either as Double or NumberRange), sorted from
-     * smaller to higher
-     */
+    /** Returns the full set of elevation values (either as Double or NumberRange), sorted from smaller to higher */
     public TreeSet<Object> getElevationDomain() throws IOException {
         if (!hasElevation()) {
             return null;
@@ -310,21 +289,19 @@ public class ReaderDimensionsAccessor {
     }
 
     /**
-     * Returns the set of elevation values supported by the raster, sorted from smaller to bigger,
-     * in the specified range. They are either {@link Double} objects, or {@link NumberRange}
-     * objects, according to what the underlying reader provides.
+     * Returns the set of elevation values supported by the raster, sorted from smaller to bigger, in the specified
+     * range. They are either {@link Double} objects, or {@link NumberRange} objects, according to what the underlying
+     * reader provides.
      */
     @SuppressWarnings("unchecked")
-    public TreeSet<Object> getElevationDomain(NumberRange range, int maxEntries)
-            throws IOException {
+    public TreeSet<Object> getElevationDomain(NumberRange range, int maxEntries) throws IOException {
         if (!hasElevation()) {
             Collections.emptySet();
         }
 
         // special optimization for structured coverage readers
         TreeSet<Object> result = null;
-        if (reader instanceof StructuredGridCoverage2DReader) {
-            StructuredGridCoverage2DReader sr = (StructuredGridCoverage2DReader) reader;
+        if (reader instanceof StructuredGridCoverage2DReader sr) {
             result = getDimensionValuesInRange("elevation", range, maxEntries, sr);
         }
 
@@ -334,12 +311,12 @@ public class ReaderDimensionsAccessor {
             TreeSet<Object> fullDomain = getElevationDomain();
 
             for (Object o : fullDomain) {
-                if (o instanceof Double) {
-                    if (range.contains((Number) o)) {
+                if (o instanceof Number double1) {
+                    if (range.contains(double1)) {
                         result.add(o);
                     }
-                } else if (o instanceof NumberRange) {
-                    if (range.intersects((NumberRange) o)) {
+                } else if (o instanceof NumberRange numberRange) {
+                    if (range.intersects(numberRange)) {
                         result.add(o);
                     }
                 }
@@ -350,24 +327,19 @@ public class ReaderDimensionsAccessor {
     }
 
     private TreeSet<Object> getDimensionValuesInRange(
-            String dimensionName, Range range, int maxEntries, StructuredGridCoverage2DReader sr)
-            throws IOException {
+            String dimensionName, Range range, int maxEntries, StructuredGridCoverage2DReader sr) throws IOException {
         final String name = sr.getGridCoverageNames()[0];
         List<DimensionDescriptor> descriptors = sr.getDimensionDescriptors(name);
         for (DimensionDescriptor descriptor : descriptors) {
             // do we find the time, and can we optimize?
-            if (dimensionName.equalsIgnoreCase(descriptor.getName())
-                    && descriptor.getEndAttribute() == null) {
+            if (dimensionName.equalsIgnoreCase(descriptor.getName()) && descriptor.getEndAttribute() == null) {
                 GranuleSource gs = sr.getGranules(name, true);
                 final Query query = new Query(gs.getSchema().getName().getLocalPart());
                 // The NetCDF plug-in gets a corrupted cache if we provide a property list
                 // query.setPropertyNames(Arrays.asList(descriptor.getStartAttribute()));
                 final PropertyName attribute = FF.property(descriptor.getStartAttribute());
                 final PropertyIsBetween rangeFilter =
-                        FF.between(
-                                attribute,
-                                FF.literal(range.getMinValue()),
-                                FF.literal(range.getMaxValue()));
+                        FF.between(attribute, FF.literal(range.getMinValue()), FF.literal(range.getMaxValue()));
                 query.setFilter(rangeFilter);
                 query.setMaxFeatures(maxEntries);
                 query.setPropertyNames(descriptor.getStartAttribute());
@@ -393,8 +365,7 @@ public class ReaderDimensionsAccessor {
         if (!hasElevation()) {
             return null;
         }
-        final String elevation =
-                reader.getMetadataValue(AbstractGridCoverage2DReader.ELEVATION_DOMAIN_MAXIMUM);
+        final String elevation = reader.getMetadataValue(AbstractGridCoverage2DReader.ELEVATION_DOMAIN_MAXIMUM);
         if (elevation == null) {
             return null;
         }
@@ -410,8 +381,7 @@ public class ReaderDimensionsAccessor {
         if (!hasElevation()) {
             return null;
         }
-        final String elevation =
-                reader.getMetadataValue(AbstractGridCoverage2DReader.ELEVATION_DOMAIN_MINIMUM);
+        final String elevation = reader.getMetadataValue(AbstractGridCoverage2DReader.ELEVATION_DOMAIN_MINIMUM);
         if (elevation == null) {
             return null;
         }
@@ -451,13 +421,13 @@ public class ReaderDimensionsAccessor {
     /** True if the reader has a dimension with the given name */
     public boolean hasDomain(String name) throws IOException {
         Utilities.ensureNonNull("name", name);
-        return "true"
-                .equalsIgnoreCase(reader.getMetadataValue("HAS_" + name.toUpperCase() + "_DOMAIN"));
+        return "true".equalsIgnoreCase(reader.getMetadataValue("HAS_" + name.toUpperCase() + "_DOMAIN"));
     }
 
     /** Returns the full set of values for the given dimension */
     public List<String> getDomain(String name) throws IOException {
-        String[] values = reader.getMetadataValue(name.toUpperCase() + "_DOMAIN").split(",");
+        String[] values =
+                reader.getMetadataValue(name.toUpperCase() + "_DOMAIN").split(",");
         List<String> valueSet = new ArrayList<>();
         for (String val : values) {
             valueSet.add(val);
@@ -486,8 +456,7 @@ public class ReaderDimensionsAccessor {
 
     /** Checks if this dimension has a range (min/max) or just a domain */
     public boolean hasRange(String domain) {
-        return metadataNames.contains(domain + "_DOMAIN_MAXIMUM")
-                && metadataNames.contains(domain + "_DOMAIN_MINIMUM");
+        return metadataNames.contains(domain + "_DOMAIN_MAXIMUM") && metadataNames.contains(domain + "_DOMAIN_MINIMUM");
     }
 
     /** Checks if this dimension has a resolution */
@@ -532,5 +501,110 @@ public class ReaderDimensionsAccessor {
         }
 
         return list;
+    }
+
+    /** Checks if the reader has any time in the specified list of times */
+    public boolean hasAnyTime(List<Object> times) throws IOException {
+        if (reader instanceof StructuredGridCoverage2DReader) {
+            return hasAnyValueStructured(ResourceInfo.TIME, times);
+        }
+        // dump search in the domain
+        TreeSet<Object> timeDomain = getTimeDomain();
+        for (Object time : times) {
+            // check if the time is in the domain, using the floor and ceiling functions
+            // to quickly locate nearby elements, without having to compare them all
+            Object floor = timeDomain.floor(time);
+            if (timeIntersection(floor, time)) return true;
+            Object ceiling = timeDomain.ceiling(time);
+            if (timeIntersection(ceiling, time)) return true;
+        }
+
+        return false;
+    }
+
+    /** Checks if the reader has any time in the specified list of times */
+    public boolean hasAnyElevation(List<Object> elevations) throws IOException {
+        if (reader instanceof StructuredGridCoverage2DReader) {
+            return hasAnyValueStructured(ResourceInfo.ELEVATION, elevations);
+        }
+        // dump search in the domain
+        TreeSet<Object> elevationDomain = getElevationDomain();
+        for (Object elevation : elevations) {
+            // check if the elevation is in the domain, using the floor and ceiling functions
+            // to quickly locate nearby elements, without having to compare them all
+            Object floor = elevationDomain.floor(elevation);
+            if (elevationIntersection(floor, elevation)) return true;
+            Object ceiling = elevationDomain.ceiling(elevation);
+            if (elevationIntersection(ceiling, elevation)) return true;
+        }
+        return false;
+    }
+
+    public boolean hasAnyCustomDimension(String name, List<String> values) throws IOException {
+        if (reader instanceof StructuredGridCoverage2DReader) {
+            return hasAnyValueStructured(name, values);
+        }
+        // dump search in the domain
+        Set<String> domain = new HashSet<>(getDomain(name));
+        for (String value : values) {
+            if (domain.contains(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasAnyValueStructured(String dimensionName, List<?> values) throws IOException {
+        StructuredGridCoverage2DReader sr = (StructuredGridCoverage2DReader) reader;
+        final String name = sr.getGridCoverageNames()[0];
+        List<DimensionDescriptor> descriptors = sr.getDimensionDescriptors(name);
+        for (DimensionDescriptor descriptor : descriptors) {
+            // do we find the time, and can we optimize?
+            if (dimensionName.equalsIgnoreCase(descriptor.getName())) {
+                GranuleSource gs = sr.getGranules(name, true);
+                final Query query = new Query(gs.getSchema().getName().getLocalPart());
+                DimensionFilterBuilder builder = new DimensionFilterBuilder(FF);
+                builder.appendFilters(descriptor.getStartAttribute(), descriptor.getEndAttribute(), values);
+                query.setFilter(builder.getFilter());
+                return DataUtilities.first(gs.getGranules(query)) != null;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks if the two objects intersect in time. The objects can be either {@link Date} or {@link DateRange} objects.
+     */
+    private boolean timeIntersection(Object a, Object b) {
+        if (a == null) {
+            return false;
+        }
+        if (a instanceof Date) {
+            if (b instanceof Date) return ((Date) a).equals(b);
+            else if (b instanceof DateRange range) return range.contains((Date) a);
+        } else if (a instanceof DateRange dateRange) {
+            if (b instanceof DateRange range) return dateRange.intersects(range);
+            else if (b instanceof Date date) return dateRange.contains(date);
+        }
+        return false;
+    }
+
+    /**
+     * Checks if the two objects intersect as numbers. The objects can be either {@link Double} or {@link NumberRange}
+     * objects.
+     */
+    @SuppressWarnings("unchecked") // un-qualified NumberRange
+    private boolean elevationIntersection(Object a, Object b) {
+        if (a == null) {
+            return false;
+        }
+        if (a instanceof Double) {
+            if (b instanceof Double) return ((Double) a).equals(b);
+            else if (b instanceof NumberRange range) return range.contains((Number) a);
+        } else if (a instanceof NumberRange numberRange) {
+            if (b instanceof NumberRange range) return numberRange.intersects(range);
+            else if (b instanceof Number double1) return numberRange.contains(double1);
+        }
+        return false;
     }
 }

@@ -10,17 +10,15 @@ import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.security.AccessLevel;
 import org.geoserver.security.SecureCatalogImpl;
 import org.geoserver.security.WrapperPolicy;
-import org.geotools.data.DataAccess;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.util.ProgressListener;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.util.ProgressListener;
 
 /**
  * Given a {@link DataStoreInfo} makes sure no write operations can be performed through it
  *
  * @author Andrea Aime - TOPP
- * @param <T>
- * @param <F>
  */
 @SuppressWarnings("serial")
 public class SecuredDataStoreInfo extends DecoratingDataStoreInfo {
@@ -33,13 +31,11 @@ public class SecuredDataStoreInfo extends DecoratingDataStoreInfo {
     }
 
     @Override
-    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(
-            ProgressListener listener) throws IOException {
-        final DataAccess<? extends FeatureType, ? extends Feature> ds =
-                super.getDataStore(listener);
+    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(ProgressListener listener)
+            throws IOException {
+        final DataAccess<? extends FeatureType, ? extends Feature> ds = super.getDataStore(listener);
         if (ds == null) return null;
-        else if (policy.level == AccessLevel.METADATA)
-            throw SecureCatalogImpl.unauthorizedAccess(this.getName());
+        else if (policy.level == AccessLevel.METADATA) throw SecureCatalogImpl.unauthorizedAccess(this.getName());
         else return SecuredObjects.secure(ds, policy);
     }
 }

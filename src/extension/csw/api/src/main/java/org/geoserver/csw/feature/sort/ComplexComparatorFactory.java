@@ -8,9 +8,9 @@ package org.geoserver.csw.feature.sort;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import org.opengis.feature.Feature;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
 
 /**
  * Builds comparators against complex features based on {@link SortBy} definitions
@@ -32,8 +32,7 @@ public class ComplexComparatorFactory {
      */
     public static Comparator<Feature> buildComparator(SortBy... sortBy) {
         if (sortBy.length == 0) {
-            throw new IllegalArgumentException(
-                    "No way to build comparators out of an empty comparator set");
+            throw new IllegalArgumentException("No way to build comparators out of an empty comparator set");
         }
 
         if (sortBy.length == 1) {
@@ -63,8 +62,7 @@ public class ComplexComparatorFactory {
      */
     public static Comparator<Feature> buildComparator(SortBy sortBy) {
         if (sortBy == null) {
-            throw new NullPointerException(
-                    "The sortBy argument must be not null (consider SortBy.UNSORTED)");
+            throw new NullPointerException("The sortBy argument must be not null (consider SortBy.UNSORTED)");
         }
 
         if (sortBy == SortBy.NATURAL_ORDER) {
@@ -72,8 +70,7 @@ public class ComplexComparatorFactory {
         } else if (sortBy == SortBy.REVERSE_ORDER) {
             return new FidComparator(false);
         } else {
-            return new PropertyComparator<>(
-                    sortBy.getPropertyName(), sortBy.getSortOrder() == SortOrder.ASCENDING);
+            return new PropertyComparator<>(sortBy.getPropertyName(), sortBy.getSortOrder() == SortOrder.ASCENDING);
         }
     }
 }

@@ -14,23 +14,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class ItemsHTMLMessageConverter extends AbstractItemsHTMLMessageConverter<ItemsResponse> {
 
-    public ItemsHTMLMessageConverter(
-            FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
+    public ItemsHTMLMessageConverter(FreemarkerTemplateSupport templateSupport, GeoServer geoServer) {
         super(ItemsResponse.class, templateSupport, geoServer);
     }
 
+    @Override
     protected Template getEmptyTemplate() throws IOException {
         return templateSupport.getTemplate(null, "items-empty.ftl", STACService.class);
     }
 
+    @Override
     protected Template getContentTemplate() throws IOException {
         return templateSupport.getTemplate(null, "items-content.ftl", STACService.class);
     }
 
+    @Override
     protected Template getFooterTemplate() throws IOException {
         return templateSupport.getTemplate(null, "items-footer.ftl", STACService.class);
     }
 
+    @Override
     protected Template getHeaderTemplate() throws IOException {
         return templateSupport.getTemplate(null, "items-header.ftl", STACService.class);
     }

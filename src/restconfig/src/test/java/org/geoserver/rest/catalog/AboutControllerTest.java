@@ -5,6 +5,7 @@
  */
 package org.geoserver.rest.catalog;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -17,12 +18,12 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.rest.RestBaseController;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.junit.Assert;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -151,7 +152,7 @@ public class AboutControllerTest extends GeoServerSystemTestSupport {
         // serializeXML(dom);
 
         assertNotNull(resource);
-        assertTrue(((Element) resource).getAttribute("name").length() > 0);
+        assertFalse(((Element) resource).getAttribute("name").isEmpty());
     }
 
     protected static void serializeXML(Document domDoc) throws TransformerException {

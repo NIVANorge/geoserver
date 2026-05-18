@@ -8,12 +8,11 @@ package org.geoserver.importer.format;
 import java.io.IOException;
 import java.io.InputStream;
 import org.geoserver.importer.transform.KMLPlacemarkTransform;
-import org.geotools.data.FeatureReader;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
+import org.geotools.api.data.FeatureReader;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 
-public class KMLTransformingFeatureReader
-        implements FeatureReader<SimpleFeatureType, SimpleFeature> {
+public class KMLTransformingFeatureReader implements FeatureReader<SimpleFeatureType, SimpleFeature> {
 
     private final SimpleFeatureType featureType;
 
@@ -53,8 +52,7 @@ public class KMLTransformingFeatureReader
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        SimpleFeature transformedFeature =
-                placemarkTransformer.convertFeature(feature, featureType);
+        SimpleFeature transformedFeature = placemarkTransformer.convertFeature(feature, featureType);
         return transformedFeature;
     }
 

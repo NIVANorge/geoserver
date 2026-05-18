@@ -7,13 +7,15 @@ package org.geoserver.security;
 
 import java.util.List;
 import javax.annotation.Nullable;
+import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogInfo;
 import org.geoserver.catalog.LayerGroupInfo;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WorkspaceInfo;
-import org.opengis.filter.Filter;
+import org.geoserver.catalog.util.CloseableIterator;
+import org.geotools.api.filter.Filter;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -26,8 +28,8 @@ import org.springframework.security.core.Authentication;
 public interface ResourceAccessManager {
 
     /**
-     * Returns the access limits for the workspace and stores included in it. For specific resource
-     * access and published resource access see the other two methods
+     * Returns the access limits for the workspace and stores included in it. For specific resource access and published
+     * resource access see the other two methods
      *
      * @return The access limits for this workspace, or null if there are no limits
      */
@@ -37,8 +39,8 @@ public interface ResourceAccessManager {
     public DataAccessLimits getAccessLimits(Authentication user, LayerInfo layer);
 
     /**
-     * Returns the access limits for the specified layer accessed via the groups listed as
-     * containers (will be an empty list for direct access), or null if there are no limits.
+     * Returns the access limits for the specified layer accessed via the groups listed as containers (will be an empty
+     * list for direct access), or null if there are no limits.
      */
     public default DataAccessLimits getAccessLimits(
             Authentication user, LayerInfo layer, List<LayerGroupInfo> containers) {
@@ -55,9 +57,8 @@ public interface ResourceAccessManager {
     public LayerGroupAccessLimits getAccessLimits(Authentication user, LayerGroupInfo layerGroup);
 
     /**
-     * Returns the access limits for the specified layer group accessed via the groups listed as
-     * containers (will be an empty list for direct access), or null if there are no limits, or null
-     * if there are no limits.
+     * Returns the access limits for the specified layer group accessed via the groups listed as containers (will be an
+     * empty list for direct access), or null if there are no limits, or null if there are no limits.
      */
     public default LayerGroupAccessLimits getAccessLimits(
             Authentication user, LayerGroupInfo layerGroup, List<LayerGroupInfo> containers) {
@@ -65,10 +66,32 @@ public interface ResourceAccessManager {
     }
 
     /**
-     * Returns a filter selecting only the objects authorized by the manager. May return {@code
-     * null} in which case the caller is responsible for building a filter based on calls to the
-     * manager's other methods.
+     * Returns a filter selecting only the objects authorized by the manager. May return {@code null} in which case the
+     * caller is responsible for building a filter based on calls to the manager's other methods.
      */
-    public @Nullable Filter getSecurityFilter(
-            Authentication user, final Class<? extends CatalogInfo> clazz);
+    public @Nullable Filter getSecurityFilter(Authentication user, final Class<? extends CatalogInfo> clazz);
+
+    /**
+     * Checks if {@code user} has admin privileges on at least one workspace of {@code catalog}.
+     *
+     * <p>This default implementation will potentially traverse all workspaces on the {@code Catalog} until
+     * {@link #getAccessLimits(Authentication, WorkspaceInfo)} returns {@link WorkspaceAccessLimits#isAdminable() ==
+     * true}.
+     *
+     * <p>{@code ResourceAccessManager} implementations are encouraged to override this method with a more efficient
+     * implementation whenever possible.
+     */
+    default boolean isWorkspaceAdmin(Authentication user, Catalog catalog) {
+        try (CloseableIterator<WorkspaceInfo> workspaces = catalog.list(WorkspaceInfo.class, Filter.INCLUDE)) {
+            while (workspaces.hasNext()) {
+                WorkspaceInfo ws = workspaces.next();
+                WorkspaceAccessLimits accessLimits = getAccessLimits(user, ws);
+                if (accessLimits != null && accessLimits.isAdminable()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

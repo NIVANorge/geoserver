@@ -8,7 +8,7 @@ package org.geoserver.geofence.server.integration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
-import org.geoserver.geofence.cache.CachedRuleReader;
+import org.geoserver.geofence.cache.CacheManager;
 import org.geoserver.geofence.core.model.AdminRule;
 import org.geoserver.geofence.core.model.GSInstance;
 import org.geoserver.geofence.core.model.IPAddressRange;
@@ -52,21 +52,14 @@ public class GeofenceIntegrationTestSupport extends ExternalResource {
     public @Override void after() {
         deleteRules();
         // this is odd, RuleService.delete() should invalidate
-        CachedRuleReader cacheRuleReader = GeoServerExtensions.bean(CachedRuleReader.class);
-        cacheRuleReader.invalidateAll();
+        CacheManager cacheManager = GeoServerExtensions.bean(CacheManager.class);
+        cacheManager.invalidateAll();
     }
 
-    public long addAdminRule(
-            long priority,
-            String username,
-            String rolename,
-            String workspace,
-            AdminGrantType access) {
+    public long addAdminRule(long priority, String username, String rolename, String workspace, AdminGrantType access) {
         GSInstance gsInstance = null;
         IPAddressRange addressRange = null;
-        AdminRule rule =
-                new AdminRule(
-                        priority, username, rolename, gsInstance, addressRange, workspace, access);
+        AdminRule rule = new AdminRule(priority, username, rolename, gsInstance, addressRange, workspace, access);
         long id = adminRuleService.insert(rule);
         this.adminRuleIds.add(id);
         return id;
@@ -82,8 +75,7 @@ public class GeofenceIntegrationTestSupport extends ExternalResource {
             String layer,
             long priority) {
 
-        return addRule(
-                access, username, roleName, service, request, null, workspace, layer, priority);
+        return addRule(access, username, roleName, service, request, null, workspace, layer, priority);
     }
 
     public long addRule(
@@ -112,17 +104,12 @@ public class GeofenceIntegrationTestSupport extends ExternalResource {
         return id;
     }
 
-    public void addRuleLimits(long ruleId, CatalogMode mode, String allowedArea, Integer srid)
-            throws ParseException {
+    public void addRuleLimits(long ruleId, CatalogMode mode, String allowedArea, Integer srid) throws ParseException {
         addRuleLimits(ruleId, mode, allowedArea, srid, null);
     }
 
     public void addRuleLimits(
-            long ruleId,
-            CatalogMode mode,
-            String allowedArea,
-            Integer srid,
-            SpatialFilterType spatialFilterType)
+            long ruleId, CatalogMode mode, String allowedArea, Integer srid, SpatialFilterType spatialFilterType)
             throws org.locationtech.jts.io.ParseException {
         RuleLimits limits = new RuleLimits();
         limits.setCatalogMode(mode);

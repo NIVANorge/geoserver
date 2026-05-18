@@ -7,7 +7,7 @@ package org.geoserver.backuprestore.reader;
 import org.geoserver.backuprestore.Backup;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.util.CloseableIterator;
-import org.opengis.filter.Filter;
+import org.geotools.api.filter.Filter;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.core.io.Resource;
@@ -56,10 +56,7 @@ public class CatalogItemReader<T> extends CatalogReader<T> {
             }
 
             if (this.counter != 0) {
-                throw new Exception(
-                        "Not all the Catalog Resources of class ["
-                                + this.clazz
-                                + "] have been dumped!");
+                throw new Exception("Not all the Catalog Resources of class [" + this.clazz + "] have been dumped!");
             }
         } catch (Exception e) {
             logValidationExceptions((T) null, e);

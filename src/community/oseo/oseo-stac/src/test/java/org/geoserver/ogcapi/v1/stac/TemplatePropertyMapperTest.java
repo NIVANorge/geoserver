@@ -10,10 +10,11 @@ import java.util.Arrays;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.platform.GeoServerExtensions;
+import org.geoserver.platform.resource.Resource;
+import org.geotools.api.filter.Filter;
 import org.geotools.filter.text.ecql.ECQL;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.opengis.filter.Filter;
 
 public class TemplatePropertyMapperTest extends STACTestSupport {
 
@@ -25,12 +26,33 @@ public class TemplatePropertyMapperTest extends STACTestSupport {
         copyTemplate("/items-LANDSAT8.json");
     }
 
+    private STACTemplates getTemplates() {
+        return GeoServerExtensions.bean(STACTemplates.class);
+    }
+
     public TemplatePropertyMapper getPropertyMapper() {
-        STACTemplates templates = GeoServerExtensions.bean(STACTemplates.class);
+        STACTemplates templates = getTemplates();
         SampleFeatures sampleFeatures = GeoServerExtensions.bean(SampleFeatures.class);
         CollectionsCache collectionsCache = GeoServerExtensions.bean(CollectionsCache.class);
         OSEOInfo oseoInfo = GeoServerExtensions.bean(OSEOInfo.class);
         return new TemplatePropertyMapper(templates, sampleFeatures, collectionsCache, oseoInfo);
+    }
+
+    /**
+     * Test that the templates are copied to the right place
+     *
+     * @throws Exception Issue with copying the templates
+     */
+    @Test
+    public void testCopyHTMLTemplates() throws Exception {
+        STACTemplates templates = getTemplates();
+        templates.copyHTMLTemplates();
+        assertEquals(
+                Resource.Type.RESOURCE,
+                getDataDirectory().get("templates/ogc/stac/v1/collections.ftl").getType());
+        assertEquals(
+                Resource.Type.UNDEFINED,
+                getDataDirectory().get("templates/ogc/stac/collections.ftl").getType());
     }
 
     @Test
@@ -47,9 +69,7 @@ public class TemplatePropertyMapperTest extends STACTestSupport {
         // even if they were not specified in the list
         TemplatePropertyMapper mapper = getPropertyMapper();
         Filter mapped = mapper.mapProperties(null, ECQL.toFilter("\"landsat:orbit\" < 50"));
-        assertEquals(
-                ECQL.toFilter("parentIdentifier = 'LANDSAT8' and \"eop:orbitNumber\" < 50"),
-                mapped);
+        assertEquals(ECQL.toFilter("parentIdentifier = 'LANDSAT8' and \"eop:orbitNumber\" < 50"), mapped);
     }
 
     @Test
@@ -58,21 +78,15 @@ public class TemplatePropertyMapperTest extends STACTestSupport {
         // second should come out
         TemplatePropertyMapper mapper = getPropertyMapper();
         Filter mapped =
-                mapper.mapProperties(
-                        Arrays.asList("SENTINEL2", "LANDSAT8"),
-                        ECQL.toFilter("\"landsat:orbit\" < 50"));
-        assertEquals(
-                ECQL.toFilter("parentIdentifier = 'LANDSAT8' and \"eop:orbitNumber\" < 50"),
-                mapped);
+                mapper.mapProperties(Arrays.asList("SENTINEL2", "LANDSAT8"), ECQL.toFilter("\"landsat:orbit\" < 50"));
+        assertEquals(ECQL.toFilter("parentIdentifier = 'LANDSAT8' and \"eop:orbitNumber\" < 50"), mapped);
     }
 
     @Test
     public void testLS8SpecificWithSentinel() throws Exception {
         // property that exists only on LS8, provided against SENTINEL2... should exclude
         TemplatePropertyMapper mapper = getPropertyMapper();
-        Filter mapped =
-                mapper.mapProperties(
-                        Arrays.asList("SENTINEL2"), ECQL.toFilter("\"landsat:orbit\" < 50"));
+        Filter mapped = mapper.mapProperties(Arrays.asList("SENTINEL2"), ECQL.toFilter("\"landsat:orbit\" < 50"));
         assertEquals(Filter.EXCLUDE, mapped);
     }
 
@@ -100,10 +114,8 @@ public class TemplatePropertyMapperTest extends STACTestSupport {
         // property mapped in a different way in the two collections
         TemplatePropertyMapper mapper = getPropertyMapper();
         Filter mapped = mapper.mapProperties(null, ECQL.toFilter("eo:cloud_cover < 20"));
-        Filter expected =
-                ECQL.toFilter(
-                        "(parentIdentifier = 'LANDSAT8' and (opt:cloudCover / 2) < 20) "
-                                + "or (parentIdentifier <> 'LANDSAT8' and opt:cloudCover < 20)");
+        Filter expected = ECQL.toFilter("(parentIdentifier = 'LANDSAT8' and (opt:cloudCover / 2) < 20) "
+                + "or (parentIdentifier <> 'LANDSAT8' and opt:cloudCover < 20)");
         assertEquals(expected, mapped);
     }
 }

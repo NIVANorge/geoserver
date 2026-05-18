@@ -22,6 +22,8 @@ import org.geoserver.wms.RasterCleaner;
 import org.geoserver.wms.WMS;
 import org.geoserver.wms.WebMap;
 import org.geoserver.wms.WebMapService;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.util.DefaultProgressListener;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geopkg.GeoPackage;
@@ -30,8 +32,6 @@ import org.geotools.geopkg.TileEntry;
 import org.geotools.geopkg.TileMatrix;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Envelope;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.util.ProgressListener;
 
 public class GeoPackageGetMapOutputFormatWPS extends GeoPackageGetMapOutputFormat {
 
@@ -39,10 +39,7 @@ public class GeoPackageGetMapOutputFormatWPS extends GeoPackageGetMapOutputForma
         super(webMapService, wms, gwc);
     }
 
-    /**
-     * Special method to add tiles using Geopackage's own grid matrix system rather than GWC
-     * gridsubsets
-     */
+    /** Special method to add tiles using Geopackage's own grid matrix system rather than GWC gridsubsets */
     public void addTiles(
             GeoPackage geopkg,
             TileEntry e,
@@ -102,9 +99,7 @@ public class GeoPackageGetMapOutputFormatWPS extends GeoPackageGetMapOutputForma
         }
 
         String imageFormat =
-                formatOpts.containsKey("format")
-                        ? parseFormatFromOpts(formatOpts)
-                        : findBestFormat(request);
+                formatOpts.containsKey("format") ? parseFormatFromOpts(formatOpts) : findBestFormat(request);
         req.setFormat(imageFormat);
 
         CoordinateReferenceSystem crs = getCoordinateReferenceSystem(request);
@@ -116,12 +111,10 @@ public class GeoPackageGetMapOutputFormatWPS extends GeoPackageGetMapOutputForma
                 throw new ServiceException(ex);
             }
         }
-        double xSpan =
-                crs.getCoordinateSystem().getAxis(0).getMaximumValue()
-                        - crs.getCoordinateSystem().getAxis(0).getMinimumValue();
-        double ySpan =
-                crs.getCoordinateSystem().getAxis(1).getMaximumValue()
-                        - crs.getCoordinateSystem().getAxis(1).getMinimumValue();
+        double xSpan = crs.getCoordinateSystem().getAxis(0).getMaximumValue()
+                - crs.getCoordinateSystem().getAxis(0).getMinimumValue();
+        double ySpan = crs.getCoordinateSystem().getAxis(1).getMaximumValue()
+                - crs.getCoordinateSystem().getAxis(1).getMinimumValue();
         double xOffset = crs.getCoordinateSystem().getAxis(0).getMinimumValue();
         double yOffset = crs.getCoordinateSystem().getAxis(1).getMinimumValue();
 
@@ -163,12 +156,11 @@ public class GeoPackageGetMapOutputFormatWPS extends GeoPackageGetMapOutputForma
 
             for (long x = minX; x < maxX; x++) {
                 for (long y = minY; y < maxY; y++) {
-                    req.setBbox(
-                            new Envelope(
-                                    xOffset + x * resX,
-                                    xOffset + (x + 1) * resX,
-                                    yOffset + y * resY,
-                                    yOffset + (y + 1) * resY));
+                    req.setBbox(new Envelope(
+                            xOffset + x * resX,
+                            xOffset + (x + 1) * resX,
+                            yOffset + y * resY,
+                            yOffset + (y + 1) * resY));
                     WebMap result = webMapService.getMap(req);
                     Tile t = new Tile();
                     t.setZoom(matrix.getZoomLevel());

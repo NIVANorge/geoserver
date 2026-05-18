@@ -21,9 +21,9 @@ import org.geoserver.catalog.impl.LayerInfoImpl;
 import org.geoserver.catalog.impl.NamespaceInfoImpl;
 import org.geoserver.catalog.impl.StyleInfoImpl;
 import org.geoserver.catalog.impl.WorkspaceInfoImpl;
+import org.geotools.api.filter.MultiValuedFilter.MatchAction;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.filter.MultiValuedFilter.MatchAction;
 
 public class PredicatesTest {
 
@@ -125,22 +125,18 @@ public class PredicatesTest {
     @Test
     public void testPropertyEqualsCompound() {
         assertTrue(equal("resource.id", featureType.getId()).evaluate(vectorLayer));
-        assertTrue(
-                equal("resource.maxFeatures", featureType.getMaxFeatures()).evaluate(vectorLayer));
+        assertTrue(equal("resource.maxFeatures", featureType.getMaxFeatures()).evaluate(vectorLayer));
         assertTrue(equal("resource.store.type", dataStore.getType()).evaluate(vectorLayer));
 
-        assertTrue(
-                equal("resource.store.connectionParameters.boolParam", true).evaluate(vectorLayer));
+        assertTrue(equal("resource.store.connectionParameters.boolParam", true).evaluate(vectorLayer));
         assertFalse(
-                equal("resource.store.connectionParameters.boolParam", false)
-                        .evaluate(vectorLayer));
+                equal("resource.store.connectionParameters.boolParam", false).evaluate(vectorLayer));
 
         ws.getMetadata().put("checkMe", new java.util.Date(1000));
 
         assertTrue(equal("metadata.checkMe", new java.util.Date(1000)).evaluate(ws));
 
-        assertFalse(
-                equal("resource.store.someNonExistentProperty", "someValue").evaluate(vectorLayer));
+        assertFalse(equal("resource.store.someNonExistentProperty", "someValue").evaluate(vectorLayer));
     }
 
     @Test
@@ -157,22 +153,18 @@ public class PredicatesTest {
 
         expected = "true";
         assertTrue(
-                equal("resource.store.connectionParameters.boolParam", expected)
-                        .evaluate(vectorLayer));
+                equal("resource.store.connectionParameters.boolParam", expected).evaluate(vectorLayer));
 
         expected = "false";
         assertFalse(
-                equal("resource.store.connectionParameters.boolParam", false)
-                        .evaluate(vectorLayer));
+                equal("resource.store.connectionParameters.boolParam", false).evaluate(vectorLayer));
 
         ws.getMetadata().put("checkMe", new java.util.Date(1000));
 
         expected = new java.sql.Timestamp(1000);
-        assertTrue(
-                equal("resource.store.workspace.metadata.checkMe", expected).evaluate(vectorLayer));
+        assertTrue(equal("resource.store.workspace.metadata.checkMe", expected).evaluate(vectorLayer));
 
-        assertFalse(
-                equal("resource.store.someNonExistentProperty", "someValue").evaluate(vectorLayer));
+        assertFalse(equal("resource.store.someNonExistentProperty", "someValue").evaluate(vectorLayer));
     }
 
     @Test

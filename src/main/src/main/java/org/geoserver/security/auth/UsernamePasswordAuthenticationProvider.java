@@ -5,10 +5,10 @@
  */
 package org.geoserver.security.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.platform.GeoServerEnvironment;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.security.GeoServerAuthenticationProvider;
@@ -30,6 +30,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
  *
  * @author Justin Deoliveira, OpenGeo
  */
+@SuppressWarnings("deprecation")
 public class UsernamePasswordAuthenticationProvider extends GeoServerAuthenticationProvider {
 
     /** auth provider to delegate to */
@@ -51,19 +52,17 @@ public class UsernamePasswordAuthenticationProvider extends GeoServerAuthenticat
         userGroupServiceName = upAuthConfig.getUserGroupServiceName();
 
         // create delegate auth provider
-        authProvider = new DaoAuthenticationProvider();
         UserDetailsService userDetailsService = ugService;
         GeoServerEnvironment environment = GeoServerExtensions.bean(GeoServerEnvironment.class);
         if (GeoServerEnvironment.allowEnvParametrization() && environment != null)
             userDetailsService = new EnvironmentUserDetailService(ugService, environment);
-        authProvider.setUserDetailsService(userDetailsService);
+        authProvider = new DaoAuthenticationProvider(userDetailsService);
 
         // set up the password encoder
         // multiplex password encoder actually allows us to handle all types of passwords for
         // decoding purposes, regardless of whatever the current one used by the user group service
         // is
-        authProvider.setPasswordEncoder(
-                new GeoServerMultiplexingPasswordEncoder(getSecurityManager(), ugService));
+        authProvider.setPasswordEncoder(new GeoServerMultiplexingPasswordEncoder(getSecurityManager(), ugService));
 
         try {
             authProvider.afterPropertiesSet();
@@ -92,16 +91,14 @@ public class UsernamePasswordAuthenticationProvider extends GeoServerAuthenticat
         }
 
         if (auth.getDetails() instanceof GeoServerWebAuthenticationDetails) {
-            ((GeoServerWebAuthenticationDetails) auth.getDetails())
-                    .setUserGroupServiceName(userGroupServiceName);
+            ((GeoServerWebAuthenticationDetails) auth.getDetails()).setUserGroupServiceName(userGroupServiceName);
         }
-        if (auth.getAuthorities().contains(GeoServerRole.AUTHENTICATED_ROLE) == false) {
+        if (!auth.getAuthorities().contains(GeoServerRole.AUTHENTICATED_ROLE)) {
             List<GrantedAuthority> roles = new ArrayList<>();
             roles.addAll(auth.getAuthorities());
             roles.add(GeoServerRole.AUTHENTICATED_ROLE);
             UsernamePasswordAuthenticationToken newAuth =
-                    new UsernamePasswordAuthenticationToken(
-                            auth.getPrincipal(), auth.getCredentials(), roles);
+                    new UsernamePasswordAuthenticationToken(auth.getPrincipal(), auth.getCredentials(), roles);
             newAuth.setDetails(auth.getDetails());
             return newAuth;
         }

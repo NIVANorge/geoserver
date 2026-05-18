@@ -11,9 +11,9 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 
+import jakarta.jms.Message;
 import java.util.Arrays;
 import java.util.List;
-import javax.jms.Message;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.LayerGroupInfo;
@@ -67,9 +67,8 @@ public final class JmsLayerGroupsTest extends GeoServerSystemTestSupport {
         // create the layer group
         createTetLayerGroup();
         // wait for a catalog add event
-        List<Message> messages =
-                JmsEventsListener.getMessagesByHandlerKey(
-                        5000, (selected) -> selected.size() >= 2, CATALOG_ADD_EVENT_HANDLER_KEY);
+        List<Message> messages = JmsEventsListener.getMessagesByHandlerKey(
+                5000, (selected) -> selected.size() >= 2, CATALOG_ADD_EVENT_HANDLER_KEY);
         // remove the test layer group to force a complete deserialization
         removeTestLayerGroup();
         // let's see if we got the correct event
@@ -90,9 +89,7 @@ public final class JmsLayerGroupsTest extends GeoServerSystemTestSupport {
             LayerInfo layer = (LayerInfo) item;
             assertThat(
                     layer.getName(),
-                    anyOf(
-                            is(MockData.ROAD_SEGMENTS.getLocalPart()),
-                            is(MockData.BRIDGES.getLocalPart())));
+                    anyOf(is(MockData.ROAD_SEGMENTS.getLocalPart()), is(MockData.BRIDGES.getLocalPart())));
             FeatureTypeInfo resource = (FeatureTypeInfo) layer.getResource();
             // check that the transient catalog variable has initiated properly
             assertThat(resource.getStore().getCatalog(), notNullValue());

@@ -4,6 +4,8 @@
  */
 package org.geoserver.params.extractor.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.util.Optional;
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
@@ -11,6 +13,7 @@ import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.Form;
+import org.apache.wicket.markup.html.form.FormComponentUpdatingBehavior;
 import org.apache.wicket.markup.html.form.SubmitLink;
 import org.apache.wicket.markup.html.form.TextArea;
 import org.apache.wicket.markup.html.panel.Fragment;
@@ -27,6 +30,7 @@ import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ImageAjaxLink;
 import org.geoserver.web.wicket.ParamResourceModel;
 
+// TODO WICKET8 - Verify this page works OK
 public class ParamsExtractorConfigPage extends GeoServerSecuredPage {
 
     GeoServerTablePanel<RuleModel> rulesPanel;
@@ -34,140 +38,143 @@ public class ParamsExtractorConfigPage extends GeoServerSecuredPage {
     public ParamsExtractorConfigPage() {
         setHeaderPanel(headerPanel());
         add(
-                rulesPanel =
-                        new GeoServerTablePanel<RuleModel>("rulesPanel", new RulesModel(), true) {
+                rulesPanel = new GeoServerTablePanel<>("rulesPanel", new RulesModel(), true) {
 
-                            @Override
-                            protected Component getComponentForProperty(
-                                    String id,
-                                    IModel<RuleModel> itemModel,
-                                    GeoServerDataProvider.Property<RuleModel> property) {
-                                if (property == RulesModel.EDIT_BUTTON) {
-                                    return new EditButtonPanel(id, itemModel.getObject());
-                                }
-                                if (property == RulesModel.ACTIVATE_BUTTON) {
-                                    return new ActivateButtonPanel(id, itemModel.getObject());
-                                }
-                                return null;
-                            }
-                        });
+                    @Override
+                    protected Component getComponentForProperty(
+                            String id,
+                            IModel<RuleModel> itemModel,
+                            GeoServerDataProvider.Property<RuleModel> property) {
+                        if (property == RulesModel.EDIT_BUTTON) {
+                            return new EditButtonPanel(id, itemModel.getObject());
+                        }
+                        if (property == RulesModel.ACTIVATE_BUTTON) {
+                            return new ActivateButtonPanel(id, itemModel.getObject());
+                        }
+                        return null;
+                    }
+                });
         rulesPanel.setOutputMarkupId(true);
         RuleTestModel ruleTestModel = new RuleTestModel();
         Form<RuleTestModel> form = new Form<>("form", new CompoundPropertyModel<>(ruleTestModel));
         add(form);
-        TextArea<String> input =
-                new TextArea<>("input", new PropertyModel<>(ruleTestModel, "input"));
+        TextArea<String> input = new TextArea<>("input", new PropertyModel<>(ruleTestModel, "input"));
         form.add(input);
         input.setDefaultModelObject(
                 "/geoserver/tiger/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&CQL_FILTER=CFCC%3D%27H11%27");
-        TextArea<String> output =
-                new TextArea<>("output", new PropertyModel<>(ruleTestModel, "output"));
+        TextArea<String> output = new TextArea<>("output", new PropertyModel<>(ruleTestModel, "output"));
         output.setEnabled(false);
         form.add(output);
-        form.add(
-                new SubmitLink("test") {
-                    @Override
-                    public void onSubmit() {
-                        if (rulesPanel.getSelection().isEmpty()) {
-                            output.setModelObject("NO RULES SELECTED !");
-                            return;
-                        }
-                        String outputText;
-                        try {
-                            RuleTestModel ruleTestModel =
-                                    (RuleTestModel) getForm().getModelObject();
-                            String[] urlParts = ruleTestModel.getInput().split("\\?");
-                            String requestUri = urlParts[0];
-                            Optional<String> queryRequest =
-                                    urlParts.length > 1
-                                            ? Optional.ofNullable(urlParts[1])
-                                            : Optional.empty();
-                            UrlTransform urlTransform =
-                                    new UrlTransform(
-                                            requestUri, Utils.parseParameters(queryRequest));
-                            rulesPanel.getSelection().stream()
-                                    .filter(rule -> !rule.isEchoOnly())
-                                    .map(RuleModel::toRule)
-                                    .forEach(rule -> rule.apply(urlTransform));
-                            if (urlTransform.haveChanged()) {
-                                outputText = urlTransform.toString();
-                            } else {
-                                outputText = "NO RULES APPLIED !";
-                            }
-                        } catch (Exception exception) {
-                            outputText = "Exception: " + exception.getMessage();
-                        }
-                        output.setModelObject(outputText);
+        form.add(new SubmitLink("test") {
+            @Override
+            public void onSubmit() {
+                if (rulesPanel.getSelection().isEmpty()) {
+                    output.setModelObject("NO RULES SELECTED !");
+                    return;
+                }
+                String outputText;
+                try {
+                    RuleTestModel ruleTestModel = (RuleTestModel) getForm().getModelObject();
+                    String[] urlParts = ruleTestModel.getInput().split("\\?");
+                    String requestUri = urlParts[0];
+                    Optional<String> queryRequest =
+                            urlParts.length > 1 ? Optional.ofNullable(urlParts[1]) : Optional.empty();
+                    UrlTransform urlTransform = new UrlTransform(requestUri, Utils.parseParameters(queryRequest));
+                    rulesPanel.getSelection().stream()
+                            .filter(rule -> !rule.isEchoOnly())
+                            .map(RuleModel::toRule)
+                            .forEach(rule -> rule.apply(urlTransform));
+                    if (urlTransform.haveChanged()) {
+                        outputText = urlTransform.toString();
+                    } else {
+                        outputText = "NO RULES APPLIED !";
                     }
-                });
+                } catch (Exception exception) {
+                    outputText = "Exception: " + exception.getMessage();
+                }
+                output.setModelObject(outputText);
+            }
+        });
     }
 
     private Component headerPanel() {
         Fragment header = new Fragment(HEADER_PANEL, "header", this);
-        header.add(
-                new AjaxLink<Object>("addNew") {
-                    @Override
-                    public void onClick(AjaxRequestTarget target) {
-                        setResponsePage(new ParamsExtractorRulePage(Optional.empty()));
-                    }
-                });
-        header.add(
-                new AjaxLink<Object>("removeSelected") {
-                    @Override
-                    public void onClick(AjaxRequestTarget target) {
-                        RulesModel.delete(
-                                rulesPanel.getSelection().stream()
-                                        .map(RuleModel::getId)
-                                        .toArray(String[]::new));
-                        target.add(rulesPanel);
-                    }
-                });
+        header.add(new AjaxLink<>("addNew") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                setResponsePage(new ParamsExtractorRulePage(Optional.empty()));
+            }
+        });
+        header.add(new AjaxLink<>("removeSelected") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                RulesModel.delete(
+                        rulesPanel.getSelection().stream().map(RuleModel::getId).toArray(String[]::new));
+                target.add(rulesPanel);
+            }
+        });
         return header;
     }
 
-    private class EditButtonPanel extends Panel {
+    private static class EditButtonPanel extends Panel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(ParamsExtractorConfigPage.EditButtonPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public EditButtonPanel(String id, final RuleModel ruleModel) {
             super(id);
             this.setOutputMarkupId(true);
             ImageAjaxLink<Object> editLink =
-                    new ImageAjaxLink<Object>(
-                            "edit", new PackageResourceReference(getClass(), "img/edit.png")) {
+                    new ImageAjaxLink<>("edit", new PackageResourceReference(getClass(), "img/edit.png")) {
                         @Override
                         protected void onClick(AjaxRequestTarget target) {
                             setResponsePage(new ParamsExtractorRulePage(Optional.of(ruleModel)));
                         }
                     };
             editLink.getImage()
-                    .add(
-                            new AttributeModifier(
-                                    "alt",
-                                    new ParamResourceModel(
-                                            "ParamsExtractorConfigPage.edit", editLink)));
+                    .add(new AttributeModifier(
+                            "alt", new ParamResourceModel("ParamsExtractorConfigPage.edit", editLink)));
             editLink.setOutputMarkupId(true);
             add(editLink);
         }
     }
 
-    private class ActivateButtonPanel extends Panel {
+    private static class ActivateButtonPanel extends Panel {
+
+        private static final boolean isCssEmpty =
+                IsWicketCssFileEmpty(ParamsExtractorConfigPage.ActivateButtonPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public ActivateButtonPanel(String id, final RuleModel ruleModel) {
             super(id);
             this.setOutputMarkupId(true);
-            CheckBox activateButton =
-                    new CheckBox("activated", new PropertyModel<>(ruleModel, "activated")) {
-
-                        @Override
-                        public void onSelectionChanged() {
-                            super.onSelectionChanged();
-                            RulesModel.saveOrUpdate(ruleModel);
-                        }
-
-                        @Override
-                        protected boolean wantOnSelectionChangedNotifications() {
-                            return true;
-                        }
-                    };
+            CheckBox activateButton = new CheckBox("activated", new PropertyModel<>(ruleModel, "activated"));
+            activateButton.add(new FormComponentUpdatingBehavior() {
+                @Override
+                public void onUpdate() {
+                    RulesModel.saveOrUpdate(ruleModel);
+                }
+            });
             add(activateButton);
         }
     }

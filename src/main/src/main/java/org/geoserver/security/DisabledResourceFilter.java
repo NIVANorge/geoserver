@@ -11,7 +11,7 @@ import org.geoserver.catalog.Predicates;
 import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
-import org.opengis.filter.Filter;
+import org.geotools.api.filter.Filter;
 
 /**
  * Makes sure disabled layers/resources cannot be accessed from outside regardless of the service
@@ -35,8 +35,7 @@ public class DisabledResourceFilter extends AbstractCatalogFilter {
                         Predicates.equal("resource.enabled", true),
                         Predicates.equal("resource.store.enabled", true));
             } else if (ResourceInfo.class.isAssignableFrom(clazz)) {
-                return Predicates.and(
-                        Predicates.equal("enabled", true), Predicates.equal("store.enabled", true));
+                return Predicates.and(Predicates.equal("enabled", true), Predicates.equal("store.enabled", true));
             }
         }
         return Filter.INCLUDE;

@@ -12,8 +12,8 @@ import org.springframework.security.core.Authentication;
 /**
  * Interface to cache {@link Authentication} objects.
  *
- * <p>The key is created from the name of the filter and the result of {@link
- * AuthenticationCachingFilter#getCacheKey(javax.servlet.http.HttpServletRequest)}
+ * <p>The key is created from the name of the filter and the result of
+ * {@link AuthenticationCachingFilter#getCacheKey(jakarta.servlet.http.HttpServletRequest)}
  *
  * @author mcr
  */
@@ -27,7 +27,7 @@ public interface AuthenticationCache {
     /** Clears all cache entries for filterName */
     public void removeAll(String filterName);
 
-    /** Clears a specific chache entry */
+    /** Clears a specific cache entry */
     public void remove(String filterName, String cacheKey);
 
     /** */
@@ -46,4 +46,6 @@ public interface AuthenticationCache {
 
     /** timeToIdleSeconds and timeToLiveSeconds are derived from the cache global settings */
     public void put(String filterName, String cacheKey, Authentication auth);
+
+    void onReset();
 }

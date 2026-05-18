@@ -7,6 +7,10 @@ package org.geoserver.feature;
 import static org.junit.Assert.assertSame;
 
 import java.io.IOException;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
@@ -17,10 +21,6 @@ import org.geotools.feature.visitor.CountVisitor;
 import org.geotools.feature.visitor.MaxVisitor;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.util.ProgressListener;
 
 public class RetypingFeatureCollectionTest {
 
@@ -31,27 +31,24 @@ public class RetypingFeatureCollectionTest {
     @Before
     public void setup() throws SchemaException {
         SimpleFeatureType originalSchema =
-                DataUtilities.createType(
-                        "BasicPolygons", "the_geom:MultiPolygon:srid=4326,ID:String,value:int");
+                DataUtilities.createType("BasicPolygons", "the_geom:MultiPolygon:srid=4326,ID:String,value:int");
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
         tb.init(originalSchema);
         tb.setName("BasicPolygons2");
         renamedSchema = tb.buildFeatureType();
 
-        collection =
-                new ListFeatureCollection(originalSchema) {
-                    @Override
-                    public void accepts(FeatureVisitor visitor, ProgressListener progress)
-                            throws java.io.IOException {
-                        lastVisitor = visitor;
-                    };
-                };
+        collection = new ListFeatureCollection(originalSchema) {
+            @Override
+            public void accepts(FeatureVisitor visitor, ProgressListener progress) throws java.io.IOException {
+                lastVisitor = visitor;
+            }
+        };
     }
 
     @Test
     public void testMaxVisitorDelegation() throws SchemaException, IOException {
         MaxVisitor visitor =
-                new MaxVisitor(CommonFactoryFinder.getFilterFactory2().property("value"));
+                new MaxVisitor(CommonFactoryFinder.getFilterFactory().property("value"));
         assertOptimalVisit(visitor);
     }
 
@@ -62,8 +59,7 @@ public class RetypingFeatureCollectionTest {
     }
 
     private void assertOptimalVisit(FeatureVisitor visitor) throws IOException {
-        RetypingFeatureCollection retypedCollection =
-                new RetypingFeatureCollection(collection, renamedSchema);
+        RetypingFeatureCollection retypedCollection = new RetypingFeatureCollection(collection, renamedSchema);
         retypedCollection.accepts(visitor, null);
         assertSame(lastVisitor, visitor);
     }
@@ -77,8 +73,7 @@ public class RetypingFeatureCollectionTest {
      */
     @Test
     public void testSubCollectionRetyping() {
-        RetypingFeatureCollection retypedCollection =
-                new RetypingFeatureCollection(collection, renamedSchema);
+        RetypingFeatureCollection retypedCollection = new RetypingFeatureCollection(collection, renamedSchema);
         SimpleFeatureCollection subCollection = retypedCollection.subCollection(Filter.INCLUDE);
         assertSame(renamedSchema, subCollection.getSchema());
     }

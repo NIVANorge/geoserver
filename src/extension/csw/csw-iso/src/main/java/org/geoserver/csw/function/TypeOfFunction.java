@@ -21,9 +21,9 @@ import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WMSLayerInfo;
 import org.geoserver.catalog.WMTSLayerInfo;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
 
 /**
  * Return the type of any Catalognfo Object
@@ -73,8 +73,7 @@ public class TypeOfFunction extends FunctionExpressionImpl {
             info = (CatalogInfo) getExpression(0).evaluate(object);
         } catch (Exception e) {
             throw new IllegalArgumentException(
-                    "Filter Function problem for function typeOf argument #0 - expected type CatalogInfo",
-                    e);
+                    "Filter Function problem for function typeOf argument #0 - expected type CatalogInfo", e);
         }
 
         return typeClass(info.getClass()).getSimpleName();

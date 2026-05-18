@@ -30,10 +30,10 @@ import org.geoserver.security.CatalogMode;
 import org.geoserver.security.ResourceAccessManager;
 import org.geoserver.security.TestResourceAccessManager;
 import org.geoserver.security.VectorAccessLimits;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.factory.CommonFactoryFinder;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
 
 /**
  * Performs integration tests using a mock {@link ResourceAccessManager}
@@ -51,9 +51,8 @@ public class ResourceAccessManagerVectorTimeTest extends VectorTimeTestSupport {
 
     /** Enable the Spring Security auth filters */
     @Override
-    protected List<javax.servlet.Filter> getFilters() {
-        return Collections.singletonList(
-                (javax.servlet.Filter) GeoServerExtensions.bean("filterChainProxy"));
+    protected List<jakarta.servlet.Filter> getFilters() {
+        return Collections.singletonList((jakarta.servlet.Filter) GeoServerExtensions.bean("filterChainProxy"));
     }
 
     /** Add the users */
@@ -76,17 +75,11 @@ public class ResourceAccessManagerVectorTimeTest extends VectorTimeTestSupport {
 
         // Give cite_high only records with higher elevation
         Filter elevationHigh = ff.greater(ff.property("startElevation"), ff.literal(2));
-        tam.putLimits(
-                "cite_high",
-                vector,
-                new VectorAccessLimits(CatalogMode.HIDE, null, elevationHigh, null, null));
+        tam.putLimits("cite_high", vector, new VectorAccessLimits(CatalogMode.HIDE, null, elevationHigh, null, null));
 
         // And cite_low the opposite
         Filter elevationLow = ff.lessOrEqual(ff.property("startElevation"), ff.literal(2));
-        tam.putLimits(
-                "cite_low",
-                vector,
-                new VectorAccessLimits(CatalogMode.HIDE, null, elevationLow, null, null));
+        tam.putLimits("cite_low", vector, new VectorAccessLimits(CatalogMode.HIDE, null, elevationLow, null, null));
     }
 
     @Test

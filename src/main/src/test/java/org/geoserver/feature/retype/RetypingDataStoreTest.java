@@ -23,18 +23,24 @@ import java.util.Collections;
 import java.util.List;
 import org.geoserver.data.test.MockData;
 import org.geoserver.util.IOUtils;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureLock;
+import org.geotools.api.data.FeatureReader;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureLocking;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.Id;
+import org.geotools.api.filter.identity.FeatureId;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
-import org.geotools.data.FeatureLock;
-import org.geotools.data.FeatureReader;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
 import org.geotools.data.property.PropertyDataStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureLocking;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -45,12 +51,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.locationtech.jts.io.WKTReader;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.Id;
-import org.opengis.filter.identity.FeatureId;
 
 public class RetypingDataStoreTest {
 
@@ -75,14 +75,13 @@ public class RetypingDataStoreTest {
         IOUtils.copy(properties.openStream(), new File(data, fileName));
 
         PropertyDataStore pds = new PropertyDataStore(data);
-        rts =
-                new RetypingDataStore(pds) {
-                    @Override
-                    protected String transformFeatureTypeName(String originalName) {
-                        if (originalName.equals(MockData.BUILDINGS.getLocalPart())) return RENAMED;
-                        else return super.transformFeatureTypeName(originalName);
-                    }
-                };
+        rts = new RetypingDataStore(pds) {
+            @Override
+            protected String transformFeatureTypeName(String originalName) {
+                if (originalName.equals(MockData.BUILDINGS.getLocalPart())) return RENAMED;
+                else return super.transformFeatureTypeName(originalName);
+            }
+        };
 
         // build a filter that will retrieve one feature only
         FilterFactory ff = CommonFactoryFinder.getFilterFactory(null);
@@ -116,7 +115,7 @@ public class RetypingDataStoreTest {
         assertEquals(RENAMED, fs.getSchema().getName().getLocalPart());
         SimpleFeatureCollection fc = fs.getFeatures();
         assertEquals(RENAMED, fc.getSchema().getName().getLocalPart());
-        assertTrue(fc.size() > 0);
+        assertFalse(fc.isEmpty());
 
         // make sure the feature schema is good as well
         SimpleFeature sf = DataUtilities.first(fc);
@@ -199,14 +198,13 @@ public class RetypingDataStoreTest {
     }
 
     /**
-     * This test is made with mock objects because the property data store does not generate fids in
-     * the <type>.<id> form
+     * This test is made with mock objects because the property data store does not generate fids in the <type>.<id>
+     * form
      */
     @SuppressWarnings("unchecked")
     @Test
     public void testAppend() throws Exception {
-        SimpleFeatureType type =
-                DataUtilities.createType("trees", "the_geom:Point,FID:String,NAME:String");
+        SimpleFeatureType type = DataUtilities.createType("trees", "the_geom:Point,FID:String,NAME:String");
 
         SimpleFeatureStore fs = createMock(SimpleFeatureStore.class);
         expect(fs.addFeatures(isA(FeatureCollection.class)))
@@ -219,13 +217,12 @@ public class RetypingDataStoreTest {
         expect(ds.getFeatureSource("trees")).andReturn(fs);
         replay(ds);
 
-        RetypingDataStore rts =
-                new RetypingDataStore(ds) {
-                    @Override
-                    protected String transformFeatureTypeName(String originalName) {
-                        return "oaks";
-                    }
-                };
+        RetypingDataStore rts = new RetypingDataStore(ds) {
+            @Override
+            protected String transformFeatureTypeName(String originalName) {
+                return "oaks";
+            }
+        };
 
         SimpleFeatureBuilder sfb = new SimpleFeatureBuilder(type);
         WKTReader reader = new WKTReader();

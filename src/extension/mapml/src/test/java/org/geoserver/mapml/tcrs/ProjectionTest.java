@@ -7,9 +7,9 @@ package org.geoserver.mapml.tcrs;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import org.geotools.api.geometry.MismatchedDimensionException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.junit.Test;
-import org.opengis.geometry.MismatchedDimensionException;
-import org.opengis.referencing.operation.TransformException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
@@ -17,13 +17,11 @@ public class ProjectionTest {
     private Projection proj;
 
     // this is necessary to avoid warnings during tests
-    protected static final ApplicationContext APPLICATION_CONTEXT =
-            new FileSystemXmlApplicationContext(
-                    "file:"
-                            + ProjectionTest.class
-                                    .getClassLoader()
-                                    .getResource("applicationContext.xml")
-                                    .getFile());
+    protected static final ApplicationContext APPLICATION_CONTEXT = new FileSystemXmlApplicationContext("file:"
+            + ProjectionTest.class
+                    .getClassLoader()
+                    .getResource("applicationContext.xml")
+                    .getFile());
 
     public ProjectionTest() {}
 

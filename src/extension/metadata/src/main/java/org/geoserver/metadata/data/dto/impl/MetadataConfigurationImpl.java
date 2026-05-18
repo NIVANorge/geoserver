@@ -15,9 +15,8 @@ import org.geoserver.metadata.data.dto.MetadataConfiguration;
 /**
  * Toplevel Object that matches yaml structure.
  *
- * <p>Contains the Gui description for the metadata and a list of geonetwork endpoints for importing
- * geonetwork metadata. The Gui is constructed from MetadataAttributeConfiguration and
- * MetadataAttributeComplexTypeConfiguration.
+ * <p>Contains the Gui description for the metadata and a list of geonetwork endpoints for importing geonetwork
+ * metadata. The Gui is constructed from MetadataAttributeConfiguration and MetadataAttributeComplexTypeConfiguration.
  *
  * @author Timothy De Bock - timothy.debock.github@gmail.com
  */
@@ -29,6 +28,8 @@ public class MetadataConfigurationImpl implements MetadataConfiguration {
     List<GeonetworkConfiguration> geonetworks = new ArrayList<>();
 
     List<AttributeTypeConfiguration> types = new ArrayList<>();
+
+    List<String> tabs = new ArrayList<>();
 
     List<String> csvImports = new ArrayList<>();
 
@@ -82,5 +83,10 @@ public class MetadataConfigurationImpl implements MetadataConfiguration {
     @Override
     public void setWcsField(boolean wcsField) {
         this.wcsField = wcsField;
+    }
+
+    @Override
+    public List<String> getTabs() {
+        return tabs;
     }
 }

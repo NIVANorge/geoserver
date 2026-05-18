@@ -12,6 +12,11 @@ import org.geoserver.catalog.KeywordInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.util.XStreamPersister;
 import org.geoserver.config.util.XStreamServiceLoader;
+import org.geoserver.opensearch.eo.security.EOAccessLimitInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfoImpl;
+import org.geoserver.opensearch.eo.security.EOProductAccessLimitInfo;
+import org.geoserver.opensearch.eo.security.EOProductAccessLimitInfoImpl;
 import org.geoserver.platform.GeoServerResourceLoader;
 
 /**
@@ -39,6 +44,8 @@ public class OSEOXStreamLoader extends XStreamServiceLoader<OSEOInfo> {
         oseo.setTitle("OpenSearch for Earth Observation");
         oseo.setMaximumRecordsPerPage(OSEOInfo.DEFAULT_MAXIMUM_RECORDS);
         oseo.setRecordsPerPage(OSEOInfo.DEFAULT_RECORDS_PER_PAGE);
+        oseo.setAggregatesCacheTTL(OSEOInfo.DEFAULT_AGGR_CACHE_TTL);
+        oseo.setAggregatesCacheTTLUnit(OSEOInfo.DEFAULT_AGGR_CACHE_TTL_UNIT);
         final List<KeywordInfo> keywords = oseo.getKeywords();
         keywords.add(new Keyword("EarthObservation"));
         keywords.add(new Keyword("OGC"));
@@ -56,7 +63,10 @@ public class OSEOXStreamLoader extends XStreamServiceLoader<OSEOInfo> {
         XStream xs = xp.getXStream();
         xs.alias("oseo", OSEOInfo.class, OSEOInfoImpl.class);
         xs.alias("productClass", ProductClass.class, ProductClass.class);
+        xs.alias("eoCollectionLimit", EOCollectionAccessLimitInfo.class, EOCollectionAccessLimitInfoImpl.class);
+        xs.alias("eoProductLimit", EOProductAccessLimitInfo.class, EOProductAccessLimitInfoImpl.class);
         xs.allowTypeHierarchy(ProductClass.class);
+        xs.allowTypeHierarchy(EOAccessLimitInfo.class);
     }
 
     @Override
@@ -68,6 +78,18 @@ public class OSEOXStreamLoader extends XStreamServiceLoader<OSEOInfo> {
         }
         if (service.getGlobalQueryables() == null) {
             ((OSEOInfoImpl) service).setGlobalQueryables(new ArrayList<>());
+        }
+        if (service.getAggregatesCacheTTLUnit() == null) {
+            service.setAggregatesCacheTTLUnit(OSEOInfo.DEFAULT_AGGR_CACHE_TTL_UNIT);
+        }
+        if (service.getAggregatesCacheTTL() == null) {
+            service.setAggregatesCacheTTL(OSEOInfo.DEFAULT_AGGR_CACHE_TTL);
+        }
+        if (service.getCollectionLimits() == null) {
+            ((OSEOInfoImpl) service).setCollectionLimits(new ArrayList<>());
+        }
+        if (service.getProductLimits() == null) {
+            ((OSEOInfoImpl) service).setProductLimits(new ArrayList<>());
         }
 
         return service;

@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.wicket;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.attributes.AjaxRequestAttributes;
 import org.apache.wicket.ajax.attributes.IAjaxCallListener;
@@ -14,13 +16,27 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 
 /**
- * A simple ajax link with a label inside. This is a utility component, avoid some boilerplate code
- * in case the link is really just
+ * A simple ajax link with a label inside. This is a utility component, avoid some boilerplate code in case the link is
+ * really just
  *
  * @author Andrea Aime - OpenGeo
  */
 @SuppressWarnings("serial")
 public abstract class SimpleAjaxLink<T> extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(SimpleAjaxLink.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     AjaxLink<T> link;
     Label label;
 
@@ -40,7 +56,7 @@ public abstract class SimpleAjaxLink<T> extends Panel {
     }
 
     protected AjaxLink<T> buildAjaxLink(IModel<T> linkModel) {
-        return new AjaxLink<T>("link", linkModel) {
+        return new AjaxLink<>("link", linkModel) {
 
             @Override
             public void onClick(AjaxRequestTarget target) {

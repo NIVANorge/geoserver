@@ -8,10 +8,6 @@ import static org.geoserver.featurestemplating.builders.EncodingHints.CONTEXT;
 import static org.geoserver.featurestemplating.builders.VendorOptions.COLLECTION_NAME;
 import static org.geoserver.featurestemplating.builders.VendorOptions.JSONLD_TYPE;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,10 +25,14 @@ import org.geoserver.featurestemplating.utils.FeatureTypeInfoUtils;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
 import org.geoserver.platform.GeoServerExtensions;
+import org.geotools.api.feature.Feature;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Feature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /** This class provides methods to handle a JSON-LD output writing outside of WFS Response class. */
 public class JSONLDOutputHelper {
@@ -48,15 +48,14 @@ public class JSONLDOutputHelper {
     }
 
     /**
-     * Retrieve all the vendor options from all the involved templates and populate and
-     * EncodingHints map suitable to be consumed by the TemplateWriter.
+     * Retrieve all the vendor options from all the involved templates and populate and EncodingHints map suitable to be
+     * consumed by the TemplateWriter.
      *
      * @param collectionList the list of FeatureCollection being encoded.
      * @return the EncodingHints map.
      * @throws ExecutionException
      */
-    public EncodingHints optionsToEncodingHints(List<FeatureCollection> collectionList)
-            throws ExecutionException {
+    public EncodingHints optionsToEncodingHints(List<FeatureCollection> collectionList) throws ExecutionException {
         EncodingHints encodingHints = new EncodingHints();
         List<JsonNode> allContexts = new ArrayList<>();
         for (FeatureCollection collection : collectionList) {
@@ -67,8 +66,7 @@ public class JSONLDOutputHelper {
             if (rootBuilder != null) {
                 VendorOptions options = rootBuilder.getVendorOptions();
                 JsonNode node = options.get(CONTEXT, JsonNode.class);
-                if (node == null)
-                    node = rootBuilder.getEncodingHints().get(CONTEXT, JsonNode.class);
+                if (node == null) node = rootBuilder.getEncodingHints().get(CONTEXT, JsonNode.class);
                 if (node != null) allContexts.add(node);
                 putEncodingHintIfAbsent(encodingHints, options, JSONLD_TYPE, String.class);
                 putEncodingHintIfAbsent(encodingHints, options, COLLECTION_NAME, String.class);
@@ -114,19 +112,19 @@ public class JSONLDOutputHelper {
         JsonNode result = node1;
         if (!node1.equals(node2)) {
             if (node1.isObject() && node2.isObject()) {
-                ObjectNode copy = node1.deepCopy();
+                ObjectNode copy = (ObjectNode) node1.deepCopy();
                 copy.setAll((ObjectNode) node2);
                 result = copy;
             } else if (node1.isArray() && node2.isArray()) {
-                ArrayNode copy = node1.deepCopy();
+                ArrayNode copy = (ArrayNode) node1.deepCopy();
                 copy.addAll((ArrayNode) node2);
                 result = copy;
             } else if (node2.isArray()) {
-                ArrayNode copy = node2.deepCopy();
+                ArrayNode copy = (ArrayNode) node2.deepCopy();
                 copy.add(node1);
                 result = copy;
             } else if (node1.isArray()) {
-                ArrayNode copy = node1.deepCopy();
+                ArrayNode copy = (ArrayNode) node1.deepCopy();
                 copy.add(node2);
                 result = copy;
             } else {
@@ -160,9 +158,7 @@ public class JSONLDOutputHelper {
             RootBuilder root = loader.getTemplate(fti, request.getOutputFormat(), request);
             if (root == null) {
                 String message =
-                        "Unable to find a JSON-LD template for type "
-                                + fti.prefixedName()
-                                + " throwing exception.";
+                        "Unable to find a JSON-LD template for type " + fti.prefixedName() + " throwing exception.";
                 LOGGER.info(message);
                 throw new RuntimeException(message);
             }

@@ -4,9 +4,9 @@
  */
 package org.geoserver.cluster.hazelcast;
 
-import com.hazelcast.core.ITopic;
-import com.hazelcast.core.Message;
-import com.hazelcast.core.MessageListener;
+import com.hazelcast.topic.ITopic;
+import com.hazelcast.topic.Message;
+import com.hazelcast.topic.MessageListener;
 import java.util.logging.Logger;
 import org.geoserver.platform.resource.ResourceNotification;
 import org.geoserver.platform.resource.ResourceNotificationDispatcher;
@@ -16,8 +16,8 @@ import org.geotools.util.logging.Logging;
 /**
  * A {@link ResourceNotificationDispatcher} implementation .
  *
- * <p>A Spring bean of this type shall be configured in the project's {@code applicationContext.xml}
- * spring configuration file in order for {@link ResourceStore} to find it.
+ * <p>A Spring bean of this type shall be configured in the project's {@code applicationContext.xml} spring
+ * configuration file in order for {@link ResourceStore} to find it.
  */
 public class HzResourceNotificationDispatcher extends SimpleResourceNotificationDispatcher
         implements MessageListener<ResourceNotification> {
@@ -53,8 +53,7 @@ public class HzResourceNotificationDispatcher extends SimpleResourceNotification
         if (topic != null) {
             topic.publish(event);
         } else {
-            LOGGER.warning(
-                    "Failed to publish resource notification, cluster not initialized (yet).");
+            LOGGER.warning("Failed to publish resource notification, cluster not initialized (yet).");
             super.changed(event);
         }
     }

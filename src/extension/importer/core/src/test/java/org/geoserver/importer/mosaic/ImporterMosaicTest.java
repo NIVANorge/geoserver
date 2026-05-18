@@ -35,21 +35,20 @@ import org.geoserver.importer.ImporterTest;
 import org.geoserver.importer.ImporterTestSupport;
 import org.geoserver.importer.SpatialFile;
 import org.geoserver.util.IOUtils;
+import org.geotools.api.data.Query;
+import org.geotools.api.filter.Filter;
 import org.geotools.coverage.grid.io.GranuleSource;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
-import org.geotools.data.Query;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.imageio.netcdf.utilities.NetCDFUtilities;
 import org.geotools.util.URLs;
 import org.junit.Test;
-import org.opengis.filter.Filter;
 import org.w3c.dom.Document;
 
 public class ImporterMosaicTest extends ImporterTestSupport {
 
     protected static QName WATTEMP = new QName(MockData.SF_URI, "watertemp", MockData.SF_PREFIX);
-    protected static QName POLYPHEMUS =
-            new QName(MockData.SF_URI, "polyphemus", MockData.SF_PREFIX);
+    protected static QName POLYPHEMUS = new QName(MockData.SF_URI, "polyphemus", MockData.SF_PREFIX);
 
     @Test
     public void testSimpleMosaic() throws Exception {
@@ -114,13 +113,9 @@ public class ImporterMosaicTest extends ImporterTestSupport {
 
         runChecks(l.getName());
 
-        Document dom =
-                getAsDOM(
-                        String.format(
-                                "/%s/%s/wms?request=getcapabilities",
-                                r.getStore().getWorkspace().getName(), l.getName()));
-        XMLAssert.assertXpathExists(
-                "//wms:Layer[wms:Name = '" + m.getName() + "']/wms:Dimension[@name = 'time']", dom);
+        Document dom = getAsDOM("/%s/%s/wms?request=getcapabilities"
+                .formatted(r.getStore().getWorkspace().getName(), l.getName()));
+        XMLAssert.assertXpathExists("//wms:Layer[wms:Name = '" + m.getName() + "']/wms:Dimension[@name = 'time']", dom);
     }
 
     @Test
@@ -142,13 +137,9 @@ public class ImporterMosaicTest extends ImporterTestSupport {
 
         runChecks(l.getName());
 
-        Document dom =
-                getAsDOM(
-                        String.format(
-                                "/%s/%s/wms?request=getcapabilities",
-                                r.getStore().getWorkspace().getName(), l.getName()));
-        XMLAssert.assertXpathExists(
-                "//wms:Layer[wms:Name = '" + m.getName() + "']/wms:Dimension[@name = 'time']", dom);
+        Document dom = getAsDOM("/%s/%s/wms?request=getcapabilities"
+                .formatted(r.getStore().getWorkspace().getName(), l.getName()));
+        XMLAssert.assertXpathExists("//wms:Layer[wms:Name = '" + m.getName() + "']/wms:Dimension[@name = 'time']", dom);
     }
 
     @Test
@@ -186,10 +177,8 @@ public class ImporterMosaicTest extends ImporterTestSupport {
         importer.run(context);
 
         assertEquals(originalCount + 2, gs.getCount(Query.ALL));
-        assertEquals(
-                1, gs.getCount(new Query(null, ECQL.toFilter("location = '" + fileName1 + "'"))));
-        assertEquals(
-                1, gs.getCount(new Query(null, ECQL.toFilter("location = '" + fileName2 + "'"))));
+        assertEquals(1, gs.getCount(new Query(null, ECQL.toFilter("location = '" + fileName1 + "'"))));
+        assertEquals(1, gs.getCount(new Query(null, ECQL.toFilter("location = '" + fileName2 + "'"))));
 
         // make sure we did not create a new layer
         int layerCount = catalog.count(LayerInfo.class, Filter.INCLUDE);
@@ -209,10 +198,11 @@ public class ImporterMosaicTest extends ImporterTestSupport {
         }
         mosaicRoot.mkdirs();
         Properties props = new Properties();
-        props.put("SPI", "org.geotools.data.h2.H2DataStoreFactory");
-        props.put("database", "empty");
-        try (FileOutputStream fos =
-                new FileOutputStream(new File(mosaicRoot, "datastore.properties"))) {
+        props.put("SPI", "org.geotools.geopkg.GeoPkgDataStoreFactory");
+        props.put("database", "empty.gpkg");
+        props.put("dbtype", "geopkg");
+        props.put("read_only", "false");
+        try (FileOutputStream fos = new FileOutputStream(new File(mosaicRoot, "datastore.properties"))) {
             props.store(fos, null);
         }
         CatalogBuilder cb = new CatalogBuilder(catalog);
@@ -248,13 +238,7 @@ public class ImporterMosaicTest extends ImporterTestSupport {
     public void testHarvestNetCDF() throws Exception {
         Catalog catalog = getCatalog();
         getTestData()
-                .addRasterLayer(
-                        POLYPHEMUS,
-                        "test-data/mosaic/polyphemus.zip",
-                        null,
-                        null,
-                        ImporterTest.class,
-                        catalog);
+                .addRasterLayer(POLYPHEMUS, "test-data/mosaic/polyphemus.zip", null, null, ImporterTest.class, catalog);
 
         // check how many layers we have
         int initialLayerCount = catalog.count(LayerInfo.class, Filter.INCLUDE);
@@ -270,9 +254,7 @@ public class ImporterMosaicTest extends ImporterTestSupport {
         File mosaicFolder = URLs.urlToFile(new URL(mosaicLocation));
 
         File fileToHarvest = new File(mosaicFolder, "polyphemus_20130302_test.nc");
-        try (InputStream is =
-                ImporterTest.class.getResourceAsStream(
-                        "test-data/mosaic/polyphemus_20130302_test.nc")) {
+        try (InputStream is = ImporterTest.class.getResourceAsStream("test-data/mosaic/polyphemus_20130302_test.nc")) {
             FileUtils.copyInputStreamToFile(is, fileToHarvest);
         }
         assertTrue(fileToHarvest.exists());
@@ -288,16 +270,8 @@ public class ImporterMosaicTest extends ImporterTestSupport {
 
         // check the import added slices (2 times per file)
         assertEquals(originalCount + 2, gs.getCount(Query.ALL));
-        assertEquals(
-                2,
-                gs.getCount(
-                        new Query(
-                                null, ECQL.toFilter("location = 'polyphemus_20130301_test.nc'"))));
-        assertEquals(
-                2,
-                gs.getCount(
-                        new Query(
-                                null, ECQL.toFilter("location = 'polyphemus_20130302_test.nc'"))));
+        assertEquals(2, gs.getCount(new Query(null, ECQL.toFilter("location = 'polyphemus_20130301_test.nc'"))));
+        assertEquals(2, gs.getCount(new Query(null, ECQL.toFilter("location = 'polyphemus_20130302_test.nc'"))));
 
         // make sure we did not create a new layer
         int layerCount = catalog.count(LayerInfo.class, Filter.INCLUDE);
@@ -313,12 +287,7 @@ public class ImporterMosaicTest extends ImporterTestSupport {
 
         getTestData()
                 .addRasterLayer(
-                        POLYPHEMUS,
-                        "test-data/mosaic/polyphemus_aux.zip",
-                        null,
-                        null,
-                        ImporterTest.class,
-                        catalog);
+                        POLYPHEMUS, "test-data/mosaic/polyphemus_aux.zip", null, null, ImporterTest.class, catalog);
 
         // check how many layers we have
         int initialLayerCount = catalog.count(LayerInfo.class, Filter.INCLUDE);
@@ -334,9 +303,7 @@ public class ImporterMosaicTest extends ImporterTestSupport {
         File mosaicFolder = URLs.urlToFile(new URL(mosaicLocation));
 
         File fileToHarvest = new File(mosaicFolder, "polyphemus_20130302_test.nc");
-        try (InputStream is =
-                ImporterTest.class.getResourceAsStream(
-                        "test-data/mosaic/polyphemus_20130302_test.nc")) {
+        try (InputStream is = ImporterTest.class.getResourceAsStream("test-data/mosaic/polyphemus_20130302_test.nc")) {
             FileUtils.copyInputStreamToFile(is, fileToHarvest);
         }
         assertTrue(fileToHarvest.exists());
@@ -352,16 +319,8 @@ public class ImporterMosaicTest extends ImporterTestSupport {
 
         // check the import added slices (2 times per file)
         assertEquals(originalCount + 2, gs.getCount(Query.ALL));
-        assertEquals(
-                2,
-                gs.getCount(
-                        new Query(
-                                null, ECQL.toFilter("location = 'polyphemus_20130301_test.nc'"))));
-        assertEquals(
-                2,
-                gs.getCount(
-                        new Query(
-                                null, ECQL.toFilter("location = 'polyphemus_20130302_test.nc'"))));
+        assertEquals(2, gs.getCount(new Query(null, ECQL.toFilter("location = 'polyphemus_20130301_test.nc'"))));
+        assertEquals(2, gs.getCount(new Query(null, ECQL.toFilter("location = 'polyphemus_20130302_test.nc'"))));
 
         // make sure we did not create a new layer
         int layerCount = catalog.count(LayerInfo.class, Filter.INCLUDE);

@@ -5,6 +5,8 @@
  */
 package org.geoserver.wcs.web.demo;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.awt.Rectangle;
 import org.apache.wicket.markup.html.form.FormComponentPanel;
 import org.apache.wicket.markup.html.form.TextField;
@@ -20,6 +22,19 @@ import org.geotools.coverage.grid.GridEnvelope2D;
  * @author Andrea Aime, OpenGeo
  */
 public class GridPanel extends FormComponentPanel<GridEnvelope2D> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(GridPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     Integer minX, minY, maxX, maxY;
 
@@ -65,22 +80,18 @@ public class GridPanel extends FormComponentPanel<GridEnvelope2D> {
     }
 
     public GridPanel setReadOnly(final boolean readOnly) {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    component.setEnabled(!readOnly);
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            component.setEnabled(!readOnly);
+        });
 
         return this;
     }
 
     @Override
     public void convertInput() {
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).processInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).processInput();
+        });
 
         // update the grid envelope
         if (minX != null && maxX != null && minY != null && maxX != null) {
@@ -97,10 +108,8 @@ public class GridPanel extends FormComponentPanel<GridEnvelope2D> {
         // when the client programmatically changed the model, update the fields
         // so that the textfields will change too
         updateFields();
-        visitChildren(
-                TextField.class,
-                (component, visit) -> {
-                    ((TextField) component).clearInput();
-                });
+        visitChildren(TextField.class, (component, visit) -> {
+            ((TextField) component).clearInput();
+        });
     }
 }

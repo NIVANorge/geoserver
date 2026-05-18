@@ -5,15 +5,17 @@
  */
 package org.geoserver.catalog.impl;
 
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.catalog.CoverageDimensionInfo;
+import org.geotools.api.coverage.SampleDimensionType;
 import org.geotools.util.NumberRange;
-import org.opengis.coverage.SampleDimensionType;
 
 public class CoverageDimensionImpl implements CoverageDimensionInfo {
 
     /** */
+    @Serial
     private static final long serialVersionUID = 2993765933856195894L;
 
     String id;

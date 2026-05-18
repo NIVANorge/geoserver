@@ -22,10 +22,11 @@ import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.PublishedType;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geoserver.config.util.patch.PatchProperty;
 import org.geoserver.util.InternationalStringUtils;
+import org.geotools.api.util.InternationalString;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.GrowableInternationalString;
-import org.opengis.util.InternationalString;
 
 public class LayerGroupInfoImpl implements LayerGroupInfo {
 
@@ -38,6 +39,7 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     protected String title;
 
     /** This property in 2.2.x series is stored under the metadata map with key 'abstract'. */
+    @PatchProperty("abstract")
     protected String abstractTxt;
 
     protected Boolean enabled;
@@ -49,17 +51,17 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     protected LayerInfo rootLayer;
     protected StyleInfo rootLayerStyle;
 
+    @PatchProperty("title")
     protected GrowableInternationalString internationalTitle;
 
     protected GrowableInternationalString internationalAbstract;
 
-    /**
-     * This property is here for compatibility purpose, in 2.3.x series it has been replaced by
-     * 'publishables'
-     */
+    /** This property is here for compatibility purpose, in 2.3.x series it has been replaced by 'publishables' */
     protected List<LayerInfo> layers = new ArrayList<>();
 
+    @PatchProperty("layers")
     protected List<PublishedInfo> publishables = new ArrayList<>();
+
     protected List<StyleInfo> styles = new ArrayList<>();
     protected List<MetadataLinkInfo> metadataLinks = new ArrayList<>();
 
@@ -70,16 +72,16 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     protected AttributionInfo attribution;
 
     /**
-     * This property is transient in 2.1.x series and stored under the metadata map with key
-     * "authorityURLs", and a not transient in the 2.2.x series.
+     * This property is transient in 2.1.x series and stored under the metadata map with key "authorityURLs", and a not
+     * transient in the 2.2.x series.
      *
      * @since 2.1.3
      */
     protected List<AuthorityURLInfo> authorityURLs = new ArrayList<>(2);
 
     /**
-     * This property is transient in 2.1.x series and stored under the metadata map with key
-     * "identifiers", and a not transient in the 2.2.x series.
+     * This property is transient in 2.1.x series and stored under the metadata map with key "identifiers", and a not
+     * transient in the 2.2.x series.
      *
      * @since 2.1.3
      */
@@ -91,6 +93,8 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
 
     protected Date dateModified;
 
+    protected String modifiedBy;
+
     protected List<LayerGroupStyle> layerGroupStyles = new ArrayList<>();
 
     @Override
@@ -99,8 +103,8 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     }
 
     /**
-     * Set the keywords of this layer group. The provided keywords will override any existing
-     * keywords no merge will be done.
+     * Set the keywords of this layer group. The provided keywords will override any existing keywords no merge will be
+     * done.
      *
      * @param keywords new keywords of this layer group
      */
@@ -254,8 +258,8 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     }
 
     /**
-     * Used after deserialization. It converts 'layers' property content, used until 2.3.x, to
-     * 'publishables' property content.
+     * Used after deserialization. It converts 'layers' property content, used until 2.3.x, to 'publishables' property
+     * content.
      */
     public void convertLegacyLayers() {
         if (layers != null && publishables == null) {
@@ -443,5 +447,15 @@ public class LayerGroupInfoImpl implements LayerGroupInfo {
     @Override
     public void setLayerGroupStyles(List<LayerGroupStyle> styles) {
         this.layerGroupStyles = styles;
+    }
+
+    @Override
+    public String getModifiedBy() {
+        return this.modifiedBy;
+    }
+
+    @Override
+    public void setModifiedBy(String userModified) {
+        this.modifiedBy = userModified;
     }
 }

@@ -6,11 +6,13 @@ package org.geoserver.platform;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geotools.util.logging.Logging;
@@ -29,11 +31,10 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
     private static final Logger LOGGER = Logging.getLogger(ModuleStatusImpl.class);
 
     /** serialVersionUID */
+    @Serial
     private static final long serialVersionUID = -5759469520194940051L;
 
-    /**
-     * The internal machine-readable module name, often a maven module or jar name (example gs-main)
-     */
+    /** The internal machine-readable module name, often a maven module or jar name (example gs-main) */
     private String module;
 
     /** Module human-readable name, should agree with user manual (example GeoServer Main) */
@@ -52,10 +53,14 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
     private String message;
 
     /** True if module is enabled */
-    private boolean isEnabled;
+    private final AtomicBoolean isEnabled = new AtomicBoolean();
 
     /** True if module is available for use */
-    private boolean isAvailable;
+    private final AtomicBoolean isAvailable = new AtomicBoolean();
+
+    private Category category;
+
+    private String contact;
 
     public ModuleStatusImpl() {}
 
@@ -71,8 +76,10 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
         this.version = status.getVersion().orElse(getVersionInternal());
         this.documentation = status.getDocumentation().orElse(null);
         this.message = status.getMessage().orElse(null);
-        this.isEnabled = status.isEnabled();
-        this.isAvailable = status.isAvailable();
+        this.isEnabled.set(status.isEnabled());
+        this.isAvailable.set(status.isAvailable());
+        this.category = status.getCategory();
+        this.contact = status.getContact();
     }
 
     /**
@@ -84,8 +91,8 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
     public ModuleStatusImpl(String module, String name) {
         this.module = module;
         this.name = name;
-        this.isAvailable = true;
-        this.isEnabled = true;
+        this.isAvailable.set(true);
+        this.isEnabled.set(true);
         this.version = getVersionInternal();
     }
     /**
@@ -100,7 +107,7 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
         this.component = component;
     }
 
-    /** @return the machine readable name */
+    /** @return the machine-readable name */
     @Override
     public String getModule() {
         return module;
@@ -145,20 +152,20 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
 
     @Override
     public boolean isAvailable() {
-        return this.isAvailable;
+        return this.isAvailable.get();
     }
 
     public void setAvailable(boolean isAvailable) {
-        this.isAvailable = isAvailable;
+        this.isAvailable.set(isAvailable);
     }
 
     @Override
     public boolean isEnabled() {
-        return this.isEnabled;
+        return this.isEnabled.get();
     }
 
     public void setEnabled(boolean isEnabled) {
-        this.isEnabled = isEnabled;
+        this.isEnabled.set(isEnabled);
     }
 
     @Override
@@ -181,20 +188,14 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
 
     @Override
     public String toString() {
-        return "ModuleStatusImpl [module="
-                + module
-                + ", component="
-                + component
-                + ", version="
-                + version
-                + "]";
+        return "ModuleStatusImpl [module=" + module + ", component=" + component + ", version=" + version + "]";
     }
 
     /**
      * Obtain the version for the module from the pom.properties.
      *
-     * <p>WARNING: This method reads every pom.properties on the classpath. It should only be used
-     * if absolutely necessary
+     * <p>WARNING: This method reads every pom.properties on the classpath. It should only be used if absolutely
+     * necessary
      */
     protected String getVersionInternal() {
         return listVersionsInternal().get(module);
@@ -206,9 +207,8 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
         synchronized (MAVEN_VERSIONS) {
             if (MAVEN_VERSIONS.isEmpty()) {
                 try {
-                    Resource[] resources =
-                            new PathMatchingResourcePatternResolver()
-                                    .getResources("classpath*:META-INF/maven/*/*/pom.properties");
+                    Resource[] resources = new PathMatchingResourcePatternResolver()
+                            .getResources("classpath*:META-INF/maven/*/*/pom.properties");
                     for (Resource resource : resources) {
                         try (InputStream in = resource.getInputStream()) {
                             Properties properties = new Properties();
@@ -218,10 +218,7 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
                             String version = properties.getProperty("version");
                             MAVEN_VERSIONS.put(artifactId, version);
                         } catch (IOException e) {
-                            LOGGER.log(
-                                    Level.FINE,
-                                    "Error reading pom.properties: " + resource.getFilename(),
-                                    e);
+                            LOGGER.log(Level.FINE, "Error reading pom.properties: " + resource.getFilename(), e);
                         }
                     }
                 } catch (IOException e) {
@@ -230,5 +227,23 @@ public class ModuleStatusImpl implements ModuleStatus, Serializable {
             }
         }
         return MAVEN_VERSIONS;
+    }
+
+    @Override
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    @Override
+    public String getContact() {
+        return contact;
+    }
+
+    public void setContact(String contact) {
+        this.contact = contact;
     }
 }

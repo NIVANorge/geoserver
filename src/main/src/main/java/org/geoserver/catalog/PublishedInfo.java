@@ -6,7 +6,7 @@
 package org.geoserver.catalog;
 
 import java.util.List;
-import org.opengis.util.InternationalString;
+import org.geotools.api.util.InternationalString;
 
 /**
  * Interface for publishable entities contained in a Layer Group.
@@ -105,10 +105,7 @@ public interface PublishedInfo extends CatalogInfo {
      */
     void setEnabled(boolean enabled);
 
-    /**
-     * Returns true if the layer existence should be advertised (true by default, unless otherwise
-     * set)
-     */
+    /** Returns true if the layer existence should be advertised (true by default, unless otherwise set) */
     boolean isAdvertised();
 
     /** Set to true if the layer should be advertised, false otherwise */

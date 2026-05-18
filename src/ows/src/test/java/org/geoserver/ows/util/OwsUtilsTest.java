@@ -52,14 +52,16 @@ public class OwsUtilsTest {
         try {
             OwsUtils.put(baz, "map", "k", "v");
             Assert.fail("null map should cause exception");
-        } catch (NullPointerException e) {
+        } catch (NullPointerException ignored) {
+            // ignore
         }
 
-        baz.map = new HashMap();
+        baz.map = new HashMap<>();
         try {
             OwsUtils.put(baz, "xyz", "k", "v");
             Assert.fail("bad property should cause exception");
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ignored) {
+            // ignore
         }
 
         Assert.assertTrue(baz.map.isEmpty());
@@ -67,7 +69,7 @@ public class OwsUtilsTest {
         Assert.assertEquals("v", baz.map.get("k"));
     }
 
-    class Foo {
+    static class Foo {
         String a;
         Integer b;
         float c;
@@ -97,7 +99,7 @@ public class OwsUtilsTest {
         }
     }
 
-    class Bar {
+    static class Bar {
         Foo foo;
         Double d;
 
@@ -118,7 +120,7 @@ public class OwsUtilsTest {
         }
     }
 
-    class Baz {
+    static class Baz {
         Map map;
 
         public Map getMap() {

@@ -22,8 +22,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.minidev.json.JSONArray;
+import org.geoserver.config.GeoServer;
+import org.geoserver.config.GeoServerInfo;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.ogcapi.OGCAPIMediaTypes;
+import org.geoserver.opensearch.eo.OSEOInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfo;
+import org.geoserver.opensearch.eo.security.EOCollectionAccessLimitInfoImpl;
+import org.geoserver.platform.ServiceException;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.Literal;
 import org.geotools.filter.IsGreaterThanImpl;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -31,8 +39,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.Literal;
 
 public class SearchTest extends STACTestSupport {
 
@@ -47,6 +53,9 @@ public class SearchTest extends STACTestSupport {
         copyTemplate("/box.json");
         copyTemplate("/parentLink.json");
         copyTemplate("/items-SENTINEL2.json");
+        // just to poison a bit the custom template management, checking it's tolerant to leftover templates
+        // for collections that were in use, and then got removed
+        copyTemplate("/items-SENTINEL2.json", "templates/ogc/stac/v1/", "/items-notThere.json");
     }
 
     @Test
@@ -57,21 +66,44 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testCollectionsGetInvalidName() throws Exception {
+        // two collections, one invalid
+        DocumentContext doc = getAsJSONPath("ogc/stac/v1/search?collections=SAS1,IAmNotThere", 400);
+        checkOGCAPIException(doc, ServiceException.INVALID_PARAMETER_VALUE, "Collection not found: IAmNotThere");
+    }
+
+    @Test
+    public void testCollectionsPostInvalidName() throws Exception {
+        // two collections, one invalid
+        String request =
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "IAmNotThere"
+                  ]
+                }""";
+        DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 400);
+        checkOGCAPIException(doc, ServiceException.INVALID_PARAMETER_VALUE, "Collection not found: IAmNotThere");
+    }
+
+    @Test
     public void testCollectionsPost() throws Exception {
         // two SAS1, one Landsat
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ]\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ]
+                }""";
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
         checkCollections(doc, true);
     }
 
     public void checkCollections(DocumentContext doc, boolean post) {
-        checkCollectionsSinglePage(doc, 3, containsInAnyOrder("LANDSAT8", "SAS1", "SAS1"));
+        checkCollectionsSinglePage(doc, 4, containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1"));
 
         // expecting only a self link
         DocumentContext link = readSingleContext(doc, "links");
@@ -82,7 +114,7 @@ public class SearchTest extends STACTestSupport {
             assertTrue(link.read("merge"));
         } else {
             assertEquals(
-                    "http://localhost:8080/geoserver/ogc/stac/v1/search?collections=SAS1,LANDSAT8",
+                    "http://localhost:8080/geoserver/ogc/stac/v1/search?collections=SAS1%2CLANDSAT8",
                     link.read("href"));
         }
     }
@@ -90,77 +122,152 @@ public class SearchTest extends STACTestSupport {
     @Test
     public void testCollectionsCqlGet() throws Exception {
         // two SAS1, one Landsat, but the filter matches constellation to landsat8 only
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?collections=SAS1,LANDSAT8"
-                                + "&filter=constellation='landsat8'&filter-lang=cql2-text",
-                        200);
-        checkCollectionsSinglePage(doc, 1, containsInAnyOrder("LANDSAT8"));
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?collections=SAS1,LANDSAT8"
+                        + "&filter=constellation='landsat8'&filter-lang=cql2-text",
+                200);
+        checkCollectionsSinglePage(doc, 2, containsInAnyOrder("LANDSAT8", "LANDSAT8"));
+    }
+
+    @Test
+    public void testCollectionsCqlGetWorkspace() throws Exception {
+        DocumentContext docMatchingWorkspace =
+                getAsJSONPath("sf/ogc/stac/v1/search?" + "&filter=collection='SENTINEL2'&filter-lang=cql2-text", 200);
+        assertEquals(Integer.valueOf(10), docMatchingWorkspace.read("numberReturned"));
+        DocumentContext docMismatchingWorkspace =
+                getAsJSONPath("cite/ogc/stac/v1/search?" + "&filter=collection='SENTINEL2'&filter-lang=cql2-text", 200);
+        assertEquals(Integer.valueOf(0), docMismatchingWorkspace.read("numberReturned"));
+        DocumentContext docMismatchedButNullInArray =
+                getAsJSONPath("ogc/stac/v1/search?" + "&filter=collection='LANDSAT8'&filter-lang=cql2-text", 200);
+        assertEquals(Integer.valueOf(2), docMismatchedButNullInArray.read("numberReturned"));
     }
 
     @Test
     public void testCollectionsCqlGetQueryableNotInList() throws Exception {
         // constellation is queryable only for LANDSAT8 not SENTINEL2
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?collections=SENTINEL2,LANDSAT8"
-                                + "&filter=constellation='landsat8'&filter-lang=cql2-text",
-                        200);
-        assertEquals(new Integer(1), doc.read("numberMatched", Integer.class));
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?collections=SENTINEL2,LANDSAT8"
+                        + "&filter=constellation='landsat8'&filter-lang=cql2-text",
+                200);
+        assertEquals(Integer.valueOf(2), doc.read("numberMatched", Integer.class));
     }
 
     @Test
     public void testCollectionsCqlPost() throws Exception {
         // two SAS1, one Landsat, but the filter matches constellation to landsat8 only
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\": \"constellation='landsat8'\",\n"
-                        + "  \"filter-lang\": \"cql-text\"\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter": "constellation='landsat8'",
+                  "filter-lang": "cql-text"
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        checkCollectionsSinglePage(doc, 1, containsInAnyOrder("LANDSAT8"));
+        checkCollectionsSinglePage(doc, 2, containsInAnyOrder("LANDSAT8", "LANDSAT8"));
     }
 
     @Test
     public void testCollectionsCql2TextPost() throws Exception {
         // two SAS1, one Landsat, but the filter matches constellation to landsat8 only
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\": \"constellation='landsat8'\",\n"
-                        + "  \"filter-lang\": \"cql2-text\"\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter": "constellation='landsat8'",
+                  "filter-lang": "cql2-text"
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        checkCollectionsSinglePage(doc, 1, containsInAnyOrder("LANDSAT8"));
+        checkCollectionsSinglePage(doc, 2, containsInAnyOrder("LANDSAT8", "LANDSAT8"));
+    }
+
+    @Test
+    public void testCollectionsPostSort() throws Exception {
+        // two SAS1, two Landsat, sorted in descending order
+        String request =
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "sortby": [{"field":"constellation","direction":"desc"}]
+                }\
+                """;
+        DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
+        checkCollectionsSinglePage(doc, 4, contains("SAS1", "SAS1", "LANDSAT8", "LANDSAT8"));
+        // the two landsat8 should be first
+        String request2 =
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "sortby": [{"field":"constellation","direction":"asc"}]
+                }\
+                """;
+        DocumentContext doc2 = postAsJSONPath("ogc/stac/v1/search", request2, 200);
+        checkCollectionsSinglePage(doc2, 4, contains("LANDSAT8", "LANDSAT8", "SAS1", "SAS1"));
+    }
+
+    @Test
+    public void testCollectionsPostSortPrefixed() throws Exception {
+        // two SAS1, two Landsat, sorted in descending order
+        String request =
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "sortby": [{"field":"properties.constellation","direction":"desc"}]
+                }\
+                """;
+        DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
+        checkCollectionsSinglePage(doc, 4, contains("SAS1", "SAS1", "LANDSAT8", "LANDSAT8"));
+        // the two landsat8 should be first
+        String request2 =
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "sortby": [{"field":"properties.constellation","direction":"asc"}]
+                }\
+                """;
+        DocumentContext doc2 = postAsJSONPath("ogc/stac/v1/search", request2, 200);
+        checkCollectionsSinglePage(doc2, 4, contains("LANDSAT8", "LANDSAT8", "SAS1", "SAS1"));
     }
 
     @Test
     public void testCollectionsCql2JsonPost() throws Exception {
         // two SAS1, one Landsat, but the filter matches constellation to landsat8 only
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\":{\"op\":\"=\",\"args\":[{\"property\":\"constellation\"},\"landsat8\"]},\n"
-                        + "  \"filter-lang\": \"cql2-json\"\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter":{"op":"=","args":[{"property":"constellation"},"landsat8"]},
+                  "filter-lang": "cql2-json"
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        checkCollectionsSinglePage(doc, 1, containsInAnyOrder("LANDSAT8"));
+        checkCollectionsSinglePage(doc, 2, containsInAnyOrder("LANDSAT8", "LANDSAT8"));
     }
 
     private void checkCollectionsSinglePage(
-            DocumentContext doc,
-            int matched,
-            Matcher<Iterable<? extends String>> collectionsMatcher) {
+            DocumentContext doc, int matched, Matcher<Iterable<? extends String>> collectionsMatcher) {
         assertEquals(Integer.valueOf(matched), doc.read("numberMatched"));
         assertEquals(Integer.valueOf(matched), doc.read("numberReturned"));
         assertThat(doc.read("features[*].collection"), collectionsMatcher);
@@ -173,40 +280,63 @@ public class SearchTest extends STACTestSupport {
 
         checkCollectionsItemsSinglePage(
                 doc,
-                5,
-                containsInAnyOrder("LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
+                6,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
                 containsInAnyOrder(
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWG_N02.01",
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWH_N02.01",
                         "LS8_TEST.02",
                         "SAS1_20180226102021.01",
-                        "SAS1_20180227102021.02"));
+                        "SAS1_20180227102021.02",
+                        "JSONB_TEST.02"));
     }
 
     @Test
     public void testBBOXFilterPost() throws Exception {
         // two sentinel, one landsat, one sas
         String request =
-                "{\n"
-                        + "  \"bbox\": [\n"
-                        + "    16,\n"
-                        + "    42,\n"
-                        + "    17,\n"
-                        + "    43\n"
-                        + "  ]\n"
-                        + "}";
+                """
+                {
+                  "bbox": [
+                    16,
+                    42,
+                    17,
+                    43
+                  ]
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
 
         checkCollectionsItemsSinglePage(
                 doc,
-                5,
-                containsInAnyOrder("LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
+                6,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
                 containsInAnyOrder(
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWG_N02.01",
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWH_N02.01",
                         "LS8_TEST.02",
                         "SAS1_20180226102021.01",
-                        "SAS1_20180227102021.02"));
+                        "SAS1_20180227102021.02",
+                        "JSONB_TEST.02"));
+    }
+
+    @Test
+    public void testBBOXAsTextFilterPost() throws Exception {
+        // two sentinel, one landsat, one sas
+        String request = "{\"bbox\":\"16,42,17,43\"}";
+        DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
+
+        checkCollectionsItemsSinglePage(
+                doc,
+                6,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
+                containsInAnyOrder(
+                        "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWG_N02.01",
+                        "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWH_N02.01",
+                        "LS8_TEST.02",
+                        "SAS1_20180226102021.01",
+                        "SAS1_20180227102021.02",
+                        "JSONB_TEST.02"));
     }
 
     public void checkCollectionsItemsSinglePage(
@@ -215,23 +345,20 @@ public class SearchTest extends STACTestSupport {
             Matcher<Iterable<? extends String>> collectionsMatcher,
             Matcher<Iterable<? extends String>> itemsMatcher) {
         checkCollectionsSinglePage(doc, matched, collectionsMatcher);
-        assertThat((List<String>) doc.read("features[*].id"), itemsMatcher);
+        assertThat(doc.read("features[*].id"), itemsMatcher);
     }
 
     @Test
     public void testGeometryIntersectionGet() throws Exception {
         // only SAS and LANDSAT intersecting this point
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?intersects={\"type\": \"Point\", \"coordinates\": [16.5, 42.5]}",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?intersects={\"type\": \"Point\", \"coordinates\": [16.5, 42.5]}", 200);
 
         checkCollectionsItemsSinglePage(
                 doc,
-                3,
-                containsInAnyOrder("LANDSAT8", "SAS1", "SAS1"),
-                containsInAnyOrder(
-                        "LS8_TEST.02", "SAS1_20180226102021.01", "SAS1_20180227102021.02"));
+                4,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1"),
+                containsInAnyOrder("LS8_TEST.02", "SAS1_20180226102021.01", "SAS1_20180227102021.02", "JSONB_TEST.02"));
     }
 
     @Test
@@ -240,44 +367,52 @@ public class SearchTest extends STACTestSupport {
         DocumentContext doc = getAsJSONPath("ogc/stac/v1/search?limit=50", 200);
 
         // had to inline as "CoreMatches.not" has poor generics management
-        assertEquals(Integer.valueOf(23), doc.read("numberMatched"));
-        assertEquals(Integer.valueOf(23), doc.read("numberReturned"));
+        assertEquals(Integer.valueOf(24), doc.read("numberMatched"));
+        assertEquals(Integer.valueOf(24), doc.read("numberReturned"));
         assertThat(doc.read("features[*].collection"), not(hasItem("DISABLED_COLLECTION")));
-        assertThat(
-                (List<String>) doc.read("features[*].id"),
-                not(hasItem("PRODUCT.IN.DISABLED.COLLECTION")));
+        assertThat(doc.read("features[*].id"), not(hasItem("PRODUCT.IN.DISABLED.COLLECTION")));
     }
 
     @Test
     public void testGeometryIntersectionPost() throws Exception {
         // only SAS and LANDSAT intersecting this point
         String request =
-                "{\n"
-                        + "  \"intersects\": {\n"
-                        + "    \"type\": \"Point\",\n"
-                        + "    \"coordinates\": [\n"
-                        + "      16.5,\n"
-                        + "      42.5\n"
-                        + "    ]\n"
-                        + "  }\n"
-                        + "}";
+                """
+                {
+                  "intersects": {
+                    "type": "Point",
+                    "coordinates": [
+                      16.5,
+                      42.5
+                    ]
+                  }
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
 
         checkCollectionsItemsSinglePage(
                 doc,
-                3,
-                containsInAnyOrder("LANDSAT8", "SAS1", "SAS1"),
-                containsInAnyOrder(
-                        "LS8_TEST.02", "SAS1_20180226102021.01", "SAS1_20180227102021.02"));
+                4,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1"),
+                containsInAnyOrder("LS8_TEST.02", "SAS1_20180226102021.01", "SAS1_20180227102021.02", "JSONB_TEST.02"));
+    }
+
+    @Test
+    public void testPagingLinksFirstSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksFirst(null);
     }
 
     @Test
     public void testPagingLinksFirst() throws Exception {
-        String requestPath =
-                "ogc/stac/v1/search?collections=SAS1,LANDSAT8"
-                        + "&filter=eo:cloud_cover=0&filter-lang=cql-text&limit=1";
+        checkPagingLinksFirst(4);
+    }
+
+    private void checkPagingLinksFirst(Integer expectedNumberMatched) throws Exception {
+        String requestPath = "ogc/stac/v1/search?collections=SAS1%2CLANDSAT8"
+                + "&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1";
         DocumentContext doc = getAsJSONPath(requestPath, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // two links expected, self and next
@@ -297,12 +432,21 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testPagingLinksSecondSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksSecond(null);
+    }
+
+    @Test
     public void testPagingLinksSecond() throws Exception {
-        String requestPath =
-                "ogc/stac/v1/search?collections=SAS1,LANDSAT8"
-                        + "&filter=eo:cloud_cover=0&filter-lang=cql-text&limit=1&startIndex=1";
+        checkPagingLinksSecond(4);
+    }
+
+    private void checkPagingLinksSecond(Integer expectedNumberMatched) throws Exception {
+        String requestPath = "ogc/stac/v1/search?collections=SAS1%2CLANDSAT8"
+                + "&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1&startIndex=1";
         DocumentContext doc = getAsJSONPath(requestPath, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // three links expected, prev, self and next
@@ -329,16 +473,25 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testPagingLinksLastSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksLast(null);
+    }
+
+    @Test
     public void testPagingLinksLast() throws Exception {
-        String requestPath =
-                "ogc/stac/v1/search?collections=SAS1,LANDSAT8"
-                        + "&filter=eo:cloud_cover=0&filter-lang=cql-text&limit=1&startIndex=2";
+        checkPagingLinksPostSecond(4);
+    }
+
+    private void checkPagingLinksLast(Integer expectedNumberMatched) throws Exception {
+        String requestPath = "ogc/stac/v1/search?collections=SAS1%2CLANDSAT8"
+                + "&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1&startIndex=2";
         DocumentContext doc = getAsJSONPath(requestPath, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // two links expected, prev, self
-        assertEquals(Integer.valueOf(2), doc.read("links.length()"));
+        assertEquals(Integer.valueOf(3), doc.read("links.length()"));
 
         // prev link (order should be stable, linked hash maps all around)
         DocumentContext prev = readSingleContext(doc, "links[?(@.rel=='prev')]");
@@ -354,19 +507,31 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testPagingLinksPostFirstSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksPostFirst(null);
+    }
+
+    @Test
     public void testPagingLinksPostFirst() throws Exception {
+        checkPagingLinksPostFirst(4);
+    }
+
+    private void checkPagingLinksPostFirst(Integer expectedNumberMatched) throws Exception {
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\": \"eo:cloud_cover=0\",\n"
-                        + "  \"filter-lang\": \"cql-text\",\n"
-                        + "  \"limit\": 1\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter": "eo:cloud_cover=0",
+                  "filter-lang": "cql-text",
+                  "limit": 1
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // two links expected, self and next
@@ -389,20 +554,32 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testPagingLinksPostSecondSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksPostSecond(null);
+    }
+
+    @Test
     public void testPagingLinksPostSecond() throws Exception {
+        checkPagingLinksPostSecond(4);
+    }
+
+    private void checkPagingLinksPostSecond(Integer expectedNumberMatched) throws Exception {
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\": \"eo:cloud_cover=0\",\n"
-                        + "  \"filter-lang\": \"cql-text\",\n"
-                        + "  \"limit\": 1,\n"
-                        + "  \"startIndex\": 1\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter": "eo:cloud_cover=0",
+                  "filter-lang": "cql-text",
+                  "limit": 1,
+                  "startIndex": 1
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // three links expected, prev, self and next
@@ -433,24 +610,36 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    public void testPagingLinksPostLastSkipMatched() throws Exception {
+        enableSkipNumberMatched();
+        checkPagingLinksPostLast(null);
+    }
+
+    @Test
     public void testPagingLinksPostLast() throws Exception {
+        checkPagingLinksPostLast(4);
+    }
+
+    private void checkPagingLinksPostLast(Integer expectedNumberMatched) throws Exception {
         String request =
-                "{\n"
-                        + "  \"collections\": [\n"
-                        + "    \"SAS1\",\n"
-                        + "    \"LANDSAT8\"\n"
-                        + "  ],\n"
-                        + "  \"filter\": \"eo:cloud_cover=0\",\n"
-                        + "  \"filter-lang\": \"cql-text\",\n"
-                        + "  \"limit\": 1,\n"
-                        + "  \"startIndex\": 2\n"
-                        + "}";
+                """
+                {
+                  "collections": [
+                    "SAS1",
+                    "LANDSAT8"
+                  ],
+                  "filter": "eo:cloud_cover=0",
+                  "filter-lang": "cql-text",
+                  "limit": 1,
+                  "startIndex": 2
+                }\
+                """;
         DocumentContext doc = postAsJSONPath("ogc/stac/v1/search", request, 200);
-        assertEquals(Integer.valueOf(3), doc.read("numberMatched"));
+        assertEquals(expectedNumberMatched, doc.read("numberMatched"));
         assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
 
         // two links expected, prev, self
-        assertEquals(Integer.valueOf(2), doc.read("links.length()"));
+        assertEquals(Integer.valueOf(3), doc.read("links.length()"));
 
         // prev link (order should be stable, linked hash maps all around)
         DocumentContext prev = readSingleContext(doc, "links[?(@.rel=='prev')]");
@@ -475,17 +664,19 @@ public class SearchTest extends STACTestSupport {
 
         // the item identifiers
         Set<String> titles =
-                doc.select("div.card-header h2").stream()
-                        .map(e -> e.text())
-                        .collect(Collectors.toSet());
+                doc.select("div.card-header h2").stream().map(e -> e.text()).collect(Collectors.toSet());
         assertThat(titles, Matchers.everyItem(Matchers.startsWith("S2A_OPER_MSI")));
 
         // test the Sentinel2 entry
-        Elements s2Body =
-                doc.select(
-                        "div.card-header:has(a:contains(S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04)) ~ div.card-body");
+        Elements s2Body = doc.select(
+                "div.card-header:has(a:contains(S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04)) ~ div.card-body");
         assertTextContains(s2Body, "[data-tid='gbounds']", "-119.174, 33.333, -117.969, 34.338.");
         assertTextContains(s2Body, "[data-tid='ccover']", "7");
+    }
+
+    @Override
+    protected String getLogConfiguration() {
+        return "DEFAULT_LOGGING";
     }
 
     @Test
@@ -497,10 +688,8 @@ public class SearchTest extends STACTestSupport {
         checkLandsat8_02(l8Sample);
 
         // this one uses the standard template
-        DocumentContext s2Sample =
-                readSingleContext(
-                        doc,
-                        "features[?(@.id == 'S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04')]");
+        DocumentContext s2Sample = readSingleContext(
+                doc, "features[?(@.id == 'S2A_OPER_MSI_L1C_TL_MTI__20170308T220244_A008933_T11SLT_N02.04')]");
         checkSentinel2Sample(s2Sample);
     }
 
@@ -511,8 +700,7 @@ public class SearchTest extends STACTestSupport {
     public void testLandsat8Gsd() throws Exception {
         // gsd is statically set to 30, default template misses is, only landsat8 should come back
         // only one feature matching.
-        DocumentContext json =
-                getAsJSONPath("ogc/stac/v1/search?filter=gsd = 30&filter-lang=cql-text", 200);
+        DocumentContext json = getAsJSONPath("ogc/stac/v1/search?filter=gsd = 30&filter-lang=cql-text", 200);
 
         assertEquals(Integer.valueOf(1), json.read("numberMatched"));
         assertEquals(Integer.valueOf(1), json.read("numberReturned"));
@@ -521,38 +709,33 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testGeometryQueryable() throws Exception {
-        // two sentinel, one landsat, one sas
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=S_INTERSECTS(geometry, ENVELOPE(16,42,17,43))",
-                        200);
+        // two sentinel, one landsat, one sas (used to be ENVELOPE(...) but CQL2 changed to BBOX
+        DocumentContext doc = getAsJSONPath("ogc/stac/v1/search?filter=S_INTERSECTS(geometry, BBOX(16,42,17,43))", 200);
 
         checkCollectionsItemsSinglePage(
                 doc,
-                5,
-                containsInAnyOrder("LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
+                6,
+                containsInAnyOrder("LANDSAT8", "LANDSAT8", "SAS1", "SAS1", "SENTINEL2", "SENTINEL2"),
                 containsInAnyOrder(
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWG_N02.01",
                         "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TWH_N02.01",
                         "LS8_TEST.02",
                         "SAS1_20180226102021.01",
-                        "SAS1_20180227102021.02"));
+                        "SAS1_20180227102021.02",
+                        "JSONB_TEST.02"));
     }
 
     @Test
     public void testCollectionQueryable() throws Exception {
         // using the "collection" queryable
         DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?&filter=collection='LANDSAT8'&filter-lang=cql2-text",
-                        200);
-        checkCollectionsSinglePage(doc, 1, containsInAnyOrder("LANDSAT8"));
+                getAsJSONPath("ogc/stac/v1/search?&filter=collection='LANDSAT8'&filter-lang=cql2-text", 200);
+        checkCollectionsSinglePage(doc, 2, containsInAnyOrder("LANDSAT8", "LANDSAT8"));
     }
 
     @Test
     public void testIdQueryable() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath("ogc/stac/v1/search?filter=id='SAS1_20180226102021.01'", 200);
+        DocumentContext doc = getAsJSONPath("ogc/stac/v1/search?filter=id='SAS1_20180226102021.01'", 200);
 
         checkCollectionsItemsSinglePage(
                 doc, 1, containsInAnyOrder("SAS1"), containsInAnyOrder("SAS1_20180226102021.01"));
@@ -560,10 +743,8 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testDateTimeQueryable() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')", 200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -577,10 +758,9 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchSortByTimeAscending() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=datetime",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=datetime",
+                200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -594,10 +774,9 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchSortByTimeDescending() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=-datetime",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=-datetime",
+                200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -611,10 +790,9 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchSortByCloudCover() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=eo:cloud_cover",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=eo:cloud_cover",
+                200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -628,10 +806,9 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchSortById() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
+                200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -646,10 +823,9 @@ public class SearchTest extends STACTestSupport {
     @Test
     public void testQueryByDynamicProperty() throws Exception {
         // s2:datastrip_id is in a dynamically included JSON
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/collections/SAS1/items?filter=s2:datastrip_id = 'S2A_OPER_MSI_L2A_DS_VGS1_20201206T095713_S20201206T074838_N02.14'",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/collections/SAS1/items?filter=s2:datastrip_id = 'S2A_OPER_MSI_L2A_DS_VGS1_20201206T095713_S20201206T074838_N02.14'",
+                200);
 
         List<String> ids = doc.read("features[*].id");
         assertEquals(1, ids.size());
@@ -658,10 +834,9 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchPropertySelection() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?fields=properties,-properties.sat:absolute_orbit,-properties.instruments,collection&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?fields=properties,-properties.sat:absolute_orbit,-properties.instruments,collection&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
+                200);
 
         checkCollectionsItemsSinglePage(
                 doc,
@@ -673,8 +848,9 @@ public class SearchTest extends STACTestSupport {
                         "S2A_OPER_MSI_L1C_TL_SGS__20170226T171842_A008785_T32TPN_N02.04"));
 
         JSONArray array = doc.read("features[*].properties");
-        for (int i = 0; i < array.size(); i++) {
-            Map<String, Object> props = (Map<String, Object>) array.get(i);
+        for (Object o : array) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> props = (Map<String, Object>) o;
             assertFalse(props.containsKey("sat:absolute_orbit"));
             assertFalse(props.containsKey("instruments"));
             // more then just mandatory props
@@ -683,22 +859,20 @@ public class SearchTest extends STACTestSupport {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testSearchPropertySelectionStaticJsonObj() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?collections=SENTINEL2&fields=properties,-properties.SENTINEL2.fullStaticObject.staticAttr1,-properties.SENTINEL2.fullStaticObject.staticAttr3.nestedStatic1&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?collections=SENTINEL2&fields=properties,-properties.SENTINEL2.fullStaticObject.staticAttr1,-properties.SENTINEL2.fullStaticObject.staticAttr3.nestedStatic1&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
+                200);
 
         JSONArray array = doc.read("features[?(@.id != 'GS_TEST_PRODUCT.01')].properties");
-        for (int i = 0; i < array.size(); i++) {
-            Map<String, Object> props = (Map<String, Object>) array.get(i);
+        for (Object o : array) {
+            Map<String, Object> props = (Map<String, Object>) o;
             Map<String, Object> sentinelObject = (Map<String, Object>) props.get("SENTINEL2");
-            Map<String, Object> staticValues =
-                    (Map<String, Object>) sentinelObject.get("fullStaticObject");
+            Map<String, Object> staticValues = (Map<String, Object>) sentinelObject.get("fullStaticObject");
             assertFalse(staticValues.containsKey("staticAttr1"));
             assertEquals("staticValue2", staticValues.get("staticAttr2"));
-            Map<String, Object> staticValues3 =
-                    (Map<String, Object>) staticValues.get("staticAttr3");
+            Map<String, Object> staticValues3 = (Map<String, Object>) staticValues.get("staticAttr3");
             assertFalse(staticValues3.containsKey("nestedStatic1"));
             assertEquals("nestedStaticVal2", staticValues3.get("nestedStatic2"));
         }
@@ -706,19 +880,117 @@ public class SearchTest extends STACTestSupport {
 
     @Test
     public void testSearchPropertySelectionTopLevel() throws Exception {
-        DocumentContext doc =
-                getAsJSONPath(
-                        "ogc/stac/v1/search?collections=SENTINEL2&fields=-links,-assets&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
-                        200);
+        DocumentContext doc = getAsJSONPath(
+                "ogc/stac/v1/search?collections=SENTINEL2&fields=-links,-assets&filter=datetime > DATE('2017-02-25') and datetime < DATE('2017-03-31')&sortby=id",
+                200);
 
         String featurePath = "features[?(@.id != 'GS_TEST_PRODUCT.01')]";
         assertEquals(0, doc.read(featurePath + ".assets", List.class).size());
         assertEquals(0, doc.read(featurePath + ".links", List.class).size());
     }
 
+    @Test
     public void testIndexOptimizerVisitorConvertsDouble() throws Exception {
         List<String> collections = Arrays.asList("SAS1");
         Filter filter = getStacService().parseFilter(collections, "s1:ipf_version>2", null);
         assertEquals(2.0, ((Literal) ((IsGreaterThanImpl) filter).getExpression2()).getValue());
+    }
+
+    @Test
+    public void testPagingLinksProxyBase() throws Exception {
+        GeoServerInfo global = getGeoServer().getGlobal();
+        global.getSettings().setProxyBaseUrl("https://thehost/geoserver");
+        getGeoServer().save(global);
+
+        try {
+            String requestPath = "ogc/stac/v1/search?collections=SAS1%2CLANDSAT8"
+                    + "&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1&startIndex=1";
+            DocumentContext doc = getAsJSONPath(requestPath, 200);
+            assertEquals(Integer.valueOf(4), doc.read("numberMatched"));
+            assertEquals(Integer.valueOf(1), doc.read("numberReturned"));
+
+            // three links expected, prev, self and next
+            assertEquals(Integer.valueOf(3), doc.read("links.length()"));
+
+            // prev link (order should be stable, linked hash maps all around)
+            DocumentContext prev = readSingleContext(doc, "links[?(@.rel=='prev')]");
+            assertEquals(OGCAPIMediaTypes.GEOJSON_VALUE, prev.read("type"));
+            assertEquals(
+                    "https://thehost/geoserver/ogc/stac/v1/search?collections=SAS1%2CLANDSAT8&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1&startIndex=0",
+                    prev.read("href"));
+
+            // self link
+            DocumentContext self = readSingleContext(doc, "links[?(@.rel=='self')]");
+            assertEquals(OGCAPIMediaTypes.GEOJSON_VALUE, self.read("type"));
+            assertEquals("https://thehost/geoserver/" + requestPath, self.read("href"));
+
+            // next link (order should be stable, linked hash maps all around)
+            DocumentContext next = readSingleContext(doc, "links[?(@.rel=='next')]");
+            assertEquals(OGCAPIMediaTypes.GEOJSON_VALUE, next.read("type"));
+            assertEquals(
+                    "https://thehost/geoserver/ogc/stac/v1/search?collections=SAS1%2CLANDSAT8&filter=eo%3Acloud_cover%3D0&filter-lang=cql-text&limit=1&startIndex=2",
+                    next.read("href"));
+
+        } finally {
+            global.getSettings().setProxyBaseUrl(null);
+            getGeoServer().save(global);
+        }
+    }
+
+    @Test
+    public void testCollectionSecurity() throws Exception {
+        // set a collection limit on proprietary collections
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        service.setRecordsPerPage(10000); // avoid paging hiding items
+        service.setMaximumRecordsPerPage(10000);
+        List<EOCollectionAccessLimitInfo> collectionLimits = service.getCollectionLimits();
+        collectionLimits.add(new EOCollectionAccessLimitInfoImpl("license = 'proprietary'", List.of(ROLE_PROPRIETARY)));
+        // the sensor type is not exposed in JSON, will have to use the collection identifiers for JSON tests
+        collectionLimits.add(new EOCollectionAccessLimitInfoImpl("eo:sensorType = 'ATMOSPHERIC'", List.of(ROLE_ATM)));
+        gs.save(service);
+
+        // warning about test data oddity, SAS1 and SAS9 are the eoIdentifiers of the two atm collections
+        // also, SAS9 has no items inside, so we cannot test its presence in results, only SAS1
+
+        // try to get everything as the anonymous user, should filter out proprietary and atm products
+        DocumentContext jsAnonymous = getAsJSONPath("ogc/stac/v1/search", 200);
+        assertJsonListSizeGreater(jsAnonymous, "features[?(@.collection == 'SENTINEL2')]", 0);
+        assertJsonListSize(jsAnonymous, "features[?(@.collection == 'LANDSAT8')]", 0);
+        assertJsonListSize(jsAnonymous, "features[?(@.collection == 'SAS1')]", 0);
+        assertJsonListSize(jsAnonymous, "features[?(@.collection == 'SAS9')]", 0);
+
+        // with role, non-disabled proprietary collections show up too (landsat8)
+        login("propuser", "secret", ROLE_PROPRIETARY);
+        DocumentContext jsProp = getAsJSONPath("ogc/stac/v1/search", 200);
+        assertJsonListSizeGreater(jsProp, "features[?(@.collection == 'SENTINEL2')]", 0);
+        assertJsonListSizeGreater(jsProp, "features[?(@.collection == 'LANDSAT8')]", 0);
+        assertJsonListSize(jsProp, "features[?(@.collection == 'SAS1')]", 0);
+
+        // with atm role, atm collections show up (sas1, sas9) but not proprietary ones (landsat8)
+        login("atmuser", "secret", ROLE_ATM);
+        DocumentContext jsAtm = getAsJSONPath("ogc/stac/v1/search", 200);
+        assertJsonListSizeGreater(jsAtm, "features[?(@.collection == 'SENTINEL2')]", 0);
+        assertJsonListSize(jsAtm, "features[?(@.collection == 'LANDSAT8')]", 0);
+        assertJsonListSizeGreater(jsAtm, "features[?(@.collection == 'SAS1')]", 0);
+
+        // now use both roles, should get both proprietary and atm collections
+        login("bothuser", "secret", ROLE_ATM, ROLE_PROPRIETARY);
+        DocumentContext jsBoth = getAsJSONPath("ogc/stac/v1/search", 200);
+        assertJsonListSizeGreater(jsBoth, "features[?(@.collection == 'SENTINEL2')]", 0);
+        assertJsonListSizeGreater(jsBoth, "features[?(@.collection == 'LANDSAT8')]", 0);
+        assertJsonListSizeGreater(jsBoth, "features[?(@.collection == 'SAS1')]", 0);
+
+        // finally, become all powerful admin and get them all
+        login("admin", "geoserver", "ROLE_ADMINISTRATOR");
+        DocumentContext jsAdmin = getAsJSONPath("ogc/stac/v1/search", 200);
+        assertJsonListSizeGreater(jsAdmin, "features[?(@.collection == 'SENTINEL2')]", 0);
+        assertJsonListSizeGreater(jsAdmin, "features[?(@.collection == 'LANDSAT8')]", 0);
+        assertJsonListSizeGreater(jsAdmin, "features[?(@.collection == 'SAS1')]", 0);
+    }
+
+    protected void assertJsonListSizeGreater(DocumentContext json, String jsonPath, int minimumSize) {
+        List<?> list = json.read(jsonPath, List.class);
+        assertThat(list.size(), Matchers.greaterThan(minimumSize));
     }
 }

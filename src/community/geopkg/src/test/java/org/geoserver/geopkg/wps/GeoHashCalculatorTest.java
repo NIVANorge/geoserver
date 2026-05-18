@@ -6,14 +6,14 @@ package org.geoserver.geopkg.wps;
 
 import static org.junit.Assert.assertEquals;
 
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.referencing.CRS;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.operation.TransformException;
 
 public class GeoHashCalculatorTest {
 
@@ -64,8 +64,7 @@ public class GeoHashCalculatorTest {
 
     @Test
     public void testLargePolygon() throws ParseException, TransformException {
-        String hash =
-                calculator.compute(wkt.read("POLYGON((-180 -90, 180 90, 0 90, 0 -90, -180 -90))"));
+        String hash = calculator.compute(wkt.read("POLYGON((-180 -90, 180 90, 0 90, 0 -90, -180 -90))"));
         assertEquals("s", hash);
     }
 

@@ -5,20 +5,20 @@
 package org.geoserver.geopkg.wps;
 
 import ch.hsr.geohash.GeoHash;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.CRS;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.TransformException;
 
 /**
- * Calculates GeoHashes for a geometry, in a spirit similar to PostGIS ST_GeoHash, but with
- * different results due to a different resolution calculation
+ * Calculates GeoHashes for a geometry, in a spirit similar to PostGIS ST_GeoHash, but with different results due to a
+ * different resolution calculation
  */
 class GeoHashCalculator {
 
@@ -51,13 +51,12 @@ class GeoHashCalculator {
 
         Point centroid = geom.getCentroid();
         int precision = getPrecision(geom);
-        return GeoHash.geoHashStringWithCharacterPrecision(
-                centroid.getY(), centroid.getX(), precision);
+        return GeoHash.geoHashStringWithCharacterPrecision(centroid.getY(), centroid.getX(), precision);
     }
 
     /**
-     * Precision detection is just based on the size, so it's a bit different than the PostGIS
-     * algorithm, but tolerant to geometries simmetrical to the Greenwitch meridian
+     * Precision detection is just based on the size, so it's a bit different than the PostGIS algorithm, but tolerant
+     * to geometries simmetrical to the Greenwitch meridian
      */
     private int getPrecision(Geometry geom) {
         Envelope envelope = geom.getEnvelopeInternal();

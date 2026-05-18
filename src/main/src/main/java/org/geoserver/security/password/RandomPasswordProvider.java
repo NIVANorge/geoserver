@@ -12,8 +12,8 @@ import org.geotools.util.logging.Logging;
 /**
  * Class for generating random passwords using {@link SecureRandom}.
  *
- * <p>The password alphabet is {@link #PRINTABLE_ALPHABET}. Since the alphabet is not really big,
- * the length of the password is important.
+ * <p>The password alphabet is {@link #PRINTABLE_ALPHABET}. Since the alphabet is not really big, the length of the
+ * password is important.
  *
  * @author christian
  */
@@ -39,14 +39,18 @@ public class RandomPasswordProvider {
     };
 
     /**
-     * The default password length assures a key strength of 2 ^ 261 {@link #PRINTABLE_ALPHABET} has
-     * 92 characters ln (92 ^ 40 ) / ln (2) = 260.942478242
+     * The default password length assures a key strength of 2 ^ 261 {@link #PRINTABLE_ALPHABET} has 92 characters ln
+     * (92 ^ 40 ) / ln (2) = 260.942478242
      */
     public static int DefaultPasswordLength = 40;
 
     /**
-     * Creates a random password of the specified length, if length <=0, return <code>null</code>
+     * Cryptographically strong random number generator. As a subclass of {@link java.util.Random}, it's guaranteed to
+     * be thread safe (although not necessarily scalable, but for this use case it should not be a problem).
      */
+    SecureRandom random = new SecureRandom();
+
+    /** Creates a random password of the specified length, if length &lt;= 0, return {@code null} */
     public char[] getRandomPassword(int length) {
         if (length <= 0) return null;
         char[] buff = new char[length];
@@ -62,7 +66,6 @@ public class RandomPasswordProvider {
 
     /** Creates a random password filling the specified character array. */
     public void getRandomPassword(char[] buff) {
-        SecureRandom random = new SecureRandom();
         for (int i = 0; i < buff.length; i++) {
             int index = random.nextInt(Integer.MAX_VALUE) % PRINTABLE_ALPHABET.length;
             if (index < 0) index += PRINTABLE_ALPHABET.length;
@@ -71,7 +74,6 @@ public class RandomPasswordProvider {
     }
     /** Creates a random password filling the specified byte array. */
     public void getRandomPassword(byte[] buff) {
-        SecureRandom random = new SecureRandom();
         for (int i = 0; i < buff.length; i++) {
             int index = random.nextInt(Integer.MAX_VALUE) % PRINTABLE_ALPHABET.length;
             if (index < 0) index += PRINTABLE_ALPHABET.length;

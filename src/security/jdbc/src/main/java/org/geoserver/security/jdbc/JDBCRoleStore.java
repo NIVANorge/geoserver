@@ -27,8 +27,8 @@ public class JDBCRoleStore extends JDBCRoleService implements GeoServerRoleStore
     protected Connection connection;
 
     /**
-     * The identical connection is used until {@link #store()} or {@link #load()} is called. Within
-     * a transaction it is not possible to use different connections.
+     * The identical connection is used until {@link #store()} or {@link #load()} is called. Within a transaction it is
+     * not possible to use different connections.
      *
      * @see org.geoserver.security.jdbc.AbstractJDBCService#getConnection()
      */
@@ -43,7 +43,7 @@ public class JDBCRoleStore extends JDBCRoleService implements GeoServerRoleStore
         // do nothing
     }
 
-    /** To be called at the the end of a transaction, frees the current {@link Connection} */
+    /** To be called at the end of a transaction, frees the current {@link Connection} */
     protected void releaseConnection() throws SQLException {
         if (connection != null) {
             connection.close();
@@ -69,9 +69,8 @@ public class JDBCRoleStore extends JDBCRoleService implements GeoServerRoleStore
         setModified(false);
     }
 
-    protected void addRoleProperties(GeoServerRole role, Connection con)
-            throws SQLException, IOException {
-        if (role.getProperties().size() == 0) return; // nothing to do
+    protected void addRoleProperties(GeoServerRole role, Connection con) throws SQLException, IOException {
+        if (role.getProperties().isEmpty()) return; // nothing to do
 
         PreparedStatement ps = getDMLStatement("roleprops.insert", con);
         try {
@@ -103,7 +102,6 @@ public class JDBCRoleStore extends JDBCRoleService implements GeoServerRoleStore
             ps.execute();
 
             addRoleProperties(role, con);
-
         } catch (SQLException ex) {
             throw new IOException(ex);
         } finally {
@@ -308,13 +306,8 @@ public class JDBCRoleStore extends JDBCRoleService implements GeoServerRoleStore
     public void setParentRole(GeoServerRole role, GeoServerRole parentRole) throws IOException {
 
         RoleHierarchyHelper helper = new RoleHierarchyHelper(getParentMappings());
-        if (helper.isValidParent(
-                        role.getAuthority(), parentRole == null ? null : parentRole.getAuthority())
-                == false)
-            throw new IOException(
-                    parentRole.getAuthority()
-                            + " is not a valid parent for "
-                            + role.getAuthority());
+        if (!helper.isValidParent(role.getAuthority(), parentRole == null ? null : parentRole.getAuthority()))
+            throw new IOException(parentRole.getAuthority() + " is not a valid parent for " + role.getAuthority());
 
         Connection con = null;
         PreparedStatement ps = null;

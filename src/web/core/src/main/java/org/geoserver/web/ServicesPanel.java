@@ -5,6 +5,9 @@
  */
 package org.geoserver.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,12 +28,26 @@ import org.geotools.util.logging.Logging;
 /**
  * Component to list services and their connection details (such as GetCapabilities URL).
  *
- * <p>The panel displays a sorted list of ServiceDescription items to group ServiceLinkDescription
- * items.
+ * <p>The panel displays a sorted list of ServiceDescription items to group ServiceLinkDescription items.
  *
  * @author Jody Garnett
  */
 public class ServicesPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ServicesPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 5536322717819915862L;
 
     public ServicesPanel(
@@ -71,12 +88,8 @@ public class ServicesPanel extends Panel {
                 Locale locale = getLocale();
                 boolean enabled = service.isAdmin() ? admin : true;
 
-                listItem.add(
-                        new Label("title", service.getTitle().toString(locale))
-                                .setEnabled(enabled));
-                listItem.add(
-                        new Label("description", service.getDescription().toString(locale))
-                                .setEnabled(enabled));
+                listItem.add(new Label("title", service.getTitle().toString(locale)).setEnabled(enabled));
+                listItem.add(new Label("description", service.getDescription().toString(locale)).setEnabled(enabled));
 
                 List<ServiceLinkDescription> links = new ArrayList<>();
                 if (enabled) {
@@ -108,7 +121,15 @@ public class ServicesPanel extends Panel {
 
         for (ServiceDescription service : services) {
             String serviceName = service.getServiceType();
-            serviceMap.put(serviceName, service);
+            if (serviceMap.containsKey(serviceName)) {
+                // use the "highest priority" service description
+                ServiceDescription otherServiceDescription = serviceMap.get(serviceName);
+                if (service.getDescriptionPriority() > otherServiceDescription.getDescriptionPriority()) {
+                    serviceMap.put(serviceName, service);
+                }
+            } else {
+                serviceMap.put(serviceName, service);
+            }
             service.getLinks().clear();
         }
         for (ServiceLinkDescription link : links) {
@@ -120,11 +141,7 @@ public class ServicesPanel extends Panel {
                 // something is inconsistent
                 Logger LOGGER = Logging.getLogger(ServicesPanel.class);
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.fine(
-                            "Service '"
-                                    + serviceName
-                                    + "' created without description to display "
-                                    + link);
+                    LOGGER.fine("Service '" + serviceName + "' created without description to display " + link);
                 }
                 ServiceDescription service = new ServiceDescription(serviceName);
                 serviceMap.put(serviceName, service);

@@ -6,10 +6,10 @@ package org.geoserver.catalog;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.geotools.styling.NamedStyle;
-import org.geotools.styling.StyledLayer;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.style.NamedStyle;
+import org.geotools.api.style.StyledLayer;
+import org.geotools.api.style.StyledLayerDescriptor;
 
 /** GeoServerSLDVisitor for collecting assorted validation errors and reporting them */
 public class SLDNamedLayerValidator extends GeoServerSLDVisitorAdapter {
@@ -41,10 +41,7 @@ public class SLDNamedLayerValidator extends GeoServerSLDVisitorAdapter {
         }
         if (p == null) {
             validationErrors.add(
-                    new Exception(
-                            "No layer or layer group named '"
-                                    + namedLayer.getName()
-                                    + "' found in the catalog"));
+                    new Exception("No layer or layer group named '" + namedLayer.getName() + "' found in the catalog"));
         }
         return p;
     }
@@ -53,9 +50,7 @@ public class SLDNamedLayerValidator extends GeoServerSLDVisitorAdapter {
     public StyleInfo visitNamedStyleInternal(NamedStyle namedStyle) {
         StyleInfo s = catalog.getStyleByName(namedStyle.getName());
         if (s == null) {
-            validationErrors.add(
-                    new Exception(
-                            "No style named '" + namedStyle.getName() + "' found in the catalog"));
+            validationErrors.add(new Exception("No style named '" + namedStyle.getName() + "' found in the catalog"));
         }
         return s;
     }

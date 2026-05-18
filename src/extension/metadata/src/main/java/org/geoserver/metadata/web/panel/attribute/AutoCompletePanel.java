@@ -4,6 +4,9 @@
  */
 package org.geoserver.metadata.web.panel.attribute;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -22,6 +25,20 @@ import org.geoserver.metadata.data.dto.AttributeConfiguration;
 
 public class AutoCompletePanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AutoCompletePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -1829729746678003578L;
 
     public AutoCompletePanel(
@@ -34,61 +51,58 @@ public class AutoCompletePanel extends Panel {
 
         super(id, model);
 
-        AutoCompleteTextField<String> field =
-                new AutoCompleteTextField<String>("autoComplete", model) {
-                    private static final long serialVersionUID = 7742400754591550452L;
+        AutoCompleteTextField<String> field = new AutoCompleteTextField<>("autoComplete", model) {
+            @Serial
+            private static final long serialVersionUID = 7742400754591550452L;
 
-                    @Override
-                    protected Iterator<String> getChoices(String input) {
-                        Set<String> result = new TreeSet<>();
-                        for (String value : values) {
-                            if (value.toLowerCase().startsWith(input.toLowerCase())) {
-                                result.add(value);
-                            }
-                        }
-                        if (result.isEmpty()) {
-                            result.addAll(values);
-                        }
-                        if (selectedValues != null) {
-                            result.removeIf(i -> selectedValues.getObject().contains(i));
-                            if (!Strings.isEmpty(model.getObject())) {
-                                result.add(model.getObject());
-                            }
-                        }
-                        return result.iterator();
+            @Override
+            protected Iterator<String> getChoices(String input) {
+                Set<String> result = new TreeSet<>();
+                for (String value : values) {
+                    if (value.toLowerCase().startsWith(input.toLowerCase())) {
+                        result.add(value);
                     }
-                };
+                }
+                if (result.isEmpty()) {
+                    result.addAll(values);
+                }
+                if (selectedValues != null) {
+                    result.removeIf(i -> selectedValues.getObject().contains(i));
+                    if (!Strings.isEmpty(model.getObject())) {
+                        result.add(model.getObject());
+                    }
+                }
+                return result.iterator();
+            }
+        };
         if (selectedValues != null) {
-            field.add(
-                    new AjaxFormComponentUpdatingBehavior("change") {
-                        private static final long serialVersionUID = 1989673955080590525L;
+            field.add(new AjaxFormComponentUpdatingBehavior("change") {
+                @Serial
+                private static final long serialVersionUID = 1989673955080590525L;
 
-                        @Override
-                        protected void onUpdate(AjaxRequestTarget target) {
-                            target.add(
-                                    AutoCompletePanel.this.findParent(
-                                            RepeatableAttributesTablePanel.class));
-                        }
-                    });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    target.add(AutoCompletePanel.this.findParent(RepeatableAttributesTablePanel.class));
+                }
+            });
         }
 
         if (forceValues) {
-            field.add(
-                    new IValidator<String>() {
+            field.add(new IValidator<>() {
 
-                        private static final long serialVersionUID = -7843517457763685578L;
+                @Serial
+                private static final long serialVersionUID = -7843517457763685578L;
 
-                        @Override
-                        public void validate(IValidatable<String> validatable) {
-                            if (!values.contains(validatable.getValue())) {
-                                String errorMsg =
-                                        new StringResourceModel("invalid", AutoCompletePanel.this)
-                                                .setParameters(resolveLabelValue(configuration))
-                                                .getString();
-                                validatable.error(new ValidationError(errorMsg));
-                            }
-                        }
-                    });
+                @Override
+                public void validate(IValidatable<String> validatable) {
+                    if (!values.contains(validatable.getValue())) {
+                        String errorMsg = new StringResourceModel("invalid", AutoCompletePanel.this)
+                                .setParameters(resolveLabelValue(configuration))
+                                .getString();
+                        validatable.error(new ValidationError(errorMsg));
+                    }
+                }
+            });
         }
 
         add(field);
@@ -96,7 +110,6 @@ public class AutoCompletePanel extends Panel {
 
     /** Try to find the label from the resource bundle */
     private String resolveLabelValue(AttributeConfiguration attribute) {
-        return getString(
-                AttributeConfiguration.PREFIX + attribute.getKey(), null, attribute.getLabel());
+        return getString(AttributeConfiguration.PREFIX + attribute.getKey(), null, attribute.getLabel());
     }
 }

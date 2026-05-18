@@ -4,6 +4,10 @@
  */
 package org.geoserver.gwc.web.blob;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import com.google.common.annotations.VisibleForTesting;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.text.StringEscapeUtils;
@@ -30,6 +34,7 @@ import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geowebcache.config.BlobStoreInfo;
 import org.geowebcache.config.ConfigurationException;
+import org.geowebcache.config.ConfigurationPersistenceException;
 import org.geowebcache.layer.TileLayer;
 
 /**
@@ -37,8 +42,23 @@ import org.geowebcache.layer.TileLayer;
  *
  * @author Niels Charlier
  */
+// TODO WICKET8 - Verify this page works OK
 public class BlobStorePage extends GeoServerSecuredPage {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(BlobStorePage.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -59024268194792891L;
 
     private DropDownChoice<BlobStoreType> typeOfBlobStore;
@@ -66,34 +86,30 @@ public class BlobStorePage extends GeoServerSecuredPage {
         dialog.setTitle(new ParamResourceModel("confirmDisableDialog.title", getPage()));
         dialog.setInitialHeight(200);
 
-        typeOfBlobStore =
-                new DropDownChoice<>("typeOfBlobStore", new Model<>(), BlobStoreTypes.getAll());
+        typeOfBlobStore = new DropDownChoice<>("typeOfBlobStore", new Model<>(), BlobStoreTypes.getAll());
 
         typeOfBlobStore.setOutputMarkupId(true);
-        typeOfBlobStore.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
-                    private static final long serialVersionUID = 359589121400814043L;
+        typeOfBlobStore.add(new AjaxFormComponentUpdatingBehavior("change") {
+            @Serial
+            private static final long serialVersionUID = 359589121400814043L;
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        boolean visible = typeOfBlobStore.getModelObject() != null;
-                        blobStoreForm.setVisible(visible);
-                        if (visible) {
-                            blobStoreForm
-                                    .getModel()
-                                    .setObject(typeOfBlobStore.getModelObject().newConfigObject());
-                            blobStoreForm.addOrReplace(
-                                    typeOfBlobStore
-                                            .getModelObject()
-                                            .createPanel(
-                                                    "blobSpecificPanel", blobStoreForm.getModel()));
-                        }
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                boolean visible = typeOfBlobStore.getModelObject() != null;
+                blobStoreForm.setVisible(visible);
+                if (visible) {
+                    blobStoreForm
+                            .getModel()
+                            .setObject(typeOfBlobStore.getModelObject().newConfigObject());
+                    blobStoreForm.addOrReplace(typeOfBlobStore
+                            .getModelObject()
+                            .createPanel("blobSpecificPanel", blobStoreForm.getModel()));
+                }
 
-                        target.add(blobConfigContainer);
-                    }
-                });
-        typeOfBlobStore.add(
-                new AttributeModifier("title", new ResourceModel("typeOfBlobStore.title")));
+                target.add(blobConfigContainer);
+            }
+        });
+        typeOfBlobStore.add(new AttributeModifier("title", new ResourceModel("typeOfBlobStore.title")));
 
         Form<BlobStoreType<?>> selector = new Form<>("selector");
         selector.add(typeOfBlobStore);
@@ -103,13 +119,9 @@ public class BlobStorePage extends GeoServerSecuredPage {
         blobConfigContainer.setOutputMarkupId(true);
         add(blobConfigContainer);
 
-        blobStoreForm =
-                new Form<>(
-                        "blobStoreForm",
-                        new CompoundPropertyModel<>(
-                                originalStore == null
-                                        ? null
-                                        : (BlobStoreInfo) originalStore.clone()));
+        blobStoreForm = new Form<>(
+                "blobStoreForm",
+                new CompoundPropertyModel<>(originalStore == null ? null : (BlobStoreInfo) originalStore.clone()));
         blobConfigContainer.add(blobStoreForm);
         blobStoreForm.setVisible(originalStore != null);
 
@@ -121,98 +133,94 @@ public class BlobStorePage extends GeoServerSecuredPage {
         cbDefault.add(new AttributeModifier("title", new ResourceModel("default.title")));
 
         if (originalStore != null) {
-            typeOfBlobStore
-                    .getModel()
-                    .setObject(BlobStoreTypes.getFromClass(originalStore.getClass()));
+            typeOfBlobStore.getModel().setObject(BlobStoreTypes.getFromClass(originalStore.getClass()));
             blobStoreForm.addOrReplace(
-                    typeOfBlobStore
-                            .getModelObject()
-                            .createPanel("blobSpecificPanel", blobStoreForm.getModel()));
+                    typeOfBlobStore.getModelObject().createPanel("blobSpecificPanel", blobStoreForm.getModel()));
             typeOfBlobStore.setEnabled(false);
 
-            for (TileLayer layer : GWC.get().getTileLayers()) {
+            for (TileLayer layer : getGWC().getTileLayers()) {
                 if (originalStore.getName().equals(layer.getBlobStoreId())) {
                     assignedLayers.add(layer.getName());
                 }
             }
         }
 
-        blobStoreForm.add(
-                new AbstractFormValidator() {
-                    private static final long serialVersionUID = 5240602030478856537L;
+        blobStoreForm.add(new AbstractFormValidator() {
+            @Serial
+            private static final long serialVersionUID = 5240602030478856537L;
 
-                    @Override
-                    public FormComponent<?>[] getDependentFormComponents() {
-                        return new FormComponent<?>[] {cbDefault, cbEnabled};
+            @Override
+            public FormComponent<?>[] getDependentFormComponents() {
+                return new FormComponent<?>[] {cbDefault, cbEnabled};
+            }
+
+            @Override
+            public void validate(Form<?> form) {
+                BlobStoreInfo blobStore = (BlobStoreInfo) form.getModelObject();
+                if (blobStore.isDefault() && !cbDefault.getConvertedInput()) {
+                    form.error(new ParamResourceModel("defaultError", getPage()).getString());
+                } else if (cbDefault.getConvertedInput() && !cbEnabled.getConvertedInput()) {
+                    form.error(new ParamResourceModel("enabledError", getPage()).getString());
+                }
+            }
+        });
+
+        blobStoreForm.add(new AbstractFormValidator() {
+            @Serial
+            private static final long serialVersionUID = 5240602030478856537L;
+
+            @Override
+            public FormComponent<?>[] getDependentFormComponents() {
+                return new FormComponent<?>[] {tfId};
+            }
+
+            @Override
+            public void validate(Form<?> form) {
+                for (BlobStoreInfo otherBlobStore : getGWC().getBlobStores()) {
+                    if (!otherBlobStore.equals(originalStore)
+                            && otherBlobStore.getName().equals(tfId.getConvertedInput())) {
+                        form.error(new ParamResourceModel("duplicateIdError", getPage()).getString());
                     }
-
-                    @Override
-                    public void validate(Form<?> form) {
-                        BlobStoreInfo blobStore = (BlobStoreInfo) form.getModelObject();
-                        if (blobStore.isDefault() && !cbDefault.getConvertedInput()) {
-                            form.error(
-                                    new ParamResourceModel("defaultError", getPage()).getString());
-                        } else if (cbDefault.getConvertedInput()
-                                && !cbEnabled.getConvertedInput()) {
-                            form.error(
-                                    new ParamResourceModel("enabledError", getPage()).getString());
-                        }
-                    }
-                });
-
-        blobStoreForm.add(
-                new AbstractFormValidator() {
-                    private static final long serialVersionUID = 5240602030478856537L;
-
-                    @Override
-                    public FormComponent<?>[] getDependentFormComponents() {
-                        return new FormComponent<?>[] {tfId};
-                    }
-
-                    @Override
-                    public void validate(Form<?> form) {
-                        for (BlobStoreInfo otherBlobStore : GWC.get().getBlobStores()) {
-                            if (!otherBlobStore.equals(originalStore)
-                                    && otherBlobStore.getName().equals(tfId.getConvertedInput())) {
-                                form.error(
-                                        new ParamResourceModel("duplicateIdError", getPage())
-                                                .getString());
-                            }
-                        }
-                    }
-                });
+                }
+            }
+        });
 
         // build the submit/cancel
         blobStoreForm.add(new SaveLink(originalStore, assignedLayers));
-        blobStoreForm.add(new BookmarkablePageLink<BlobStoreInfo>("cancel", BlobStoresPage.class));
+        blobStoreForm.add(new BookmarkablePageLink<>("cancel", BlobStoresPage.class));
     }
 
-    protected void save(
-            BlobStoreInfo originalStore, BlobStoreInfo blobStore, List<String> assignedLayers)
-            throws ConfigurationException {
+    @VisibleForTesting
+    GWC getGWC() {
+        return GWC.get();
+    }
 
+    protected void save(BlobStoreInfo originalStore, BlobStoreInfo blobStore, List<String> assignedLayers)
+            throws ConfigurationException, ConfigurationPersistenceException {
+
+        GWC gwc = getGWC();
         // remove default if necessary
         BlobStoreInfo defaultStore = null;
         if (blobStore.isDefault() && (originalStore == null || !originalStore.isDefault())) {
-            defaultStore = GWC.get().getDefaultBlobStore();
+            defaultStore = gwc.getDefaultBlobStore();
             if (defaultStore != null) {
                 defaultStore.setDefault(false);
-                GWC.get().modifyBlobStore(defaultStore.getName(), defaultStore);
+                gwc.modifyBlobStore(defaultStore.getName(), defaultStore);
             }
         }
 
         // save
         try {
             if (originalStore == null) {
-                GWC.get().addBlobStore(blobStore);
+                gwc.addBlobStore(blobStore);
             } else {
-                GWC.get().modifyBlobStore(originalStore.getName(), blobStore);
+                gwc.modifyBlobStore(originalStore.getName(), blobStore);
             }
-        } catch (ConfigurationException e) {
+        } catch (ConfigurationException | ConfigurationPersistenceException e) {
             // reverse default
             if (defaultStore != null) {
                 defaultStore.setDefault(true);
-                GWC.get().modifyBlobStore(defaultStore.getName(), defaultStore);
+                gwc.modifyBlobStore(defaultStore.getName(), defaultStore);
             }
             throw e;
         }
@@ -224,21 +232,23 @@ public class BlobStorePage extends GeoServerSecuredPage {
 
             if (updateId || disable) {
                 for (String layerName : assignedLayers) {
-                    TileLayer layer = GWC.get().getTileLayerByName(layerName);
+                    TileLayer layer = gwc.getTileLayerByName(layerName);
                     if (updateId) {
                         layer.setBlobStoreId(blobStore.getName());
                     }
                     if (disable) {
                         layer.setEnabled(false);
                     }
-                    GWC.get().save(layer);
+                    gwc.save(layer);
                 }
             }
         }
     }
 
     private class SaveLink extends AjaxSubmitLink {
+        @Serial
         private static final long serialVersionUID = 3735176778941168701L;
+
         private final BlobStoreInfo originalStore;
         private final List<String> assignedLayers;
 
@@ -249,7 +259,7 @@ public class BlobStorePage extends GeoServerSecuredPage {
         }
 
         @Override
-        public void onSubmit(AjaxRequestTarget target, Form<?> form) {
+        public void onSubmit(AjaxRequestTarget target) {
 
             final BlobStoreInfo blobStore = (BlobStoreInfo) getForm().getModelObject();
 
@@ -257,65 +267,69 @@ public class BlobStorePage extends GeoServerSecuredPage {
                     && originalStore.isEnabled()
                     && !blobStore.isEnabled()
                     && !assignedLayers.isEmpty()) {
-                dialog.showOkCancel(
-                        target,
-                        new GeoServerDialog.DialogDelegate() {
-                            private static final long serialVersionUID = 5257987095800108993L;
+                dialog.showOkCancel(target, new GeoServerDialog.DialogDelegate() {
+                    @Serial
+                    private static final long serialVersionUID = 5257987095800108993L;
 
-                            private boolean success;
+                    private boolean success;
 
-                            private String error = null;
+                    private String error = null;
 
-                            @Override
-                            protected Component getContents(String id) {
-                                StringBuilder sb = new StringBuilder();
-                                sb.append(
-                                        new ParamResourceModel(
-                                                        "confirmDisableDialog.content", getPage())
-                                                .getString());
-                                for (String layer : assignedLayers) {
-                                    sb.append("\n&nbsp;&nbsp;");
-                                    sb.append(StringEscapeUtils.escapeHtml4(layer));
-                                }
-                                return new MultiLineLabel("userPanel", sb.toString())
-                                        .setEscapeModelStrings(false);
+                    @Override
+                    protected Component getContents(String id) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(new ParamResourceModel("confirmDisableDialog.content", getPage()).getString());
+                        for (String layer : assignedLayers) {
+                            sb.append("\n&nbsp;&nbsp;");
+                            sb.append(StringEscapeUtils.escapeHtml4(layer));
+                        }
+                        return new MultiLineLabel("userPanel", sb.toString()).setEscapeModelStrings(false);
+                    }
+
+                    @Override
+                    protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
+                        try {
+                            save(originalStore, blobStore, assignedLayers);
+                            success = true;
+                        } catch (ConfigurationException | ConfigurationPersistenceException e) {
+                            error = e.getMessage();
+                            if (e instanceof ConfigurationPersistenceException && e.getCause() != null) {
+                                // show the useful message instead of the BlobStoreInfo.toString()
+                                error = e.getCause().getMessage();
                             }
+                        }
+                        return true;
+                    }
 
-                            @Override
-                            protected boolean onSubmit(
-                                    AjaxRequestTarget target, Component contents) {
-                                try {
-                                    save(originalStore, blobStore, assignedLayers);
-                                    success = true;
-                                } catch (ConfigurationException e) {
-                                    error = e.getMessage();
-                                }
-                                return true;
-                            }
-
-                            @Override
-                            public void onClose(AjaxRequestTarget target) {
-                                if (success) {
-                                    doReturn(BlobStoresPage.class);
-                                } else if (error != null) {
-                                    error(error);
-                                    addFeedbackPanels(target);
-                                }
-                            }
-                        });
+                    @Override
+                    public void onClose(AjaxRequestTarget target) {
+                        if (success) {
+                            doReturn(BlobStoresPage.class);
+                        } else if (error != null) {
+                            error(error);
+                            addFeedbackPanels(target);
+                        }
+                    }
+                });
             } else {
                 try {
                     save(originalStore, blobStore, assignedLayers);
                     doReturn(BlobStoresPage.class);
-                } catch (ConfigurationException e) {
-                    error(e.getMessage());
+                } catch (ConfigurationException | ConfigurationPersistenceException e) {
+                    String message = e.getMessage();
+                    if (e instanceof ConfigurationPersistenceException && e.getCause() != null) {
+                        // show the useful message instead of the BlobStoreInfo.toString()
+                        message = e.getCause().getMessage();
+                    }
+
+                    error(message);
                     addFeedbackPanels(target);
                 }
             }
         }
 
         @Override
-        protected void onError(AjaxRequestTarget target, Form<?> form) {
+        protected void onError(AjaxRequestTarget target) {
             addFeedbackPanels(target);
         }
     }

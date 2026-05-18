@@ -5,94 +5,57 @@
   <body>
     <wicket:extend>
       <h2 wicket:id="code">EPSG:XXXX</h2>
-      <ul class="form-data">
-        <li>
+      <div class="gs-form">
+        <div class="gs-form-group">
           <span class="fieldname">
             <wicket:message key="name">Name</wicket:message>
           </span>
-          <div class="value-wide" wicket:id="crsName">name</div>
-        </li>
-        <li>
+          <div class="w-fit value-wide" wicket:id="crsName">name</div>
+        </div>
+        <div class="gs-form-group">
           <span class="fieldname">
             <wicket:message key="scope">Scope</wicket:message>
           </span>
-          <div class="value-wide" wicket:id="crsScope">scope...</div>
-        </li>
-        <li>
+          <div class="w-fit value-wide" wicket:id="crsScope">scope...</div>
+        </div>
+        <div class="gs-form-group">
           <span class="fieldname">
             <wicket:message key="remarks">Remarks</wicket:message>
           </span>
-          <div class="value-wide" wicket:id="crsRemarks">remarks...</div>
-        </li>
-        <li>
-          <span wicket:id="reprojectFrom"></span><br/>
+          <div class="w-fit value-wide" wicket:id="crsRemarks">remarks...</div>
+        </div>
+        <div class="gs-form">
+          <span wicket:id="reprojectFrom"></span>
           <span wicket:id="reprojectTo"></span>
-        </li>
-        <li>
+        </div>
+        <div class="gs-list-item-class">
           <div wicket:id="wktTabs">
           </div>
-        </li>
-        <li>
+        </div>
+        <div class="gs-list-item-class" wicket:id="areaOfValidityText">
           <span class="fieldname">
             <wicket:message key="areaOfValidity">Area of validity</wicket:message>
           </span>
-          <div class="value-wide">
-            <pre wicket:id="aovCoords">0, 0</pre>
+          <div class="gs-form">
+            <div class="gs-form-group">
+              <div class="value-wide">
+                <pre wicket:id="aovCoords">0, 0</pre>
+              </div>
+            </div>
+            <div class="gs-form-group">
+              <div class="value-wide">
+                <div wicket:id="aovDescription">aov desc</div>
+              </div>
+            </div>
           </div>
-          <div class="value-wide">
-            <div wicket:id="aovDescription">aov desc</div>
-          </div>
-        </li>
-        <li>
+        </div>
+        <div class="gs-list-item-class" wicket:id="areaOfValidityMap">
           <div>
-            <img id="aovMap" wicket:id="aovMap" style="display:none;"/>
-            <div id="aovMapContainer" style="width:512px; height:256px;background-color:white;"></div>
-        <script>
-            var map = null;
-            
-            function initMap(srs, units, bbox, resolution){
-                var format = 'image/png';
-
-                var projection = new ol.proj.Projection({
-                    code: srs,
-                    units: units,
-                    axisOrientation: 'neu',
-                });
-
-                // setup single tiled layer
-                var untiled = new ol.layer.Image({
-                    title: 'CRS Area Of Validity',
-                    source: new ol.source.ImageWMS({
-                      url: document.getElementById("aovMap").src,
-                      params: {LAYERS: '', VERSION: '1.1.1', FORMAT: format}
-                    })
-                });
-
-                map = new ol.Map({
-                    target: 'aovMapContainer',
-                    layers: [untiled],
-                    controls: ol.control.defaults({attribution: false}).extend([
-                        new ol.control.MousePosition({
-                            coordinateFormat: ol.coordinate.createStringXY(4),
-                            projection: projection,
-                            undefinedHTML: '&nbsp;'
-                        })
-                    ]),
-                    view: new ol.View({
-                      center: [0, 0],
-                      zoom: 2,
-                      extent: bbox,
-                      projection: projection,
-                      maxResolution: resolution
-                    })
-                });
-
-                map.getView().fit(bbox,map.getSize());
-            }
-        </script>
+            <img id="aovMap" wicket:id="aovMap" class="hidden"></img>
+            <div id="aovMapContainer" class="srs-demo-map-container"></div>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
     </wicket:extend>
   </body>
 </html>

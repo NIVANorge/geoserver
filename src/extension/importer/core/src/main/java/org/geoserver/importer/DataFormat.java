@@ -7,7 +7,10 @@ package org.geoserver.importer;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,14 +22,14 @@ import org.geoserver.catalog.StoreInfo;
 import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.importer.job.ProgressMonitor;
 import org.geoserver.platform.GeoServerExtensions;
-import org.geoserver.platform.resource.Files;
+import org.geoserver.platform.resource.FilePaths;
 import org.geoserver.platform.resource.Paths;
+import org.geotools.api.data.DataStoreFactorySpi;
+import org.geotools.api.data.FileDataStoreFactorySpi;
+import org.geotools.api.data.FileDataStoreFinder;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.coverage.grid.io.GridFormatFinder;
 import org.geotools.coverage.grid.io.UnknownFormat;
-import org.geotools.data.DataStoreFactorySpi;
-import org.geotools.data.FileDataStoreFactorySpi;
-import org.geotools.data.FileDataStoreFinder;
 import org.geotools.util.logging.Logging;
 import org.vfny.geoserver.util.DataStoreUtils;
 
@@ -38,6 +41,7 @@ import org.vfny.geoserver.util.DataStoreUtils;
 public abstract class DataFormat implements Serializable {
 
     /** serialVersionUID */
+    @Serial
     private static final long serialVersionUID = 1L;
 
     static Logger LOG = Logging.getLogger(DataFormat.class);
@@ -53,9 +57,7 @@ public abstract class DataFormat implements Serializable {
             } catch (IOException e) {
                 LOG.log(
                         Level.FINER,
-                        String.format(
-                                "Error checking if format %s can read file %s, " + df.getName(),
-                                file.getPath()),
+                        String.format("Error checking if format %s can read file %s, " + df.getName(), file.getPath()),
                         e);
             }
         }
@@ -114,24 +116,32 @@ public abstract class DataFormat implements Serializable {
             return url;
         }
         File baseDirectory = catalog.getResourceLoader().getBaseDirectory();
-        File f = Files.url(baseDirectory, url);
+        File f;
+        try {
+            f = new File(new URL(url).getFile());
+        } catch (MalformedURLException e) {
+            f = new File(url);
+        }
 
-        return f == null ? url : "file:" + Paths.convert(baseDirectory, f);
+        String relativePath = Paths.convert(baseDirectory, f);
+        if (!FilePaths.isAbsolute(relativePath)) {
+            return "file:" + relativePath;
+        } else {
+            return url;
+        }
     }
 
     public abstract String getName();
 
     public abstract boolean canRead(ImportData data) throws IOException;
 
-    public abstract StoreInfo createStore(ImportData data, WorkspaceInfo workspace, Catalog catalog)
-            throws IOException;
+    public abstract StoreInfo createStore(ImportData data, WorkspaceInfo workspace, Catalog catalog) throws IOException;
 
-    public abstract List<ImportTask> list(ImportData data, Catalog catalog, ProgressMonitor monitor)
-            throws IOException;
+    public abstract List<ImportTask> list(ImportData data, Catalog catalog, ProgressMonitor monitor) throws IOException;
 
     /**
-     * Returns a File from the ImportData, assuming the import data itself is a FileData (a class
-     * cast exception will happen otherwise)
+     * Returns a File from the ImportData, assuming the import data itself is a FileData (a class cast exception will
+     * happen otherwise)
      */
     protected File getFileFromData(ImportData data) {
         assert data instanceof FileData;

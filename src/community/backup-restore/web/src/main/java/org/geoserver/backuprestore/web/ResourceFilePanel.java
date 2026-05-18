@@ -4,11 +4,14 @@
  */
 package org.geoserver.backuprestore.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.wicket.Component;
@@ -38,20 +41,33 @@ import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geoserver.web.wicket.browser.ExtensionFileFilter;
 import org.geoserver.web.wicket.browser.GeoServerFileChooser;
+import org.geotools.api.filter.Filter;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.logging.Logging;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
-import org.opengis.filter.Filter;
 
+// TODO WICKET8 - Verify this page works OK
 @SuppressWarnings("serial")
 public class ResourceFilePanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ResourceFilePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     protected static Logger LOGGER = Logging.getLogger(ResourceFilePanel.class);
 
-    private static final String[] FILE_EXTENSIONS =
-            new String[] {".zip", ".gz", ".tar", ".tgz", ".bz"};
+    private static final String[] FILE_EXTENSIONS = new String[] {".zip", ".gz", ".tar", ".tgz", ".bz"};
 
     String file;
     List<WorkspaceInfo> workspaces;
@@ -79,18 +95,16 @@ public class ResourceFilePanel extends Panel {
         fileField = new TextField("file");
         fileField.setRequired(true);
         fileField.setOutputMarkupId(true);
-        fileField.add(
-                new OnChangeAjaxBehavior() {
+        fileField.add(new OnChangeAjaxBehavior() {
 
-                    @Override
-                    protected void onUpdate(final AjaxRequestTarget target) {
-                        // Access the updated model value:
-                        final String valueAsString =
-                                ((TextField<String>) getComponent()).getModelObject();
+            @Override
+            protected void onUpdate(final AjaxRequestTarget target) {
+                // Access the updated model value:
+                final String valueAsString = ((TextField<String>) getComponent()).getModelObject();
 
-                        doUpdate(target, valueAsString);
-                    }
-                });
+                doUpdate(target, valueAsString);
+            }
+        });
 
         form.add(fileField);
         form.add(chooserButton(form));
@@ -99,7 +113,8 @@ public class ResourceFilePanel extends Panel {
     /** @return the archive file resource */
     public Resource getResource() {
         return Files.asResource(new File(this.file));
-    };
+    }
+    ;
 
     /** @return the workspaces */
     public List<WorkspaceInfo> getWorkspaces() {
@@ -117,76 +132,66 @@ public class ResourceFilePanel extends Panel {
     }
 
     Component chooserButton(Form form) {
-        AjaxSubmitLink link =
-                new AjaxSubmitLink("chooser") {
+        AjaxSubmitLink link = new AjaxSubmitLink("chooser") {
+
+            @Override
+            protected void onSubmit(AjaxRequestTarget target) {
+                dialog.setTitle(new ParamResourceModel("chooseFile", this));
+                dialog.showOkCancel(target, new GeoServerDialog.DialogDelegate() {
 
                     @Override
-                    protected void onSubmit(AjaxRequestTarget target, Form form) {
-                        dialog.setTitle(new ParamResourceModel("chooseFile", this));
-                        dialog.showOkCancel(
-                                target,
-                                new GeoServerDialog.DialogDelegate() {
+                    protected Component getContents(String id) {
+                        // use what the user currently typed
+                        File file = null;
+                        if (!fileField.getInput().trim().equals("")) {
+                            file = new File(fileField.getInput());
+                            if (!file.exists()) file = null;
+                        }
 
-                                    @Override
-                                    protected Component getContents(String id) {
-                                        // use what the user currently typed
-                                        File file = null;
-                                        if (!fileField.getInput().trim().equals("")) {
-                                            file = new File(fileField.getInput());
-                                            if (!file.exists()) file = null;
-                                        }
+                        GeoServerFileChooser chooser = new GeoServerFileChooser(id, new Model(file)) {
+                            @Override
+                            protected void fileClicked(File file, Optional<AjaxRequestTarget> target) {
+                                ResourceFilePanel.this.file = file.getAbsolutePath();
 
-                                        GeoServerFileChooser chooser =
-                                                new GeoServerFileChooser(id, new Model(file)) {
-                                                    @Override
-                                                    protected void fileClicked(
-                                                            File file, AjaxRequestTarget target) {
-                                                        ResourceFilePanel.this.file =
-                                                                file.getAbsolutePath();
+                                fileField.clearInput();
+                                fileField.setModelObject(file.getAbsolutePath());
+                                if (target.isPresent()) {
+                                    target.get().add(fileField);
+                                    dialog.close(target.get());
+                                }
+                            }
+                        };
 
-                                                        fileField.clearInput();
-                                                        fileField.setModelObject(
-                                                                file.getAbsolutePath());
-
-                                                        target.add(fileField);
-                                                        dialog.close(target);
-                                                    }
-                                                };
-
-                                        initFileChooser(chooser);
-                                        return chooser;
-                                    }
-
-                                    @Override
-                                    protected boolean onSubmit(
-                                            AjaxRequestTarget target, Component contents) {
-
-                                        GeoServerFileChooser chooser =
-                                                (GeoServerFileChooser) contents;
-                                        file =
-                                                ((File) chooser.getDefaultModelObject())
-                                                        .getAbsolutePath();
-
-                                        // clear the raw input of the field won't show the new model
-                                        // value
-                                        fileField.clearInput();
-                                        // fileField.setModelObject(file);
-
-                                        target.add(fileField);
-
-                                        return true;
-                                    }
-
-                                    @Override
-                                    public void onClose(AjaxRequestTarget target) {
-                                        // update the field with the user chosen value
-                                        target.add(fileField);
-
-                                        doUpdate(target, file);
-                                    }
-                                });
+                        initFileChooser(chooser);
+                        return chooser;
                     }
-                };
+
+                    @Override
+                    protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
+
+                        GeoServerFileChooser chooser = (GeoServerFileChooser) contents;
+                        file = ((File) chooser.getDefaultModelObject()).getAbsolutePath();
+
+                        // clear the raw input of the field won't show the new model
+                        // value
+                        fileField.clearInput();
+                        // fileField.setModelObject(file);
+
+                        target.add(fileField);
+
+                        return true;
+                    }
+
+                    @Override
+                    public void onClose(AjaxRequestTarget target) {
+                        // update the field with the user chosen value
+                        target.add(fileField);
+
+                        doUpdate(target, file);
+                    }
+                });
+            }
+        };
         // otherwise the link won't trigger when the form contents are not valid
         link.setDefaultFormProcessing(false);
         return link;
@@ -227,15 +232,12 @@ public class ResourceFilePanel extends Panel {
             if (file != null) {
                 Resource archiveFile = Files.asResource(file);
                 if (Resources.exists(archiveFile) && archiveFile.getType() != Type.DIRECTORY) {
-                    Resource tmpDir =
-                            BackupUtils.geoServerTmpDir(
-                                    new GeoServerDataDirectory(
-                                            GeoServerApplication.get().getResourceLoader()));
+                    Resource tmpDir = BackupUtils.geoServerTmpDir(new GeoServerDataDirectory(
+                            GeoServerApplication.get().getResourceLoader()));
 
                     try {
                         BackupUtils.extractTo(archiveFile, tmpDir);
-                        Resource brCatalogIndex =
-                                tmpDir.get(AbstractCatalogBackupRestoreTasklet.BR_INDEX_XML);
+                        Resource brCatalogIndex = tmpDir.get(AbstractCatalogBackupRestoreTasklet.BR_INDEX_XML);
                         if (Resources.exists(brCatalogIndex)) {
                             SAXBuilder saxBuilder = new SAXBuilder();
                             Document document = saxBuilder.build(brCatalogIndex.in());
@@ -300,8 +302,7 @@ public class ResourceFilePanel extends Panel {
 
                                                 if (resource == null) {
                                                     resource =
-                                                            catalog.getFactory()
-                                                                    .createFeatureType();
+                                                            catalog.getFactory().createFeatureType();
                                                     store.setWorkspace(workspace);
                                                     resource.setStore(store);
                                                     resource.setName(lyName);
@@ -338,13 +339,18 @@ public class ResourceFilePanel extends Panel {
                             for (Element filter : filtersList.getChildren("Filter")) {
                                 if ("WorkspaceInfo"
                                         .equals(filter.getAttribute("type").getValue())) {
-                                    wsFilter = ECQL.toFilter(filter.getChild("ECQL").getText());
+                                    wsFilter = ECQL.toFilter(
+                                            filter.getChild("ECQL").getText());
                                 }
-                                if ("StoreInfo".equals(filter.getAttribute("type").getValue())) {
-                                    siFilter = ECQL.toFilter(filter.getChild("ECQL").getText());
+                                if ("StoreInfo"
+                                        .equals(filter.getAttribute("type").getValue())) {
+                                    siFilter = ECQL.toFilter(
+                                            filter.getChild("ECQL").getText());
                                 }
-                                if ("LayerInfo".equals(filter.getAttribute("type").getValue())) {
-                                    liFilter = ECQL.toFilter(filter.getChild("ECQL").getText());
+                                if ("LayerInfo"
+                                        .equals(filter.getAttribute("type").getValue())) {
+                                    liFilter = ECQL.toFilter(
+                                            filter.getChild("ECQL").getText());
                                 }
                             }
                         }

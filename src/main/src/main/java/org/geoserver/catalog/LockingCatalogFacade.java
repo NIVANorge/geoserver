@@ -5,6 +5,7 @@
 package org.geoserver.catalog;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import org.geoserver.GeoServerConfigurationLock;
 import org.geoserver.GeoServerConfigurationLock.LockType;
@@ -21,8 +22,7 @@ public class LockingCatalogFacade implements InvocationHandler, WrappingProxy {
     GeoServerConfigurationLock configurationLock;
     CatalogFacade delegate;
 
-    public LockingCatalogFacade(
-            CatalogFacade delegate, GeoServerConfigurationLock configurationLock) {
+    public LockingCatalogFacade(CatalogFacade delegate, GeoServerConfigurationLock configurationLock) {
         this.configurationLock = configurationLock;
         this.delegate = delegate;
     }
@@ -33,26 +33,27 @@ public class LockingCatalogFacade implements InvocationHandler, WrappingProxy {
         if (lockType == LockType.READ && isWriteMethod(method)) {
             configurationLock.tryUpgradeLock();
         }
-        return method.invoke(delegate, args);
+        try {
+            return method.invoke(delegate, args);
+        } catch (InvocationTargetException e) {
+            // preserve the original exception
+            Throwable cause = e.getCause();
+            throw cause;
+        }
     }
 
     private boolean isWriteMethod(Method method) {
         final String name = method.getName();
         // ignoring setCatalog because it does not actually happens during
-        return name.startsWith("set")
-                || name.startsWith("remove")
-                || name.startsWith("add")
-                || name.startsWith("save");
+        return name.startsWith("set") || name.startsWith("remove") || name.startsWith("add") || name.startsWith("save");
     }
 
     /**
-     * Returns a wrapped {@link CatalogFacade} that will upgrade read locks to write before
-     * attempting any write operation
+     * Returns a wrapped {@link CatalogFacade} that will upgrade read locks to write before attempting any write
+     * operation
      */
-    public static CatalogFacade create(
-            CatalogFacade facade, GeoServerConfigurationLock configurationLock) {
-        return ProxyUtils.createProxy(
-                facade, CatalogFacade.class, new LockingCatalogFacade(facade, configurationLock));
+    public static CatalogFacade create(CatalogFacade facade, GeoServerConfigurationLock configurationLock) {
+        return ProxyUtils.createProxy(facade, CatalogFacade.class, new LockingCatalogFacade(facade, configurationLock));
     }
 
     @Override

@@ -16,10 +16,10 @@ import java.util.Iterator;
 import java.util.List;
 import org.apache.wicket.ajax.AjaxRequestHandler;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.geoserver.gwc.GWC;
 import org.geoserver.web.GeoServerWicketTestSupport;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geowebcache.config.BlobStoreInfo;
@@ -94,8 +94,7 @@ public class S3BlobStoresPageTest extends GeoServerWicketTestSupport {
 
         tester.startPage(page);
 
-        GeoServerTablePanel table =
-                (GeoServerTablePanel) tester.getComponentFromLastRenderedPage("storesPanel");
+        GeoServerTablePanel table = (GeoServerTablePanel) tester.getComponentFromLastRenderedPage("storesPanel");
 
         assertEquals(blobStores.size(), table.getDataProvider().size());
         assertTrue(getStoresFromTable(table).contains(dummy1));
@@ -130,8 +129,7 @@ public class S3BlobStoresPageTest extends GeoServerWicketTestSupport {
         BlobStoresPage page = new BlobStoresPage();
         tester.startPage(page);
 
-        GeoServerTablePanel table =
-                (GeoServerTablePanel) tester.getComponentFromLastRenderedPage("storesPanel");
+        GeoServerTablePanel table = (GeoServerTablePanel) tester.getComponentFromLastRenderedPage("storesPanel");
 
         BlobStoreInfo dummy1 = dummyStore1();
         GWC.get().addBlobStore(dummy1);
@@ -142,14 +140,10 @@ public class S3BlobStoresPageTest extends GeoServerWicketTestSupport {
         tester.clickLink("storesPanel:listContainer:sortableLinks:0:header:link", true);
         tester.clickLink("storesPanel:listContainer:sortableLinks:0:header:link", true);
         executeExactAjaxEventBehavior(
-                "storesPanel:listContainer:items:1:selectItemContainer:selectItem",
-                "click",
-                "true");
+                "storesPanel:listContainer:items:1:selectItemContainer:selectItem", "click", "true");
         // select
-        CheckBox selector =
-                ((CheckBox)
-                        tester.getComponentFromLastRenderedPage(
-                                "storesPanel:listContainer:items:1:selectItemContainer:selectItem"));
+        CheckBox selector = (CheckBox) tester.getComponentFromLastRenderedPage(
+                "storesPanel:listContainer:items:1:selectItemContainer:selectItem");
         tester.getRequest().setParameter(selector.getInputName(), "true");
         tester.getRequest().setMethod("get");
         tester.executeAjaxEvent(selector, "click");
@@ -174,15 +168,11 @@ public class S3BlobStoresPageTest extends GeoServerWicketTestSupport {
         tester.clickLink("storesPanel:listContainer:sortableLinks:0:header:link", true);
         tester.clickLink("storesPanel:listContainer:sortableLinks:0:header:link", true);
         executeExactAjaxEventBehavior(
-                "storesPanel:listContainer:items:2:selectItemContainer:selectItem",
-                "click",
-                "true");
+                "storesPanel:listContainer:items:2:selectItemContainer:selectItem", "click", "true");
         // select
         // super.print(page, false, false, true);
-        selector =
-                ((CheckBox)
-                        tester.getComponentFromLastRenderedPage(
-                                "storesPanel:listContainer:items:2:selectItemContainer:selectItem"));
+        selector = ((CheckBox) tester.getComponentFromLastRenderedPage(
+                "storesPanel:listContainer:items:2:selectItemContainer:selectItem"));
         tester.getRequest().setParameter(selector.getInputName(), "true");
         tester.getRequest().setMethod("get");
         tester.executeAjaxEvent(selector, "click");
@@ -191,15 +181,13 @@ public class S3BlobStoresPageTest extends GeoServerWicketTestSupport {
         assertEquals(1, table.getSelection().size());
         assertEquals(dummy1, table.getSelection().get(0));
 
-        ModalWindow w =
-                (ModalWindow) tester.getComponentFromLastRenderedPage("confirmDeleteDialog:dialog");
+        GSModalWindow w = (GSModalWindow) tester.getComponentFromLastRenderedPage("confirmDeleteDialog:dialog");
         assertFalse(w.isShown());
         tester.clickLink("headerPanel:removeSelected", true);
         assertTrue(w.isShown());
 
         // confirm
-        GeoServerDialog dialog =
-                (GeoServerDialog) tester.getComponentFromLastRenderedPage("confirmDeleteDialog");
+        GeoServerDialog dialog = (GeoServerDialog) tester.getComponentFromLastRenderedPage("confirmDeleteDialog");
         dialog.submit(new AjaxRequestHandler(tester.getLastRenderedPage()));
 
         assertFalse(GWC.get().getBlobStores().contains(dummy1));

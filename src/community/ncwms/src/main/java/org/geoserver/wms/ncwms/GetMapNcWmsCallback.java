@@ -9,15 +9,14 @@ import org.geoserver.ows.AbstractDispatcherCallback;
 import org.geoserver.ows.Request;
 import org.geoserver.platform.Service;
 import org.geoserver.platform.ServiceException;
-import org.geoserver.wms.map.GIFMapResponse;
 import org.geoserver.wms.style.PaletteParser;
 import org.geotools.filter.function.EnvFunction;
 import org.geotools.util.Converters;
 import org.geotools.util.NumberRange;
 
 /**
- * Integrates the ncWMS extension parameters into the env approach normally chosen by GeoServer to
- * add dynamic parameters (the ones used by the colormap rendering transformation)
+ * Integrates the ncWMS extension parameters into the env approach normally chosen by GeoServer to add dynamic
+ * parameters (the ones used by the colormap rendering transformation)
  */
 public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
 
@@ -33,13 +32,7 @@ public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
 
     private static String OPACITY = "OPACITY";
 
-    private static String ANIMATION = "ANIMATION";
-
-    private GIFMapResponse gifResponse;
-
-    public GetMapNcWmsCallback(GIFMapResponse gifResponse) {
-        this.gifResponse = gifResponse;
-    }
+    public GetMapNcWmsCallback() {}
 
     /*
      * The choice of serviceDispatcher is not random, it allows the EnvironmentInjectionCallback to setup the env vars in the local map (which happens
@@ -62,13 +55,13 @@ public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
             if ((value == null && str != null && !str.trim().isEmpty())
                     || (value != null && (value < 0 || value > 100))) {
                 throw new ServiceException(
-                        "Expected a int value between 0 and 100 for OPACITY but found '"
-                                + str
-                                + "' instead",
+                        "Expected a int value between 0 and 100 for OPACITY but found '" + str + "' instead",
                         ServiceException.INVALID_PARAMETER_VALUE,
                         "OPACITY");
             }
-            EnvFunction.setLocalValue(PaletteParser.OPACITY, value / 100f);
+            if (value != null) {
+                EnvFunction.setLocalValue(PaletteParser.OPACITY, value / 100f);
+            }
         }
         mapParameter(kvp, rawKvp, NUMCOLORBANDS, PaletteParser.NUMCOLORS, Integer.class);
         mapParameter(kvp, rawKvp, BELOWMINCOLOR, PaletteParser.COLOR_BEFORE, String.class);
@@ -78,16 +71,9 @@ public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
         return service;
     }
 
-    /**
-     * Maps a parameter needing at most a simple type conversion from the kvp map to the env
-     * function
-     */
+    /** Maps a parameter needing at most a simple type conversion from the kvp map to the env function */
     private void mapParameter(
-            Map kvp,
-            Map rawKvp,
-            String ncWmsParameter,
-            String paletteParameter,
-            Class<?> targetClass) {
+            Map kvp, Map rawKvp, String ncWmsParameter, String paletteParameter, Class<?> targetClass) {
         if (kvp.containsKey(ncWmsParameter)) {
             String str = (String) rawKvp.get(ncWmsParameter);
             Object value = Converters.convert(str, targetClass);
@@ -111,8 +97,7 @@ public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
         String[] elements = scaleRangeSpec.split("\\s*,\\s*");
         if (elements.length != 2) {
             throw new ServiceException(
-                    COLORSCALERANGE
-                            + " must be specified as 'min,max' where min and max are numbers",
+                    COLORSCALERANGE + " must be specified as 'min,max' where min and max are numbers",
                     ServiceException.INVALID_PARAMETER_VALUE,
                     COLORSCALERANGE);
         }
@@ -126,9 +111,7 @@ public class GetMapNcWmsCallback extends AbstractDispatcherCallback {
             return Double.parseDouble(element);
         } catch (NumberFormatException e) {
             throw new ServiceException(
-                    "Expected a number but got '" + element + "'",
-                    ServiceException.INVALID_PARAMETER_VALUE,
-                    locator);
+                    "Expected a number but got '" + element + "'", ServiceException.INVALID_PARAMETER_VALUE, locator);
         }
     }
 }

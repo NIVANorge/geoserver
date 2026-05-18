@@ -11,6 +11,10 @@ import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.ProjectionPolicy;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.test.GeoServerSystemTestSupport;
+import org.geoserver.wcs.CoverageCleanerCallback;
+import org.geotools.api.referencing.datum.PixelInCell;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridEnvelope2D;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
@@ -20,8 +24,6 @@ import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.geotools.referencing.operation.transform.AffineTransform2D;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.referencing.datum.PixelInCell;
-import org.opengis.referencing.operation.MathTransform;
 
 public class WCSUtilsTest extends GeoServerSystemTestSupport {
 
@@ -45,8 +47,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         // [(144.999999999998, -42.999999999986805), (145.9999999999976,-40.99999999998761)]
         // resolution is 0.00833333333333
         // set a native envelope containing the native one
-        ReferencedEnvelope configured =
-                new ReferencedEnvelope(144.96, 146.06, -43.1, -40.9, ci.getCRS());
+        ReferencedEnvelope configured = new ReferencedEnvelope(144.96, 146.06, -43.1, -40.9, ci.getCRS());
         ci.setNativeBoundingBox(configured);
         getCatalog().save(ci);
         GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
@@ -66,8 +67,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         // [(144.999999999998, -42.999999999986805), (145.9999999999976,-40.99999999998761)]
         // resolution is 0.00833333333333
         // set a native envelope smaller than native
-        ReferencedEnvelope configured =
-                new ReferencedEnvelope(145.07, 145.93, -42.92, -41.06, ci.getCRS());
+        ReferencedEnvelope configured = new ReferencedEnvelope(145.07, 145.93, -42.92, -41.06, ci.getCRS());
         ci.setNativeBoundingBox(configured);
         getCatalog().save(ci);
         GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
@@ -86,8 +86,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         // [(144.999999999998, -42.999999999986805), (145.9999999999976,-40.99999999998761)]
         // resolution is 0.00833333333333
         // set a native envelope that's smaller than a pixel
-        ReferencedEnvelope configured =
-                new ReferencedEnvelope(145, 145.001, -43, -42.999, ci.getCRS());
+        ReferencedEnvelope configured = new ReferencedEnvelope(145, 145.001, -43, -42.999, ci.getCRS());
         ci.setNativeBoundingBox(configured);
         getCatalog().save(ci);
         GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
@@ -104,8 +103,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
     public void fitGridGeometry() throws Exception {
         CoverageInfo ci = getCatalog().getCoverageByName(getLayerId(SystemTestData.TASMANIA_DEM));
         // same config as fitEnvelopeTooSmall, makes for an easy grid geometry
-        ReferencedEnvelope configured =
-                new ReferencedEnvelope(145, 145.001, -43, -42.999, ci.getCRS());
+        ReferencedEnvelope configured = new ReferencedEnvelope(145, 145.001, -43, -42.999, ci.getCRS());
         ci.setNativeBoundingBox(configured);
         getCatalog().save(ci);
         GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
@@ -127,8 +125,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
     @Test
     public void fitGridGeometryRotated() throws Exception {
         CoverageInfo ci = getCatalog().getCoverageByName(getLayerId(SystemTestData.ROTATED_CAD));
-        ci.setNativeBoundingBox(
-                new ReferencedEnvelope(1402800, 1402900, 5000000, 5000100, ci.getNativeCRS()));
+        ci.setNativeBoundingBox(new ReferencedEnvelope(1402800, 1402900, 5000000, 5000100, ci.getNativeCRS()));
         getCatalog().save(ci);
 
         GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
@@ -152,9 +149,9 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         ci.setSRS("EPSG:3857");
         ci.setProjectionPolicy(ProjectionPolicy.REPROJECT_TO_DECLARED);
         ReferencedEnvelope forcedEnvelope =
-                new ReferencedEnvelope(
-                        16141326, 16252645, -5311971, -5012341, CRS.decode("EPSG:3857"));
+                new ReferencedEnvelope(16141326, 16252645, -5311971, -5012341, CRS.decode("EPSG:3857"));
         ci.setNativeBoundingBox(forcedEnvelope);
+        ci.setNativeCRS(CRS.decode("EPSG:3857"));
         getCatalog().save(ci);
 
         // no envelope fitting in case of reprojection, the declared one is forced
@@ -169,8 +166,7 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         assertEquals(-5012341, fg2w.getTranslateY(), 1d);
 
         // Scale factors: for comparison let's build a diagonal segment at the source of the data
-        MathTransform mt =
-                CRS.findMathTransform(DefaultGeographicCRS.WGS84, CRS.decode("EPSG:3857"));
+        MathTransform mt = CRS.findMathTransform(DefaultGeographicCRS.WGS84, CRS.decode("EPSG:3857"));
         double nativeRes = 0.00833333333333;
         double[] points = {145, -41, 145 + nativeRes, -41 + nativeRes};
         mt.transform(points, 0, points, 0, 2);
@@ -178,5 +174,46 @@ public class WCSUtilsTest extends GeoServerSystemTestSupport {
         // (WCSUtils uses the full coverage extent so we need a sizeable tolerance)
         assertEquals(points[2] - points[0], fg2w.getScaleX(), 20d);
         assertEquals(points[3] - points[1], -fg2w.getScaleY(), 20d);
+    }
+
+    @Test
+    public void testGridSize() throws IOException {
+        CoverageInfo ci = getCatalog().getCoverageByName(getLayerId(SystemTestData.TASMANIA_DEM));
+        GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
+        GridCoverage2D coverage = reader.read();
+        try {
+            long size = WCSUtils.getReadCoverageSize(coverage);
+            long expected = 120 * 240 * 2; // w * h * pixel size
+            assertEquals(expected, size);
+        } finally {
+            CoverageCleanerCallback.disposeCoverage(coverage);
+        }
+    }
+
+    @Test
+    public void testGridSizeCropped() throws IOException {
+        CoverageInfo ci = getCatalog().getCoverageByName(getLayerId(SystemTestData.TASMANIA_DEM));
+        GridCoverage2DReader reader = (GridCoverage2DReader) ci.getGridCoverageReader(null, null);
+        GridCoverage2D coverage = reader.read();
+        ReferencedEnvelope envelope = coverage.getEnvelope2D();
+        double cropWidth = envelope.getWidth() / 4;
+        // image is 120x240, with tiles that are 120x34. Crop so that we get part of the tile width
+        // and one full tile height, plus a residual that forces loading a second tile
+        GridCoverage2D cropped = WCSUtils.crop(
+                coverage,
+                new ReferencedEnvelope(
+                        envelope.getCenterX() - cropWidth,
+                        envelope.getCenterX() + cropWidth,
+                        envelope.getMaxY(), // from the top, raster start there
+                        envelope.getMaxY() - envelope.getHeight() * 50d / 240d,
+                        ci.getCRS()));
+        try {
+            long size = WCSUtils.getReadCoverageSize(cropped);
+            long expected = 120 * (34 * 2) * 2; // w * h * pixel size
+            assertEquals(expected, size);
+        } finally {
+            CoverageCleanerCallback.disposeCoverage(cropped);
+            CoverageCleanerCallback.disposeCoverage(coverage);
+        }
     }
 }

@@ -6,18 +6,24 @@
 
 package org.geoserver.security.filter;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.security.config.RequestHeaderAuthenticationFilterConfig;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 
 /**
- * J2EE Authentication Filter
+ * Request header Authentication Filter
  *
  * @author mcr
  */
-public class GeoServerRequestHeaderAuthenticationFilter
-        extends GeoServerPreAuthenticatedUserNameFilter {
+public class GeoServerRequestHeaderAuthenticationFilter extends GeoServerPreAuthenticatedUserNameFilter {
 
     private String principalHeaderAttribute;
 
@@ -33,9 +39,24 @@ public class GeoServerRequestHeaderAuthenticationFilter
     public void initializeFromConfig(SecurityNamedServiceConfig config) throws IOException {
         super.initializeFromConfig(config);
 
-        RequestHeaderAuthenticationFilterConfig authConfig =
-                (RequestHeaderAuthenticationFilterConfig) config;
+        RequestHeaderAuthenticationFilterConfig authConfig = (RequestHeaderAuthenticationFilterConfig) config;
         setPrincipalHeaderAttribute(authConfig.getPrincipalHeaderAttribute());
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        String principalName = getPreAuthenticatedPrincipalName((HttpServletRequest) request);
+        Authentication preAuth = SecurityContextHolder.getContext().getAuthentication();
+        // If a pre-auth token exists but the request has no principal name anymore
+        // or differs from the one being sent in the headers, clear the
+        // security context, or else the user will remain authenticated.
+        if (preAuth instanceof PreAuthenticatedAuthenticationToken
+                && ((null == principalName)
+                        || (!principalName.equals(preAuth.getPrincipal().toString())))) {
+            SecurityContextHolder.clearContext();
+        }
+        super.doFilter(request, response, chain);
     }
 
     @Override

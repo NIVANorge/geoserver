@@ -3,23 +3,17 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
     xmlns:wicket="http://wicket.apache.org/">
 <wicket:head>
- <style type="text/css">
-   label {
-     float:left;
-     padding-left:0.5em;
-   }
- </style>
 </wicket:head>
 <body>
 <wicket:extend>
-    <ul>
-      <li>
+    <div class="gs-unordered-list-class">
+      <div class="gs-list-item-class">
         <div wicket:id="users"></div>
-      </li>
-      <li>
+      </div>
+      <div class="gs-list-item-class">
         <div wicket:id="groups"></div>
-      </li>
-    </ul>
+      </div>
+    </div>
 </wicket:extend>
 </body>
 </html>

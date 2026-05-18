@@ -6,6 +6,7 @@
 package org.geoserver.gwc.web;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.wicket.AttributeModifier;
@@ -19,16 +20,15 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.ResourceModel;
 import org.apache.wicket.model.StringResourceModel;
-import org.geoserver.gwc.ConfigurableBlobStore;
 import org.geoserver.gwc.GWC;
 import org.geoserver.gwc.config.GWCConfig;
-import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.web.GeoServerSecuredPage;
 import org.geoserver.web.GeoserverAjaxSubmitLink;
 import org.geoserver.web.wicket.GeoServerAjaxFormLink;
 import org.geotools.image.io.ImageIOExt;
 import org.geotools.util.logging.Logging;
 
+// TODO WICKET8 - Verify this page works OK
 public class GWCSettingsPage extends GeoServerSecuredPage {
 
     private static final Logger LOGGER = Logging.getLogger(GWCSettingsPage.class);
@@ -45,33 +45,32 @@ public class GWCSettingsPage extends GeoServerSecuredPage {
         final Form<GWCConfig> form = new Form<>("form", formModel);
         add(form);
 
-        final GWCServicesPanel gwcServicesPanel =
-                new GWCServicesPanel("gwcServicesPanel", formModel);
+        final GWCServicesPanel gwcServicesPanel = new GWCServicesPanel("gwcServicesPanel", formModel);
         final CachingOptionsPanel defaultCachingOptionsPanel =
                 new CachingOptionsPanel("cachingOptionsPanel", formModel);
 
         form.add(gwcServicesPanel);
         form.add(defaultCachingOptionsPanel);
 
-        form.add(
-                new Button("submit") {
-                    private static final long serialVersionUID = 1L;
+        form.add(new Button("submit") {
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @Override
-                    public void onSubmit() {
-                        save(form, true);
-                    }
-                });
+            @Override
+            public void onSubmit() {
+                save(form, true);
+            }
+        });
         form.add(applyLink(form));
-        form.add(
-                new GeoServerAjaxFormLink("cancel") {
-                    private static final long serialVersionUID = 1L;
+        form.add(new GeoServerAjaxFormLink("cancel") {
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @Override
-                    protected void onClick(AjaxRequestTarget target, Form form) {
-                        doReturn();
-                    }
-                });
+            @Override
+            protected void onClick(AjaxRequestTarget target, Form form) {
+                doReturn();
+            }
+        });
 
         checkWarnings();
     }
@@ -87,12 +86,7 @@ public class GWCSettingsPage extends GeoServerSecuredPage {
             form.error("Error saving GWC config: " + e.getMessage());
             return;
         }
-        // Update ConfigurableBlobStore
-        ConfigurableBlobStore blobstore = GeoServerExtensions.bean(ConfigurableBlobStore.class);
-        if (blobstore != null) {
-            blobstore.setChanged(gwcConfig, false);
-        }
-        // Do return
+
         if (doReturn) doReturn();
     }
 
@@ -100,13 +94,13 @@ public class GWCSettingsPage extends GeoServerSecuredPage {
         return new GeoserverAjaxSubmitLink("apply", form, this) {
 
             @Override
-            protected void onError(AjaxRequestTarget target, Form form) {
-                super.onError(target, form);
+            protected void onError(AjaxRequestTarget target) {
+                super.onError(target);
                 target.add(form);
             }
 
             @Override
-            protected void onSubmitInternal(AjaxRequestTarget target, Form<?> form) {
+            protected void onSubmitInternal(AjaxRequestTarget target) {
                 try {
                     @SuppressWarnings("unchecked")
                     Form<GWCConfig> cast = (Form<GWCConfig>) form;
@@ -122,8 +116,7 @@ public class GWCSettingsPage extends GeoServerSecuredPage {
     private void checkWarnings() {
         Long imageIOFileCachingThreshold = ImageIOExt.getFilesystemThreshold();
         if (null == imageIOFileCachingThreshold || 0L >= imageIOFileCachingThreshold.longValue()) {
-            String warningMsg =
-                    new ResourceModel("GWC.ImageIOFileCachingThresholdUnsetWarning").getObject();
+            String warningMsg = new ResourceModel("GWC.ImageIOFileCachingThresholdUnsetWarning").getObject();
             super.warn(warningMsg);
         }
     }

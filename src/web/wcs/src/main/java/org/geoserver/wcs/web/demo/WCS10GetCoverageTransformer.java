@@ -8,6 +8,7 @@ package org.geoserver.wcs.web.demo;
 import java.util.logging.Logger;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CoverageInfo;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.grid.GridEnvelope2D;
 import org.geotools.filter.v1_0.OGC;
 import org.geotools.geometry.jts.ReferencedEnvelope;
@@ -17,7 +18,6 @@ import org.geotools.referencing.CRS;
 import org.geotools.util.logging.Logging;
 import org.geotools.xml.transform.TransformerBase;
 import org.geotools.xml.transform.Translator;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.helpers.AttributesImpl;
 
@@ -63,24 +63,23 @@ class WCS10GetCoverageTransformer extends TransformerBase {
         }
 
         private void encode(GetCoverageRequest request) {
-            AttributesImpl attributes =
-                    attributes(
-                            "version",
-                            "1.0.0",
-                            "service",
-                            "WCS",
-                            "xmlns:xsi",
-                            XSI_URI,
-                            "xmlns",
-                            WCS_URI,
-                            "xmlns:ows",
-                            OWS.NAMESPACE,
-                            "xmlns:gml",
-                            GML.NAMESPACE,
-                            "xmlns:ogc",
-                            OGC.NAMESPACE,
-                            "xsi:schemaLocation",
-                            WCS_URI + " " + "http://schemas.opengis.net/wcs/1.0.0/getCoverage.xsd");
+            AttributesImpl attributes = attributes(
+                    "version",
+                    "1.0.0",
+                    "service",
+                    "WCS",
+                    "xmlns:xsi",
+                    XSI_URI,
+                    "xmlns",
+                    WCS_URI,
+                    "xmlns:ows",
+                    OWS.NAMESPACE,
+                    "xmlns:gml",
+                    GML.NAMESPACE,
+                    "xmlns:ogc",
+                    OGC.NAMESPACE,
+                    "xsi:schemaLocation",
+                    WCS_URI + " " + "http://schemas.opengis.net/wcs/1.0.0/getCoverage.xsd");
 
             start("GetCoverage", attributes);
             element("sourceCoverage", request.coverage);

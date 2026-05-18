@@ -6,22 +6,19 @@ package org.geoserver.featurestemplating.expressions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.ows.Request;
 import org.geoserver.ows.util.ResponseUtils;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
 
 /** Check if the current {@link Request} matches the regex passed as an argument of the Function. */
 public class RequestMatchRegex extends RequestFunction {
 
-    public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "requestMatchRegex",
-                    parameter("result", Boolean.class),
-                    parameter("regex", String.class));
+    public static FunctionName NAME = new FunctionNameImpl(
+            "requestMatchRegex", parameter("result", Boolean.class), parameter("regex", String.class));
 
     public RequestMatchRegex() {
         super(NAME);

@@ -6,6 +6,7 @@ package org.geoserver.wms.style;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.awt.Color;
 import java.io.IOException;
@@ -13,21 +14,18 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.List;
 import javax.xml.transform.TransformerException;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.style.FeatureTypeStyle;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.filter.function.EnvFunction;
-import org.geotools.styling.FeatureTypeStyle;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyledLayerDescriptor;
 import org.geotools.xml.styling.SLDTransformer;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Function;
 
 public class PaletteParserTest {
-    @Rule public ExpectedException exception = ExpectedException.none();
 
     PaletteParser parser = new PaletteParser();
 
@@ -74,11 +72,13 @@ public class PaletteParserTest {
 
     @Test
     public void testErrorMessage() throws IOException {
-        // we expect to get a error message pointing at the invalid color
-        exception.expect(PaletteParser.InvalidColorException.class);
-        exception.expectMessage(
-                "Invalid color 'abcde', supported syntaxes are #RRGGBB, 0xRRGGBB, #AARRGGBB and 0xAARRGGBB");
-        parser.parseColorMap(toReader("#FF0000\nabcde\n#000000"));
+        PaletteParser.InvalidColorException ex = assertThrows(
+                PaletteParser.InvalidColorException.class,
+                () -> parser.parseColorMap(toReader("#FF0000\nabcde\n#000000")));
+
+        assertEquals(
+                "Invalid color 'abcde', supported syntaxes are #RRGGBB, 0xRRGGBB, #AARRGGBB and 0xAARRGGBB",
+                ex.getMessage());
     }
 
     @Test
@@ -97,8 +97,7 @@ public class PaletteParserTest {
                 cm.getParameters().get(0).evaluate(null));
     }
 
-    static Function assertDynamicColorColormap(StyledLayerDescriptor sld)
-            throws TransformerException {
+    static Function assertDynamicColorColormap(StyledLayerDescriptor sld) throws TransformerException {
         // logStyle(sld);
         NamedLayer layer = (NamedLayer) sld.getStyledLayers()[0];
         Style style = layer.getStyles()[0];

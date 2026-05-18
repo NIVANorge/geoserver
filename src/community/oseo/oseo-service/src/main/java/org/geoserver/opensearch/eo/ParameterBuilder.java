@@ -7,7 +7,7 @@ package org.geoserver.opensearch.eo;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
 
 /**
  * Simple helper to build {@link Parameter} objects
@@ -65,15 +65,7 @@ class ParameterBuilder {
             metadata.put(OpenSearchParameters.MAX_INCLUSIVE, max);
         }
         return new Parameter<>(
-                key,
-                type,
-                null,
-                null,
-                required,
-                required ? 1 : 0,
-                1,
-                null,
-                Collections.unmodifiableMap(metadata));
+                key, type, null, null, required, required ? 1 : 0, 1, null, Collections.unmodifiableMap(metadata));
     }
 
     public ParameterBuilder minimumInclusive(int min) {

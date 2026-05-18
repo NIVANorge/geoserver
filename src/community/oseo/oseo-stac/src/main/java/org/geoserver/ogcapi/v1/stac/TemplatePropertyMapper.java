@@ -14,17 +14,17 @@ import java.util.Set;
 import java.util.logging.Logger;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.opensearch.eo.OSEOInfo;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.visitor.SimplifyingFilterVisitor;
 import org.geotools.util.logging.Logging;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Expression;
 
 class TemplatePropertyMapper {
 
     static final Logger LOGGER = Logging.getLogger(TemplatePropertyMapper.class);
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
     private final STACTemplates templates;
     private final SampleFeatures sampleFeatures;
     private final CollectionsCache collectionsCache;
@@ -42,8 +42,8 @@ class TemplatePropertyMapper {
     }
 
     /**
-     * Back maps STAC properties used in the filter to the underlying data model, using expressions
-     * found in the JSON template.
+     * Back maps STAC properties used in the filter to the underlying data model, using expressions found in the JSON
+     * template.
      */
     public Filter mapProperties(List<String> collectionIds, Filter filter) throws IOException {
         Filter result = mapPropertiesInternal(collectionIds, filter);
@@ -51,8 +51,7 @@ class TemplatePropertyMapper {
         return SimplifyingFilterVisitor.simplify(result);
     }
 
-    private Filter mapPropertiesInternal(List<String> collectionIds, Filter filter)
-            throws IOException {
+    private Filter mapPropertiesInternal(List<String> collectionIds, Filter filter) throws IOException {
         // do we have custom templates, and if so, for which collections?
         Set<String> customTemplateCollections = templates.getCustomItemTemplates();
         if (customTemplateCollections.isEmpty()) {
@@ -79,8 +78,8 @@ class TemplatePropertyMapper {
     }
 
     /**
-     * Handles different filters for different collections, plus at least one case that contains the
-     * default collection, which can be handled as a default
+     * Handles different filters for different collections, plus at least one case that contains the default collection,
+     * which can be handled as a default
      */
     private List<Filter> mergeFilters(Map<Filter, List<String>> collectionFilters) {
         Filter defaultFilter = null;
@@ -89,7 +88,7 @@ class TemplatePropertyMapper {
         for (Map.Entry<Filter, List<String>> entry : collectionFilters.entrySet()) {
             Filter filter = entry.getKey();
             List<String> collections = entry.getValue();
-            if (collections.contains(null)) {
+            if (collections.contains((String) null)) {
                 // these use the default filter, will have to be encoded at the end
                 defaultFilter = filter;
             } else {
@@ -106,20 +105,14 @@ class TemplatePropertyMapper {
         return filters;
     }
 
-    /**
-     * Grab the builder for each collection (might be different) and back-map collectionFilters on
-     * it
-     */
-    private Map<Filter, List<String>> mapFilters(List<String> collectionIds, Filter result)
-            throws IOException {
+    /** Grab the builder for each collection (might be different) and back-map collectionFilters on it */
+    private Map<Filter, List<String>> mapFilters(List<String> collectionIds, Filter result) throws IOException {
         Map<RootBuilder, Filter> filtersCache = new LinkedHashMap<>();
         Map<Filter, List<String>> collectionFilters = new LinkedHashMap<>();
         for (String collectionId : collectionIds) {
             RootBuilder template = templates.getItemTemplate(collectionId);
-            Filter filter =
-                    filtersCache.computeIfAbsent(template, t -> mapFilter(result, t, collectionId));
-            List<String> filterCollections =
-                    collectionFilters.computeIfAbsent(filter, c -> new ArrayList<>());
+            Filter filter = filtersCache.computeIfAbsent(template, t -> mapFilter(result, t, collectionId));
+            List<String> filterCollections = collectionFilters.computeIfAbsent(filter, c -> new ArrayList<>());
             filterCollections.add(collectionId);
         }
         return collectionFilters;
@@ -127,23 +120,20 @@ class TemplatePropertyMapper {
 
     private Filter mapFilter(Filter source, RootBuilder t, String collectionId) {
         try {
-            STACQueryablesBuilder builder =
-                    new STACQueryablesBuilder(
-                            null,
-                            t,
-                            sampleFeatures.getSchema(),
-                            sampleFeatures.getSample(collectionId),
-                            collectionsCache.getCollection(collectionId),
-                            oseoInfo);
+            STACQueryablesBuilder builder = new STACQueryablesBuilder(
+                    null,
+                    t,
+                    sampleFeatures.getSchema(),
+                    sampleFeatures.getSample(collectionId),
+                    collectionsCache.getCollection(collectionId),
+                    oseoInfo);
             Map<String, Expression> expressions = builder.getExpressionMap();
             Set<String> queryables = builder.getQueryables().getProperties().keySet();
             Set<String> notIncluded = new HashSet<>();
             STACPathVisitor visitor = new STACPathVisitor(expressions, queryables, notIncluded);
             Filter out = (Filter) source.accept(visitor, null);
             if (!notIncluded.isEmpty()) {
-                LOGGER.fine(
-                        "Filter includes attribute not found in queryables configuration: "
-                                + notIncluded);
+                LOGGER.fine("Filter includes attribute not found in queryables configuration: " + notIncluded);
             }
             return out;
         } catch (IOException e) {

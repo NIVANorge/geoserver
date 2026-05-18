@@ -23,28 +23,29 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONException;
-import net.sf.json.JSONObject;
 import org.custommonkey.xmlunit.XpathEngine;
 import org.geoserver.catalog.FeatureTypeInfo;
-import org.geotools.data.DataAccess;
-import org.geotools.data.FeatureSource;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.type.Name;
 import org.geotools.data.complex.AppSchemaDataAccess;
 import org.geotools.feature.NameImpl;
 import org.geotools.jdbc.JDBCFeatureStore;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.type.Name;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONException;
+import org.kordamp.json.JSONObject;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Contains tests related with JDBC multiple values support. */
 public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSupport {
@@ -56,25 +57,23 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
     @Before
     public void beforeTest() {
         // instantiate WFS 1.1 xpath engine
-        WFS11_XPATH_ENGINE =
-                StationsMockData.buildXpathEngine(
-                        getTestData().getNamespaces(),
-                        "ows",
-                        "http://www.opengis.net/ows",
-                        "wfs",
-                        "http://www.opengis.net/wfs",
-                        "gml",
-                        "http://www.opengis.net/gml");
+        WFS11_XPATH_ENGINE = StationsMockData.buildXpathEngine(
+                getTestData().getNamespaces(),
+                "ows",
+                "http://www.opengis.net/ows",
+                "wfs",
+                "http://www.opengis.net/wfs",
+                "gml",
+                "http://www.opengis.net/gml");
         // instantiate WFS 2.0 xpath engine
-        WFS20_XPATH_ENGINE =
-                StationsMockData.buildXpathEngine(
-                        getTestData().getNamespaces(),
-                        "ows",
-                        "http://www.opengis.net/ows/1.1",
-                        "wfs",
-                        "http://www.opengis.net/wfs/2.0",
-                        "gml",
-                        "http://www.opengis.net/gml/3.2");
+        WFS20_XPATH_ENGINE = StationsMockData.buildXpathEngine(
+                getTestData().getNamespaces(),
+                "ows",
+                "http://www.opengis.net/ows/1.1",
+                "wfs",
+                "http://www.opengis.net/wfs/2.0",
+                "gml",
+                "http://www.opengis.net/gml/3.2");
     }
 
     @Override
@@ -99,8 +98,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
             gml31Parameters.put("GML_PREFIX", "gml31");
             gml31Parameters.put("GML_PREFIX_UPPER", "GML31");
             gml31Parameters.put("GML_NAMESPACE", "http://www.opengis.net/gml");
-            gml31Parameters.put(
-                    "GML_LOCATION", "http://schemas.opengis.net/gml/3.1.1/base/gml.xsd");
+            gml31Parameters.put("GML_LOCATION", "http://schemas.opengis.net/gml/3.1.1/base/gml.xsd");
             addAppSchemaFeatureType(
                     STATIONS_PREFIX_GML31,
                     "gml31",
@@ -149,11 +147,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         String request = "wfs?request=GetFeature&version=1.1.0&typename=st_gml31:Station_gml31";
         Document document = getAsDOM(request);
         // check that we have two complex features
-        checkCount(
-                WFS11_XPATH_ENGINE,
-                document,
-                3,
-                "/wfs:FeatureCollection/gml:featureMember/st_gml31:Station_gml31");
+        checkCount(WFS11_XPATH_ENGINE, document, 3, "/wfs:FeatureCollection/gml:featureMember/st_gml31:Station_gml31");
         // check that the expected stations and measurements are present
         checkStation1Gml31(document);
         checkStation2Gml31(document);
@@ -168,9 +162,8 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
             return;
         }
         // execute the WFS 1.1.0 request
-        String request =
-                "wfs?request=GetFeature&version=1.1.0&typename=st_gml31:Station_gml31"
-                        + "&outputFormat=application/json";
+        String request = "wfs?request=GetFeature&version=1.1.0&typename=st_gml31:Station_gml31"
+                + "&outputFormat=application/json";
         JSONObject json = (JSONObject) getAsJSON(request);
         JSONArray features = json.getJSONArray("features");
         assertEquals(3, features.size());
@@ -249,11 +242,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         String request = "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32";
         Document document = getAsDOM(request);
         // check that we have two complex features
-        checkCount(
-                WFS20_XPATH_ENGINE,
-                document,
-                3,
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
+        checkCount(WFS20_XPATH_ENGINE, document, 3, "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
 
         // check that the expected stations and measurements are present
         checkStation1Gml32(document);
@@ -270,8 +259,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 2.0 request
         String request =
-                "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32"
-                        + "&outputFormat=application/json";
+                "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32" + "&outputFormat=application/json";
         JSONObject json = (JSONObject) getAsJSON(request);
         JSONArray features = json.getJSONArray("features");
         assertEquals(3, features.size());
@@ -296,8 +284,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 2.0 request
         String request =
-                "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32"
-                        + "&outputFormat=application/json";
+                "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32" + "&outputFormat=application/json";
         MockHttpServletResponse response = getAsServletResponse(request);
 
         String content = response.getContentAsString();
@@ -305,11 +292,12 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
     }
 
     private void validateJsonOutput(String jsonString) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+        ObjectMapper objectMapper = JsonMapper.builder()
+                .enable(StreamWriteFeature.STRICT_DUPLICATE_DETECTION)
+                .build();
         try {
             objectMapper.readTree(jsonString);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Json format is not valid", e);
         }
     }
@@ -323,11 +311,8 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 1.1.0 request
         String request = "wfs";
-        Document document =
-                postAsDOM(
-                        request,
-                        readResource(
-                                "/test-data/stations/multiValues/requests/station_tag_filter_wfs11_1.xml"));
+        Document document = postAsDOM(
+                request, readResource("/test-data/stations/multiValues/requests/station_tag_filter_wfs11_1.xml"));
         // check that we got he correct station
         checkStation1Gml31(document);
     }
@@ -341,11 +326,8 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 2.0 request
         String request = "wfs";
-        Document document =
-                postAsDOM(
-                        request,
-                        readResource(
-                                "/test-data/stations/multiValues/requests/station_tag_filter_wfs20_1.xml"));
+        Document document = postAsDOM(
+                request, readResource("/test-data/stations/multiValues/requests/station_tag_filter_wfs20_1.xml"));
         // check that we got he correct station
         checkStation1Gml32(document);
     }
@@ -359,11 +341,8 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 2.0 request
         String request = "wfs";
-        Document document =
-                postAsDOM(
-                        request,
-                        readResource(
-                                "/test-data/stations/multiValues/requests/station_tag_code_filter_wfs20.xml"));
+        Document document = postAsDOM(
+                request, readResource("/test-data/stations/multiValues/requests/station_tag_code_filter_wfs20.xml"));
         // check that we got he correct station
         checkStation1Gml32(document);
     }
@@ -377,11 +356,8 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         }
         // execute the WFS 1.1.0 request
         String request = "wfs";
-        Document document =
-                postAsDOM(
-                        request,
-                        readResource(
-                                "/test-data/stations/multiValues/requests/station_tag_code_filter_wfs11.xml"));
+        Document document = postAsDOM(
+                request, readResource("/test-data/stations/multiValues/requests/station_tag_code_filter_wfs11.xml"));
         // check that we got he correct station
         checkStation1Gml31(document);
     }
@@ -482,8 +458,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
 
     /** Helper method that checks that station 3 is present in the provided document. */
     private void checkStation3Gml31(Document document) {
-        String stationPath =
-                "/wfs:FeatureCollection/gml:featureMember/st_gml31:Station_gml31[@gml:id='st.3']";
+        String stationPath = "/wfs:FeatureCollection/gml:featureMember/st_gml31:Station_gml31[@gml:id='st.3']";
         // check station exists
         checkCount(WFS11_XPATH_ENGINE, document, 1, stationPath);
         // check stations tags
@@ -493,16 +468,12 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
                 WFS11_XPATH_ENGINE,
                 document,
                 1,
-                stationPath
-                        + "/st_gml31:measurements/ms_gml31:Measurement_gml31"
-                        + "[@gml:id='ms.4']");
+                stationPath + "/st_gml31:measurements/ms_gml31:Measurement_gml31" + "[@gml:id='ms.4']");
         checkCount(
                 WFS11_XPATH_ENGINE,
                 document,
                 0,
-                stationPath
-                        + "/st_gml31:measurements/ms_gml31:Measurement_gml31"
-                        + "[@gml:id='ms.4']/ms_gml31:tag");
+                stationPath + "/st_gml31:measurements/ms_gml31:Measurement_gml31" + "[@gml:id='ms.4']/ms_gml31:tag");
     }
 
     /** Helper method that checks that station 1 is present in the provided document. */
@@ -610,8 +581,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
 
     /** Helper method that checks that station 3 is present in the provided document. */
     private void checkStation3Gml32(Document document) {
-        final String stationPath =
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32[@gml:id='st.3']";
+        final String stationPath = "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32[@gml:id='st.3']";
         // check station exists
         checkCount(WFS20_XPATH_ENGINE, document, 1, stationPath);
         // check stations tags
@@ -621,28 +591,21 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
                 WFS20_XPATH_ENGINE,
                 document,
                 1,
-                stationPath
-                        + "/st_gml32:measurements/ms_gml32:Measurement_gml32"
-                        + "[@gml:id='ms.4']");
+                stationPath + "/st_gml32:measurements/ms_gml32:Measurement_gml32" + "[@gml:id='ms.4']");
         checkCount(
                 WFS20_XPATH_ENGINE,
                 document,
                 0,
-                stationPath
-                        + "/st_gml32:measurements/ms_gml32:Measurement_gml32"
-                        + "[@gml:id='ms.4']/ms_gml32:tag");
+                stationPath + "/st_gml32:measurements/ms_gml32:Measurement_gml32" + "[@gml:id='ms.4']/ms_gml32:tag");
     }
 
     /**
-     * Helper method that evaluates a xpath and checks if the number of nodes found correspond to
-     * the expected number,
+     * Helper method that evaluates a xpath and checks if the number of nodes found correspond to the expected number,
      */
-    private void checkCount(
-            XpathEngine xpathEngine, Document document, int expectedCount, String xpath) {
+    private void checkCount(XpathEngine xpathEngine, Document document, int expectedCount, String xpath) {
         try {
             // evaluate the xpath and compare the number of nodes found
-            assertThat(
-                    xpathEngine.getMatchingNodes(xpath, document).getLength(), is(expectedCount));
+            assertThat(xpathEngine.getMatchingNodes(xpath, document).getLength(), is(expectedCount));
         } catch (Exception exception) {
             throw new RuntimeException("Error evaluating xpath.", exception);
         }
@@ -677,11 +640,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         String request = "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32";
         Document document = getAsDOM(request);
         // check that we have two complex features
-        checkCount(
-                WFS20_XPATH_ENGINE,
-                document,
-                3,
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
+        checkCount(WFS20_XPATH_ENGINE, document, 3, "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
         // check that the expected stations and measurements are present
         checkCount(
                 WFS20_XPATH_ENGINE,
@@ -714,22 +673,16 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
             // not a JDBC online test
             return;
         }
-        String request =
-                "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32"
-                        + "&cql_filter=st_gml32:info.\"@xlink:title\"='ST2'";
+        String request = "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32"
+                + "&cql_filter=st_gml32:info.\"@xlink:title\"='ST2'";
         Document document = getAsDOM(request);
         // check that we have two complex features
+        checkCount(WFS20_XPATH_ENGINE, document, 1, "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
         checkCount(
                 WFS20_XPATH_ENGINE,
                 document,
                 1,
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
-        checkCount(
-                WFS20_XPATH_ENGINE,
-                document,
-                1,
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32/st_gml32:info"
-                        + "[@xlink:title='ST2']");
+                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32/st_gml32:info" + "[@xlink:title='ST2']");
     }
 
     @Test
@@ -745,11 +698,7 @@ public final class NormalizedMultiValuesTest extends AbstractAppSchemaTestSuppor
         String request = "wfs?request=GetFeature&version=2.0&typename=st_gml32:Station_gml32";
         Document document = getAsDOM(request);
         // check that we have two complex features
-        checkCount(
-                WFS20_XPATH_ENGINE,
-                document,
-                3,
-                "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
+        checkCount(WFS20_XPATH_ENGINE, document, 3, "/wfs:FeatureCollection/wfs:member/st_gml32:Station_gml32");
         // check that the expected stations and measurements are present
         checkCount(
                 WFS20_XPATH_ENGINE,

@@ -14,13 +14,13 @@ import org.eclipse.emf.ecore.EObject;
 import org.geoserver.monitor.MonitorConfig;
 import org.geoserver.monitor.ows.RequestObjectHandler;
 import org.geoserver.ows.util.OwsUtils;
+import org.geotools.api.geometry.BoundingBox;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.geotools.util.logging.Logging;
 import org.geotools.xsd.EMFUtils;
-import org.opengis.geometry.BoundingBox;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
 
 public class GetCoverageHandler extends RequestObjectHandler {
 
@@ -52,7 +52,7 @@ public class GetCoverageHandler extends RequestObjectHandler {
         try {
             crs = CRS.decode(crsName);
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, String.format("Could not decode CRS ID: %s", crsName), e);
+            LOGGER.log(Level.WARNING, "Could not decode CRS ID: %s".formatted(crsName), e);
             return null;
         }
 
@@ -63,8 +63,7 @@ public class GetCoverageHandler extends RequestObjectHandler {
 
         try {
             // Turn into a class that implements BoundingBox
-            return new ReferencedEnvelope(minX, maxX, minY, maxY, crs)
-                    .toBounds(monitorConfig.getBboxCrs());
+            return new ReferencedEnvelope(minX, maxX, minY, maxY, crs).toBounds(monitorConfig.getBboxCrs());
         } catch (TransformException e) {
             LOGGER.log(Level.WARNING, "Could not transform bounding box to logging CRS", e);
             return null;

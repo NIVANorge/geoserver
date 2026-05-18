@@ -14,13 +14,13 @@ import org.geoserver.security.CatalogMode;
 import org.geoserver.security.VectorAccessLimits;
 import org.geoserver.security.WrapperPolicy;
 import org.geoserver.security.impl.SecureObjectsTest;
-import org.geotools.data.simple.SimpleFeatureStore;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
 import org.geotools.feature.NameImpl;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
 
 public class SecuredFeatureStoreTest extends SecureObjectsTest {
 
@@ -36,8 +36,7 @@ public class SecuredFeatureStoreTest extends SecureObjectsTest {
         replay(fs);
 
         VectorAccessLimits limits =
-                new VectorAccessLimits(
-                        CatalogMode.HIDE, null, Filter.INCLUDE, null, Filter.INCLUDE);
+                new VectorAccessLimits(CatalogMode.HIDE, null, Filter.INCLUDE, null, Filter.INCLUDE);
         SecuredFeatureStore<SimpleFeatureType, SimpleFeature> store =
                 new SecuredFeatureStore<>(fs, WrapperPolicy.readWrite(limits));
         store.modifyFeatures(names, values, filter);
@@ -56,10 +55,8 @@ public class SecuredFeatureStoreTest extends SecureObjectsTest {
         replay(fs);
 
         VectorAccessLimits limits =
-                new VectorAccessLimits(
-                        CatalogMode.HIDE, null, Filter.INCLUDE, null, Filter.INCLUDE);
-        SecuredSimpleFeatureStore store =
-                new SecuredSimpleFeatureStore(fs, WrapperPolicy.readWrite(limits));
+                new VectorAccessLimits(CatalogMode.HIDE, null, Filter.INCLUDE, null, Filter.INCLUDE);
+        SecuredSimpleFeatureStore store = new SecuredSimpleFeatureStore(fs, WrapperPolicy.readWrite(limits));
         store.modifyFeatures(names, values, filter);
         verify(fs);
     }

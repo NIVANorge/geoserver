@@ -11,15 +11,13 @@ import java.util.Objects;
 import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
 import org.geoserver.featurestemplating.expressions.TemplateCQLManager;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.filter.LiteralExpressionImpl;
 import org.geotools.filter.text.cql2.CQLException;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.Expression;
 import org.xml.sax.helpers.NamespaceSupport;
 
-/**
- * Abstract implementation of {@link TemplateBuilder} who groups some common attributes and methods.
- */
+/** Abstract implementation of {@link TemplateBuilder} who groups some common attributes and methods. */
 public abstract class AbstractTemplateBuilder implements TemplateBuilder {
 
     protected Expression key;
@@ -38,8 +36,7 @@ public abstract class AbstractTemplateBuilder implements TemplateBuilder {
 
     protected AbstractTemplateBuilder() {}
 
-    protected AbstractTemplateBuilder(
-            AbstractTemplateBuilder abstractTemplateBuilder, boolean includeChildren) {
+    protected AbstractTemplateBuilder(AbstractTemplateBuilder abstractTemplateBuilder, boolean includeChildren) {
         this.key = abstractTemplateBuilder.getKey();
         this.namespaces = abstractTemplateBuilder.getNamespaces();
         this.filter = abstractTemplateBuilder.getFilter();
@@ -87,7 +84,8 @@ public abstract class AbstractTemplateBuilder implements TemplateBuilder {
 
     public void setKey(Expression key) {
         this.key = key;
-    };
+    }
+    ;
 
     /**
      * Get the filter if present
@@ -185,22 +183,19 @@ public abstract class AbstractTemplateBuilder implements TemplateBuilder {
         this.children.add(builder);
     }
 
-    protected void addChildrenEvaluationToEncodingHints(
-            TemplateOutputWriter writer, TemplateBuilderContext context) {
+    protected void addChildrenEvaluationToEncodingHints(TemplateOutputWriter writer, TemplateBuilderContext context) {
         if (children != null && !children.isEmpty()) {
             ChildrenEvaluation childrenEvaluation = getChildrenEvaluation(writer, context);
             getEncodingHints().put(EncodingHints.CHILDREN_EVALUATION, childrenEvaluation);
         }
     }
 
-    protected ChildrenEvaluation getChildrenEvaluation(
-            TemplateOutputWriter writer, TemplateBuilderContext context) {
-        ChildrenEvaluation action =
-                () -> {
-                    for (TemplateBuilder b : children) {
-                        b.evaluate(writer, context);
-                    }
-                };
+    protected ChildrenEvaluation getChildrenEvaluation(TemplateOutputWriter writer, TemplateBuilderContext context) {
+        ChildrenEvaluation action = () -> {
+            for (TemplateBuilder b : children) {
+                b.evaluate(writer, context);
+            }
+        };
         return action;
     }
 

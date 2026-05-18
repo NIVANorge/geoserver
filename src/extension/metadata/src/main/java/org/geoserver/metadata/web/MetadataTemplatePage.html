@@ -12,26 +12,21 @@
         <div wicket:id="progress"></div>
         <div wicket:id="dialog"></div>
         <form wicket:id="form">
-            <fieldset>
-                <ul>
-                    <li>
-                        <label for="name"><wicket:message key="name"/></label>
-                        <input id="name" wicket:id="name" type="text" class="text" />
-
-                        <label for="description"><wicket:message key="descriptionField"/></label>
-                        <input id="description" wicket:id="description" type="text" class="text" />
-                    </li>
-                    <li>
-                        <div wicket:id="metadataTabs" class="tabpanel mt-2"></div>
-                    </li>
-                    <li>
-                        <div class="button-group toolbar-sticky selfclear">
-                            <a href="#" class="form-button-save" wicket:id="save"><wicket:message key="save"/></a>
-                            <a href="#" class="form-button-cancel" wicket:id="cancel"><wicket:message key="cancel"/></a>
-                        </div>
-                    </li>
-                </ul>
-            </fieldset>
+            <div class="gs-form">
+                <div class="gs-form-group">
+                    <label for="name"><wicket:message key="name"/></label>
+                    <input id="name" wicket:id="name" type="text" />
+                </div>
+                <div class="gs-form-group">
+                    <label for="description"><wicket:message key="descriptionField"/></label>
+                    <input id="description" wicket:id="description" type="text" />
+                </div>
+                <div wicket:id="metadataTabs" class="tabpanel mt-2"></div>
+                <div class="button-group toolbar-sticky">
+                    <a href="#" class="form-button-save button primary" wicket:id="save"><wicket:message key="save"/></a>
+                    <a href="#" class="form-button-cancel button outline-danger" wicket:id="cancel"><wicket:message key="cancel"/></a>
+                </div>
+            </div>
         </form>
     </wicket:extend>
 </body>

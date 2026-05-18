@@ -9,15 +9,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.Cookie;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.Cookie;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.security.GeoServerSecurityFilterChain;
 import org.geoserver.security.GeoServerSecurityFilterChainProxy;
@@ -53,10 +53,7 @@ public class RememberMeTest extends GeoServerSecurityTestSupport {
 
         SecurityManagerConfig cfg = secMgr.getSecurityConfig();
         cfg.getFilterChain()
-                .insertAfter(
-                        "/web/**",
-                        filterCfg.getName(),
-                        GeoServerSecurityFilterChain.REMEMBER_ME_FILTER);
+                .insertAfter("/web/**", filterCfg.getName(), GeoServerSecurityFilterChain.REMEMBER_ME_FILTER);
 
         //        cfg.getFilterChain().put("/web/**", Arrays.asList(
         //            new FilterChainEntry(filterCfg.getName(), Position.AFTER,
@@ -68,12 +65,12 @@ public class RememberMeTest extends GeoServerSecurityTestSupport {
     @Override
     protected void setUpSpring(List<String> springContextLocations) {
         super.setUpSpring(springContextLocations);
-        springContextLocations.add(
-                getClass().getResource(getClass().getSimpleName() + "-context.xml").toString());
+        springContextLocations.add(getClass()
+                .getResource(getClass().getSimpleName() + "-context.xml")
+                .toString());
     }
 
-    static class AuthCapturingFilter extends GeoServerSecurityFilter
-            implements GeoServerAuthenticationFilter {
+    static class AuthCapturingFilter extends GeoServerSecurityFilter implements GeoServerAuthenticationFilter {
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
                 throws IOException, ServletException {

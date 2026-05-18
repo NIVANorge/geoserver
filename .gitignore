@@ -2,11 +2,15 @@ build-full.bat
 target
 .settings
 .classpath
+.factorypath
 .project
 .metadata
 .DS_Store
 *.class
 *.pyc
+.pmd
+# draw.io backup
+*.bkp
 
 /.metadata/
 
@@ -42,3 +46,14 @@ src/release/installer/win/target/
 # spotless up to date checks
 .spotless-index
 
+# Eclipse stuff
+src/web/app/.temp-Start*
+
+# VS Code
+.vscode/
+test_conversion
+
+# MkDocs build output
+mkdocs_output/
+.hypothesis*
+venv/

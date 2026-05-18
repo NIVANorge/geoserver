@@ -4,6 +4,9 @@
  */
 package org.geoserver.csw.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.model.IModel;
@@ -21,6 +24,20 @@ import org.geoserver.web.util.MetadataMapModel;
 /** A configuration panel for CoverageInfo properties that related to CSW publication */
 public class CSWLayerConfig extends PublishedConfigurationPanel<LayerInfo> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(CSWLayerConfig.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 6204512572932860227L;
 
     protected final CheckBox directDownloadEnabled;
@@ -32,33 +49,24 @@ public class CSWLayerConfig extends PublishedConfigurationPanel<LayerInfo> {
 
         PropertyModel<MetadataMap> settingsMap = new PropertyModel<>(model, "resource.metadata");
 
-        DirectDownloadSettings settings =
-                DirectDownloadSettings.getSettingsFromMetadata(settingsMap.getObject(), null);
+        DirectDownloadSettings settings = DirectDownloadSettings.getSettingsFromMetadata(settingsMap.getObject(), null);
         if (settings == null) {
             settingsMap
                     .getObject()
                     .put(
                             DirectDownloadSettings.DIRECTDOWNLOAD_KEY,
                             setDefaultSettings(
-                                    GeoServerExtensions.bean(GeoServer.class)
-                                            .getService(CSWInfo.class)));
+                                    GeoServerExtensions.bean(GeoServer.class).getService(CSWInfo.class)));
         }
-        IModel<DirectDownloadSettings> directDownloadModel =
-                new MetadataMapModel<>(
-                        settingsMap,
-                        DirectDownloadSettings.DIRECTDOWNLOAD_KEY,
-                        DirectDownloadSettings.class);
+        IModel<DirectDownloadSettings> directDownloadModel = new MetadataMapModel<>(
+                settingsMap, DirectDownloadSettings.DIRECTDOWNLOAD_KEY, DirectDownloadSettings.class);
 
-        directDownloadEnabled =
-                new CheckBox(
-                        "directDownloadEnabled",
-                        new PropertyModel<>(directDownloadModel, "directDownloadEnabled"));
+        directDownloadEnabled = new CheckBox(
+                "directDownloadEnabled", new PropertyModel<>(directDownloadModel, "directDownloadEnabled"));
         add(directDownloadEnabled);
 
         maxDownloadSize =
-                new TextField<>(
-                        "maxDownloadSize",
-                        new PropertyModel<>(directDownloadModel, "maxDownloadSize"));
+                new TextField<>("maxDownloadSize", new PropertyModel<>(directDownloadModel, "maxDownloadSize"));
         maxDownloadSize.add(RangeValidator.minimum(0l));
         add(maxDownloadSize);
     }

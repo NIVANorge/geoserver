@@ -18,6 +18,7 @@ import org.geoserver.web.ServiceDescriptionProvider;
 import org.geoserver.web.ServiceLinkDescription;
 import org.geoserver.wps.WPSInfo;
 import org.geoserver.wps.WebProcessingService;
+import org.geotools.util.Version;
 import org.geotools.util.logging.Logging;
 
 /** Provide description of WPS services for welcome page. */
@@ -32,6 +33,7 @@ public class WPSServiceDescriptionProvider extends ServiceDescriptionProvider {
     Catalog catalog;
 
     public WPSServiceDescriptionProvider(GeoServer gs) {
+        super(SERVICE_TYPE);
         this.geoserver = gs;
         catalog = gs.getCatalog();
     }
@@ -55,31 +57,36 @@ public class WPSServiceDescriptionProvider extends ServiceDescriptionProvider {
     }
 
     @Override
-    public List<ServiceDescription> getServices(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    public List<ServiceDescription> getServices(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
 
         List<ServiceDescription> descriptions = new ArrayList<>();
         WPSInfo info = info(workspaceInfo, layerInfo);
 
         if (workspaceInfo != null || geoserver.getGlobal().isGlobalServices()) {
-            descriptions.add(description(SERVICE_TYPE, info, workspaceInfo, layerInfo));
+            descriptions.add(description(serviceType, info, workspaceInfo, layerInfo));
         }
         return descriptions;
     }
 
     @Override
-    public List<ServiceLinkDescription> getServiceLinks(
-            WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
+    public List<ServiceLinkDescription> getServiceLinks(WorkspaceInfo workspaceInfo, PublishedInfo layerInfo) {
         List<ServiceLinkDescription> links = new ArrayList<>();
 
         if (workspaceInfo == null && !geoserver.getGlobal().isGlobalServices()) {
             return links;
         }
 
+        WPSInfo info = info(workspaceInfo, layerInfo);
+        List<Version> disabledVersions = (info != null) ? info.getDisabledVersions() : null;
+
         List<Service> extensions = GeoServerExtensions.extensions(Service.class);
 
         for (Service service : extensions) {
             if (service.getService() instanceof WebProcessingService) {
+                if (disabledVersions != null && disabledVersions.contains(service.getVersion())) {
+                    continue;
+                }
+
                 String link = null;
                 if (service.getOperations().contains("GetCapabilities")) {
                     link = getCapabilitiesURL(workspaceInfo, layerInfo, service);
@@ -88,13 +95,12 @@ public class WPSServiceDescriptionProvider extends ServiceDescriptionProvider {
                 }
 
                 if (link != null) {
-                    links.add(
-                            new ServiceLinkDescription(
-                                    SERVICE_TYPE,
-                                    service.getVersion(),
-                                    link,
-                                    workspaceInfo != null ? workspaceInfo.getName() : null,
-                                    layerInfo != null ? layerInfo.getName() : null));
+                    links.add(new ServiceLinkDescription(
+                            serviceType,
+                            service.getVersion(),
+                            link,
+                            workspaceInfo != null ? workspaceInfo.getName() : null,
+                            layerInfo != null ? layerInfo.getName() : null));
                 }
             }
         }

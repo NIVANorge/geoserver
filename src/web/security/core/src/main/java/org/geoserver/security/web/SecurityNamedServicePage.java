@@ -20,8 +20,7 @@ import org.geotools.util.logging.Logging;
  *
  * @author Justin Deoliveira, OpenGeo
  */
-public class SecurityNamedServicePage<T extends SecurityNamedServiceConfig>
-        extends AbstractSecurityPage {
+public class SecurityNamedServicePage<T extends SecurityNamedServiceConfig> extends AbstractSecurityPage {
 
     /** logger */
     protected static Logger LOGGER = Logging.getLogger("org.geoserver.web.security");
@@ -32,31 +31,29 @@ public class SecurityNamedServicePage<T extends SecurityNamedServiceConfig>
     public SecurityNamedServicePage() {}
 
     protected StringResourceModel createTitleModel(Class<?> serviceClass) {
-        return new StringResourceModel(serviceClass.getName() + ".title", new Model());
+        return new StringResourceModel(serviceClass.getName() + ".title", new Model<>());
     }
 
     protected StringResourceModel createTitleModel(SecurityNamedServicePanelInfo panelInfo) {
-        return new StringResourceModel(panelInfo.getTitleKey(), new Model());
+        return new StringResourceModel(panelInfo.getTitleKey(), new Model<>());
     }
 
     protected StringResourceModel createDescriptionModel(SecurityNamedServicePanelInfo panelInfo) {
-        return new StringResourceModel(panelInfo.getDescriptionKey(), new Model());
+        return new StringResourceModel(panelInfo.getDescriptionKey(), new Model<>());
     }
 
     protected StringResourceModel createShortTitleModel(SecurityNamedServicePanelInfo panelInfo) {
-        return new StringResourceModel(panelInfo.getShortTitleKey(), new Model());
+        return new StringResourceModel(panelInfo.getShortTitleKey(), new Model<>());
     }
 
     protected SecurityNamedServicePanel<T> createPanel(
             String id, SecurityNamedServicePanelInfo panelInfo, IModel<T> config) {
         try {
             @SuppressWarnings("unchecked")
-            SecurityNamedServicePanel<T> panel =
-                    (SecurityNamedServicePanel)
-                            panelInfo
-                                    .getComponentClass()
-                                    .getConstructor(String.class, IModel.class)
-                                    .newInstance(id, config);
+            SecurityNamedServicePanel<T> panel = (SecurityNamedServicePanel) panelInfo
+                    .getComponentClass()
+                    .getConstructor(String.class, IModel.class)
+                    .newInstance(id, config);
             return panel;
         } catch (Exception e) {
             throw new WicketRuntimeException(e);

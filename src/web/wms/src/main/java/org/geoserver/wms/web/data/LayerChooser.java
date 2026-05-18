@@ -5,6 +5,9 @@
  */
 package org.geoserver.wms.web.data;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,9 +33,24 @@ import org.geoserver.web.wicket.GeoServerTablePanel;
  */
 public class LayerChooser extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(LayerChooser.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -127345071729297975L;
 
     private static class LayerProvider extends GeoServerDataProvider<LayerInfo> {
+        @Serial
         private static final long serialVersionUID = -2117784735301652240L;
 
         private AbstractStylePage parent;
@@ -41,35 +59,35 @@ public class LayerChooser extends Panel {
             this.parent = parent;
         }
 
-        public static Property<LayerInfo> workspace =
-                new AbstractProperty<LayerInfo>("Workspace") {
-                    private static final long serialVersionUID = -7055816211775541759L;
+        public static Property<LayerInfo> workspace = new AbstractProperty<>("Workspace") {
+            @Serial
+            private static final long serialVersionUID = -7055816211775541759L;
 
-                    @Override
-                    public Object getPropertyValue(LayerInfo x) {
-                        return x.getResource().getStore().getWorkspace().getName();
-                    }
-                };
+            @Override
+            public Object getPropertyValue(LayerInfo x) {
+                return x.getResource().getStore().getWorkspace().getName();
+            }
+        };
 
-        public static Property<LayerInfo> store =
-                new AbstractProperty<LayerInfo>("Store") {
-                    private static final long serialVersionUID = -4021230907568644439L;
+        public static Property<LayerInfo> store = new AbstractProperty<>("Store") {
+            @Serial
+            private static final long serialVersionUID = -4021230907568644439L;
 
-                    @Override
-                    public Object getPropertyValue(LayerInfo x) {
-                        return x.getResource().getStore().getName();
-                    }
-                };
+            @Override
+            public Object getPropertyValue(LayerInfo x) {
+                return x.getResource().getStore().getName();
+            }
+        };
 
-        public static Property<LayerInfo> name =
-                new AbstractProperty<LayerInfo>("Layer") {
-                    private static final long serialVersionUID = 8913729089849537790L;
+        public static Property<LayerInfo> name = new AbstractProperty<>("Layer") {
+            @Serial
+            private static final long serialVersionUID = 8913729089849537790L;
 
-                    @Override
-                    public Object getPropertyValue(LayerInfo x) {
-                        return x.getName();
-                    }
-                };
+            @Override
+            public Object getPropertyValue(LayerInfo x) {
+                return x.getName();
+            }
+        };
 
         @Override
         public List<LayerInfo> getItems() {
@@ -94,52 +112,50 @@ public class LayerChooser extends Panel {
     public LayerChooser(final String id, final AbstractStylePage parent) {
         super(id);
         LayerProvider provider = new LayerProvider(parent);
-        GeoServerTablePanel<LayerInfo> table =
-                new GeoServerTablePanel<LayerInfo>("layer.table", provider) {
-                    private static final long serialVersionUID = 1196129584558094662L;
+        GeoServerTablePanel<LayerInfo> table = new GeoServerTablePanel<>("layer.table", provider) {
+            @Serial
+            private static final long serialVersionUID = 1196129584558094662L;
 
-                    @Override
-                    public Component getComponentForProperty(
-                            String id, IModel<LayerInfo> value, Property<LayerInfo> property) {
-                        final LayerInfo layer = value.getObject();
-                        final String text = property.getPropertyValue(layer).toString();
+            @Override
+            public Component getComponentForProperty(String id, IModel<LayerInfo> value, Property<LayerInfo> property) {
+                final LayerInfo layer = value.getObject();
+                final String text = property.getPropertyValue(layer).toString();
 
-                        if (property == LayerProvider.name) {
-                            return new Fragment(id, "layer.link", LayerChooser.this) {
-                                private static final long serialVersionUID = -7619814477490657757L;
+                if (property == LayerProvider.name) {
+                    return new Fragment(id, "layer.link", LayerChooser.this) {
+                        @Serial
+                        private static final long serialVersionUID = -7619814477490657757L;
 
+                        {
+                            add(new GeoServerAjaxFormLink("link", parent.styleForm) {
                                 {
-                                    add(
-                                            new GeoServerAjaxFormLink("link", parent.styleForm) {
-                                                {
-                                                    add(new Label("layer.name", new Model<>(text)));
-                                                }
-
-                                                private static final long serialVersionUID =
-                                                        8020574396677784792L;
-
-                                                @Override
-                                                protected void onClick(
-                                                        AjaxRequestTarget target, Form<?> form) {
-                                                    parent.getLayerModel().setObject(layer);
-                                                    parent.getPopup().close(target);
-                                                    parent.configurationChanged();
-                                                    parent.addFeedbackPanels(target);
-                                                    target.add(parent.styleForm);
-                                                }
-
-                                                @Override
-                                                public boolean getDefaultFormProcessing() {
-                                                    return false;
-                                                }
-                                            });
+                                    add(new Label("layer.name", new Model<>(text)));
                                 }
-                            };
-                        } else {
-                            return new Label(id, text);
+
+                                @Serial
+                                private static final long serialVersionUID = 8020574396677784792L;
+
+                                @Override
+                                protected void onClick(AjaxRequestTarget target, Form<?> form) {
+                                    parent.getLayerModel().setObject(layer);
+                                    parent.getPopup().close(target);
+                                    parent.configurationChanged();
+                                    parent.addFeedbackPanels(target);
+                                    target.add(parent.styleForm);
+                                }
+
+                                @Override
+                                public boolean getDefaultFormProcessing() {
+                                    return false;
+                                }
+                            });
                         }
-                    }
-                };
+                    };
+                } else {
+                    return new Label(id, text);
+                }
+            }
+        };
         add(table);
     }
 }

@@ -4,6 +4,9 @@
  */
 package org.geoserver.metadata.web.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.List;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -13,7 +16,6 @@ import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.basic.MultiLineLabel;
 import org.apache.wicket.markup.html.form.ChoiceRenderer;
 import org.apache.wicket.markup.html.form.DropDownChoice;
-import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.markup.repeater.DefaultItemReuseStrategy;
@@ -28,12 +30,27 @@ import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ParamResourceModel;
 
 /**
- * The ImportTemplatePanel allows the user to link the metadata to values configured in the metadata
- * template.
+ * The ImportTemplatePanel allows the user to link the metadata to values configured in the metadata template.
  *
  * @author Timothy De Bock - timothy.debock.github@gmail.com
  */
+// TODO WICKET8 - Verify this page works OK
 public abstract class ImportTemplatePanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ImportTemplatePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 1297739738862860160L;
 
     private GeoServerTablePanel<MetadataTemplate> templatesPanel;
@@ -69,9 +86,8 @@ public abstract class ImportTemplatePanel extends Panel {
         remove.setOutputMarkupPlaceholderTag(true);
         remove.setEnabled(false);
         add(remove);
-        add(
-                new FeedbackPanel("linkTemplateFeedback", new ContainerFeedbackMessageFilter(this))
-                        .setOutputMarkupId(true));
+        add(new FeedbackPanel("linkTemplateFeedback", new ContainerFeedbackMessageFilter(this))
+                .setOutputMarkupId(true));
 
         // the panel
         templatesPanel = createTemplateTable(remove);
@@ -103,8 +119,7 @@ public abstract class ImportTemplatePanel extends Panel {
         IModel<MetadataTemplate> model = new Model<>();
         List<MetadataTemplate> unlinked = linkedTemplatesDataProvider.getUnlinkedItems();
         DropDownChoice<MetadataTemplate> dropDownChoice =
-                new DropDownChoice<>(
-                        "metadataTemplate", model, unlinked, new ChoiceRenderer<>("name"));
+                new DropDownChoice<>("metadataTemplate", model, unlinked, new ChoiceRenderer<>("name"));
         return dropDownChoice;
     }
 
@@ -113,48 +128,40 @@ public abstract class ImportTemplatePanel extends Panel {
         return (DropDownChoice<MetadataTemplate>) get("metadataTemplate");
     }
 
-    private AjaxSubmitLink createImportAction(
-            final DropDownChoice<MetadataTemplate> dropDown, GeoServerDialog dialog) {
+    private AjaxSubmitLink createImportAction(final DropDownChoice<MetadataTemplate> dropDown, GeoServerDialog dialog) {
         return new AjaxSubmitLink("link") {
+            @Serial
             private static final long serialVersionUID = -8718015688839770852L;
 
             @Override
-            protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+            protected void onSubmit(AjaxRequestTarget target) {
 
                 boolean valid = true;
                 if (dropDown.getModelObject() == null) {
-                    error(
-                            new ParamResourceModel("errorSelectTemplate", ImportTemplatePanel.this)
-                                    .getString());
+                    error(new ParamResourceModel("errorSelectTemplate", ImportTemplatePanel.this).getString());
                     valid = false;
                 }
                 if (valid) {
-                    dialog.setTitle(
-                            new ParamResourceModel(
-                                    "confirmImportDialog.title", ImportTemplatePanel.this));
-                    dialog.showOkCancel(
-                            target,
-                            new GeoServerDialog.DialogDelegate() {
+                    dialog.setTitle(new ParamResourceModel("confirmImportDialog.title", ImportTemplatePanel.this));
+                    dialog.showOkCancel(target, new GeoServerDialog.DialogDelegate() {
 
-                                private static final long serialVersionUID = -5552087037163833563L;
+                        @Serial
+                        private static final long serialVersionUID = -5552087037163833563L;
 
-                                @Override
-                                protected Component getContents(String id) {
-                                    ParamResourceModel resource =
-                                            new ParamResourceModel(
-                                                    "confirmImportDialog.content",
-                                                    ImportTemplatePanel.this);
-                                    return new MultiLineLabel(id, resource.getString());
-                                }
+                        @Override
+                        protected Component getContents(String id) {
+                            ParamResourceModel resource =
+                                    new ParamResourceModel("confirmImportDialog.content", ImportTemplatePanel.this);
+                            return new MultiLineLabel(id, resource.getString());
+                        }
 
-                                @Override
-                                protected boolean onSubmit(
-                                        AjaxRequestTarget target, Component contents) {
-                                    linkTemplate(target, dropDown.getModelObject());
-                                    handleUpdate(target);
-                                    return true;
-                                }
-                            });
+                        @Override
+                        protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
+                            linkTemplate(target, dropDown.getModelObject());
+                            handleUpdate(target);
+                            return true;
+                        }
+                    });
                 }
                 target.add(getFeedbackPanel());
                 target.add(templatesPanel);
@@ -162,7 +169,7 @@ public abstract class ImportTemplatePanel extends Panel {
             }
 
             @Override
-            protected void onError(AjaxRequestTarget target, Form<?> form) {
+            protected void onError(AjaxRequestTarget target) {
                 ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
             }
         };
@@ -170,16 +177,17 @@ public abstract class ImportTemplatePanel extends Panel {
 
     private AjaxSubmitLink createUnlinkAction() {
         return new AjaxSubmitLink("removeSelected") {
+            @Serial
             private static final long serialVersionUID = 3581476968062788921L;
 
             @Override
-            public void onSubmit(AjaxRequestTarget target, Form<?> form) {
+            public void onSubmit(AjaxRequestTarget target) {
                 unlinkTemplate(target, templatesPanel.getSelection());
                 handleUpdate(target);
             }
 
             @Override
-            protected void onError(AjaxRequestTarget target, Form<?> form) {
+            protected void onError(AjaxRequestTarget target) {
                 ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
             }
         };
@@ -187,14 +195,14 @@ public abstract class ImportTemplatePanel extends Panel {
 
     private GeoServerTablePanel<MetadataTemplate> createTemplateTable(AjaxSubmitLink remove) {
 
-        return new GeoServerTablePanel<MetadataTemplate>(
-                "templatesPanel", linkedTemplatesDataProvider, true) {
+        return new GeoServerTablePanel<>("templatesPanel", linkedTemplatesDataProvider, true) {
 
+            @Serial
             private static final long serialVersionUID = -8943273843044917552L;
 
             @Override
             protected void onSelectionUpdate(AjaxRequestTarget target) {
-                remove.setEnabled(templatesPanel.getSelection().size() > 0);
+                remove.setEnabled(!templatesPanel.getSelection().isEmpty());
                 target.add(remove);
             }
 
@@ -238,8 +246,7 @@ public abstract class ImportTemplatePanel extends Panel {
 
     protected abstract void handleUpdate(AjaxRequestTarget target);
 
-    private void updateTableState(
-            AjaxRequestTarget target, ImportTemplateDataProvider dataProvider) {
+    private void updateTableState(AjaxRequestTarget target, ImportTemplateDataProvider dataProvider) {
         boolean isEmpty = dataProvider.getItems().isEmpty();
         templatesPanel.setVisible(!isEmpty);
         remove.setVisible(!isEmpty);

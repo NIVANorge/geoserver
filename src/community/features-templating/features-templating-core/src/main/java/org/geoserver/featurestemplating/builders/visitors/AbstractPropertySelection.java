@@ -3,16 +3,15 @@ package org.geoserver.featurestemplating.builders.visitors;
 import static org.geoserver.featurestemplating.builders.TemplateBuilderUtils.hasSelectableKey;
 import static org.geoserver.featurestemplating.readers.JSONMerger.DYNAMIC_MERGE_KEY;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.geoserver.featurestemplating.builders.AbstractTemplateBuilder;
 import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
 import org.geoserver.featurestemplating.builders.selectionwrappers.PropertySelectionWrapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /** Abstract implementation of a {@link PropertySelectionHandler}. */
 public abstract class AbstractPropertySelection implements PropertySelectionHandler {
@@ -25,8 +24,7 @@ public abstract class AbstractPropertySelection implements PropertySelectionHand
         TemplateBuilderContext builderContext = null;
         if (context != null) builderContext = new TemplateBuilderContext(context);
         boolean result;
-        if (templateBuilder instanceof PropertySelectionWrapper) {
-            PropertySelectionWrapper selectionWrapper = (PropertySelectionWrapper) templateBuilder;
+        if (templateBuilder instanceof PropertySelectionWrapper selectionWrapper) {
             String fullPath = selectionWrapper.getFullKey(builderContext);
             fullPath = removeDynamicMergeKey(fullPath);
             result = isKeySelected(fullPath);
@@ -37,8 +35,7 @@ public abstract class AbstractPropertySelection implements PropertySelectionHand
     }
 
     @Override
-    public boolean isBuilderSelected(
-            AbstractTemplateBuilder templateBuilder, PropertySelectionContext extradata) {
+    public boolean isBuilderSelected(AbstractTemplateBuilder templateBuilder, PropertySelectionContext extradata) {
 
         String key;
         if (extradata != null) {
@@ -58,9 +55,7 @@ public abstract class AbstractPropertySelection implements PropertySelectionHand
      * @return true if it is selected, false otherwise.
      */
     protected boolean isKeySelected(AbstractTemplateBuilder abstractTb, String key) {
-        return (hasSelectableKey(abstractTb) && isKeySelected(key))
-                || key == null
-                || !hasSelectableKey(abstractTb);
+        return (hasSelectableKey(abstractTb) && isKeySelected(key)) || key == null || !hasSelectableKey(abstractTb);
     }
 
     /**
@@ -87,10 +82,8 @@ public abstract class AbstractPropertySelection implements PropertySelectionHand
     }
 
     private void pruneObjectNode(ObjectNode objectNode, String parentPath) {
-        Iterator<String> names = objectNode.fieldNames();
         List<String> excluded = new ArrayList<>();
-        while (names.hasNext()) {
-            String name = names.next();
+        for (String name : objectNode.propertyNames()) {
             String fullPath = updatedFullKey(parentPath, name);
             fullPath = removeDynamicMergeKey(fullPath);
             if (!isKeySelected(fullPath)) {

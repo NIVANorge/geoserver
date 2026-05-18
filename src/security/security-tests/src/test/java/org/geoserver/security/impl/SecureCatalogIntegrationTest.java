@@ -14,15 +14,15 @@ import org.geoserver.security.decorators.ReadOnlyDataStoreTest;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.geoserver.test.SystemTest;
 import org.geoserver.util.IOUtils;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.filter.Filter;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.opengis.filter.Filter;
 
 /**
- * Tests that security rules are applied in a real simulation of a GeoServer startup (loading the
- * Spring context, reading the catalog and whatnot)
+ * Tests that security rules are applied in a real simulation of a GeoServer startup (loading the Spring context,
+ * reading the catalog and whatnot)
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -35,9 +35,7 @@ public class SecureCatalogIntegrationTest extends GeoServerSystemTestSupport {
 
         File security = new File(testData.getDataDirectoryRoot(), "security");
         File layers = new File(security, "layers.properties");
-        IOUtils.copy(
-                SecureCatalogIntegrationTest.class.getResourceAsStream("functional.properties"),
-                layers);
+        IOUtils.copy(SecureCatalogIntegrationTest.class.getResourceAsStream("functional.properties"), layers);
     }
 
     @Test

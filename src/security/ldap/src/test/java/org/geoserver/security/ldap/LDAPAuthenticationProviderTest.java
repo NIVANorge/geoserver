@@ -5,9 +5,9 @@
  */
 package org.geoserver.security.ldap;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import org.apache.directory.server.annotations.CreateLdapServer;
@@ -15,12 +15,12 @@ import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
 import org.apache.directory.server.core.annotations.CreateDS;
 import org.apache.directory.server.core.annotations.CreatePartition;
-import org.apache.directory.server.core.integ.FrameworkRunner;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
 import org.geoserver.security.impl.GeoServerRole;
 import org.geoserver.security.impl.MemoryRoleService;
 import org.geoserver.security.impl.MemoryRoleStore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -36,11 +36,10 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
     }
 
     protected void createAuthenticationProvider() {
-        authProvider =
-                (LDAPAuthenticationProvider) securityProvider.createAuthenticationProvider(config);
+        authProvider = (LDAPAuthenticationProvider) securityProvider.createAuthenticationProvider(config);
     }
 
-    @RunWith(FrameworkRunner.class)
+    @ExtendWith(ApacheDSTestExtension.class)
     @CreateLdapServer(
             transports = {@CreateTransport(protocol = "LDAP", address = "localhost")},
             allowAnonymousAccess = true)
@@ -51,8 +50,8 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
     public static class LDAPAuthenticationProviderDataTest extends LDAPAuthenticationProviderTest {
 
         /**
-         * LdapTestUtils Test that bindBeforeGroupSearch correctly enables roles fetching on a
-         * server without anonymous access enabled.
+         * LdapTestUtils Test that bindBeforeGroupSearch correctly enables roles fetching on a server without anonymous
+         * access enabled.
          */
         @Test
         public void testBindBeforeGroupSearch() throws Exception {
@@ -65,12 +64,13 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             Authentication result = authProvider.authenticate(authentication);
             assertNotNull(result);
             assertEquals("admin", result.getName());
-            assertEquals(3, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
         }
 
         /**
-         * Test that without bindBeforeGroupSearch we get an exception during roles fetching on a
-         * server without anonymous access enabled.
+         * Test that without bindBeforeGroupSearch we get an exception during roles fetching on a server without
+         * anonymous access enabled.
          */
         @Test
         public void testBindBeforeGroupSearchRequiredIfAnonymousDisabled() throws Exception {
@@ -93,28 +93,25 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             }
         }
 
-        /**
-         * Test that authentication can be done using the couple userFilter and userFormat instead
-         * of userDnPattern.
-         */
+        /** Test that authentication can be done using the couple userFilter and userFormat instead of userDnPattern. */
         @Test
         public void testUserFilterAndFormat() throws Exception {
             getService().setAllowAnonymousAccess(true);
             // filter to extract user data
             config.setUserFilter("(telephonenumber=1)");
             // username to bind to
-            ((LDAPSecurityServiceConfig) config)
-                    .setUserFormat("uid={0},ou=People,dc=example,dc=com");
+            ((LDAPSecurityServiceConfig) config).setUserFormat("uid={0},ou=People,dc=example,dc=com");
 
             createAuthenticationProvider();
 
             Authentication result = authProvider.authenticate(authentication);
-            assertEquals(3, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
         }
 
         /**
-         * Test that authentication can be done using the couple userFilter and userFormat instead
-         * of userDnPattern, using placemarks in userFilter.
+         * Test that authentication can be done using the couple userFilter and userFormat instead of userDnPattern,
+         * using placemarks in userFilter.
          */
         @Test
         public void testUserFilterPlacemarks() throws Exception {
@@ -122,24 +119,24 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             // filter to extract user data
             config.setUserFilter("(givenName={1})");
             // username to bind to
-            ((LDAPSecurityServiceConfig) config)
-                    .setUserFormat("uid={0},ou=People,dc=example,dc=com");
+            ((LDAPSecurityServiceConfig) config).setUserFormat("uid={0},ou=People,dc=example,dc=com");
 
             createAuthenticationProvider();
 
             Authentication result = authProvider.authenticate(authentication);
-            assertEquals(3, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
 
             // filter to extract user data
             config.setUserFilter("(cn={0})");
             // username to bind to
-            ((LDAPSecurityServiceConfig) config)
-                    .setUserFormat("uid={0},ou=People,dc=example,dc=com");
+            ((LDAPSecurityServiceConfig) config).setUserFormat("uid={0},ou=People,dc=example,dc=com");
 
             createAuthenticationProvider();
 
             result = authProvider.authenticate(authentication);
-            assertEquals(3, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
         }
 
         /** Test that if and adminGroup is defined, the roles contain ROLE_ADMINISTRATOR */
@@ -200,7 +197,8 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
 
             Authentication result = authProvider.authenticate(authenticationOther);
             assertTrue(result.getAuthorities().contains(role));
-            assertEquals(3, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
         }
 
         /** Tests LDAP hierarchical nested groups search. */
@@ -218,13 +216,10 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             Authentication result = authProvider.authenticate(authenticationNested);
             assertNotNull(result);
             assertEquals("nestedUser", result.getName());
-            assertEquals(3, result.getAuthorities().size());
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .anyMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
+            assertTrue(result.getAuthorities().stream().anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
+            assertTrue(result.getAuthorities().stream().anyMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
         }
 
         /** Tests LDAP hierarchical nested groups search. */
@@ -242,13 +237,10 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             Authentication result = authProvider.authenticate(authenticationNested);
             assertNotNull(result);
             assertEquals("nestedUser", result.getName());
-            assertEquals(3, result.getAuthorities().size());
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .anyMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 4 instead of 3
+            assertEquals(4, result.getAuthorities().size());
+            assertTrue(result.getAuthorities().stream().anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
+            assertTrue(result.getAuthorities().stream().anyMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
         }
 
         /** Tests LDAP hierarchical nested groups search disabled. */
@@ -265,17 +257,14 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             Authentication result = authProvider.authenticate(authenticationNested);
             assertNotNull(result);
             assertEquals("nestedUser", result.getName());
-            assertEquals(2, result.getAuthorities().size());
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
-            assertTrue(
-                    result.getAuthorities().stream()
-                            .noneMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 3 instead of 2
+            assertEquals(3, result.getAuthorities().size());
+            assertTrue(result.getAuthorities().stream().anyMatch(x -> "ROLE_NESTED".equals(x.getAuthority())));
+            assertTrue(result.getAuthorities().stream().noneMatch(x -> "ROLE_EXTRA".equals(x.getAuthority())));
         }
     }
 
-    @RunWith(FrameworkRunner.class)
+    @ExtendWith(ApacheDSTestExtension.class)
     @CreateLdapServer(
             transports = {@CreateTransport(protocol = "LDAP", address = "localhost")},
             allowAnonymousAccess = true)
@@ -285,9 +274,7 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
     @ApplyLdifFiles({"data3.ldif"})
     public static class LDAPAuthenticationProviderData3Test extends LDAPAuthenticationProviderTest {
 
-        /**
-         * Test that LDAPAuthenticationProvider finds roles even if there is a colon in the password
-         */
+        /** Test that LDAPAuthenticationProvider finds roles even if there is a colon in the password */
         @Test
         public void testColonPassword() throws Exception {
             getService().setAllowAnonymousAccess(true);
@@ -298,7 +285,8 @@ public class LDAPAuthenticationProviderTest extends LDAPBaseTest {
             authentication = new UsernamePasswordAuthenticationToken("colon", "da:da");
 
             Authentication result = authProvider.authenticate(authentication);
-            assertEquals(2, result.getAuthorities().size());
+            // spring-security 7 adds a FACTOR_PASSWORD authority by default, so 3 instead of 2
+            assertEquals(3, result.getAuthorities().size());
         }
     }
 }

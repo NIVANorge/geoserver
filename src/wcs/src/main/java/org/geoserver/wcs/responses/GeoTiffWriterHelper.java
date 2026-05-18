@@ -8,10 +8,16 @@ import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.media.jai.OpImage;
-import javax.media.jai.RenderedOp;
 import org.apache.commons.io.FileUtils;
+import org.eclipse.imagen.OpImage;
+import org.eclipse.imagen.RenderedOp;
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.coverage.grid.GridEnvelope;
+import org.geotools.api.geometry.Bounds;
+import org.geotools.api.parameter.GeneralParameterValue;
+import org.geotools.api.parameter.ParameterValueGroup;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.EngineeringCRS;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.io.AbstractGridCoverage2DReader;
 import org.geotools.coverage.grid.io.AbstractGridCoverageWriter;
@@ -20,19 +26,13 @@ import org.geotools.coverage.grid.io.imageio.GeoToolsWriteParams;
 import org.geotools.gce.geotiff.GeoTiffFormat;
 import org.geotools.gce.geotiff.GeoTiffReader;
 import org.geotools.gce.geotiff.GeoTiffWriteParams;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 import org.geotools.image.ImageWorker;
 import org.geotools.image.util.ImageUtilities;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.geometry.Envelope;
-import org.opengis.parameter.GeneralParameterValue;
-import org.opengis.parameter.ParameterValueGroup;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.crs.EngineeringCRS;
 
 /**
- * Support class setting up reasonable defaults on the write parameters and centralizing the write
- * code and associated optimizations
+ * Support class setting up reasonable defaults on the write parameters and centralizing the write code and associated
+ * optimizations
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -66,18 +66,17 @@ public class GeoTiffWriterHelper {
 
     /** Returns the original source file, is present in the metadata, and if the coverage */
     private File getSourceFile(GridCoverage2D coverage) {
-        final Object fileSource =
-                coverage.getProperty(AbstractGridCoverage2DReader.FILE_SOURCE_PROPERTY);
-        if (fileSource != null && fileSource instanceof String) {
-            File file = new File((String) fileSource);
+        final Object fileSource = coverage.getProperty(AbstractGridCoverage2DReader.FILE_SOURCE_PROPERTY);
+        if (fileSource != null && fileSource instanceof String string) {
+            File file = new File(string);
             if (file.exists()) {
                 GeoTiffReader reader = null;
                 try {
                     reader = new GeoTiffReader(file);
-                    GeneralEnvelope originalEnvelope = reader.getOriginalEnvelope();
-                    Envelope envelope = coverage.getEnvelope();
+                    GeneralBounds originalEnvelope = reader.getOriginalEnvelope();
+                    Bounds envelope = coverage.getEnvelope();
                     if (originalEnvelope.equals(envelope, 1e-9, false)) {
-                        GridCoverage2D test = reader.read(null);
+                        GridCoverage2D test = reader.read();
                         ImageUtilities.disposeImage(test.getRenderedImage());
                         return file;
                     }
@@ -132,8 +131,8 @@ public class GeoTiffWriterHelper {
     }
 
     /**
-     * The code can figure out if it's really just copying over a GeoTiff source file and run a
-     * straight file copy, call this method if the source copy should be turned off
+     * The code can figure out if it's really just copying over a GeoTiff source file and run a straight file copy, call
+     * this method if the source copy should be turned off
      */
     public void disableSourceCopyOptimization() {
         this.sourceFile = null;
@@ -165,19 +164,16 @@ public class GeoTiffWriterHelper {
 
                 new ImageWorker(ri).writeTIFF(stream, compression, quality, tileWidth, tileHeight);
             } else {
-                final GeneralParameterValue[] wps =
-                        geotoolsWriteParams
-                                .values()
-                                .toArray(
-                                        new GeneralParameterValue
-                                                [geotoolsWriteParams.values().size()]);
+                final GeneralParameterValue[] wps = geotoolsWriteParams
+                        .values()
+                        .toArray(
+                                new GeneralParameterValue
+                                        [geotoolsWriteParams.values().size()]);
 
                 // write out the coverage
-                AbstractGridCoverageWriter writer =
-                        (AbstractGridCoverageWriter) TIFF_FORMAT.getWriter(stream);
+                AbstractGridCoverageWriter writer = (AbstractGridCoverageWriter) TIFF_FORMAT.getWriter(stream);
                 if (writer == null)
-                    throw new ServiceException(
-                            "Could not find the GeoTIFF writer, please check it's in the classpath");
+                    throw new ServiceException("Could not find the GeoTIFF writer, please check it's in the classpath");
                 try {
                     writer.write(coverage, wps);
                 } finally {
@@ -194,8 +190,7 @@ public class GeoTiffWriterHelper {
     /** Returns true if the coverage has not been processed in any way since it has been read */
     private boolean isUnprocessed(GridCoverage2D coverage) {
         RenderedImage ri = coverage.getRenderedImage();
-        if (ri instanceof RenderedOp) {
-            RenderedOp op = (RenderedOp) ri;
+        if (ri instanceof RenderedOp op) {
             return op.getOperationName().startsWith("ImageRead");
         } else if (ri instanceof OpImage) {
             return ri.getClass().getSimpleName().startsWith("ImageRead");

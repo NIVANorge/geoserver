@@ -24,8 +24,7 @@ import org.junit.Test;
 
 public abstract class JDBCUserGroupServiceTest extends AbstractUserGroupServiceTest {
 
-    static Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.security.jdbc");
+    static Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.geoserver.security.jdbc");
 
     protected abstract String getFixtureId();
 
@@ -71,8 +70,7 @@ public abstract class JDBCUserGroupServiceTest extends AbstractUserGroupServiceT
     }
 
     @Override
-    public GeoServerUserGroupStore createStore(GeoServerUserGroupService service)
-            throws IOException {
+    public GeoServerUserGroupStore createStore(GeoServerUserGroupService service) throws IOException {
         JDBCUserGroupStore store = (JDBCUserGroupStore) super.createStore(service);
         try {
             JDBCTestSupport.dropExistingTables(store, store.getConnection());
@@ -100,7 +98,7 @@ public abstract class JDBCUserGroupServiceTest extends AbstractUserGroupServiceT
 
     @Override
     protected SystemTestData createTestData() throws Exception {
-        if ("h2".equalsIgnoreCase(getFixtureId())) return super.createTestData();
+        if ("hsql".equalsIgnoreCase(getFixtureId())) return super.createTestData();
         return new LiveDbmsDataSecurity(getFixtureId());
     }
 

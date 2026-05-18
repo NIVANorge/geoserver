@@ -6,9 +6,6 @@
 package org.geoserver.wps.ppio;
 
 import com.bedatadriven.jackson.datatype.jts.JtsModule;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,6 +16,8 @@ import org.geotools.data.geojson.GeoJSONWriter;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.locationtech.jts.geom.Geometry;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Inputs and outputs feature collections in GeoJSON format using gt-geojson
@@ -27,13 +26,10 @@ import org.locationtech.jts.geom.Geometry;
  */
 public abstract class GeoJSONPPIO extends CDataPPIO {
 
-    private static JsonFactory JSON_FACTORY = new JsonFactory();;
     static final ObjectMapper MAPPER;
 
     static {
-        MAPPER = new ObjectMapper();
-        JtsModule module = new JtsModule(6);
-        MAPPER.registerModule(module);
+        MAPPER = JsonMapper.builder().addModule(new JtsModule(6)).build();
     }
 
     GeoServer gs;
@@ -67,7 +63,7 @@ public abstract class GeoJSONPPIO extends CDataPPIO {
             super(FeatureCollection.class);
         }
 
-        protected FeatureCollections(GeoServer gs) {
+        public FeatureCollections(GeoServer gs) {
             super(FeatureCollection.class, gs);
         }
 
@@ -100,7 +96,7 @@ public abstract class GeoJSONPPIO extends CDataPPIO {
             super(Geometry.class);
         }
 
-        protected Geometries(GeoServer gs) {
+        public Geometries(GeoServer gs) {
             super(Geometry.class, gs);
         }
 
@@ -115,24 +111,19 @@ public abstract class GeoJSONPPIO extends CDataPPIO {
             if (decimals == 6) {
                 return MAPPER;
             }
-            ObjectMapper mapper = new ObjectMapper();
-            JtsModule module = new JtsModule(decimals);
-            mapper.registerModule(module);
+            ObjectMapper mapper =
+                    JsonMapper.builder().addModule(new JtsModule(decimals)).build();
             return mapper;
         }
 
         @Override
         public Object decode(InputStream input) throws Exception {
-            try (JsonParser parser = JSON_FACTORY.createParser(input)) {
-                return MAPPER.readValue(parser, Geometry.class);
-            }
+            return MAPPER.readValue(input, Geometry.class);
         }
 
         @Override
         public Object decode(String input) throws Exception {
-            try (JsonParser parser = JSON_FACTORY.createParser(input)) {
-                return MAPPER.readValue(parser, Geometry.class);
-            }
+            return MAPPER.readValue(input, Geometry.class);
         }
     }
 }

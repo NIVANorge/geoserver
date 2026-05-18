@@ -7,11 +7,12 @@ package org.geoserver.security.decorators;
 
 import java.io.IOException;
 import java.util.logging.Level;
-import org.geotools.data.ResourceInfo;
-import org.geotools.data.ServiceInfo;
+import org.geotools.api.data.ResourceInfo;
+import org.geotools.api.data.ServiceInfo;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.data.ows.GetCapabilitiesRequest;
 import org.geotools.data.ows.GetCapabilitiesResponse;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 import org.geotools.ows.ServiceException;
 import org.geotools.ows.wms.Layer;
 import org.geotools.ows.wms.WMSCapabilities;
@@ -28,7 +29,6 @@ import org.geotools.ows.wms.response.GetLegendGraphicResponse;
 import org.geotools.ows.wms.response.GetMapResponse;
 import org.geotools.ows.wms.response.GetStylesResponse;
 import org.geotools.ows.wms.response.PutStylesResponse;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
  * Applies security around the web map server
@@ -46,8 +46,7 @@ public class SecuredWebMapServer extends WebMapServer {
 
     @Override
     public GetFeatureInfoRequest createGetFeatureInfoRequest(GetMapRequest getMapRequest) {
-        return new SecuredGetFeatureInfoRequest(
-                delegate.createGetFeatureInfoRequest(getMapRequest), getMapRequest);
+        return new SecuredGetFeatureInfoRequest(delegate.createGetFeatureInfoRequest(getMapRequest), getMapRequest);
     }
 
     @Override
@@ -62,39 +61,33 @@ public class SecuredWebMapServer extends WebMapServer {
     // -------------------------------------------------------------------------------------------
 
     @Override
-    public GetStylesResponse issueRequest(GetStylesRequest request)
-            throws IOException, ServiceException {
+    public GetStylesResponse issueRequest(GetStylesRequest request) throws IOException, ServiceException {
         return delegate.issueRequest(request);
     }
 
     @Override
-    public PutStylesResponse issueRequest(PutStylesRequest request)
-            throws IOException, ServiceException {
+    public PutStylesResponse issueRequest(PutStylesRequest request) throws IOException, ServiceException {
         return delegate.issueRequest(request);
     }
 
     @Override
-    public GetLegendGraphicResponse issueRequest(GetLegendGraphicRequest request)
-            throws IOException, ServiceException {
+    public GetLegendGraphicResponse issueRequest(GetLegendGraphicRequest request) throws IOException, ServiceException {
 
         return delegate.issueRequest(request);
     }
 
     @Override
-    public DescribeLayerResponse issueRequest(DescribeLayerRequest request)
-            throws IOException, ServiceException {
+    public DescribeLayerResponse issueRequest(DescribeLayerRequest request) throws IOException, ServiceException {
         return delegate.issueRequest(request);
     }
 
     @Override
-    public GetCapabilitiesResponse issueRequest(GetCapabilitiesRequest request)
-            throws IOException, ServiceException {
+    public GetCapabilitiesResponse issueRequest(GetCapabilitiesRequest request) throws IOException, ServiceException {
         return delegate.issueRequest(request);
     }
 
     @Override
-    public GetFeatureInfoResponse issueRequest(GetFeatureInfoRequest request)
-            throws IOException, ServiceException {
+    public GetFeatureInfoResponse issueRequest(GetFeatureInfoRequest request) throws IOException, ServiceException {
         return delegate.issueRequest(request);
     }
 
@@ -109,8 +102,7 @@ public class SecuredWebMapServer extends WebMapServer {
     }
 
     @Override
-    public GetLegendGraphicRequest createGetLegendGraphicRequest()
-            throws UnsupportedOperationException {
+    public GetLegendGraphicRequest createGetLegendGraphicRequest() throws UnsupportedOperationException {
         return delegate.createGetLegendGraphicRequest();
     }
 
@@ -135,7 +127,7 @@ public class SecuredWebMapServer extends WebMapServer {
     }
 
     @Override
-    public GeneralEnvelope getEnvelope(Layer layer, CoordinateReferenceSystem crs) {
+    public GeneralBounds getEnvelope(Layer layer, CoordinateReferenceSystem crs) {
         return delegate.getEnvelope(layer, crs);
     }
 

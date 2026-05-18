@@ -13,13 +13,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.function.CategorizeFunction;
 import org.geotools.filter.function.RecodeFunction;
 import org.geotools.renderer.style.StyleAttributeExtractor;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Function;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.PropertyName;
 
 /** Extracts all classification functions */
 class ClassificationFunctionsVisitor extends StyleAttributeExtractor {
@@ -54,8 +54,8 @@ class ClassificationFunctionsVisitor extends StyleAttributeExtractor {
     }
 
     /**
-     * Returns the set of property names used in the classification functions as first argument Will
-     * throw exceptions if the first parameter is not a PropertyName
+     * Returns the set of property names used in the classification functions as first argument Will throw exceptions if
+     * the first parameter is not a PropertyName
      *
      * @return
      */
@@ -71,8 +71,8 @@ class ClassificationFunctionsVisitor extends StyleAttributeExtractor {
     }
 
     /**
-     * Extracts all recode keys. If there are no recode functions, or the keys are not literals,
-     * exceptions will be thrown
+     * Extracts all recode keys. If there are no recode functions, or the keys are not literals, exceptions will be
+     * thrown
      *
      * @return
      */
@@ -92,8 +92,8 @@ class ClassificationFunctionsVisitor extends StyleAttributeExtractor {
     }
 
     /**
-     * Extracts all categorize keys. If there are no categorize functions, or the keys are not
-     * literals, exceptions will be thrown
+     * Extracts all categorize keys. If there are no categorize functions, or the keys are not literals, exceptions will
+     * be thrown
      *
      * @return
      */

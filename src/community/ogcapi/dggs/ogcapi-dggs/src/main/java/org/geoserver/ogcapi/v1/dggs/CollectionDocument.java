@@ -29,21 +29,27 @@ import org.geoserver.ogcapi.Link;
 import org.geoserver.ogcapi.TimeExtentCalculator;
 import org.geoserver.ogcapi.v1.features.FeaturesResponse;
 import org.geoserver.ows.util.ResponseUtils;
-import org.geotools.data.Query;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.dggs.datastore.DGGSDataStore;
 import org.geotools.dggs.gstore.DGGSFeatureSource;
+import org.geotools.dggs.gstore.DGGSResolutionCalculator;
 import org.geotools.dggs.gstore.DGGSStore;
 import org.geotools.feature.visitor.UniqueVisitor;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.DateRange;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.FeatureType;
 import org.springframework.http.MediaType;
 
 /** Description of a single collection, that will be serialized to JSON/XML/HTML */
 @JsonPropertyOrder({"id", "title", "description", "extent", "dggs-id", "resolutions", "links"})
 public class CollectionDocument extends AbstractCollectionDocument<FeatureTypeInfo> {
     static final Logger LOGGER = Logging.getLogger(CollectionDocument.class);
-    private final DGGSFeatureSource fs;
+    private final DGGSFeatureSource<?> fs;
 
     FeatureTypeInfo featureType;
     String mapPreviewURL;
@@ -63,22 +69,15 @@ public class CollectionDocument extends AbstractCollectionDocument<FeatureTypeIn
         String baseUrl = APIRequestInfo.get().getBaseURL();
 
         // zones links
-        Collection<MediaType> zoneFormats =
-                APIRequestInfo.get().getProducibleMediaTypes(FeaturesResponse.class, true);
+        Collection<MediaType> zoneFormats = APIRequestInfo.get().getProducibleMediaTypes(FeaturesResponse.class, true);
         for (MediaType format : zoneFormats) {
-            String apiUrl =
-                    ResponseUtils.buildURL(
-                            baseUrl,
-                            "ogc/dggs/collections/" + collectionId + "/zones",
-                            Collections.singletonMap("f", format.toString()),
-                            SERVICE);
-            addLink(
-                    new Link(
-                            apiUrl,
-                            "zones",
-                            format.toString(),
-                            collectionId + " items as " + format.toString(),
-                            "zones"));
+            String apiUrl = ResponseUtils.buildURL(
+                    baseUrl,
+                    "ogc/dggs/v1/collections/" + collectionId + "/zones",
+                    Collections.singletonMap("f", format.toString()),
+                    SERVICE);
+            addLink(new Link(
+                    apiUrl, "zones", format.toString(), collectionId + " items as " + format.toString(), "zones"));
         }
 
         // DAPA links, if time is available
@@ -87,36 +86,32 @@ public class CollectionDocument extends AbstractCollectionDocument<FeatureTypeIn
             Collection<MediaType> dapaFormats =
                     APIRequestInfo.get().getProducibleMediaTypes(CollectionDAPA.class, true);
             for (MediaType format : dapaFormats) {
-                String dapaURL =
-                        ResponseUtils.buildURL(
-                                baseUrl,
-                                "ogc/dggs/collections/" + collectionId + "/processes",
-                                Collections.singletonMap("f", format.toString()),
-                                SERVICE);
-                addLink(
-                        new Link(
-                                dapaURL,
-                                "ogc-dapa-processes",
-                                format.toString(),
-                                "DAPA for " + collectionId + " as " + format.toString(),
-                                "ogc-dapa-processes"));
+                String dapaURL = ResponseUtils.buildURL(
+                        baseUrl,
+                        "ogc/dggs/v1/collections/" + collectionId + "/processes",
+                        Collections.singletonMap("f", format.toString()),
+                        SERVICE);
+                addLink(new Link(
+                        dapaURL,
+                        "ogc-dapa-processes",
+                        format.toString(),
+                        "DAPA for " + collectionId + " as " + format.toString(),
+                        "ogc-dapa-processes"));
             }
             Collection<MediaType> variablesFormats =
                     APIRequestInfo.get().getProducibleMediaTypes(DAPAVariables.class, true);
             for (MediaType format : variablesFormats) {
-                String variablesURL =
-                        ResponseUtils.buildURL(
-                                baseUrl,
-                                "ogc/dggs/collections/" + collectionId + "/variables",
-                                Collections.singletonMap("f", format.toString()),
-                                SERVICE);
-                addLink(
-                        new Link(
-                                variablesURL,
-                                "ogc-dapa-variables",
-                                format.toString(),
-                                "DAPA variables for " + collectionId + " as " + format.toString(),
-                                "ogc-dapa-variables"));
+                String variablesURL = ResponseUtils.buildURL(
+                        baseUrl,
+                        "ogc/dggs/v1/collections/" + collectionId + "/variables",
+                        Collections.singletonMap("f", format.toString()),
+                        SERVICE);
+                addLink(new Link(
+                        variablesURL,
+                        "ogc-dapa-variables",
+                        format.toString(),
+                        "DAPA variables for " + collectionId + " as " + format.toString(),
+                        "ogc-dapa-variables"));
             }
         }
 
@@ -131,16 +126,15 @@ public class CollectionDocument extends AbstractCollectionDocument<FeatureTypeIn
         }
 
         // setup resolutions
-        DGGSStore dggsStore = (DGGSStore) featureType.getStore().getDataStore(null);
+        DGGSStore<?> dggsStore = (DGGSStore<?>) featureType.getStore().getDataStore(null);
         this.fs = dggsStore.getDGGSFeatureSource(featureType.getNativeName());
     }
 
     private boolean isWMSAvailable(GeoServer geoServer) {
-        ServiceInfo si =
-                geoServer.getServices().stream()
-                        .filter(s -> "WMS".equals(s.getId()))
-                        .findFirst()
-                        .orElse(null);
+        ServiceInfo si = geoServer.getServices().stream()
+                .filter(s -> "WMS".equals(s.getId()))
+                .findFirst()
+                .orElse(null);
         return si != null;
     }
 
@@ -160,12 +154,26 @@ public class CollectionDocument extends AbstractCollectionDocument<FeatureTypeIn
     }
 
     public int[] getResolutions() throws IOException {
-        UniqueVisitor visitor = new UniqueVisitor(DGGSStore.RESOLUTION);
-        fs.getFeatures(Query.ALL).accepts(visitor, null);
-        @SuppressWarnings("unchecked")
-        List<Integer> list = visitor.getResult().toList();
-        int[] resolutions = list.stream().mapToInt(v -> v).toArray();
-        return resolutions;
+        AttributeDescriptor resolutionAttribute = fs.getSchema().getDescriptor(DGGSStore.RESOLUTION);
+        if (resolutionAttribute != null) {
+            UniqueVisitor visitor = new UniqueVisitor(DGGSStore.RESOLUTION);
+
+            fs.getFeatures(Query.ALL).accepts(visitor, null);
+            @SuppressWarnings("unchecked")
+            List<Integer> list = visitor.getResult().toList();
+            return list.stream().mapToInt(v -> v).toArray();
+        } else {
+            DataAccess<SimpleFeatureType, SimpleFeature> datastore = (fs.getDataStore());
+            if (datastore instanceof DGGSDataStore<?> ds) {
+                DGGSResolutionCalculator calculator = ds.getResolutions();
+                Integer resolution = calculator.getFixedResolution();
+                if (resolution != null) {
+                    return new int[] {resolution};
+                }
+            }
+        }
+
+        return new int[0];
     }
 
     @JsonProperty("dggs-id")

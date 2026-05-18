@@ -8,12 +8,14 @@ import static org.geotools.data.elasticsearch.ElasticLayerConfiguration.KEY;
 
 import org.geoserver.catalog.FeatureTypeCallback;
 import org.geoserver.catalog.FeatureTypeInfo;
-import org.geotools.data.DataAccess;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
 import org.geotools.data.elasticsearch.ElasticDataStore;
 import org.geotools.data.elasticsearch.ElasticLayerConfiguration;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of FeatureTypeInitializer extension point to initialize Elasticsearch datastore.
@@ -21,23 +23,24 @@ import org.opengis.feature.type.Name;
  * @see FeatureTypeCallback
  */
 class ElasticFeatureTypeCallback implements FeatureTypeCallback {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ElasticFeatureTypeCallback.class);
 
     @Override
-    public boolean canHandle(
-            FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess) {
+    public boolean canHandle(FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess) {
         return dataAccess instanceof ElasticDataStore;
     }
 
     @Override
     public boolean initialize(
-            FeatureTypeInfo info,
-            DataAccess<? extends FeatureType, ? extends Feature> dataAccess,
-            Name temporaryName) {
+            FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess, Name temporaryName) {
 
         ElasticLayerConfiguration layerConfig;
         layerConfig = (ElasticLayerConfiguration) info.getMetadata().get(KEY);
         if (layerConfig == null) {
             layerConfig = new ElasticLayerConfiguration(info.getName());
+            LOGGER.debug(
+                    "Created new empty ElasticSearch layer configuration for {} because none was found in the FeatureTypeInfo metadata",
+                    info.getName());
         }
 
         ((ElasticDataStore) dataAccess).setLayerConfiguration(layerConfig);
@@ -47,9 +50,7 @@ class ElasticFeatureTypeCallback implements FeatureTypeCallback {
 
     @Override
     public void dispose(
-            FeatureTypeInfo info,
-            DataAccess<? extends FeatureType, ? extends Feature> dataAccess,
-            Name temporaryName) {
+            FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess, Name temporaryName) {
         final ElasticLayerConfiguration layerConfig =
                 (ElasticLayerConfiguration) info.getMetadata().get(KEY);
         if (layerConfig != null) {
@@ -62,8 +63,7 @@ class ElasticFeatureTypeCallback implements FeatureTypeCallback {
     }
 
     @Override
-    public void flush(
-            FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess) {
+    public void flush(FeatureTypeInfo info, DataAccess<? extends FeatureType, ? extends Feature> dataAccess) {
         // nothing to do
     }
 }

@@ -12,23 +12,23 @@ import net.opengis.cat.csw20.ElementSetType;
 import org.geoserver.csw.records.AbstractRecordDescriptor;
 import org.geoserver.csw.records.RecordFeatureTypeRegistryConfiguration;
 import org.geoserver.platform.GeoServerExtensions;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.FeatureTypeFactory;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.data.complex.feature.type.FeatureTypeRegistry;
 import org.geotools.data.complex.util.EmfComplexFeatureReader;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.type.FeatureTypeFactoryImpl;
 import org.geotools.xsd.SchemaIndex;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.FeatureTypeFactory;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.PropertyName;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /**
- * Describes the ISO FeatureCatalogue records and provides some handy constants to help building
- * features representing FC_FeatureCatalogue.
+ * Describes the ISO FeatureCatalogue records and provides some handy constants to help building features representing
+ * FC_FeatureCatalogue.
  */
 public class FeatureCatalogueDescriptor extends AbstractRecordDescriptor {
 
@@ -42,33 +42,24 @@ public class FeatureCatalogueDescriptor extends AbstractRecordDescriptor {
 
         SchemaIndex index = null;
         try {
-            index =
-                    reader.parse(
-                            new URL("http://schemas.opengis.net/iso/19139/20070417/gfc/gfc.xsd"));
+            index = reader.parse(new URL("http://schemas.opengis.net/iso/19139/20070417/gfc/gfc.xsd"));
         } catch (IOException e) {
             // this is fatal
             throw new RuntimeException(e);
         }
 
-        FeatureTypeRegistry featureTypeRegistry =
-                new FeatureTypeRegistry(
-                        MetaDataDescriptor.NAMESPACES,
-                        typeFactory,
-                        new RecordFeatureTypeRegistryConfiguration("FC_FeatureCatalogue_Type"),
-                        true);
+        FeatureTypeRegistry featureTypeRegistry = new FeatureTypeRegistry(
+                MetaDataDescriptor.NAMESPACES,
+                typeFactory,
+                new RecordFeatureTypeRegistryConfiguration("FC_FeatureCatalogue_Type"),
+                true);
 
         featureTypeRegistry.addSchemas(index);
 
-        FEATURECATALOGUE_TYPE =
-                (FeatureType)
-                        featureTypeRegistry.getAttributeType(
-                                new NameImpl(
-                                        MetaDataDescriptor.NAMESPACE_GFC,
-                                        "FC_FeatureCatalogue_Type"));
-        FEATURECATALOGUE_DESCRIPTOR =
-                featureTypeRegistry.getDescriptor(
-                        new NameImpl(MetaDataDescriptor.NAMESPACE_GFC, "FC_FeatureCatalogue"),
-                        null);
+        FEATURECATALOGUE_TYPE = (FeatureType) featureTypeRegistry.getAttributeType(
+                new NameImpl(MetaDataDescriptor.NAMESPACE_GFC, "FC_FeatureCatalogue_Type"));
+        FEATURECATALOGUE_DESCRIPTOR = featureTypeRegistry.getDescriptor(
+                new NameImpl(MetaDataDescriptor.NAMESPACE_GFC, "FC_FeatureCatalogue"), null);
     }
 
     @Override
@@ -120,7 +111,7 @@ public class FeatureCatalogueDescriptor extends AbstractRecordDescriptor {
     }
 
     @Override
-    public PropertyName translateProperty(Name name) {
+    public List<PropertyName> translateProperty(Name name) {
         return null;
     }
 
@@ -133,7 +124,7 @@ public class FeatureCatalogueDescriptor extends AbstractRecordDescriptor {
 
     private static FeatureCatalogueDescriptor INSTANCE;
 
-    public static FeatureCatalogueDescriptor getInstance() {
+    public static synchronized FeatureCatalogueDescriptor getInstance() {
         if (INSTANCE == null) {
             INSTANCE = GeoServerExtensions.bean(FeatureCatalogueDescriptor.class);
             if (INSTANCE == null) {

@@ -14,30 +14,28 @@ import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.ogcapi.AbstractDocument;
 import org.geoserver.ogcapi.LinksBuilder;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
 import org.geotools.dggs.gstore.DGGSStore;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
 
 /** List of DAPA variables for a collection */
 public class DAPAVariables extends AbstractDocument {
 
     String collectionId;
     List<DAPAVariable> variables;
+    String zoneColumnName;
 
-    public DAPAVariables(String collectionId, FeatureTypeInfo info) throws IOException {
+    public DAPAVariables(String collectionId, FeatureTypeInfo info, String zoneColumnName) throws IOException {
         Set<String> excludedAttributes = getExcludedAttributes(info);
         SimpleFeatureType schema = (SimpleFeatureType) info.getFeatureType();
         this.collectionId = collectionId;
-        this.variables =
-                schema.getAttributeDescriptors().stream()
-                        .filter(
-                                ad ->
-                                        !(ad instanceof GeometryDescriptor)
-                                                && !excludedAttributes.contains(ad.getLocalName()))
-                        .map(ad -> new DAPAVariable(ad))
-                        .collect(Collectors.toList());
-        addSelfLinks("ogc/dggs/v1/collections/" + collectionId + "/dapa/variables");
-        new LinksBuilder(CollectionDocument.class, "ogc/dggs/collections/")
+        this.zoneColumnName = zoneColumnName;
+        this.variables = schema.getAttributeDescriptors().stream()
+                .filter(ad -> !(ad instanceof GeometryDescriptor) && !excludedAttributes.contains(ad.getLocalName()))
+                .map(ad -> new DAPAVariable(ad))
+                .collect(Collectors.toList());
+        addSelfLinks("ogc/dggs/v1/collections/" + collectionId + "/variables");
+        new LinksBuilder(CollectionDocument.class, "ogc/dggs/v1/collections/")
                 .segment(collectionId, true)
                 .title("foobar")
                 .rel("collection")
@@ -46,7 +44,7 @@ public class DAPAVariables extends AbstractDocument {
 
     public Set<String> getExcludedAttributes(FeatureTypeInfo info) {
         Set<String> excludedAttributes = new HashSet<>();
-        excludedAttributes.add(DGGSStore.ZONE_ID);
+        excludedAttributes.add(zoneColumnName);
         excludedAttributes.add(DGGSStore.RESOLUTION);
         DimensionInfo time = info.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
         if (time != null) {

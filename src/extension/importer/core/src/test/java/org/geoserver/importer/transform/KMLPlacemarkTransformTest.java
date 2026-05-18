@@ -7,10 +7,13 @@ package org.geoserver.importer.transform;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.style.FeatureTypeStyle;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.kml.Folder;
-import org.geotools.styling.FeatureTypeStyle;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,9 +22,6 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.Point;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
 
 public class KMLPlacemarkTransformTest {
 
@@ -89,7 +89,9 @@ public class KMLPlacemarkTransformTest {
                 feature.getDefaultGeometry().getClass());
         SimpleFeature result = kmlPlacemarkTransform.convertFeature(feature, transformedType);
         Assert.assertEquals(
-                "Invalid Geometry class", Point.class, result.getAttribute("Geometry").getClass());
+                "Invalid Geometry class",
+                Point.class,
+                result.getAttribute("Geometry").getClass());
         Assert.assertEquals(
                 "Unexpected default geometry",
                 Point.class,

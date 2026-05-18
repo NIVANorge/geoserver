@@ -8,14 +8,14 @@
 
 package org.geoserver.mapml.xml;
 
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlSchemaType;
-import javax.xml.bind.annotation.XmlType;
+import jakarta.xml.bind.JAXBElement;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
+import jakarta.xml.bind.annotation.XmlAttribute;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlSchemaType;
+import jakarta.xml.bind.annotation.XmlType;
 
 /**
  * Java class for anonymous complex type.
@@ -44,7 +44,7 @@ import javax.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType
 @XmlRootElement(name = "map-feature", namespace = "http://www.w3.org/1999/xhtml")
-public class Feature {
+public class Feature implements MapMLElement {
 
     //    @XmlElementRefs({
     //        @XmlElementRef(name = "featurecaption", type = String.class, required = false),
@@ -55,25 +55,19 @@ public class Feature {
     //    })
     //    protected List<Object> bboxOrImageOrGeometry;
     //
-    @XmlElement(
-            name = "map-featurecaption",
-            required = false,
-            namespace = "http://www.w3.org/1999/xhtml")
+    @XmlElement(name = "map-featurecaption", required = false, namespace = "http://www.w3.org/1999/xhtml")
     protected String featurecaption;
 
     @XmlElement(name = "map-geometry", required = false, namespace = "http://www.w3.org/1999/xhtml")
     protected GeometryContent geometry;
 
     @XmlElement(name = "map-bbox", required = false, namespace = "http://www.w3.org/1999/xhtml")
-    protected JAXBElement bbox;
+    protected JAXBElement<String> bbox;
 
     @XmlElement(name = "map-image", required = false, namespace = "http://www.w3.org/1999/xhtml")
     protected Image image;
 
-    @XmlElement(
-            name = "map-properties",
-            required = false,
-            namespace = "http://www.w3.org/1999/xhtml")
+    @XmlElement(name = "map-properties", required = false, namespace = "http://www.w3.org/1999/xhtml")
     protected PropertyContent properties;
 
     @XmlAttribute(name = "id")
@@ -82,7 +76,8 @@ public class Feature {
 
     @XmlAttribute(name = "class")
     @XmlSchemaType(name = "anySimpleType")
-    protected String clazz;
+    protected String style;
+
     //
     //    /**
     //     * Gets the value of the bboxOrImageOrGeometry property.
@@ -125,11 +120,11 @@ public class Feature {
         }
     }
 
-    public JAXBElement getBbox() {
+    public JAXBElement<String> getBbox() {
         return bbox;
     }
 
-    public void setBbox(JAXBElement bbox) {
+    public void setBbox(JAXBElement<String> bbox) {
         this.bbox = bbox;
     }
 
@@ -176,20 +171,20 @@ public class Feature {
     }
 
     /**
-     * Gets the value of the clazz property.
+     * Gets the value of the style property.
      *
      * @return possible object is {@link String }
      */
-    public String getClazz() {
-        return clazz;
+    public String getStyle() {
+        return style;
     }
 
     /**
-     * Sets the value of the clazz property.
+     * Sets the value of the style property.
      *
-     * @param value allowed object is {@link String }
+     * @param style allowed object is {@link String }
      */
-    public void setClazz(String value) {
-        this.clazz = value;
+    public void setStyle(String style) {
+        this.style = style;
     }
 }

@@ -4,12 +4,14 @@
  */
 package org.geoserver.ogcapi.v1.styles;
 
-import static org.geoserver.ogcapi.MappingJackson2YAMLMessageConverter.APPLICATION_YAML_VALUE;
-import static org.geoserver.ogcapi.OpenAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE;
+import static org.geoserver.ogcapi.SwaggerJSONAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE;
 import static org.geoserver.ogcapi.v1.styles.StylesService.ValidationMode.only;
 import static org.geoserver.ogcapi.v1.styles.StylesService.ValidationMode.yes;
+import static org.springframework.http.MediaType.APPLICATION_YAML_VALUE;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.awt.image.RenderedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,8 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.imageio.ImageIO;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.IOUtils;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.SLDHandler;
@@ -47,14 +47,13 @@ import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.rest.RestException;
 import org.geoserver.rest.converters.StyleWriterConverter;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.util.Version;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.ServletServerHttpResponse;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.accept.ContentNegotiationStrategy;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -91,16 +90,11 @@ public class StylesService {
     public static final String CORE = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/core";
     public static final String HTML = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/html";
     public static final String JSON = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/json";
-    public static final String MANAGE =
-            "http://www.opengis.net/t15/opf-styles-1/1.0/conf/manage-styles";
-    public static final String VALIDATION =
-            "http://www.opengis.net/t15/opf-styles-1/1.0/conf/style-validation";
-    public static final String RESOURCES =
-            "http://www.opengis.net/t15/opf-styles-1/1.0/conf/resources";
-    public static final String MANAGE_RESOURCES =
-            "http://www.opengis.net/t15/opf-styles-1/1.0/conf/manage-resources";
-    public static final String MAPBOX =
-            "http://www.opengis.net/t15/opf-styles-1/1.0/conf/mapbox-styles";
+    public static final String MANAGE = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/manage-styles";
+    public static final String VALIDATION = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/style-validation";
+    public static final String RESOURCES = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/resources";
+    public static final String MANAGE_RESOURCES = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/manage-resources";
+    public static final String MAPBOX = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/mapbox-styles";
     public static final String SLD10 = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/sld-10";
     public static final String SLD11 = "http://www.opengis.net/t15/opf-styles-1/1.0/conf/sld-11";
     public static final String CSS = "http://www.geoserver.org/opf-styles-1/1.0/conf/geocss";
@@ -113,8 +107,7 @@ public class StylesService {
     private ThumbnailBuilder thumbnailBuilder;
     private Map<MediaType, StyleWriterConverter> writers = new HashMap<>();
     private List<MediaType> mediaTypes = new ArrayList<>();
-    private APIContentNegotiationManager contentNegotiationManager =
-            new APIContentNegotiationManager();
+    private APIContentNegotiationManager contentNegotiationManager = new APIContentNegotiationManager();
 
     public StylesService(
             GeoServer geoServer,
@@ -151,6 +144,12 @@ public class StylesService {
         return geoServer.getService(StylesServiceInfo.class);
     }
 
+    @SuppressWarnings("unused")
+    public StylesServiceInfo getServiceInfo() {
+        // required for DisabledServiceCheck class
+        return getService();
+    }
+
     @GetMapping(path = "conformance", name = "getConformanceDeclaration")
     @ResponseBody
     @HTMLResponseBody(templateName = "conformance.ftl", fileName = "conformance.html")
@@ -162,11 +161,7 @@ public class StylesService {
     @GetMapping(
             path = {"openapi", "openapi.json", "openapi.yaml"},
             name = "getApi",
-            produces = {
-                OPEN_API_MEDIA_TYPE_VALUE,
-                APPLICATION_YAML_VALUE,
-                MediaType.TEXT_XML_VALUE
-            })
+            produces = {OPEN_API_MEDIA_TYPE_VALUE, APPLICATION_YAML_VALUE, MediaType.TEXT_XML_VALUE})
     @ResponseBody
     @HTMLResponseBody(templateName = "api.ftl", fileName = "api.html")
     public OpenAPI api() throws IOException {
@@ -182,9 +177,7 @@ public class StylesService {
 
     @GetMapping(path = "styles/{styleId}", name = "getStyle")
     public void getStyle(
-            @PathVariable(name = "styleId") String styleId,
-            NativeWebRequest request,
-            HttpServletResponse response)
+            @PathVariable(name = "styleId") String styleId, NativeWebRequest request, HttpServletResponse response)
             throws HttpMediaTypeNotAcceptableException, IOException {
         StyleInfo styleInfo = getStyleInfo(styleId, true);
 
@@ -192,8 +185,7 @@ public class StylesService {
         // native style
         MediaType nativeMediaType = getNativeMediaType(styleInfo);
         List<MediaType> requestedMediaTypes = contentNegotiationManager.resolveMediaTypes(request);
-        if (requestedMediaTypes == null
-                || ContentNegotiationStrategy.MEDIA_TYPE_ALL_LIST.equals(requestedMediaTypes)) {
+        if (requestedMediaTypes == null || ContentNegotiationStrategy.MEDIA_TYPE_ALL_LIST.equals(requestedMediaTypes)) {
             writeNativeToResponse(response, styleInfo, nativeMediaType);
             return;
         }
@@ -235,8 +227,7 @@ public class StylesService {
         return style;
     }
 
-    public void writeNativeToResponse(
-            HttpServletResponse response, StyleInfo styleInfo, MediaType nativeMediaType)
+    public void writeNativeToResponse(HttpServletResponse response, StyleInfo styleInfo, MediaType nativeMediaType)
             throws IOException {
         response.setContentType(nativeMediaType.toString());
         response.setStatus(200);
@@ -251,17 +242,13 @@ public class StylesService {
         if (format == null) {
             return MediaType.valueOf(SLDHandler.MIMETYPE_10);
         }
-        StyleHandler handler =
-                writers.values().stream()
-                        .map(sw -> sw.getHandler())
-                        .filter(sh -> styleInfo.getFormat().equals(sh.getFormat()))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new RestException(
-                                                "Could not find style handler for style "
-                                                        + styleInfo.prefixedName(),
-                                                HttpStatus.INTERNAL_SERVER_ERROR));
+        StyleHandler handler = writers.values().stream()
+                .map(sw -> sw.getHandler())
+                .filter(sh -> styleInfo.getFormat().equals(sh.getFormat()))
+                .findFirst()
+                .orElseThrow(() -> new RestException(
+                        "Could not find style handler for style " + styleInfo.prefixedName(),
+                        HttpStatus.INTERNAL_SERVER_ERROR));
         Version version = styleInfo.getFormatVersion();
         if (version == null) version = handler.getVersions().get(0);
         return MediaType.valueOf(handler.mimeType(version));
@@ -277,19 +264,14 @@ public class StylesService {
     @GetMapping(path = "styles/{styleId}/metadata", name = "getStyleMetadata")
     @ResponseBody
     @HTMLResponseBody(templateName = "styleMetadata.ftl", fileName = "styleMetadata.html")
-    public StyleMetadataDocument getStyleMetadata(@PathVariable(name = "styleId") String styleId)
-            throws IOException {
+    public StyleMetadataDocument getStyleMetadata(@PathVariable(name = "styleId") String styleId) throws IOException {
         StyleInfo styleInfo = getStyleInfo(styleId, true);
         return new StyleMetadataDocument(styleInfo, geoServer, sampleDataSupport, thumbnailBuilder);
     }
 
-    @GetMapping(
-            path = "styles/{styleId}/thumbnail",
-            name = "getStyleThumbnail",
-            produces = "image/png")
+    @GetMapping(path = "styles/{styleId}/thumbnail", name = "getStyleThumbnail", produces = "image/png")
     @ResponseBody
-    public void getStyleThumbnail(
-            @PathVariable(name = "styleId") String styleId, HttpServletResponse response)
+    public void getStyleThumbnail(@PathVariable(name = "styleId") String styleId, HttpServletResponse response)
             throws IOException {
         StyleInfo styleInfo = getStyleInfo(styleId, true);
         // TODO: return webmap instead and allow all GetMap encoders to work?
@@ -313,8 +295,7 @@ public class StylesService {
     @ResponseBody
     public ResponseEntity postStyle(
             InputStream inputStream,
-            @RequestParam(name = "validate", required = false, defaultValue = "no")
-                    ValidationMode validate,
+            @RequestParam(name = "validate", required = false, defaultValue = "no") ValidationMode validate,
             HttpServletRequest request)
             throws IOException {
         // Extracting mimeType and charset
@@ -329,15 +310,13 @@ public class StylesService {
         // validation
         if (validate == only || validate == yes) {
             validate(mimeType, content, handler);
-            return new ResponseEntity(HttpStatus.NO_CONTENT);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         } else {
             String styleId = getStyleId(mimeType, handler, content);
             StyleInfo styleInfo = getStyleInfo(styleId, false);
             if (styleInfo != null) {
                 throw new APIException(
-                        APIException.CONFLICT,
-                        "Style with id " + styleId + " already exists",
-                        HttpStatus.CONFLICT);
+                        APIException.CONFLICT, "Style with id " + styleId + " already exists", HttpStatus.CONFLICT);
             }
             Catalog catalog = geoServer.getCatalog();
             styleInfo = catalog.getFactory().createStyle();
@@ -346,47 +325,40 @@ public class StylesService {
             styleInfo.setFormat(handler.getFormat());
             styleInfo.setFormatVersion(handler.versionForMimeType(mimeType));
             if (LocalWorkspace.get() != null) {
-                styleInfo.setWorkspace(catalog.getWorkspaceByName(LocalWorkspace.get().getName()));
+                styleInfo.setWorkspace(
+                        catalog.getWorkspaceByName(LocalWorkspace.get().getName()));
             }
             catalog.add(styleInfo);
             // write out the style body
             catalog.getResourcePool().writeStyle(styleInfo, new ByteArrayInputStream(rawData));
 
-            MultiValueMap<String, String> headers = new HttpHeaders();
-            String href =
-                    ResponseUtils.buildURL(
-                            APIRequestInfo.get().getBaseURL(),
-                            "ogc/styles/v1/styles/" + styleId,
-                            null,
-                            URLMangler.URLType.SERVICE);
+            HttpHeaders headers = new HttpHeaders();
+            String href = ResponseUtils.buildURL(
+                    APIRequestInfo.get().getBaseURL(),
+                    "ogc/styles/v1/styles/" + styleId,
+                    null,
+                    URLMangler.URLType.SERVICE);
             headers.set(HttpHeaders.LOCATION, href);
             return new ResponseEntity<>(headers, HttpStatus.CREATED);
         }
     }
 
     /**
-     * Gets the charset from the content type, or uses the default configured charset, of if even
-     * that is missing, returns UTF-8 as a default
+     * Gets the charset from the content type, or uses the default configured charset, of if even that is missing,
+     * returns UTF-8 as a default
      */
     private String getCharacterEncoding(HttpServletRequest request) {
         return Optional.ofNullable(request.getCharacterEncoding())
                 .map(Object::toString)
-                .orElseGet(
-                        () ->
-                                Optional.ofNullable(geoServer.getSettings().getCharset())
-                                        .orElse("UTF-8"));
+                .orElseGet(() -> Optional.ofNullable(geoServer.getSettings().getCharset())
+                        .orElse("UTF-8"));
     }
 
-    /**
-     * Tries to get a style identifier from the style name itself, if not found, generates a random
-     * one
-     */
-    private String getStyleId(String mimeType, StyleHandler handler, String content)
-            throws IOException {
+    /** Tries to get a style identifier from the style name itself, if not found, generates a random one */
+    private String getStyleId(String mimeType, StyleHandler handler, String content) throws IOException {
         Catalog catalog = geoServer.getCatalog();
         EntityResolver entityResolver = catalog.getResourcePool().getEntityResolver();
-        StyledLayerDescriptor sld =
-                handler.parse(content, handler.versionForMimeType(mimeType), null, entityResolver);
+        StyledLayerDescriptor sld = handler.parse(content, handler.versionForMimeType(mimeType), null, entityResolver);
         String name = sld.getName();
         if (name != null && !name.isEmpty()) {
             return name;
@@ -402,8 +374,7 @@ public class StylesService {
     public void putStyle(
             InputStream inputStream,
             @PathVariable String styleId,
-            @RequestParam(name = "validate", required = false, defaultValue = "no")
-                    ValidationMode validate,
+            @RequestParam(name = "validate", required = false, defaultValue = "no") ValidationMode validate,
             HttpServletRequest request)
             throws IOException {
         // Extracting mimeType and charset
@@ -450,18 +421,13 @@ public class StylesService {
         try {
             Catalog catalog = geoServer.getCatalog();
             EntityResolver entityResolver = catalog.getResourcePool().getEntityResolver();
-            List<Exception> errors =
-                    handler.validate(content, handler.versionForMimeType(mimeType), entityResolver);
+            List<Exception> errors = handler.validate(content, handler.versionForMimeType(mimeType), entityResolver);
             if (errors != null && !errors.isEmpty()) {
-                throw new APIException(
-                        INVALID_STYLE, "Invalid style:" + errors, HttpStatus.BAD_REQUEST);
+                throw new APIException(INVALID_STYLE, "Invalid style:" + errors, HttpStatus.BAD_REQUEST);
             }
         } catch (Exception invalid) {
             throw new APIException(
-                    INVALID_STYLE,
-                    "Invalid style:" + invalid.getMessage(),
-                    HttpStatus.BAD_REQUEST,
-                    invalid);
+                    INVALID_STYLE, "Invalid style:" + invalid.getMessage(), HttpStatus.BAD_REQUEST, invalid);
         }
     }
 
@@ -489,22 +455,15 @@ public class StylesService {
 
     @PutMapping(path = "styles/{styleId}/metadata", name = "updateStyleMetadata")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void putStyleMetadata(
-            @PathVariable("styleId") String styleId, @RequestBody StyleMetadataDocument metadata)
+    public void putStyleMetadata(@PathVariable("styleId") String styleId, @RequestBody StyleMetadataDocument metadata)
             throws IOException {
         StyleInfo styleInfo = getStyleInfo(styleId, true);
-        StyleMetadataInfo metadataInfo =
-                Optional.ofNullable(
-                                styleInfo
-                                        .getMetadata()
-                                        .get(
-                                                StyleMetadataInfo.METADATA_KEY,
-                                                StyleMetadataInfo.class))
-                        .orElse(new StyleMetadataInfo());
+        StyleMetadataInfo metadataInfo = Optional.ofNullable(
+                        styleInfo.getMetadata().get(StyleMetadataInfo.METADATA_KEY, StyleMetadataInfo.class))
+                .orElse(new StyleMetadataInfo());
 
         if (metadata.getId() != null && !styleId.equals(metadata.getId())) {
-            throw new APIException(
-                    INVALID_METADATA, "Style id must be " + styleId, HttpStatus.BAD_REQUEST);
+            throw new APIException(INVALID_METADATA, "Style id must be " + styleId, HttpStatus.BAD_REQUEST);
         }
 
         // can only update the descriptive metadata, the rest is derived from the style contents
@@ -525,17 +484,11 @@ public class StylesService {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             name = "patchStyleMetadata")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void patchMetadata(
-            @PathVariable("styleId") String styleId, @RequestBody StyleMetadataDocument metadata) {
+    public void patchMetadata(@PathVariable("styleId") String styleId, @RequestBody StyleMetadataDocument metadata) {
         StyleInfo styleInfo = getStyleInfo(styleId, true);
-        StyleMetadataInfo metadataInfo =
-                Optional.ofNullable(
-                                styleInfo
-                                        .getMetadata()
-                                        .get(
-                                                StyleMetadataInfo.METADATA_KEY,
-                                                StyleMetadataInfo.class))
-                        .orElse(new StyleMetadataInfo());
+        StyleMetadataInfo metadataInfo = Optional.ofNullable(
+                        styleInfo.getMetadata().get(StyleMetadataInfo.METADATA_KEY, StyleMetadataInfo.class))
+                .orElse(new StyleMetadataInfo());
 
         if (metadata.isDescriptionSet()) {
             metadataInfo.setAbstract(metadata.getDescription());
@@ -554,8 +507,7 @@ public class StylesService {
         }
         if (metadata.isDatesSet() || metadata.getDates() != null) {
             StyleDates inputDates = metadata.getDates();
-            StyleDates dates =
-                    Optional.ofNullable(metadataInfo.getDates()).orElse(new StyleDates());
+            StyleDates dates = Optional.ofNullable(metadataInfo.getDates()).orElse(new StyleDates());
             if (inputDates.isCreationSet()) {
                 dates.setCreation(inputDates.getCreation());
             }

@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Level;
@@ -19,15 +23,15 @@ import java.util.logging.Logger;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogInfo;
 import org.geoserver.ows.util.OwsUtils;
+import org.geotools.api.feature.type.Name;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
 
 /**
- * A support index for {@link DefaultCatalogFacade}, can perform fast lookups of {@link CatalogInfo}
- * objects by id or by "name", where the name is defined by a a user provided mapping function.
+ * A support index for {@link DefaultCatalogFacade}, can perform fast lookups of {@link CatalogInfo} objects by id or by
+ * "name", where the name is defined by a a user provided mapping function.
  *
- * <p>The lookups by predicate have been tested and optimized for performance, in particular the
- * current for loops turned out to be significantly faster than building and returning streams
+ * <p>The lookups by predicate have been tested and optimized for performance, in particular the current for loops
+ * turned out to be significantly faster than building and returning streams
  *
  * @param <T>
  */
@@ -38,6 +42,19 @@ class CatalogInfoLookup<T extends CatalogInfo> {
     ConcurrentHashMap<Class<T>, Map<Name, T>> nameMultiMap = new ConcurrentHashMap<>();
     Function<T, Name> nameMapper;
     static final Predicate<?> TRUE = x -> true;
+
+    /**
+     * Guards against mutating operations that affect multiple resources (e.g. {@link #idMultiMap} and
+     * {@link #nameMultiMap})
+     */
+    protected final ReadWriteLock lock = new ReentrantReadWriteLock();
+    /**
+     * We only use the write-lock here since all read operations work against a single concurrent map. Subclasses are
+     * free to use both the read and write locks if they need to guard unsafe data structures.
+     *
+     * @see NamespaceInfoLookup
+     */
+    protected final Lock writeLock = new ReentrantLock();
 
     /** Returns {@link CatalogInfoLookup#TRUE} in a type-safe way */
     @SuppressWarnings("unchecked")
@@ -68,13 +85,12 @@ class CatalogInfoLookup<T extends CatalogInfo> {
     // contains LayerInfoImpl (extracted from the values) but the container is parameterized
     // by LayerInfo. I suppose it could be solved by having a mapping function going from class
     // to key class (LayerInfoImpl to LayerInfo) and use it consistently across the lookup?
-    protected <K> Map<K, T> getMapForValue(
-            ConcurrentHashMap<Class<T>, Map<K, T>> maps, Class<?> vc) {
+    protected <K> Map<K, T> getMapForValue(ConcurrentHashMap<Class<T>, Map<K, T>> maps, Class<?> vc) {
         Map<K, T> vcMap = maps.get(vc);
         if (vcMap == null) {
             @SuppressWarnings("unchecked")
             Class<T> uncheked = (Class<T>) vc;
-            vcMap = maps.computeIfAbsent(uncheked, k -> new ConcurrentSkipListMap<K, T>());
+            vcMap = maps.computeIfAbsent(uncheked, k -> new ConcurrentSkipListMap<>());
         }
         return vcMap;
     }
@@ -87,9 +103,14 @@ class CatalogInfoLookup<T extends CatalogInfo> {
         }
         Map<Name, T> nameMap = getMapForValue(nameMultiMap, value);
         Name name = nameMapper.apply(value);
-        nameMap.put(name, value);
         Map<String, T> idMap = getMapForValue(idMultiMap, value);
-        return idMap.put(value.getId(), value);
+        writeLock.lock();
+        try {
+            nameMap.put(name, value);
+            return idMap.put(value.getId(), value);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public Collection<T> values() {
@@ -102,11 +123,16 @@ class CatalogInfoLookup<T extends CatalogInfo> {
     }
 
     public T remove(T value) {
-        Name name = nameMapper.apply(value);
         Map<Name, T> nameMap = getMapForValue(nameMultiMap, value);
-        nameMap.remove(name);
         Map<String, T> idMap = getMapForValue(idMultiMap, value);
-        return idMap.remove(value.getId());
+        Name name = nameMapper.apply(value);
+        writeLock.lock();
+        try {
+            nameMap.remove(name);
+            return idMap.remove(value.getId());
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     /** Updates the value in the name map. The new value must be a ModificationProxy */
@@ -119,34 +145,45 @@ class CatalogInfoLookup<T extends CatalogInfo> {
         Name newName = nameMapper.apply(proxiedValue);
         if (!oldName.equals(newName)) {
             Map<Name, T> nameMap = getMapForValue(nameMultiMap, actualValue);
-            nameMap.remove(oldName);
-            nameMap.put(newName, actualValue);
+            writeLock.lock();
+            try {
+                nameMap.remove(oldName);
+                nameMap.put(newName, actualValue);
+            } finally {
+                writeLock.unlock();
+            }
         }
     }
 
     public void clear() {
-        idMultiMap.clear();
-        nameMultiMap.clear();
+        writeLock.lock();
+        try {
+            idMultiMap.clear();
+            nameMultiMap.clear();
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     /**
      * Looks up objects by class and matching predicate.
      *
-     * <p>This method is significantly faster than creating a stream and the applying the predicate
-     * on it. Just using this approach instead of the stream makes the overall startup of GeoServer
-     * with 20k layers go down from 50s to 44s (which is a lot, considering there is a lot of other
-     * things going on)
+     * <p>This method is significantly faster than creating a stream and the applying the predicate on it. Just using
+     * this approach instead of the stream makes the overall startup of GeoServer with 20k layers go down from 50s to
+     * 44s (which is a lot, considering there is a lot of other things going on)
      */
     <U extends CatalogInfo> List<U> list(Class<U> clazz, Predicate<U> predicate) {
-        ArrayList<U> result = new ArrayList<>();
+        List<U> result = List.of(); // replaced by ArrayList if there are matches
         for (Class<T> key : nameMultiMap.keySet()) {
             if (clazz.isAssignableFrom(key)) {
                 Map<Name, T> valueMap = nameMultiMap.get(key);
                 if (valueMap != null) {
                     for (T v : valueMap.values()) {
-                        @SuppressWarnings("unchecked")
-                        final U u = (U) v;
+                        final U u = clazz.cast(v);
                         if (predicate == TRUE || predicate.test(u)) {
+                            if (result.isEmpty()) {
+                                result = new ArrayList<>();
+                            }
                             result.add(u);
                         }
                     }
@@ -172,7 +209,6 @@ class CatalogInfoLookup<T extends CatalogInfo> {
                 }
             }
         }
-
         return null;
     }
 
@@ -198,10 +234,9 @@ class CatalogInfoLookup<T extends CatalogInfo> {
     /**
      * Looks up objects by class and matching predicate.
      *
-     * <p>This method is significantly faster than creating a stream and the applying the predicate
-     * on it. Just using this approach instead of the stream makes the overall startup of GeoServer
-     * with 20k layers go down from 50s to 44s (which is a lot, considering there is a lot of other
-     * things going on)
+     * <p>This method is significantly faster than creating a stream and the applying the predicate on it. Just using
+     * this approach instead of the stream makes the overall startup of GeoServer with 20k layers go down from 50s to
+     * 44s (which is a lot, considering there is a lot of other things going on)
      */
     <U extends CatalogInfo> U findFirst(Class<U> clazz, Predicate<U> predicate) {
         for (Class<T> key : nameMultiMap.keySet()) {
@@ -224,26 +259,27 @@ class CatalogInfoLookup<T extends CatalogInfo> {
 
     /** Sets the specified catalog into all CatalogInfo objects contained in this lookup */
     public CatalogInfoLookup<T> setCatalog(Catalog catalog) {
-        for (Map<Name, T> valueMap : nameMultiMap.values()) {
-            if (valueMap != null) {
-                for (T v : valueMap.values()) {
-                    if (v instanceof CatalogInfo) {
-                        Method setter = OwsUtils.setter(v.getClass(), "catalog", Catalog.class);
-                        if (setter != null) {
-                            try {
-                                setter.invoke(v, catalog);
-                            } catch (Exception e) {
-                                LOGGER.log(
-                                        Level.FINE,
-                                        "Failed to switch CatalogInfo to new catalog impl",
-                                        e);
+        writeLock.lock();
+        try {
+            for (Map<Name, T> valueMap : nameMultiMap.values()) {
+                if (valueMap != null) {
+                    for (T v : valueMap.values()) {
+                        if (v instanceof CatalogInfo) {
+                            Method setter = OwsUtils.setter(v.getClass(), "catalog", Catalog.class);
+                            if (setter != null) {
+                                try {
+                                    setter.invoke(v, catalog);
+                                } catch (Exception e) {
+                                    LOGGER.log(Level.FINE, "Failed to switch CatalogInfo to new catalog impl", e);
+                                }
                             }
                         }
                     }
                 }
             }
+        } finally {
+            writeLock.unlock();
         }
-
         return this;
     }
 }

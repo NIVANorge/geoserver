@@ -10,9 +10,9 @@ import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 
-import com.hazelcast.core.Member;
-import com.hazelcast.core.Message;
-import com.hazelcast.core.MessageListener;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.topic.Message;
+import com.hazelcast.topic.MessageListener;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import org.easymock.Capture;
@@ -68,11 +68,6 @@ public class EventHzSynchronizerSendTest extends HzSynchronizerSendTest {
         }
         replay(info, wsInfo);
         {
-            HzSynchronizer sync = getSynchronizer();
-
-            // Mock the result of doing this:
-            // getCatalog().remove(info);
-
             CatalogRemoveEventImpl event = new CatalogRemoveEventImpl();
 
             event.setSource(info);
@@ -86,8 +81,7 @@ public class EventHzSynchronizerSendTest extends HzSynchronizerSendTest {
                 UUID messageObject = capture.getValue().getUUID();
                 int publishTime = 0;
                 Member publishingMember = null;
-                Message<UUID> message =
-                        new Message<UUID>(topicName, messageObject, publishTime, publishingMember);
+                Message<UUID> message = new Message<>(topicName, messageObject, publishTime, publishingMember);
                 listener.onMessage(message);
             }
         }

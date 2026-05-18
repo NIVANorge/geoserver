@@ -5,20 +5,20 @@
  */
 package org.geoserver.wcs.responses;
 
+import static java.util.Map.entry;
+
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.geoserver.config.GeoServer;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.util.IOUtils;
+import org.geotools.api.coverage.grid.Format;
+import org.geotools.api.parameter.ParameterValue;
+import org.geotools.api.parameter.ParameterValueGroup;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.image.WorldImageWriter;
-import org.opengis.coverage.grid.Format;
-import org.opengis.parameter.GeneralParameterValue;
-import org.opengis.parameter.ParameterValue;
-import org.opengis.parameter.ParameterValueGroup;
 
 /**
  * Encodes coverages in "world image" formats, png, jpeg and gif.
@@ -28,35 +28,26 @@ import org.opengis.parameter.ParameterValueGroup;
  * @author $Author: Alessio Fabiani (alessio.fabiani@gmail.com) $ (last modification)
  * @author $Author: Simone Giannecchini (simboss1@gmail.com) $ (last modification)
  */
-public class IMGCoverageResponseDelegate extends BaseCoverageResponseDelegate
-        implements CoverageResponseDelegate {
+public class IMGCoverageResponseDelegate extends BaseCoverageResponseDelegate implements CoverageResponseDelegate {
 
-    @SuppressWarnings("serial")
     public IMGCoverageResponseDelegate(GeoServer geoserver) {
         super(
                 geoserver,
-                Arrays.asList(
-                        "png", "jpeg", "JPEG", "PNG", "image/png", "image/jpeg"), // output formats
-                new HashMap<String, String>() { // file extensions
-                    {
-                        put("png", "png");
-                        put("jpeg", "jpeg");
-                        put("JPEG", "jpeg");
-                        put("PNG", "png");
-                        put("image/png", "png");
-                        put("image/jpeg", "jpeg");
-                    }
-                },
-                new HashMap<String, String>() { // mime types
-                    {
-                        put("png", "image/png");
-                        put("jpeg", "image/jpeg");
-                        put("PNG", "image/png");
-                        put("JPEG", "image/jpeg");
-                        put("image/png", "image/png");
-                        put("image/jpeg", "image/jpeg");
-                    }
-                });
+                List.of("png", "jpeg", "JPEG", "PNG", "image/png", "image/jpeg"), // output formats
+                Map.ofEntries( // file extensions
+                        entry("png", "png"),
+                        entry("jpeg", "jpeg"),
+                        entry("JPEG", "jpeg"),
+                        entry("PNG", "png"),
+                        entry("image/png", "png"),
+                        entry("image/jpeg", "jpeg")),
+                Map.ofEntries( // mime types
+                        entry("png", "image/png"),
+                        entry("jpeg", "image/jpeg"),
+                        entry("PNG", "image/png"),
+                        entry("JPEG", "image/jpeg"),
+                        entry("image/png", "image/png"),
+                        entry("image/jpeg", "image/jpeg")));
     }
 
     @Override
@@ -68,8 +59,7 @@ public class IMGCoverageResponseDelegate extends BaseCoverageResponseDelegate
             OutputStream output)
             throws ServiceException, IOException {
         if (sourceCoverage == null) {
-            throw new IllegalStateException(
-                    "It seems prepare() has not been called or has not succeed");
+            throw new IllegalStateException("It seems prepare() has not been called or has not succeed");
         }
 
         final WorldImageWriter writer = new WorldImageWriter(output);
@@ -82,7 +72,7 @@ public class IMGCoverageResponseDelegate extends BaseCoverageResponseDelegate
 
         try {
             // writing
-            writer.write(sourceCoverage, new GeneralParameterValue[] {format});
+            writer.write(sourceCoverage, format);
             output.flush();
         } finally {
 

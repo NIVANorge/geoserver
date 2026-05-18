@@ -15,7 +15,7 @@ import org.mapstruct.Mapping;
 public interface ResourceResponseMapper {
 
     public default List<String> map(StringArrayResponse r) {
-        return r == null || r.getString() == null ? null : new ArrayList<String>(r.getString());
+        return r == null || r.getString() == null ? new ArrayList<String>() : new ArrayList<String>(r.getString());
     }
 
     public default List<KeywordInfo> map(ResourceResponseKeywords r) {
@@ -58,17 +58,17 @@ public interface ResourceResponseMapper {
         if (value == null) {
             return null;
         }
-        if (value instanceof String) {
-            return (String) value;
+        if (value instanceof String string) {
+            return string;
         }
-        if (value instanceof Map) {
-            return (String) ((Map) value).get("$");
+        if (value instanceof Map map) {
+            return (String) map.get("$");
         }
         throw new IllegalStateException();
     }
 
     public default List<java.lang.Double> map(DoubleArrayResponse value) {
-        if (value == null || value.getDouble() == null) return null;
+        if (value == null || value.getDouble() == null) return new ArrayList<>();
         return new ArrayList<>(value.getDouble());
     }
 

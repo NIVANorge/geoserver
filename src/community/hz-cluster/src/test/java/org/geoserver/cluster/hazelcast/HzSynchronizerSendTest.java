@@ -28,8 +28,7 @@ import org.geoserver.config.GeoServerInfo;
 import org.junit.Test;
 
 /**
- * Test that the Synchronizer sends appropriate messages to the shared topic in response to
- * config/catalog changes.
+ * Test that the Synchronizer sends appropriate messages to the shared topic in response to config/catalog changes.
  *
  * @author smithkm
  */
@@ -59,23 +58,12 @@ public abstract class HzSynchronizerSendTest extends HzSynchronizerTest {
             expect(info.getName()).andStubReturn(layerName);
             expect(info.getId()).andStubReturn(layerId);
 
-            expectEvent(
-                    localAddress, layerName, layerWorkspace, layerId, LayerInfo.class, Type.MODIFY);
-            expectEvent(
-                    localAddress,
-                    layerName,
-                    layerWorkspace,
-                    layerId,
-                    LayerInfo.class,
-                    Type.POST_MODIFY);
+            expectEvent(localAddress, layerName, layerWorkspace, layerId, LayerInfo.class, Type.MODIFY);
+            expectEvent(localAddress, layerName, layerWorkspace, layerId, LayerInfo.class, Type.POST_MODIFY);
         }
         replay(info);
         {
-            HzSynchronizer sync = getSynchronizer();
-
-            // Mock the result of doing this:
-            // info.setEnabled(false);
-            // getCatalog().save(info);
+            getSynchronizer(); // init it
 
             CatalogModifyEventImpl preEvent = new CatalogModifyEventImpl();
 
@@ -117,21 +105,11 @@ public abstract class HzSynchronizerSendTest extends HzSynchronizerTest {
 
             expect(wsInfo.getId()).andStubReturn(storeWorkspace);
 
-            expectEvent(
-                    localAddress,
-                    storeName,
-                    storeWorkspace,
-                    storeId,
-                    DataStoreInfo.class,
-                    Type.REMOVE);
+            expectEvent(localAddress, storeName, storeWorkspace, storeId, DataStoreInfo.class, Type.REMOVE);
         }
         replay(info, wsInfo);
         {
-            HzSynchronizer sync = getSynchronizer();
-
-            // Mock the result of doing this:
-            // getCatalog().remove(info);
-
+            getSynchronizer(); // init it
             CatalogRemoveEventImpl event = new CatalogRemoveEventImpl();
 
             event.setSource(info);
@@ -156,20 +134,8 @@ public abstract class HzSynchronizerSendTest extends HzSynchronizerTest {
 
             expect(info.getId()).andStubReturn(globalId);
 
-            expectEvent(
-                    localAddress,
-                    globalName,
-                    globalWorkspace,
-                    globalId,
-                    GeoServerInfo.class,
-                    Type.MODIFY);
-            expectEvent(
-                    localAddress,
-                    globalName,
-                    globalWorkspace,
-                    globalId,
-                    GeoServerInfo.class,
-                    Type.POST_MODIFY);
+            expectEvent(localAddress, globalName, globalWorkspace, globalId, GeoServerInfo.class, Type.MODIFY);
+            expectEvent(localAddress, globalName, globalWorkspace, globalId, GeoServerInfo.class, Type.POST_MODIFY);
         }
         replay(info);
         {
@@ -209,22 +175,11 @@ public abstract class HzSynchronizerSendTest extends HzSynchronizerTest {
             expect(info.getName()).andStubReturn(workspaceName);
             expect(info.getId()).andStubReturn(workspaceId);
 
-            expectEvent(
-                    localAddress,
-                    workspaceName,
-                    workspaceWorkspace,
-                    workspaceId,
-                    WorkspaceInfo.class,
-                    Type.ADD);
+            expectEvent(localAddress, workspaceName, workspaceWorkspace, workspaceId, WorkspaceInfo.class, Type.ADD);
         }
         replay(info);
         {
-            HzSynchronizer sync = getSynchronizer();
-
-            // Mock the result of doing this:
-
-            // getCatalog().add(info);
-
+            getSynchronizer(); // init it
             CatalogAddEventImpl preEvent = new CatalogAddEventImpl();
 
             preEvent.setSource(info);

@@ -5,6 +5,7 @@
  */
 package org.geoserver.security;
 
+import java.io.Serial;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -18,22 +19,26 @@ import org.geoserver.security.config.SecurityFilterConfig;
 /**
  * {@link GeoServerAuthenticationKeyFilter} configuration object.
  *
- * <p>{@link #authKeyParamName} is the name of the URL parameter, default is {@link
- * KeyAuthenticationToken#DEFAULT_URL_PARAM}
+ * <p>{@link #authKeyParamName} is the name of the URL parameter, default is
+ * {@link KeyAuthenticationToken#DEFAULT_URL_PARAM}
  *
- * <p>{@link #authKeyMapperName} is the bean name of an {@link AuthenticationKeyMapper}
- * implementation.
+ * <p>{@link #authKeyMapperName} is the bean name of an {@link AuthenticationKeyMapper} implementation.
  *
  * @author mcr
  */
-public class AuthenticationKeyFilterConfig extends SecurityFilterConfig
-        implements SecurityAuthFilterConfig {
+public class AuthenticationKeyFilterConfig extends SecurityFilterConfig implements SecurityAuthFilterConfig {
 
+    @Serial
     private static final long serialVersionUID = 1L;
+
     private String authKeyMapperName;
     private String authKeyParamName = KeyAuthenticationToken.DEFAULT_URL_PARAM;
     private String userGroupServiceName;
     private Map<String, String> mapperParameters;
+
+    private boolean allowMapperKeysAutoSync = false;
+
+    private boolean allowChallengeAnonymousSessions = false;
 
     @Override
     public boolean providesAuthenticationEntryPoint() {
@@ -81,22 +86,41 @@ public class AuthenticationKeyFilterConfig extends SecurityFilterConfig
         this.mapperParameters = mapperParameters;
     }
 
+    /** @return true if the mapper keys auto sync is allowed */
+    public boolean isAllowMapperKeysAutoSync() {
+        return allowMapperKeysAutoSync;
+    }
+
+    /** @param allowMapperKeysAutoSync true if the mapper keys auto sync is allowed */
+    public void setAllowMapperKeysAutoSync(boolean allowMapperKeysAutoSync) {
+        this.allowMapperKeysAutoSync = allowMapperKeysAutoSync;
+    }
+
+    /** @return true if the stateless mode is enabled */
+    public boolean isAllowChallengeAnonymousSessions() {
+        return allowChallengeAnonymousSessions;
+    }
+
+    /** @param allowChallengeAnonymousSessions true if the stateless mode is enabled */
+    public void setAllowChallengeAnonymousSessions(boolean allowChallengeAnonymousSessions) {
+        this.allowChallengeAnonymousSessions = allowChallengeAnonymousSessions;
+    }
+
     @Override
     public SecurityConfig clone(boolean allowEnvParametrization) {
-        AuthenticationKeyFilterConfig target =
-                (AuthenticationKeyFilterConfig) SerializationUtils.clone(this);
+        AuthenticationKeyFilterConfig target = (AuthenticationKeyFilterConfig) SerializationUtils.clone(this);
         if (target != null) {
             // Resolve GeoServer Environment placeholders
-            final GeoServerEnvironment gsEnvironment =
-                    GeoServerExtensions.bean(GeoServerEnvironment.class);
-            if (target.getMapperParameters() != null && !target.getMapperParameters().isEmpty()) {
+            final GeoServerEnvironment gsEnvironment = GeoServerExtensions.bean(GeoServerEnvironment.class);
+            if (target.getMapperParameters() != null
+                    && !target.getMapperParameters().isEmpty()) {
                 if (allowEnvParametrization) {
-                    for (Entry<String, String> param : target.getMapperParameters().entrySet()) {
+                    for (Entry<String, String> param :
+                            target.getMapperParameters().entrySet()) {
                         String key = param.getKey();
                         Object value = param.getValue();
 
-                        if (gsEnvironment != null
-                                && GeoServerEnvironment.allowEnvParametrization()) {
+                        if (gsEnvironment != null && GeoServerEnvironment.allowEnvParametrization()) {
                             value = gsEnvironment.resolveValue(value);
                         }
 

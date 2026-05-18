@@ -17,12 +17,21 @@ import org.geoserver.catalog.ResourceInfo;
 import org.geoserver.catalog.util.ReaderDimensionsAccessor;
 import org.geoserver.wcs2_0.GetCoverage;
 import org.geoserver.wcs2_0.GridCoverageRequest;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
+import org.geotools.api.geometry.Bounds;
 import org.geotools.coverage.grid.io.DimensionDescriptor;
 import org.geotools.coverage.grid.io.GranuleSource;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
 import org.geotools.coverage.util.FeatureUtilities;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.factory.CommonFactoryFinder;
@@ -30,20 +39,10 @@ import org.geotools.filter.SortByImpl;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
-import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.geotools.util.DateRange;
 import org.geotools.util.NumberRange;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
-import org.opengis.geometry.Envelope;
 
 /**
  * A class which takes care of handling default values for unspecified dimensions (if needed).
@@ -52,7 +51,7 @@ import org.opengis.geometry.Envelope;
  */
 public class WCSDefaultValuesHelper {
 
-    FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     private String coverageName;
 
@@ -72,18 +71,13 @@ public class WCSDefaultValuesHelper {
             throws IOException {
         super();
         this.accessor =
-                accessor == null
-                        ? new ReaderDimensionsAccessor(reader)
-                        : accessor; // Force the creation of an accessor
+                accessor == null ? new ReaderDimensionsAccessor(reader) : accessor; // Force the creation of an accessor
         this.reader = reader;
         this.request = request;
         this.coverageName = coverageName;
     }
 
-    /**
-     * Check the current request and update default values if needed. Return the updated {@link
-     * GridCoverageRequest}
-     */
+    /** Check the current request and update default values if needed. Return the updated {@link GridCoverageRequest} */
     public void setDefaults(GridCoverageRequest subsettingRequest) throws IOException {
         // Deal with default values
         final String format = request.getFormat();
@@ -107,30 +101,26 @@ public class WCSDefaultValuesHelper {
     }
 
     /**
-     * Set default values by querying a {@link GranuleSource} from {@link
-     * StructuredGridCoverage2DReader} in order to update unspecified dimensions values from
-     * attributes values obtained from the query.
+     * Set default values by querying a {@link GranuleSource} from {@link StructuredGridCoverage2DReader} in order to
+     * update unspecified dimensions values from attributes values obtained from the query.
      */
-    private GridCoverageRequest setDefaultsFromStructuredReader(
-            GridCoverageRequest subsettingRequest) throws IOException {
+    private GridCoverageRequest setDefaultsFromStructuredReader(GridCoverageRequest subsettingRequest)
+            throws IOException {
 
         // Get subsetting request
         DateRange temporalSubset = subsettingRequest.getTemporalSubset();
         NumberRange<?> elevationSubset = subsettingRequest.getElevationSubset();
         Map<String, List<Object>> dimensionsSubset = subsettingRequest.getDimensionsSubset();
-        Envelope envelopeSubset = subsettingRequest.getSpatialSubset();
+        Bounds envelopeSubset = subsettingRequest.getSpatialSubset();
         Filter originalFilter = subsettingRequest.getFilter();
 
-        final int specifiedDimensionsSubset =
-                dimensionsSubset != null ? dimensionsSubset.size() : 0;
+        final int specifiedDimensionsSubset = dimensionsSubset != null ? dimensionsSubset.size() : 0;
 
         // Casting to StructuredGridCoverage2DReader
-        final StructuredGridCoverage2DReader structuredReader =
-                (StructuredGridCoverage2DReader) reader;
+        final StructuredGridCoverage2DReader structuredReader = (StructuredGridCoverage2DReader) reader;
 
         // Getting dimension descriptors
-        final List<DimensionDescriptor> dimensionDescriptors =
-                structuredReader.getDimensionDescriptors(coverageName);
+        final List<DimensionDescriptor> dimensionDescriptors = structuredReader.getDimensionDescriptors(coverageName);
         DimensionDescriptor timeDimension = null;
         DimensionDescriptor elevationDimension = null;
         final List<DimensionDescriptor> customDimensions = new ArrayList<>();
@@ -149,8 +139,7 @@ public class WCSDefaultValuesHelper {
         }
 
         final boolean defaultTimeNeeded = temporalSubset == null && timeDimension != null;
-        final boolean defaultElevationNeeded =
-                elevationSubset == null && elevationDimension != null;
+        final boolean defaultElevationNeeded = elevationSubset == null && elevationDimension != null;
         final boolean defaultCustomDimensionsNeeded = dimensions != specifiedDimensionsSubset;
 
         // Note that only Slicing is currently supported;
@@ -160,17 +149,16 @@ public class WCSDefaultValuesHelper {
             GranuleSource source = structuredReader.getGranules(coverageName, true);
 
             // Set filtering query matching the specified subsets.
-            Filter finalFilter =
-                    setFilters(
-                            originalFilter,
-                            temporalSubset,
-                            elevationSubset,
-                            envelopeSubset,
-                            dimensionsSubset,
-                            structuredReader,
-                            timeDimension,
-                            elevationDimension,
-                            customDimensions);
+            Filter finalFilter = setFilters(
+                    originalFilter,
+                    temporalSubset,
+                    elevationSubset,
+                    envelopeSubset,
+                    dimensionsSubset,
+                    structuredReader,
+                    timeDimension,
+                    elevationDimension,
+                    customDimensions);
             Query query = new Query();
 
             // Set sorting order (default Policy is using Max... therefore Descending order)
@@ -214,9 +202,7 @@ public class WCSDefaultValuesHelper {
         return subsettingRequest;
     }
 
-    /**
-     * Set default for custom dimensions, taking values from the feature resulting from the query.
-     */
+    /** Set default for custom dimensions, taking values from the feature resulting from the query. */
     private Map<String, List<Object>> setDefaultDimensionsSubset(
             List<DimensionDescriptor> customDimensions, SimpleFeature feature) {
         Map<String, List<Object>> dimensionsSubset = new HashMap<>();
@@ -235,8 +221,7 @@ public class WCSDefaultValuesHelper {
     }
 
     /** Set default elevation value from the provided feature */
-    private NumberRange<?> setDefaultElevationSubset(
-            DimensionDescriptor elevationDimension, SimpleFeature f) {
+    private NumberRange<?> setDefaultElevationSubset(DimensionDescriptor elevationDimension, SimpleFeature f) {
         final String start = elevationDimension.getStartAttribute();
         final String end = elevationDimension.getEndAttribute();
         Number startTime = (Number) f.getAttribute(start);
@@ -262,45 +247,37 @@ public class WCSDefaultValuesHelper {
     }
 
     /**
-     * Current policy is to use the max value as default for time and min value as default for
-     * elevation.
+     * Current policy is to use the max value as default for time and min value as default for elevation.
      *
      * @param query the originating query
      * @param elevationDimension TODO: Consider also sorting on custom dimensions
      */
-    private void sortBy(
-            Query query,
-            DimensionDescriptor timeDimension,
-            DimensionDescriptor elevationDimension) {
+    private void sortBy(Query query, DimensionDescriptor timeDimension, DimensionDescriptor elevationDimension) {
         final List<SortBy> clauses = new ArrayList<>();
         // TODO: Check sortBy clause is supported
         if (timeDimension != null) {
-            clauses.add(
-                    new SortByImpl(
-                            FeatureUtilities.DEFAULT_FILTER_FACTORY.property(
-                                    timeDimension.getStartAttribute()),
-                            SortOrder.DESCENDING));
+            clauses.add(new SortByImpl(
+                    FeatureUtilities.DEFAULT_FILTER_FACTORY.property(timeDimension.getStartAttribute()),
+                    SortOrder.DESCENDING));
         }
         if (elevationDimension != null) {
-            clauses.add(
-                    new SortByImpl(
-                            FeatureUtilities.DEFAULT_FILTER_FACTORY.property(
-                                    elevationDimension.getStartAttribute()),
-                            SortOrder.ASCENDING));
+            clauses.add(new SortByImpl(
+                    FeatureUtilities.DEFAULT_FILTER_FACTORY.property(elevationDimension.getStartAttribute()),
+                    SortOrder.ASCENDING));
         }
         final SortBy[] sb = clauses.toArray(new SortBy[] {});
         query.setSortBy(sb);
     }
 
     /**
-     * Setup filter query on top of specified subsets values to return only granules satisfying the
-     * specified conditions.
+     * Setup filter query on top of specified subsets values to return only granules satisfying the specified
+     * conditions.
      */
     private Filter setFilters(
             Filter originalFilter,
             DateRange temporalSubset,
             NumberRange<?> elevationSubset,
-            Envelope envelopeSubset,
+            Bounds envelopeSubset,
             Map<String, List<Object>> dimensionSubset,
             StructuredGridCoverage2DReader reader,
             DimensionDescriptor timeDimension,
@@ -310,29 +287,21 @@ public class WCSDefaultValuesHelper {
         List<Filter> filters = new ArrayList<>();
 
         // Setting temporal filter
-        Filter timeFilter =
-                temporalSubset == null && timeDimension == null
-                        ? null
-                        : setTimeFilter(
-                                temporalSubset,
-                                timeDimension.getStartAttribute(),
-                                timeDimension.getEndAttribute());
+        Filter timeFilter = temporalSubset == null && timeDimension == null
+                ? null
+                : setTimeFilter(temporalSubset, timeDimension.getStartAttribute(), timeDimension.getEndAttribute());
 
         // Setting elevation filter
-        Filter elevationFilter =
-                elevationSubset == null && elevationDimension == null
-                        ? null
-                        : setElevationFilter(
-                                elevationSubset,
-                                elevationDimension.getStartAttribute(),
-                                elevationDimension.getEndAttribute());
+        Filter elevationFilter = elevationSubset == null && elevationDimension == null
+                ? null
+                : setElevationFilter(
+                        elevationSubset, elevationDimension.getStartAttribute(), elevationDimension.getEndAttribute());
 
         // setting envelope filter
         Filter envelopeFilter = setEnvelopeFilter(envelopeSubset, reader);
 
         // Setting dimensional filters
-        Filter additionalDimensionsFilter =
-                setAdditionalDimensionsFilter(dimensionSubset, additionalDimensions);
+        Filter additionalDimensionsFilter = setAdditionalDimensionsFilter(dimensionSubset, additionalDimensions);
 
         // Updating filters
         if (originalFilter != null) {
@@ -357,8 +326,7 @@ public class WCSDefaultValuesHelper {
     }
 
     /** Set envelope filter to restrict the results to the specified envelope */
-    private Filter setEnvelopeFilter(Envelope envelopeSubset, StructuredGridCoverage2DReader reader)
-            throws IOException {
+    private Filter setEnvelopeFilter(Bounds envelopeSubset, StructuredGridCoverage2DReader reader) throws IOException {
         Filter envelopeFilter = null;
         if (envelopeSubset != null) {
             Polygon polygon = JTS.toGeometry(new ReferencedEnvelope(envelopeSubset));
@@ -367,12 +335,10 @@ public class WCSDefaultValuesHelper {
             PropertyName geometryProperty = FF.property(geom.getLocalName());
             Geometry nativeCRSPolygon;
             try {
-                nativeCRSPolygon =
-                        JTS.transform(
-                                polygon,
-                                CRS.findMathTransform(
-                                        DefaultGeographicCRS.WGS84,
-                                        reader.getCoordinateReferenceSystem()));
+                nativeCRSPolygon = JTS.transform(
+                        polygon,
+                        CRS.findMathTransform(
+                                envelopeSubset.getCoordinateReferenceSystem(), reader.getCoordinateReferenceSystem()));
                 Literal polygonLiteral = FF.literal(nativeCRSPolygon);
                 // TODO: Check that geom operation. Should I do intersection or containment check?
                 envelopeFilter = FF.intersects(geometryProperty, polygonLiteral);
@@ -386,8 +352,7 @@ public class WCSDefaultValuesHelper {
 
     /** Set filter to match specified additional dimensions values */
     private Filter setAdditionalDimensionsFilter(
-            Map<String, List<Object>> dimensionSubset,
-            List<DimensionDescriptor> additionalDimensions) {
+            Map<String, List<Object>> dimensionSubset, List<DimensionDescriptor> additionalDimensions) {
         Filter additionalDimensionsFilter = null;
 
         // Check whether the number of specified additional dimensions values doesn't match the
@@ -401,9 +366,7 @@ public class WCSDefaultValuesHelper {
             Set<String> dimensionKeys = dimensionSubset.keySet();
             for (String dimension : dimensionKeys) {
                 // Look for the specified dimension
-                Filter dimensionFilter =
-                        createCustomDimensionFilter(
-                                dimension, dimensionSubset, additionalDimensions);
+                Filter dimensionFilter = createCustomDimensionFilter(dimension, dimensionSubset, additionalDimensions);
                 if (dimensionFilter != null) {
                     additionalDimensionFilterList.add(dimensionFilter);
                 }
@@ -417,9 +380,7 @@ public class WCSDefaultValuesHelper {
 
     /** Create a filter matching the specified additional dimension value */
     private Filter createCustomDimensionFilter(
-            String dimension,
-            Map<String, List<Object>> dimensionSubset,
-            List<DimensionDescriptor> customDimensions) {
+            String dimension, Map<String, List<Object>> dimensionSubset, List<DimensionDescriptor> customDimensions) {
         List<Object> dimensionSelection = dimensionSubset.get(dimension);
 
         // Only supporting slicing right now. Dealing with a single dimension value
@@ -451,11 +412,9 @@ public class WCSDefaultValuesHelper {
         if (elevationSubset != null) {
             if (end == null) {
                 // single value elevation
-                return betweenFilter(
-                        start, elevationSubset.getMinValue(), elevationSubset.getMaxValue());
+                return betweenFilter(start, elevationSubset.getMinValue(), elevationSubset.getMaxValue());
             } else {
-                return rangeFilter(
-                        start, end, elevationSubset.getMinValue(), elevationSubset.getMaxValue());
+                return rangeFilter(start, end, elevationSubset.getMinValue(), elevationSubset.getMaxValue());
             }
         }
         return null;
@@ -478,8 +437,7 @@ public class WCSDefaultValuesHelper {
     }
 
     /** Set default values for the standard reader case (no DimensionsDescriptor available) */
-    private GridCoverageRequest setStandardReaderDefaults(GridCoverageRequest subsettingRequest)
-            throws IOException {
+    private GridCoverageRequest setStandardReaderDefaults(GridCoverageRequest subsettingRequest) throws IOException {
         DateRange temporalSubset = subsettingRequest.getTemporalSubset();
         NumberRange<?> elevationSubset = subsettingRequest.getElevationSubset();
         Map<String, List<Object>> dimensionSubset = subsettingRequest.getDimensionsSubset();
@@ -502,8 +460,7 @@ public class WCSDefaultValuesHelper {
             Number minElevation = accessor.getMinElevation();
             if (minElevation != null) {
                 @SuppressWarnings("unchecked")
-                NumberRange<?> cast =
-                        new NumberRange(minElevation.getClass(), minElevation, minElevation);
+                NumberRange<?> cast = new NumberRange(minElevation.getClass(), minElevation, minElevation);
                 elevationSubset = cast;
             }
         }
@@ -530,8 +487,7 @@ public class WCSDefaultValuesHelper {
     }
 
     /** Set default custom dimensions */
-    private void setDefaultCustomDimensions(
-            List<String> customDomains, Map<String, List<Object>> dimensionSubset)
+    private void setDefaultCustomDimensions(List<String> customDomains, Map<String, List<Object>> dimensionSubset)
             throws IOException {
 
         // Scan available custom dimensions

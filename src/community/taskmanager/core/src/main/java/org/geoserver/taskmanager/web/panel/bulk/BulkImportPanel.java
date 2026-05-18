@@ -4,7 +4,10 @@
  */
 package org.geoserver.taskmanager.web.panel.bulk;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Scanner;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -25,8 +28,23 @@ import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.GeoServerDialog.DialogDelegate;
 import org.geoserver.web.wicket.ParamResourceModel;
 
+// TODO WICKET8 - Verify this page works OK
 public class BulkImportPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(BulkImportPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -7787191736336649903L;
 
     public BulkImportPanel(String id) {
@@ -41,95 +59,75 @@ public class BulkImportPanel extends Panel {
         add(dialog);
         dialog.setInitialHeight(100);
 
+        Form<?> form = new Form<Object>("form");
+        form.setMultiPart(true);
+        add(form);
         ArrayList<String> list = new ArrayList<String>();
         for (Configuration template : TaskManagerBeans.get().getDao().getConfigurations(true)) {
             list.add(template.getName());
         }
 
-        DropDownChoice<String> ddTemplate =
-                new DropDownChoice<String>("template", Model.of(), list);
-        add(ddTemplate.setRequired(true));
+        DropDownChoice<String> ddTemplate = new DropDownChoice<String>("template", Model.of(), list);
+        form.add(ddTemplate.setRequired(true));
 
         FileUploadField fileUpload = new FileUploadField("fileUpload");
-        add(fileUpload.setRequired(true));
+        form.add(fileUpload.setRequired(true));
 
         CheckBox cbValidated = new CheckBox("validate", Model.of(true));
-        add(cbValidated);
+        form.add(cbValidated);
 
-        AjaxSubmitLink importButton =
-                new AjaxSubmitLink("import") {
-                    private static final long serialVersionUID = -3288982013478650146L;
+        AjaxSubmitLink importButton = new AjaxSubmitLink("import") {
+            @Serial
+            private static final long serialVersionUID = -3288982013478650146L;
 
-                    @Override
-                    protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
-                        String csvData = new String(fileUpload.getFileUpload().getBytes());
-                        if (csvData.isEmpty()) {
-                            error(
-                                    new ParamResourceModel("importEmpty", BulkImportPanel.this)
-                                            .getString());
+            @Override
+            protected void onSubmit(AjaxRequestTarget target) {
+                String csvData = new String(fileUpload.getFileUpload().getBytes());
+                if (csvData.isEmpty()) {
+                    error(new ParamResourceModel("importEmpty", BulkImportPanel.this).getString());
 
-                            ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
-                        } else {
-                            dialog.showOkCancel(
-                                    target,
-                                    new DialogDelegate() {
-                                        private static final long serialVersionUID =
-                                                -8203963847815744909L;
+                    ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
+                } else {
+                    dialog.showOkCancel(target, new DialogDelegate() {
+                        @Serial
+                        private static final long serialVersionUID = -8203963847815744909L;
 
-                                        @Override
-                                        protected Component getContents(String id) {
-                                            return new Label(
-                                                    id,
-                                                    new ParamResourceModel(
-                                                            "importWarning",
-                                                            BulkImportPanel.this,
-                                                            numberOfLines(csvData)));
-                                        }
-
-                                        @Override
-                                        protected boolean onSubmit(
-                                                AjaxRequestTarget target, Component contents) {
-                                            try {
-                                                if (TaskManagerBeans.get()
-                                                        .getImportTool()
-                                                        .doImportWithTemplate(
-                                                                ddTemplate.getModelObject(),
-                                                                csvData,
-                                                                cbValidated.getModelObject())) {
-                                                    info(
-                                                            new ParamResourceModel(
-                                                                            "importSuccess",
-                                                                            BulkImportPanel.this)
-                                                                    .getString());
-                                                } else {
-                                                    error(
-                                                            new ParamResourceModel(
-                                                                            "importFailure",
-                                                                            BulkImportPanel.this)
-                                                                    .getString());
-                                                }
-                                            } catch (IOException e) {
-                                                Throwable rootCause =
-                                                        ExceptionUtils.getRootCause(e);
-                                                error(
-                                                        rootCause == null
-                                                                ? e.getLocalizedMessage()
-                                                                : rootCause.getLocalizedMessage());
-                                            }
-                                            ((GeoServerBasePage) getPage())
-                                                    .addFeedbackPanels(target);
-                                            return true;
-                                        }
-                                    });
+                        @Override
+                        protected Component getContents(String id) {
+                            return new Label(
+                                    id,
+                                    new ParamResourceModel(
+                                            "importWarning", BulkImportPanel.this, numberOfLines(csvData)));
                         }
-                    }
 
-                    @Override
-                    protected void onError(AjaxRequestTarget target, Form<?> form) {
-                        ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
-                    }
-                };
-        add(importButton);
+                        @Override
+                        protected boolean onSubmit(AjaxRequestTarget target, Component contents) {
+                            try {
+                                if (TaskManagerBeans.get()
+                                        .getImportTool()
+                                        .doImportWithTemplate(
+                                                ddTemplate.getModelObject(), csvData, cbValidated.getModelObject())) {
+                                    info(new ParamResourceModel("importSuccess", BulkImportPanel.this).getString());
+                                } else {
+                                    error(new ParamResourceModel("importFailure", BulkImportPanel.this).getString());
+                                }
+                            } catch (IOException e) {
+                                Throwable rootCause = ExceptionUtils.getRootCause(e);
+                                error(rootCause == null ? e.getLocalizedMessage() : rootCause.getLocalizedMessage());
+                            }
+                            ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
+                            return true;
+                        }
+                    });
+                }
+            }
+
+            @Override
+            protected void onError(AjaxRequestTarget target) {
+                ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
+            }
+        };
+        form.add(importButton);
     }
 
     private static int numberOfLines(String data) {

@@ -5,10 +5,10 @@
 package org.geoserver.opensearch.eo.store;
 
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.visitor.DuplicatingFilterVisitor;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.expression.PropertyName;
 
 /**
  * Visits a filter and transforms back the properties into
@@ -41,9 +41,7 @@ class MappingFilterVisitor extends DuplicatingFilterVisitor {
 
         if (sourceName == null) {
             throw new ServiceException(
-                    "Simple feature translation failed, could not back-map '"
-                            + name
-                            + "' to a source property");
+                    "Simple feature translation failed, could not back-map '" + name + "' to a source property");
         } else {
             return ff.property(sourceName);
         }

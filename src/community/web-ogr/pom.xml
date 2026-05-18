@@ -4,12 +4,13 @@
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>community</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
   <groupId>org.geoserver.community</groupId>
   <artifactId>gs-web-ogr</artifactId>
   <packaging>jar</packaging>
   <name>OGR datastore panel</name>
+
   <dependencies>
     <dependency>
       <groupId>org.geoserver.web</groupId>
@@ -19,7 +20,6 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-ogr-jni</artifactId>
-      <version>${gt.version}</version>
     </dependency>
     <dependency>
       <groupId>org.geoserver</groupId>

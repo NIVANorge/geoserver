@@ -19,7 +19,6 @@ import org.apache.wicket.markup.html.panel.Fragment;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.apache.wicket.request.resource.PackageResourceReference;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
@@ -32,27 +31,26 @@ import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.geoserver.web.wicket.ImageAjaxLink;
 import org.geoserver.web.wicket.ParamResourceModel;
-import org.geotools.data.DataStore;
-import org.geotools.data.FeatureSource;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 /**
  * Builds a new feature type by having the user specify the attributes
  *
  * @author aaime
  */
-@SuppressWarnings("serial")
 public class NewFeatureTypePage extends GeoServerSecuredPage {
 
     public static final String DATASTORE = "storeName";
 
-    public static final String WORKSPACE = "wsName";
+    public static final String WORKSPACE = "workspace";
 
-    String name;
+    String name = "";
 
     Form<?> form;
 
@@ -70,11 +68,7 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
         DataStoreInfo di = getCatalog().getDataStoreByName(workspaceName, storeName);
         if (di == null) {
             throw new IllegalArgumentException(
-                    "Could not find a "
-                            + storeName
-                            + " store in the "
-                            + workspaceName
-                            + " workspace");
+                    "Could not find a " + storeName + " store in the " + workspaceName + " workspace");
         }
         this.storeId = di.getId();
 
@@ -85,48 +79,42 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
         form.add(new TextField<>("name", new PropertyModel<>(this, "name")).setRequired(true));
 
         attributesProvider = new AttributesProvider();
-        attributeTable =
-                new GeoServerTablePanel<AttributeDescription>(
-                        "attributes", attributesProvider, true) {
+        attributeTable = new GeoServerTablePanel<>("attributes", attributesProvider, true) {
 
-                    @Override
-                    protected Component getComponentForProperty(
-                            String id,
-                            IModel<AttributeDescription> itemModel,
-                            Property<AttributeDescription> property) {
-                        AttributeDescription att = itemModel.getObject();
-                        if (property == AttributesProvider.NAME) {
-                            Fragment f = new Fragment(id, "nameFragment", NewFeatureTypePage.this);
-                            f.add(editAttributeLink(itemModel));
-                            return f;
-                        } else if (property == AttributesProvider.BINDING) {
-                            return new Label(
-                                    id, AttributeDescription.getLocalizedName(att.getBinding()));
-                        } else if (property == AttributesProvider.CRS) {
-                            if (att.getBinding() != null
-                                    && Geometry.class.isAssignableFrom(att.getBinding())) {
-                                try {
-                                    Integer epsgCode = CRS.lookupEpsgCode(att.getCrs(), false);
-                                    return new Label(id, "EPSG:" + epsgCode);
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                }
-                            } else {
-                                return new Label(id, "");
-                            }
-                        } else if (property == AttributesProvider.SIZE) {
-                            if (att.getBinding() != null && String.class.equals(att.getBinding())) {
-                                return new Label(id, String.valueOf(att.getSize()));
-                            } else {
-                                return new Label(id, "");
-                            }
-                        } else if (property == AttributesProvider.UPDOWN) {
-                            return upDownFragment(id, att);
+            @Override
+            protected Component getComponentForProperty(
+                    String id, IModel<AttributeDescription> itemModel, Property<AttributeDescription> property) {
+                AttributeDescription att = itemModel.getObject();
+                if (property == AttributesProvider.NAME) {
+                    Fragment f = new Fragment(id, "nameFragment", NewFeatureTypePage.this);
+                    f.add(editAttributeLink(itemModel));
+                    return f;
+                } else if (property == AttributesProvider.BINDING) {
+                    return new Label(id, AttributeDescription.getLocalizedName(att.getBinding()));
+                } else if (property == AttributesProvider.CRS) {
+                    if (att.getBinding() != null && Geometry.class.isAssignableFrom(att.getBinding())) {
+                        try {
+                            Integer epsgCode = CRS.lookupEpsgCode(att.getCrs(), false);
+                            return new Label(id, "EPSG:" + epsgCode);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
                         }
-
-                        return null;
+                    } else {
+                        return new Label(id, "");
                     }
-                };
+                } else if (property == AttributesProvider.SIZE) {
+                    if (att.getBinding() != null && String.class.equals(att.getBinding())) {
+                        return new Label(id, String.valueOf(att.getSize()));
+                    } else {
+                        return new Label(id, "");
+                    }
+                } else if (property == AttributesProvider.UPDOWN) {
+                    return upDownFragment(id, att);
+                }
+
+                return null;
+            }
+        };
         attributeTable.setSortable(false);
         attributeTable.setFilterable(false);
         attributeTable.getBottomPager().setVisible(false);
@@ -144,24 +132,21 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
         return new SubmitLink("save") {
             @Override
             public void onSubmit() {
-                DataStore ds = null;
-                DataStoreInfo dsInfo = null;
+                DataStore ds;
+                DataStoreInfo dsInfo;
                 try {
                     // basic checks
                     dsInfo = getCatalog().getDataStore(storeId);
                     ds = (DataStore) dsInfo.getDataStore(null);
                     if (Arrays.asList(ds.getTypeNames()).contains(name)) {
-                        error(
-                                new ParamResourceModel(
-                                                "duplicateTypeName", this, dsInfo.getName(), name)
-                                        .getString());
+                        error(new ParamResourceModel("duplicateTypeName", this, dsInfo.getName(), name).getString());
                         return;
                     }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-                if (attributesProvider.getAttributes().size() == 0) {
+                if (attributesProvider.getAttributes().isEmpty()) {
                     error(new ParamResourceModel("noAttributes", this).getString());
                     return;
                 }
@@ -177,16 +162,13 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
                     setResponsePage(new ResourceConfigurationPage(layerInfo, true));
                 } catch (Exception e) {
                     LOGGER.log(Level.SEVERE, "Failed to create feature type", e);
-                    error(
-                            new ParamResourceModel("creationFailure", this, e.getMessage())
-                                    .getString());
+                    error(new ParamResourceModel("creationFailure", this, e.getMessage()).getString());
                 }
             }
         };
     }
 
-    FeatureSource<SimpleFeatureType, SimpleFeature> getFeatureSource(DataStore ds)
-            throws IOException {
+    FeatureSource<SimpleFeatureType, SimpleFeature> getFeatureSource(DataStore ds) throws IOException {
         try {
             return ds.getFeatureSource(name);
         } catch (IOException e) {
@@ -217,7 +199,7 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
     }
 
     private Link<Void> cancelLink() {
-        return new Link<Void>("cancel") {
+        return new Link<>("cancel") {
 
             @Override
             public void onClick() {
@@ -227,16 +209,15 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
     }
 
     Component editAttributeLink(final IModel<AttributeDescription> itemModel) {
-        GeoServerAjaxFormLink link =
-                new GeoServerAjaxFormLink("link") {
+        GeoServerAjaxFormLink link = new GeoServerAjaxFormLink("link") {
 
-                    @Override
-                    protected void onClick(AjaxRequestTarget target, Form<?> form) {
-                        AttributeDescription attribute = itemModel.getObject();
-                        setResponsePage(new AttributeEditPage(attribute, NewFeatureTypePage.this));
-                    }
-                };
-        link.add(new Label("name", new PropertyModel<String>(itemModel, "name")));
+            @Override
+            protected void onClick(AjaxRequestTarget target, Form<?> form) {
+                AttributeDescription attribute = itemModel.getObject();
+                setResponsePage(new AttributeEditPage(attribute, NewFeatureTypePage.this));
+            }
+        };
+        link.add(new Label("name", new PropertyModel<>(itemModel, "name")));
         return link;
     }
 
@@ -244,26 +225,24 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
         Fragment header = new Fragment(HEADER_PANEL, "header", this);
 
         // the add button
-        header.add(
-                new GeoServerAjaxFormLink("addNew", form) {
+        header.add(new GeoServerAjaxFormLink("addNew", form) {
 
-                    @Override
-                    public void onClick(AjaxRequestTarget target, Form<?> form) {
-                        AttributeDescription attribute = new AttributeDescription();
-                        setResponsePage(new AttributeNewPage(attribute, NewFeatureTypePage.this));
-                    }
-                });
+            @Override
+            public void onClick(AjaxRequestTarget target, Form<?> form) {
+                AttributeDescription attribute = new AttributeDescription();
+                setResponsePage(new AttributeNewPage(attribute, NewFeatureTypePage.this));
+            }
+        });
 
-        header.add(
-                new GeoServerAjaxFormLink("removeSelected", form) {
+        header.add(new GeoServerAjaxFormLink("removeSelected", form) {
 
-                    @Override
-                    public void onClick(AjaxRequestTarget target, Form<?> form) {
-                        attributesProvider.removeAll(attributeTable.getSelection());
-                        attributeTable.clearSelection();
-                        target.add(form);
-                    }
-                });
+            @Override
+            public void onClick(AjaxRequestTarget target, Form<?> form) {
+                attributesProvider.removeAll(attributeTable.getSelection());
+                attributeTable.clearSelection();
+                target.add(form);
+            }
+        });
 
         return header;
     }
@@ -273,34 +252,26 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
         if (attributesProvider.isFirst(attribute)) {
             upDown.add(new PlaceholderLink("up"));
         } else {
-            ImageAjaxLink<Void> upLink =
-                    new ImageAjaxLink<Void>(
-                            "up",
-                            new PackageResourceReference(
-                                    getClass(), "../../img/icons/silk/arrow_up.png")) {
-                        @Override
-                        protected void onClick(AjaxRequestTarget target) {
-                            attributesProvider.moveUp(attribute);
-                            target.add(form);
-                        }
-                    };
+            ImageAjaxLink<Void> upLink = new ImageAjaxLink<>("up", "gs-icon-arrow-up") {
+                @Override
+                protected void onClick(AjaxRequestTarget target) {
+                    attributesProvider.moveUp(attribute);
+                    target.add(form);
+                }
+            };
             upDown.add(upLink);
         }
 
         if (attributesProvider.isLast(attribute)) {
             upDown.add(new PlaceholderLink("down"));
         } else {
-            ImageAjaxLink<Void> downLink =
-                    new ImageAjaxLink<Void>(
-                            "down",
-                            new PackageResourceReference(
-                                    getClass(), "../../img/icons/silk/arrow_down.png")) {
-                        @Override
-                        protected void onClick(AjaxRequestTarget target) {
-                            attributesProvider.moveDown(attribute);
-                            target.add(form);
-                        }
-                    };
+            ImageAjaxLink<Void> downLink = new ImageAjaxLink<>("down", "gs-icon-arrow-down") {
+                @Override
+                protected void onClick(AjaxRequestTarget target) {
+                    attributesProvider.moveDown(attribute);
+                    target.add(form);
+                }
+            };
             upDown.add(downLink);
         }
 
@@ -317,13 +288,10 @@ public class NewFeatureTypePage extends GeoServerSecuredPage {
      *
      * @author Andrea Aime
      */
-    class PlaceholderLink extends ImageAjaxLink<Void> {
+    static class PlaceholderLink extends ImageAjaxLink<Void> {
 
         public PlaceholderLink(String id) {
-            super(
-                    id,
-                    new PackageResourceReference(
-                            NewFeatureTypePage.class, "../../img/icons/blank.png"));
+            super(id, "gs-icon-blank");
             setEnabled(false);
         }
 

@@ -10,7 +10,7 @@
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>geoserver</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver</groupId>
@@ -19,38 +19,40 @@
   <name>Main Module</name>
 
   <dependencies>
+
+    <dependency>
+      <groupId>org.apache.tika</groupId>
+      <artifactId>tika-core</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-ows</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-ows</artifactId>
-      <classifier>tests</classifier>
-      <scope>test</scope>
+      <groupId>com.thetransactioncompany</groupId>
+      <artifactId>cors-filter</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.geoserver</groupId>
-      <artifactId>gs-platform</artifactId>
-      <classifier>tests</classifier>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
       <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>net.sf.json-lib</groupId>
-      <artifactId>json-lib</artifactId>
+      <groupId>org.kordamp.json</groupId>
+      <artifactId>json-lib-core</artifactId>
     </dependency>
     <dependency>
       <groupId>commons-beanutils</groupId>
       <artifactId>commons-beanutils</artifactId>
     </dependency>
     <dependency>
-      <groupId>commons-fileupload</groupId>
-      <artifactId>commons-fileupload</artifactId>
+      <groupId>commons-lang</groupId>
+      <artifactId>commons-lang</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-fileupload2-jakarta-servlet6</artifactId>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -101,6 +103,10 @@
       <artifactId>gt-wmts</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-brewer</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.geotools.xsd</groupId>
       <artifactId>gt-xsd-sld</artifactId>
     </dependency>
@@ -125,13 +131,19 @@
       <artifactId>jsr305</artifactId>
     </dependency>
     <dependency>
-      <groupId>it.geosolutions.jaiext.concurrent-tile-cache</groupId>
-      <artifactId>jt-concurrent-tile-cache</artifactId>
+      <groupId>org.eclipse.imagen</groupId>
+      <artifactId>concurrent-tile-cache</artifactId>
     </dependency>
     <dependency>
-      <groupId>javax.activation</groupId>
-      <artifactId>activation</artifactId>
+      <groupId>org.eclipse.imagen</groupId>
+      <artifactId>jiffle-op</artifactId>
     </dependency>
+    <dependency>
+      <groupId>jakarta.activation</groupId>
+      <artifactId>jakarta.activation-api</artifactId>
+
+    </dependency>
+
     <dependency>
       <groupId>com.github.oshi</groupId>
       <artifactId>oshi-core</artifactId>
@@ -170,8 +182,19 @@
       <artifactId>gt-imagemosaic</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-main</artifactId>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.geotools.jdbc</groupId>
       <artifactId>gt-jdbc-postgis</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
       <scope>test</scope>
     </dependency>
 
@@ -185,9 +208,12 @@
       <artifactId>spring-security-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-access</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-core</artifactId>
-      <version>${spring.version}</version>
       <exclusions>
         <exclusion>
           <artifactId>spring-jcl</artifactId>
@@ -215,7 +241,7 @@
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
-      <artifactId>bcprov-jdk15on</artifactId>
+      <artifactId>bcprov-lts8on</artifactId>
     </dependency>
 
     <dependency>
@@ -228,10 +254,8 @@
     </dependency>
 
     <dependency>
-      <groupId>org.geotools.jdbc</groupId>
-      <artifactId>gt-jdbc-h2</artifactId>
-      <version>${gt.version}</version>
-      <scope>test</scope>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-geopkg</artifactId>
     </dependency>
     <dependency>
       <groupId>org.codehaus.jettison</groupId>
@@ -240,7 +264,6 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-imagepyramid</artifactId>
-      <version>${gt.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -249,11 +272,33 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-inline</artifactId>
-      <version>${mockito.version}</version>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-iau-wkt</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <!-- used for tests that require environment variables -->
+      <groupId>com.github.stefanbirkner</groupId>
+      <artifactId>system-rules</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers-postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.xmlgraphics</groupId>
+      <artifactId>batik-parser</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -283,4 +328,30 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>gs-test-dependences</id>
+      <activation>
+        <property>
+          <name>!maven.test.skip</name>
+        </property>
+      </activation>
+      <dependencies>
+        <!-- isolate gs reactor test dependencies when building fresh version -->
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-ows</artifactId>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.geoserver</groupId>
+          <artifactId>gs-platform</artifactId>
+          <classifier>tests</classifier>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 </project>

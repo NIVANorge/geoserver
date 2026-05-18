@@ -5,12 +5,12 @@
  */
 package org.geoserver.security.web.jdbc;
 
+import java.io.Serial;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.logging.Level;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
-import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.FormComponent;
 import org.apache.wicket.markup.html.form.PasswordTextField;
 import org.apache.wicket.markup.html.form.TextField;
@@ -28,10 +28,12 @@ import org.geoserver.security.web.usergroup.UserGroupServiceChoice;
  *
  * @author Justin Deoliveira, OpenGeo
  */
-public class JDBCAuthProviderPanel
-        extends AuthenticationProviderPanel<JDBCConnectAuthProviderConfig> {
+// TODO WICKET8 - Verify this page works OK
+public class JDBCAuthProviderPanel extends AuthenticationProviderPanel<JDBCConnectAuthProviderConfig> {
 
+    @Serial
     private static final long serialVersionUID = 1L;
+
     FeedbackPanel feedbackPanel;
     String username, password;
 
@@ -40,7 +42,7 @@ public class JDBCAuthProviderPanel
 
         add(new UserGroupServiceChoice("userGroupServiceName"));
         add(new JDBCDriverChoice("driverClassName"));
-        add(new TextField<String>("connectURL"));
+        add(new TextField<>("connectURL"));
 
         TextField<String> userNameField = new TextField<>("username");
         userNameField.setModel(new PropertyModel<>(this, "username"));
@@ -56,15 +58,11 @@ public class JDBCAuthProviderPanel
         add(
                 new AjaxSubmitLink("cxTest") {
                     @Override
-                    protected void onSubmit(AjaxRequestTarget target, Form<?> form) {
+                    protected void onSubmit(AjaxRequestTarget target) {
                         try {
                             test();
-                            info(
-                                    new StringResourceModel(
-                                                    "connectionSuccessful",
-                                                    JDBCAuthProviderPanel.this,
-                                                    null)
-                                            .getObject());
+                            info(new StringResourceModel("connectionSuccessful", JDBCAuthProviderPanel.this, null)
+                                    .getObject());
                         } catch (Exception e) {
                             error(e);
                             LOGGER.log(Level.WARNING, "Connection error", e);
@@ -78,6 +76,7 @@ public class JDBCAuthProviderPanel
         feedbackPanel.setOutputMarkupId(true);
     }
 
+    @SuppressWarnings({"PMD.EmptyControlStatement", "PMD.UnusedLocalVariable"})
     public void test() throws Exception {
         // since this wasn't a regular form submission, we need to manually update component
         // models
@@ -88,11 +87,10 @@ public class JDBCAuthProviderPanel
 
         // do the test
         Class.forName(get("driverClassName").getDefaultModelObjectAsString());
-        try (Connection cx =
-                DriverManager.getConnection(
-                        get("connectURL").getDefaultModelObjectAsString(),
-                        get("username").getDefaultModelObjectAsString(),
-                        get("password").getDefaultModelObjectAsString())) {}
+        try (Connection fx = DriverManager.getConnection(
+                get("connectURL").getDefaultModelObjectAsString(),
+                get("username").getDefaultModelObjectAsString(),
+                get("password").getDefaultModelObjectAsString())) {}
     }
 
     public String getUsername() {

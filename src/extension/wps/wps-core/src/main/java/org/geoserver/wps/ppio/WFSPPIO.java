@@ -17,13 +17,20 @@ import javax.xml.namespace.QName;
 import net.opengis.wfs.FeatureCollectionType;
 import net.opengis.wfs.WfsFactory;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.feature.RetypingFeatureCollection;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.data.crs.ForceCoordinateSystemFeatureResults;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.data.store.ReprojectingFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.gml2.SrsSyntax;
 import org.geotools.gml3.GML;
 import org.geotools.referencing.CRS;
 import org.geotools.util.logging.Logging;
@@ -32,11 +39,6 @@ import org.geotools.xsd.Configuration;
 import org.geotools.xsd.Encoder;
 import org.geotools.xsd.Parser;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.xml.sax.ContentHandler;
 
 /** Allows reading and writing a WFS feature collection */
@@ -67,8 +69,7 @@ public class WFSPPIO extends XMLPPIO {
             input = new ByteArrayInputStream(streamBytes);
         }
         Object result = p.parse(input);
-        if (result instanceof FeatureCollectionType) {
-            FeatureCollectionType fct = (FeatureCollectionType) result;
+        if (result instanceof FeatureCollectionType fct) {
             return decode(fct);
         } else {
             if (LOGGER.isLoggable(Level.FINEST)) {
@@ -77,8 +78,7 @@ public class WFSPPIO extends XMLPPIO {
                         "Decoding the following WFS response did not result in an object of type FeatureCollectionType: \n"
                                 + new String(streamBytes));
             }
-            throw new IllegalArgumentException(
-                    "Decoded WFS result is not a feature collection, got a: " + result);
+            throw new IllegalArgumentException("Decoded WFS result is not a feature collection, got a: " + result);
         }
     }
 
@@ -86,14 +86,20 @@ public class WFSPPIO extends XMLPPIO {
     public Object decode(Object input) throws Exception {
         // xml parsing will most likely return it as parsed already, but if CDATA is used or if
         // it's a KVP parse it will be a string instead
-        if (input instanceof String) {
+        if (input instanceof String string) {
             Parser p = getParser(configuration);
-            input = p.parse(new StringReader((String) input));
+            input = p.parse(new StringReader(string));
         }
 
+        SimpleFeatureCollection fc;
         // cast and handle the axis flipping
-        FeatureCollectionType fct = (FeatureCollectionType) input;
-        SimpleFeatureCollection fc = (SimpleFeatureCollection) fct.getFeature().get(0);
+        if (input instanceof net.opengis.wfs.FeatureCollectionType fct) {
+            fc = (SimpleFeatureCollection) fct.getFeature().get(0);
+        } else {
+            // WFS 2.0.0
+            net.opengis.wfs20.FeatureCollectionType fct = (net.opengis.wfs20.FeatureCollectionType) input;
+            fc = (SimpleFeatureCollection) fct.getMember().get(0);
+        }
         // Axis flipping issue, we should determine if the collection needs flipping
         if (fc.getSchema().getGeometryDescriptor() != null) {
             CoordinateReferenceSystem crs = getCollectionCRS(fc);
@@ -106,10 +112,11 @@ public class WFSPPIO extends XMLPPIO {
                     fc = new ForceCoordinateSystemFeatureResults(fc, crs, false);
                 }
 
-                // we assume the crs has a valid EPSG code
-                Integer code = CRS.lookupEpsgCode(crs, false);
-                if (code != null) {
-                    CoordinateReferenceSystem lonLatCrs = CRS.decode("EPSG:" + code, true);
+                // we assume the crs has a valid identity
+                String identifier = ResourcePool.lookupIdentifier(crs, false);
+                if (identifier != null) {
+                    String eastNorthId = SrsSyntax.AUTH_CODE.getSRS(identifier);
+                    CoordinateReferenceSystem lonLatCrs = CRS.decode(eastNorthId, true);
                     if (!CRS.equalsIgnoreMetadata(crs, lonLatCrs)) {
                         // we need axis flipping
                         fc = new ReprojectingFeatureCollection(fc, lonLatCrs);
@@ -117,16 +124,14 @@ public class WFSPPIO extends XMLPPIO {
                 }
             }
         }
-
         return eliminateFeatureBounds(fc);
     }
 
     /**
-     * Parsing GML we often end up with empty attributes that will break shapefiles and common
-     * processing algorithms because they introduce bounding boxes (boundedBy) or hijack the default
-     * geometry property (location). We sanitize the collection in this method by removing them. It
-     * is not the best approach, but works in most cases, whilst not doing it would break the code
-     * in most cases. Would be better to find a more general approach...
+     * Parsing GML we often end up with empty attributes that will break shapefiles and common processing algorithms
+     * because they introduce bounding boxes (boundedBy) or hijack the default geometry property (location). We sanitize
+     * the collection in this method by removing them. It is not the best approach, but works in most cases, whilst not
+     * doing it would break the code in most cases. Would be better to find a more general approach...
      */
     private SimpleFeatureCollection eliminateFeatureBounds(SimpleFeatureCollection fc) {
         final SimpleFeatureType original = fc.getSchema();
@@ -220,9 +225,7 @@ public class WFSPPIO extends XMLPPIO {
         }
     }
 
-    /**
-     * A WFS 1.0 PPIO using alternate MIME type without a ";" that creates troubles in KVP parsing
-     */
+    /** A WFS 1.0 PPIO using alternate MIME type without a ";" that creates troubles in KVP parsing */
     public static class WFS10Alternate extends WFSPPIO {
 
         public WFS10Alternate() {
@@ -243,9 +246,7 @@ public class WFSPPIO extends XMLPPIO {
         }
     }
 
-    /**
-     * A WFS 1.1 PPIO using alternate MIME type without a ";" that creates troubles in KVP parsing
-     */
+    /** A WFS 1.1 PPIO using alternate MIME type without a ";" that creates troubles in KVP parsing */
     public static class WFS11Alternate extends WFSPPIO {
 
         public WFS11Alternate() {
@@ -253,6 +254,16 @@ public class WFSPPIO extends XMLPPIO {
                     new org.geotools.wfs.v1_1.WFSConfiguration(),
                     "application/wfs-collection-1.1",
                     org.geoserver.wfs.xml.v1_1_0.WFS.FEATURECOLLECTION);
+        }
+    }
+
+    public static class WFS20 extends WFSPPIO {
+
+        public WFS20() {
+            super(
+                    new org.geoserver.wfs.xml.v2_0.WFSConfiguration(),
+                    "text/xml",
+                    org.geotools.wfs.v2_0.WFS.FeatureCollection);
         }
     }
 }

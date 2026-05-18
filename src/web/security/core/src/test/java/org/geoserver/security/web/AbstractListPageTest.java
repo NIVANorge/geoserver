@@ -13,9 +13,9 @@ import java.util.Iterator;
 import org.apache.wicket.Component;
 import org.apache.wicket.MarkupContainer;
 import org.apache.wicket.Page;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.junit.Before;
 import org.junit.Test;
@@ -69,7 +69,8 @@ public abstract class AbstractListPageTest<T> extends AbstractSecurityWicketTest
     }
 
     protected Component getFromList(String columnPath, Object columnValue, Property<T> property) {
-        MarkupContainer listView = (MarkupContainer) tester.getLastRenderedPage().get(ITEMS_PATH);
+        MarkupContainer listView =
+                (MarkupContainer) tester.getLastRenderedPage().get(ITEMS_PATH);
 
         Iterator<Component> it = listView.iterator();
 
@@ -105,13 +106,12 @@ public abstract class AbstractListPageTest<T> extends AbstractSecurityWicketTest
 
         String selectAllPath = "table:listContainer:selectAllContainer:selectAll";
         tester.assertComponent(selectAllPath, CheckBox.class);
-        CheckBox selectAllComponent =
-                (CheckBox) tester.getComponentFromLastRenderedPage(selectAllPath);
+        CheckBox selectAllComponent = (CheckBox) tester.getComponentFromLastRenderedPage(selectAllPath);
 
         setFormComponentValue(selectAllComponent, "true");
         tester.executeAjaxEvent(selectAllPath, "click");
 
-        ModalWindow w = (ModalWindow) tester.getLastRenderedPage().get("dialog:dialog");
+        GSModalWindow w = (GSModalWindow) tester.getLastRenderedPage().get("dialog:dialog");
         assertNull(w.getTitle()); // window was not opened
         tester.executeAjaxEvent(pathForLink, "click");
         assertNotNull(w.getTitle()); // window was opened

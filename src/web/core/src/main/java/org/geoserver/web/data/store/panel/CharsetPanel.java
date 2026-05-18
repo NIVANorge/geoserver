@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.data.store.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import org.apache.wicket.markup.html.basic.Label;
@@ -17,6 +19,19 @@ import org.apache.wicket.model.IModel;
 /** A label + locale dropdown form panel */
 @SuppressWarnings("serial")
 public class CharsetPanel extends Panel implements ParamPanel<String> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(CharsetPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     private DropDownChoice<String> choice;
 
@@ -35,7 +50,8 @@ public class CharsetPanel extends Panel implements ParamPanel<String> {
         add(label);
 
         // the drop down field, with a decorator for validations
-        final ArrayList<String> charsets = new ArrayList<>(Charset.availableCharsets().keySet());
+        final ArrayList<String> charsets =
+                new ArrayList<>(Charset.availableCharsets().keySet());
         choice = new DropDownChoice<>("paramValue", charsetModel, charsets);
         choice.setRequired(required);
         // set the label to be the paramLabelModel otherwise a validation error would look like
@@ -47,10 +63,7 @@ public class CharsetPanel extends Panel implements ParamPanel<String> {
         add(feedback);
     }
 
-    /**
-     * Returns the form component used in the panel in case it is needed for related form components
-     * validation
-     */
+    /** Returns the form component used in the panel in case it is needed for related form components validation */
     @Override
     public FormComponent<String> getFormComponent() {
         return choice;

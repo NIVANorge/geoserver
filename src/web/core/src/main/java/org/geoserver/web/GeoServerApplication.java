@@ -7,16 +7,18 @@ package org.geoserver.web;
 
 import static org.apache.wicket.RuntimeConfigurationType.DEPLOYMENT;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
 import org.apache.wicket.ConverterLocator;
@@ -24,9 +26,14 @@ import org.apache.wicket.DefaultExceptionMapper;
 import org.apache.wicket.IConverterLocator;
 import org.apache.wicket.RuntimeConfigurationType;
 import org.apache.wicket.Session;
+import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.core.request.handler.IPageRequestHandler;
 import org.apache.wicket.core.request.handler.PageProvider;
-import org.apache.wicket.protocol.http.CsrfPreventionRequestCycleListener;
+import org.apache.wicket.csp.CSPDirective;
+import org.apache.wicket.markup.html.panel.FeedbackPanel;
+import org.apache.wicket.protocol.http.FetchMetadataResourceIsolationPolicy;
+import org.apache.wicket.protocol.http.OriginResourceIsolationPolicy;
+import org.apache.wicket.protocol.http.ResourceIsolationRequestCycleListener;
 import org.apache.wicket.protocol.http.WebApplication;
 import org.apache.wicket.protocol.http.WebSession;
 import org.apache.wicket.protocol.http.servlet.ServletWebRequest;
@@ -36,16 +43,14 @@ import org.apache.wicket.request.IRequestHandlerDelegate;
 import org.apache.wicket.request.Request;
 import org.apache.wicket.request.Response;
 import org.apache.wicket.request.component.IRequestablePage;
-import org.apache.wicket.request.cycle.AbstractRequestCycleListener;
 import org.apache.wicket.request.cycle.IRequestCycleListener;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.http.WebRequest;
 import org.apache.wicket.request.http.WebResponse;
-import org.apache.wicket.request.resource.JavaScriptResourceReference;
 import org.apache.wicket.resource.JQueryResourceReference;
 import org.apache.wicket.resource.loader.IStringResourceLoader;
 import org.apache.wicket.settings.RequestCycleSettings.RenderStrategy;
-import org.apache.wicket.util.IProvider;
+import org.apache.wicket.util.visit.IVisitor;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.ValidationException;
 import org.geoserver.config.GeoServer;
@@ -71,19 +76,20 @@ import org.springframework.security.authentication.event.AuthenticationSuccessEv
 import org.springframework.security.authentication.event.InteractiveAuthenticationSuccessEvent;
 
 /**
- * The GeoServer application, the main entry point for any Wicket application. In particular, this
- * one sets up, among the others, custom resource loader, custom localizers, and custom converters
- * (wrapping the GeoTools ones), as well as providing some convenience methods to access the
- * GeoServer Spring context and principal GeoServer objects.
+ * The GeoServer application, the main entry point for any Wicket application. In particular, this one sets up, among
+ * the others, custom resource loader, custom localizers, and custom converters (wrapping the GeoTools ones), as well as
+ * providing some convenience methods to access the GeoServer Spring context and principal GeoServer objects.
  *
  * @author Andrea Aaime, The Open Planning Project
  * @author Justin Deoliveira, The Open Planning Project
  */
+// TODO WICKET8 - Verify this page works OK
 public class GeoServerApplication extends WebApplication
         implements ApplicationContextAware, ApplicationListener<ApplicationEvent> {
 
     /** Name of the cookie used to remember the chosen language across sessions */
     public static final String LANGUAGE_COOKIE_NAME = "GeoServerUILanguage";
+
     /** Default cookie expiration date (one year) */
     public static final int LANGUAGE_COOKIE_AGE = 365 * 24 * 60 * 60;
 
@@ -93,25 +99,26 @@ public class GeoServerApplication extends WebApplication
     public static boolean DETECT_BROWSER =
             Boolean.valueOf(System.getProperty("org.geoserver.web.browser.detect", "true"));
 
+    /**
+     * System property that can be used to enable strict CSP restrictions - simulating wicket10 environment.
+     *
+     * <p>Sample use: {@code org.geoserver.web.csp.strict=true}
+     */
+    public static boolean CSP_STRICT = Boolean.valueOf(System.getProperty("org.geoserver.web.csp.strict", "true"));
+
     public static final String GEOSERVER_CSRF_DISABLED = "GEOSERVER_CSRF_DISABLED";
     public static final String GEOSERVER_CSRF_WHITELIST = "GEOSERVER_CSRF_WHITELIST";
-    public static final String JQUERY_VERSION_3 = "jquery/jquery-3.5.1.js";
     ApplicationContext applicationContext;
 
-    /**
-     * Default redirect mode. Determines whether default webUIMode setting means redirect or not
-     * (default is true).
-     */
+    /** Default redirect mode. Determines whether default webUIMode setting means redirect or not (default is true). */
     protected boolean defaultIsRedirect = true;
 
     /**
-     * Turns an exception into an error message. If the exception is a {@link
-     * org.geoserver.catalog.ValidationException} an attempt is made to look up an internationalized
-     * error message for it.
+     * Turns an exception into an error message. If the exception is a {@link org.geoserver.catalog.ValidationException}
+     * an attempt is made to look up an internationalized error message for it.
      */
     public static String getMessage(Component c, Exception e) {
-        if (e instanceof ValidationException) {
-            ValidationException ve = (ValidationException) e;
+        if (e instanceof ValidationException ve) {
             try {
                 if (ve.getParameters() == null) {
                     return new ParamResourceModel(ve.getKey(), c, ve.getParameters()).getString();
@@ -135,10 +142,7 @@ public class GeoServerApplication extends WebApplication
         return defaultIsRedirect;
     }
 
-    /**
-     * Set default redirect mode. (must be called before init method, usually by Spring
-     * PropertyOverriderConfigurer)
-     */
+    /** Set default redirect mode. (must be called before init method, usually by Spring PropertyOverriderConfigurer) */
     public void setDefaultIsRedirect(boolean defaultIsRedirect) {
         this.defaultIsRedirect = defaultIsRedirect;
     }
@@ -209,39 +213,70 @@ public class GeoServerApplication extends WebApplication
         return GeoServerExtensions.extensions(type, getApplicationContext());
     }
 
+    /**
+     * Returns a versioned (cache-busted) URL for the given servlet-context-relative asset path. The version token is a
+     * deployment/build identifier derived from manifest metadata and cached for the application lifetime (until
+     * {@link #clearWicketCaches()} is called).
+     *
+     * @param path e.g. {@code "css/geoserver.css"}
+     * @return e.g. {@code "css/geoserver.css?v=20260326"}
+     */
+    public String versioned(String path) {
+        return AssetVersionManager.versioned(path, getServletContext());
+    }
+
     /** Clears all the wicket caches so that resources and localization files will be re-read */
     public void clearWicketCaches() {
         getResourceSettings().getPropertiesFactory().clearCache();
         getResourceSettings().getLocalizer().clearCache();
+        AssetVersionManager.clearCache();
+    }
+
+    /**
+     * Gets the nonce that will be used in the script-src and style-src directives of the Content-Security-Policy header
+     * for this request. The nonce attribute can be added to script or style elements to allow them to work with
+     * Wicket's CSP which blocks inline scripts and styles. This method should only be used in cases where it is not
+     * possible to refactor the code to work with the CSP, such as when the CSP violations are coming directly from
+     * third-party libraries with built-in support for CSP nonces.
+     */
+    public String getNonce() {
+        return getCspSettings().getNonce(RequestCycle.get());
     }
 
     /** Initialization override which sets up a locator for i18n resources. */
+    @SuppressWarnings("deprecation")
     @Override
     protected void init() {
         // enable GeoServer custom resource locators
         getResourceSettings().setUseMinifiedResources(false);
         getResourceSettings().setResourceStreamLocator(new GeoServerResourceStreamLocator());
-
+        // Wicket's default Content-Security-Policy value is:
+        //   default-src 'none'; script-src 'strict-dynamic' 'nonce-XYZ'; style-src 'nonce-XYZ';
+        //   img-src 'self'; connect-src 'self'; font-src 'self'; manifest-src 'self';
+        //   child-src 'self'; frame-src 'self'; base-uri 'self';
+        // GeoServer adds data: to the img-src directive to allow image data URIs used by
+        // OpenLayers, CodeMirror, the datetime picker and color picker (primarily for Style Editor)
+        if (CSP_STRICT) {
+            getCspSettings().blocking().strict().add(CSPDirective.IMG_SRC, "data:");
+        } else {
+            // More relaxed configuration: disable blocking and enable reporting only
+            getCspSettings().blocking().disabled();
+            getCspSettings().reporting().strict().add(CSPDirective.IMG_SRC, "data:");
+        }
         /*
          * The order string resource loaders are added to IResourceSettings is of importance so we need to add any contributed loader prior to the
          * standard ones so it takes precedence. Otherwise it won't be hit due to GeoServerStringResourceLoader never resolving to null but falling
          * back to the default language
          */
-        List<IStringResourceLoader> alternateResourceLoaders =
-                getBeansOfType(IStringResourceLoader.class);
+        List<IStringResourceLoader> alternateResourceLoaders = getBeansOfType(IStringResourceLoader.class);
         for (IStringResourceLoader loader : alternateResourceLoaders) {
             LOGGER.info("Registering alternate resource loader: " + loader);
             getResourceSettings().getStringResourceLoaders().add(loader);
         }
 
-        getResourceSettings()
-                .getStringResourceLoaders()
-                .add(0, new GeoServerStringResourceLoader());
+        getResourceSettings().getStringResourceLoaders().add(0, new GeoServerStringResourceLoader());
         getDebugSettings().setAjaxDebugModeEnabled(false);
-        getJavaScriptLibrarySettings()
-                .setJQueryReference(
-                        new JavaScriptResourceReference(
-                                JQueryResourceReference.class, JQUERY_VERSION_3));
+        getJavaScriptLibrarySettings().setJQueryReference(JQueryResourceReference.INSTANCE_3);
         getApplicationSettings().setPageExpiredErrorPage(GeoServerExpiredPage.class);
         // generates infinite redirections, commented out for the moment
         // getSecuritySettings().setCryptFactory(GeoserverWicketEncrypterFactory.get());
@@ -249,35 +284,37 @@ public class GeoServerApplication extends WebApplication
         // theoretically, this replaces the old GeoServerRequestEncodingStrategy
         // by making the URLs encrypted at will
         GeoServerSecurityManager securityManager = getBeanOfType(GeoServerSecurityManager.class);
-        setRootRequestMapper(
-                new DynamicCryptoMapper(getRootRequestMapper(), securityManager, this));
+        setRootRequestMapper(new DynamicCryptoMapper(getRootRequestMapper(), securityManager, this));
 
         getRequestCycleListeners().add(new CallbackRequestCycleListener(this));
 
         // Csrf Protection
-        Boolean geoserverCsrfDisabled =
-                Boolean.valueOf(GeoServerExtensions.getProperty(GEOSERVER_CSRF_DISABLED));
+        Boolean geoserverCsrfDisabled = Boolean.valueOf(GeoServerExtensions.getProperty(GEOSERVER_CSRF_DISABLED));
         String geoserverCsrfWhitelist = GeoServerExtensions.getProperty(GEOSERVER_CSRF_WHITELIST);
 
         // Don't add a new lister each time init() is called
         List<IRequestCycleListener> csrfListenersToRemove = new ArrayList<>();
         for (IRequestCycleListener listener : getRequestCycleListeners()) {
-            if (listener instanceof CsrfPreventionRequestCycleListener) {
+            if (listener instanceof ResourceIsolationRequestCycleListener) {
                 csrfListenersToRemove.add(listener);
             }
         }
         for (IRequestCycleListener listener : csrfListenersToRemove) {
             getRequestCycleListeners().remove(listener);
         }
-        CsrfPreventionRequestCycleListener csrfListener = new CsrfPreventionRequestCycleListener();
         if (!geoserverCsrfDisabled) {
+            OriginResourceIsolationPolicy csrfListener = new OriginResourceIsolationPolicy();
             if (geoserverCsrfWhitelist != null && !"".equals(geoserverCsrfWhitelist.trim())) {
                 for (String origin : geoserverCsrfWhitelist.split(",")) {
                     csrfListener.addAcceptedOrigin(origin.trim());
                 }
             }
-            getRequestCycleListeners().add(csrfListener);
+            ResourceIsolationRequestCycleListener isolationListener =
+                    new ResourceIsolationRequestCycleListener(new FetchMetadataResourceIsolationPolicy(), csrfListener);
+            getRequestCycleListeners().add(isolationListener);
         }
+
+        getRequestCycleListeners().add(new FeedbackPanelAjaxListener());
 
         WebUIMode webUIMode = getGeoServer().getGlobal().getWebUIMode();
         if (webUIMode == null) {
@@ -293,40 +330,31 @@ public class GeoServerApplication extends WebApplication
             case DEFAULT:
                 getRequestCycleSettings()
                         .setRenderStrategy(
-                                defaultIsRedirect
-                                        ? RenderStrategy.REDIRECT_TO_BUFFER
-                                        : RenderStrategy.ONE_PASS_RENDER);
+                                defaultIsRedirect ? RenderStrategy.REDIRECT_TO_BUFFER : RenderStrategy.ONE_PASS_RENDER);
         }
+
+        // Allow extension points to customize the GeoServerApplication initialization phase
+        getBeansOfType(GeoServerApplicationInitializer.class).forEach(initializer -> initializer.init(this));
     }
 
     @Override
-    public IProvider<IExceptionMapper> getExceptionMapperProvider() {
-        // IProvider is functional, remove a bit of boilerplate
-        return () ->
-                new DefaultExceptionMapper() {
-                    @Override
-                    protected IRequestHandler mapUnexpectedExceptions(
-                            Exception e, Application application) {
+    public Supplier<IExceptionMapper> getExceptionMapperProvider() {
+        return () -> new DefaultExceptionMapper() {
+            @Override
+            protected IRequestHandler mapUnexpectedExceptions(Exception e, Application application) {
 
-                        return createPageRequestHandler(
-                                new PageProvider(new GeoServerErrorPage(e)));
-                    }
-                };
+                return createPageRequestHandler(new PageProvider(new GeoServerErrorPage(e)));
+            }
+        };
     }
 
     @Override
     public RuntimeConfigurationType getConfigurationType() {
-        String config =
-                GeoServerExtensions.getProperty(
-                        "wicket." + Application.CONFIGURATION, getApplicationContext());
+        String config = GeoServerExtensions.getProperty("wicket." + Application.CONFIGURATION, getApplicationContext());
         if (config == null) {
             return DEPLOYMENT;
-        } else if (!"DEPLOYMENT".equalsIgnoreCase(config)
-                && !"DEVELOPMENT".equalsIgnoreCase(config)) {
-            LOGGER.warning(
-                    "Unknown Wicket configuration value '"
-                            + config
-                            + "', defaulting to DEPLOYMENT");
+        } else if (!"DEPLOYMENT".equalsIgnoreCase(config) && !"DEVELOPMENT".equalsIgnoreCase(config)) {
+            LOGGER.warning("Unknown Wicket configuration value '" + config + "', defaulting to DEPLOYMENT");
             return DEPLOYMENT;
         } else {
             return RuntimeConfigurationType.valueOf(config.toUpperCase());
@@ -352,8 +380,8 @@ public class GeoServerApplication extends WebApplication
 
     /** Grabs the locale from cookies, if possible, otherwise defaults to English */
     public Locale getLocaleFromCookies(Request request) {
-        if (request instanceof WebRequest) {
-            List<Cookie> cookies = ((WebRequest) request).getCookies();
+        if (request instanceof WebRequest webRequest) {
+            List<Cookie> cookies = webRequest.getCookies();
 
             for (Cookie cookie : cookies) {
                 if (LANGUAGE_COOKIE_NAME.equals(cookie.getName())) {
@@ -367,8 +395,7 @@ public class GeoServerApplication extends WebApplication
 
     /** Refreshes the locale cookie, to maintain its presence in future requests */
     public void refreshLocaleCookie(Response response, Locale locale) {
-        Cookie languageCookie =
-                new Cookie(GeoServerApplication.LANGUAGE_COOKIE_NAME, locale.getLanguage());
+        Cookie languageCookie = new Cookie(GeoServerApplication.LANGUAGE_COOKIE_NAME, locale.getLanguage());
         languageCookie.setMaxAge(GeoServerApplication.LANGUAGE_COOKIE_AGE);
         ((WebResponse) response).addCookie(languageCookie);
     }
@@ -387,9 +414,7 @@ public class GeoServerApplication extends WebApplication
         locator.set(File.class, dd.getConverter(File.class));
         locator.set(URI.class, dd.getConverter(URI.class));
         locator.set(URL.class, dd.getConverter(URL.class));
-        locator.set(
-                Measure.class,
-                new GeoToolsConverterAdapter(MeasureConverterFactory.CONVERTER, Measure.class));
+        locator.set(Measure.class, new GeoToolsConverterAdapter(MeasureConverterFactory.CONVERTER, Measure.class));
 
         return locator;
     }
@@ -411,7 +436,7 @@ public class GeoServerApplication extends WebApplication
     //
     // }
 
-    static class CallbackRequestCycleListener extends AbstractRequestCycleListener {
+    static class CallbackRequestCycleListener implements IRequestCycleListener {
         private List<WicketCallback> callbacks;
 
         public CallbackRequestCycleListener(GeoServerApplication app) {
@@ -445,14 +470,12 @@ public class GeoServerApplication extends WebApplication
         }
 
         private void processHandler(RequestCycle cycle, IRequestHandler handler) {
-            if (handler instanceof IPageRequestHandler) {
-                IPageRequestHandler pageHandler = (IPageRequestHandler) handler;
+            if (handler instanceof IPageRequestHandler pageHandler) {
                 Class<? extends IRequestablePage> pageClass = pageHandler.getPageClass();
                 for (WicketCallback callback : callbacks) {
                     callback.onRequestTargetSet(cycle, pageClass);
                 }
-            } else if (handler instanceof IRequestHandlerDelegate) {
-                IRequestHandlerDelegate delegator = (IRequestHandlerDelegate) handler;
+            } else if (handler instanceof IRequestHandlerDelegate delegator) {
                 processHandler(cycle, delegator.getDelegateHandler());
             }
         }
@@ -464,8 +487,7 @@ public class GeoServerApplication extends WebApplication
         }
 
         @Override
-        public IRequestHandler onException(
-                org.apache.wicket.request.cycle.RequestCycle cycle, Exception ex) {
+        public IRequestHandler onException(org.apache.wicket.request.cycle.RequestCycle cycle, Exception ex) {
             for (WicketCallback callback : callbacks) {
                 callback.onRuntimeException(cycle, ex);
             }
@@ -492,14 +514,11 @@ public class GeoServerApplication extends WebApplication
         return servletRequest(cycle.getRequest());
     }
 
-    /**
-     * Convenience method to get the underlying servlet request backing the current wicket request.
-     */
+    /** Convenience method to get the underlying servlet request backing the current wicket request. */
     public HttpServletRequest servletRequest(Request req) {
         if (req == null || !(req instanceof ServletWebRequest)) {
-            throw new IllegalStateException(
-                    "Request not of type ServletWebRequest, was: "
-                            + (req == null ? "null" : req.getClass().getName()));
+            throw new IllegalStateException("Request not of type ServletWebRequest, was: "
+                    + (req == null ? "null" : req.getClass().getName()));
         }
 
         return ((ServletWebRequest) req).getContainerRequest();
@@ -507,11 +526,29 @@ public class GeoServerApplication extends WebApplication
 
     @Override
     public void onApplicationEvent(ApplicationEvent event) {
-        if (event instanceof AuthenticationSuccessEvent
-                || event instanceof InteractiveAuthenticationSuccessEvent) {
+        if (event instanceof AuthenticationSuccessEvent || event instanceof InteractiveAuthenticationSuccessEvent) {
             if (Session.exists()) {
                 WebSession.get().replaceSession();
             }
+        }
+    }
+
+    /**
+     * Automatically adds the feedback panels to the Ajax request target, so that they are updated when the target is
+     * processed and would show the messages, without the need to manually add them to the target.
+     */
+    private static class FeedbackPanelAjaxListener implements IRequestCycleListener {
+        @Override
+        public void onRequestHandlerResolved(RequestCycle cycle, IRequestHandler handler) {
+            if (!(handler instanceof AjaxRequestTarget)) return;
+
+            AjaxRequestTarget target = (AjaxRequestTarget) handler;
+            IVisitor<Component, Object> targetAdder = (component, visit) -> {
+                // make sure the component has an ajax id (allows to be updated via ajax)
+                if (component.getOutputMarkupId() && component.getMarkup() != null) target.add(component);
+            };
+            Optional.ofNullable(target.getPage())
+                    .ifPresent(page -> page.visitChildren(FeedbackPanel.class, targetAdder));
         }
     }
 }

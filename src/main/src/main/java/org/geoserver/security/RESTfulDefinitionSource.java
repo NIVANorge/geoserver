@@ -5,6 +5,7 @@
  */
 package org.geoserver.security;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -19,41 +20,42 @@ import org.geoserver.security.impl.RESTAccessRuleDAO;
 import org.geotools.util.logging.Logging;
 import org.springframework.security.access.ConfigAttribute;
 import org.springframework.security.access.SecurityConfig;
-import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.intercept.FilterInvocationSecurityMetadataSource;
+import org.springframework.security.web.util.UrlUtils;
 import org.springframework.util.StringUtils;
 
 /** @author Chris Berry http://opensource.atlassian.com/projects/spring/browse/SEC-531 */
+@SuppressWarnings({"deprecation", "removal"})
 public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadataSource {
 
     private static Logger log = Logging.getLogger(RESTfulDefinitionSource.class);
 
-    private static final String[] validMethodNames = {"GET", "PUT", "DELETE", "POST"};
+    private static final String[] validMethodNames = {"GET", "PUT", "DELETE", "POST", "HEAD", "OPTIONS"};
 
     /** Underlying SecurityMetedataSource object */
-    private RESTfulPathBasedFilterInvocationDefinitionMap delegate = null;
+    private RESTfulDefinitionSourceDelegateMap delegate = null;
+
     /** rest access rules dao */
     private RESTAccessRuleDAO dao;
 
     /** Override the method in FilterInvocationSecurityMetadataSource */
     @Override
-    public Collection<ConfigAttribute> getAttributes(Object object)
-            throws IllegalArgumentException {
+    public Collection<ConfigAttribute> getAttributes(Object object) throws IllegalArgumentException {
 
         if ((object == null) || !this.supports(object.getClass())) {
-            throw new IllegalArgumentException("Object must be a FilterInvocation");
+            throw new IllegalArgumentException("Object must be a HTTPServletRequest");
         }
 
-        String url = ((FilterInvocation) object).getRequestUrl();
-        String method = ((FilterInvocation) object).getHttpRequest().getMethod();
+        HttpServletRequest request = (HttpServletRequest) object;
+        String url = UrlUtils.buildRequestUrl(request);
+        String method = request.getMethod();
 
         return delegate().lookupAttributes(cleanURL(url), method);
     }
 
     /** this form is invalid for this implementation */
     public Collection<ConfigAttribute> lookupAttributes(String url) {
-        throw new IllegalArgumentException(
-                "lookupAttributes(String url) is INVALID for RESTfulDefinitionSource");
+        throw new IllegalArgumentException("lookupAttributes(String url) is INVALID for RESTfulDefinitionSource");
     }
 
     public Collection<ConfigAttribute> lookupAttributes(String url, String method) {
@@ -67,7 +69,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
 
     @Override
     public boolean supports(Class<?> clazz) {
-        return FilterInvocation.class.isAssignableFrom(clazz);
+        return HttpServletRequest.class.isAssignableFrom(clazz);
     }
 
     public RESTfulDefinitionSource(RESTAccessRuleDAO dao) {
@@ -81,10 +83,10 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
         delegate = null;
     }
 
-    RESTfulPathBasedFilterInvocationDefinitionMap delegate() {
+    RESTfulDefinitionSourceDelegateMap delegate() {
         if (delegate == null || dao.isModified()) {
             synchronized (this) {
-                delegate = new RESTfulPathBasedFilterInvocationDefinitionMap();
+                delegate = new RESTfulDefinitionSourceDelegateMap();
                 for (String rule : dao.getRules()) {
                     processPathList(rule);
                 }
@@ -136,8 +138,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
                 }
 
                 if (line.lastIndexOf("==") != -1) {
-                    throw new IllegalArgumentException(
-                            "Only single equals should be used in line " + line);
+                    throw new IllegalArgumentException("Only single equals should be used in line " + line);
                 }
 
                 // Tokenize the line into its name/value tokens
@@ -147,8 +148,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
                 String value = substringAfterLast(line, "=");
 
                 if (!StringUtils.hasText(name) || !StringUtils.hasText(value)) {
-                    throw new IllegalArgumentException(
-                            "Failed to parse a valid name/value pair from " + line);
+                    throw new IllegalArgumentException("Failed to parse a valid name/value pair from " + line);
                 }
 
                 String antPath = name;
@@ -163,13 +163,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
                     methods = name.substring((firstColonIndex + 1), name.length());
                 }
                 if (log.isLoggable(Level.FINE))
-                    log.fine(
-                            "~~~~~~~~~~ name= "
-                                    + name
-                                    + " antPath= "
-                                    + antPath
-                                    + " methods= "
-                                    + methods);
+                    log.fine("~~~~~~~~~~ name= " + name + " antPath= " + antPath + " methods= " + methods);
 
                 String[] methodList = null;
                 if (methods != null) {
@@ -185,10 +179,9 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
                             }
                         }
                         if (!matched) {
-                            throw new IllegalArgumentException(
-                                    "The HTTP Method Name ("
-                                            + s
-                                            + " does NOT equal a valid name (GET,PUT,POST,DELETE)");
+                            throw new IllegalArgumentException("The HTTP Method Name ("
+                                    + s
+                                    + " does NOT equal a valid name (GET,PUT,POST,DELETE,HEAD,OPTIONS)");
                         }
                     }
                 }
@@ -236,8 +229,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
         Iterator<RESTfulDefinitionSourceMapping> it = mappings.iterator();
         while (it.hasNext()) {
             RESTfulDefinitionSourceMapping mapping = it.next();
-            delegate.addSecureUrl(
-                    mapping.getUrl(), mapping.getHttpMethods(), mapping.getConfigAttributes());
+            delegate.addSecureUrl(mapping.getUrl(), mapping.getHttpMethods(), mapping.getConfigAttributes());
         }
 
         //        Iterator it = mappings.iterator();
@@ -264,7 +256,7 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
     }
 
     private String substringBeforeLast(String str, String separator) {
-        if (str == null || separator == null || str.length() == 0 || separator.length() == 0) {
+        if (str == null || separator == null || str.isEmpty() || separator.isEmpty()) {
             return str;
         }
         int pos = str.lastIndexOf(separator);
@@ -275,10 +267,10 @@ public class RESTfulDefinitionSource implements FilterInvocationSecurityMetadata
     }
 
     private String substringAfterLast(String str, String separator) {
-        if (str == null || str.length() == 0) {
+        if (str == null || str.isEmpty()) {
             return str;
         }
-        if (separator == null || separator.length() == 0) {
+        if (separator == null || separator.isEmpty()) {
             return "";
         }
         int pos = str.lastIndexOf(separator);

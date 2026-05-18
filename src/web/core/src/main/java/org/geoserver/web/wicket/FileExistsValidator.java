@@ -35,8 +35,8 @@ public class FileExistsValidator implements IValidator<String> {
     }
 
     /**
-     * If <code>allowRemoveUrl</code> is true this validator allows the file to be either local (no
-     * URI scheme, or file URI scheme) or a remote
+     * If <code>allowRemoveUrl</code> is true this validator allows the file to be either local (no URI scheme, or file
+     * URI scheme) or a remote
      */
     public FileExistsValidator(boolean allowRemoteUrl) {
         if (allowRemoteUrl) {
@@ -57,12 +57,11 @@ public class FileExistsValidator implements IValidator<String> {
                     try {
                         URLConnection connection = uri.toURL().openConnection();
                         connection.setConnectTimeout(10000);
-                        try (InputStream is = connection.getInputStream()) {}
+                        try (InputStream ignored = connection.getInputStream()) {}
                     } catch (Exception e) {
-                        IValidationError err =
-                                new ValidationError("FileExistsValidator.unreachable")
-                                        .addKey("FileExistsValidator.unreachable")
-                                        .setVariable("file", uriSpec);
+                        IValidationError err = new ValidationError("FileExistsValidator.unreachable")
+                                .addKey("FileExistsValidator.unreachable")
+                                .setVariable("file", uriSpec);
                         validatable.error(err);
                     }
                 }
@@ -81,22 +80,15 @@ public class FileExistsValidator implements IValidator<String> {
         File relFile = null;
 
         GeoServerResourceLoader loader = GeoServerExtensions.bean(GeoServerResourceLoader.class);
-        if (baseDirectory != null) {
-            // local to provided baseDirectory
-            relFile = Files.url(baseDirectory, uriSpec);
-        } else if (loader != null) {
-            // local to data directory?
-            relFile =
-                    Resources.find(
-                            Resources.fromURL(Files.asResource(loader.getBaseDirectory()), uriSpec),
-                            true);
-        }
+        relFile = Resources.find(
+                Resources.fromURL(
+                        Files.asResource(baseDirectory == null ? loader.getBaseDirectory() : baseDirectory), uriSpec),
+                true);
 
         if (relFile == null || !relFile.exists()) {
-            IValidationError err =
-                    new ValidationError("FileExistsValidator.fileNotFoundError")
-                            .addKey("FileExistsValidator.fileNotFoundError")
-                            .setVariable("file", uriSpec);
+            IValidationError err = new ValidationError("FileExistsValidator.fileNotFoundError")
+                    .addKey("FileExistsValidator.fileNotFoundError")
+                    .setVariable("file", uriSpec);
             validatable.error(err);
         }
     }

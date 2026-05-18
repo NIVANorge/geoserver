@@ -4,7 +4,8 @@
  */
 package org.geoserver.catalog.impl;
 
-import java.util.ArrayList;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -28,13 +29,12 @@ import org.geoserver.catalog.util.CloseableIterator;
 import org.geoserver.catalog.util.CloseableIteratorAdapter;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.LocalWorkspace;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
 
 /**
- * Catalog facade implementation that only allows OWS services to isolated workspaces resources in
- * the context of the corresponding virtual service. REST API and direct code access will have full
- * access to isolated resources.
+ * Catalog facade implementation that only allows OWS services to isolated workspaces resources in the context of the
+ * corresponding virtual service. REST API and direct code access will have full access to isolated resources.
  */
 final class IsolatedCatalogFacade implements CatalogFacade {
 
@@ -81,17 +81,13 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     }
 
     @Override
-    public <T extends StoreInfo> T getStoreByName(
-            WorkspaceInfo workspace, String name, Class<T> clazz) {
+    public <T extends StoreInfo> T getStoreByName(WorkspaceInfo workspace, String name, Class<T> clazz) {
         return canSeeWorkspace(workspace) ? facade.getStoreByName(workspace, name, clazz) : null;
     }
 
     @Override
-    public <T extends StoreInfo> List<T> getStoresByWorkspace(
-            WorkspaceInfo workspace, Class<T> clazz) {
-        return canSeeWorkspace(workspace)
-                ? facade.getStoresByWorkspace(workspace, clazz)
-                : Collections.emptyList();
+    public <T extends StoreInfo> List<T> getStoresByWorkspace(WorkspaceInfo workspace, Class<T> clazz) {
+        return canSeeWorkspace(workspace) ? facade.getStoresByWorkspace(workspace, clazz) : Collections.emptyList();
     }
 
     @Override
@@ -135,8 +131,7 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     }
 
     @Override
-    public <T extends ResourceInfo> T getResourceByName(
-            NamespaceInfo namespace, String name, Class<T> clazz) {
+    public <T extends ResourceInfo> T getResourceByName(NamespaceInfo namespace, String name, Class<T> clazz) {
         NamespaceInfo localNamespace = tryMatchLocalNamespace(namespace);
         if (localNamespace != null) {
             // the URIs of the provided namespace and of the local workspace namespace matched
@@ -151,29 +146,23 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     }
 
     @Override
-    public <T extends ResourceInfo> List<T> getResourcesByNamespace(
-            NamespaceInfo namespace, Class<T> clazz) {
+    public <T extends ResourceInfo> List<T> getResourcesByNamespace(NamespaceInfo namespace, Class<T> clazz) {
         NamespaceInfo localNamespace = tryMatchLocalNamespace(namespace);
         if (localNamespace != null) {
             // the URIs of the provided namespace and of the local workspace namespace matched
             return facade.getResourcesByNamespace(localNamespace, clazz);
         }
-        return filterIsolated(
-                facade.getResourcesByNamespace(namespace, clazz),
-                clazz,
-                this::enforceResourceIsolation);
+        return filterIsolated(facade.getResourcesByNamespace(namespace, clazz), clazz, this::enforceResourceIsolation);
     }
 
     @Override
-    public <T extends ResourceInfo> T getResourceByStore(
-            StoreInfo store, String name, Class<T> clazz) {
+    public <T extends ResourceInfo> T getResourceByStore(StoreInfo store, String name, Class<T> clazz) {
         return enforceResourceIsolation(facade.getResourceByStore(store, name, clazz));
     }
 
     @Override
     public <T extends ResourceInfo> List<T> getResourcesByStore(StoreInfo store, Class<T> clazz) {
-        return filterIsolated(
-                facade.getResourcesByStore(store, clazz), clazz, this::enforceResourceIsolation);
+        return filterIsolated(facade.getResourcesByStore(store, clazz), clazz, this::enforceResourceIsolation);
     }
 
     @Override
@@ -208,14 +197,12 @@ final class IsolatedCatalogFacade implements CatalogFacade {
 
     @Override
     public List<LayerInfo> getLayers(ResourceInfo resource) {
-        return filterIsolated(
-                facade.getLayers(resource), LayerInfo.class, this::enforceLayerIsolation);
+        return filterIsolated(facade.getLayers(resource), LayerInfo.class, this::enforceLayerIsolation);
     }
 
     @Override
     public List<LayerInfo> getLayers(StyleInfo style) {
-        return filterIsolated(
-                facade.getLayers(style), LayerInfo.class, this::enforceLayerIsolation);
+        return filterIsolated(facade.getLayers(style), LayerInfo.class, this::enforceLayerIsolation);
     }
 
     @Override
@@ -295,16 +282,13 @@ final class IsolatedCatalogFacade implements CatalogFacade {
 
     @Override
     public List<LayerGroupInfo> getLayerGroups() {
-        return filterIsolated(
-                facade.getLayerGroups(), LayerGroupInfo.class, this::enforceLayerGroupIsolation);
+        return filterIsolated(facade.getLayerGroups(), LayerGroupInfo.class, this::enforceLayerGroupIsolation);
     }
 
     @Override
     public List<LayerGroupInfo> getLayerGroupsByWorkspace(WorkspaceInfo workspace) {
         return filterIsolated(
-                facade.getLayerGroupsByWorkspace(workspace),
-                LayerGroupInfo.class,
-                this::enforceLayerGroupIsolation);
+                facade.getLayerGroupsByWorkspace(workspace), LayerGroupInfo.class, this::enforceLayerGroupIsolation);
     }
 
     @Override
@@ -462,10 +446,7 @@ final class IsolatedCatalogFacade implements CatalogFacade {
 
     @Override
     public List<StyleInfo> getStylesByWorkspace(WorkspaceInfo workspace) {
-        return filterIsolated(
-                facade.getStylesByWorkspace(workspace),
-                StyleInfo.class,
-                this::enforceStyleIsolation);
+        return filterIsolated(facade.getStylesByWorkspace(workspace), StyleInfo.class, this::enforceStyleIsolation);
     }
 
     @Override
@@ -485,15 +466,13 @@ final class IsolatedCatalogFacade implements CatalogFacade {
 
     @Override
     public <T extends CatalogInfo> int count(Class<T> of, Filter filter) {
-        CloseableIterator<T> found = facade.list(of, filter, null, null);
-        try (CloseableIterator<T> filtered = filterIsolated(of, found)) {
-            int count = 0;
-            while (filtered.hasNext()) {
-                count++;
-                filtered.next();
+        if (isOwsRequest()) {
+            CloseableIterator<T> found = facade.list(of, filter, null, null);
+            try (CloseableIterator<T> filtered = filterIsolated(of, found)) {
+                return Iterators.size(filtered);
             }
-            return count;
         }
+        return facade.count(of, filter);
     }
 
     @Override
@@ -613,8 +592,8 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     }
 
     /**
-     * Checks if the provided layer group is visible in the current context. Note that layer group
-     * contained layer groups will not be filtered.
+     * Checks if the provided layer group is visible in the current context. Note that layer group contained layer
+     * groups will not be filtered.
      *
      * @param layerGroup the layer group to check, may be NULL
      * @return the layer group if visible, otherwise NULL
@@ -632,13 +611,13 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     /**
      * Helper method that checks if the provided workspace is visible in the current context.
      *
-     * <p>This method returns TRUE if the provided workspace is one of the default ones
-     * (NO_WORKSPACE or ANY_WORKSPACE) or if the provided workspace is NULL or is not isolated. If
-     * no OWS service request is in progress TRUE will also be returned.
+     * <p>This method returns TRUE if the provided workspace is one of the default ones (NO_WORKSPACE or ANY_WORKSPACE)
+     * or if the provided workspace is NULL or is not isolated. If no OWS service request is in progress TRUE will also
+     * be returned.
      *
-     * <p>If none of the conditions above is satisfied, then if a local workspace exists (i.e. we
-     * are in the context of a virtual service) and if the local workspace matches the provided
-     * workspace TRUE is returned, otherwise FALSE is returned.
+     * <p>If none of the conditions above is satisfied, then if a local workspace exists (i.e. we are in the context of
+     * a virtual service) and if the local workspace matches the provided workspace TRUE is returned, otherwise FALSE is
+     * returned.
      *
      * @param workspace the workspace to check for visibility
      * @return TRUE if the workspace is visible in the current context, otherwise FALSE
@@ -648,42 +627,46 @@ final class IsolatedCatalogFacade implements CatalogFacade {
                 || workspace == CatalogFacade.ANY_WORKSPACE
                 || workspace == null
                 || !workspace.isIsolated()
-                || Dispatcher.REQUEST.get() == null) {
+                || !isOwsRequest()) {
             // the workspace content is visible in this context
             return true;
         }
         WorkspaceInfo localWorkspace = getLocalWorkspace();
         // the workspace content will be visible only if we are in the context of one
         // of its virtual services
-        return localWorkspace != null
-                && Objects.equals(localWorkspace.getName(), workspace.getName());
+        return localWorkspace != null && Objects.equals(localWorkspace.getName(), workspace.getName());
+    }
+
+    private boolean isOwsRequest() {
+        return Dispatcher.REQUEST.get() != null;
     }
 
     /**
-     * Helper method that removes from a list the catalog objects not visible in the current
-     * context. This method takes care of the proper modification proxy unwrapping \ wrapping.
+     * Helper method that removes from a list the catalog objects not visible in the current context. This method takes
+     * care of the proper modification proxy unwrapping \ wrapping.
      *
      * @param objects list of catalog object, wrapped with a modification proxy
      * @param type the class of the list objects
      * @param filter filter that checks if an element should be visible
      * @return a list wrapped with a modification proxy that contains the visible catalog objects
      */
-    private <T extends CatalogInfo> List<T> filterIsolated(
-            List<T> objects, Class<T> type, Function<T, T> filter) {
-        // unwrap the catalog objects list
-        List<T> unwrapped = ModificationProxy.unwrap(objects);
-        // filter the non visible catalog objects and wrap the resulting list with a modification
-        // proxy
-        return ModificationProxy.createList(
-                unwrapped.stream()
-                        .filter(store -> filter.apply(store) != null)
-                        .collect(Collectors.toList()),
-                type);
+    private <T extends CatalogInfo> List<T> filterIsolated(List<T> objects, Class<T> type, Function<T, T> filter) {
+        if (isOwsRequest()) {
+            // unwrap the catalog objects list
+            List<T> unwrapped = ModificationProxy.unwrap(objects);
+            // filter the non visible catalog objects and wrap the resulting list with a
+            // modification proxy
+            return ModificationProxy.createList(
+                    unwrapped.stream()
+                            .filter(store -> filter.apply(store) != null)
+                            .collect(Collectors.toList()),
+                    type);
+        }
+        return objects;
     }
 
     /**
-     * Helper method that consumes a catalog objects iterator keeping only the ones visible in the
-     * current context.
+     * Helper method that consumes a catalog objects iterator keeping only the ones visible in the current context.
      *
      * @param objects iterator over catalog objects
      * @param filter filter that checks if an element should be visible
@@ -691,23 +674,19 @@ final class IsolatedCatalogFacade implements CatalogFacade {
      */
     private <T extends CatalogInfo> CloseableIterator<T> filterIsolated(
             CloseableIterator<T> objects, Function<T, T> filter) {
-        List<T> iterable = new ArrayList<>();
-        // consume the iterator
-        while (objects.hasNext()) {
-            T object = objects.next();
-            if (filter.apply(object) != null) {
-                // this catalog object is visible in the current context
-                iterable.add(object);
-            }
+
+        if (isOwsRequest()) {
+            Predicate<T> predicate = t -> filter.apply(t) != null;
+            objects = CloseableIteratorAdapter.filter(objects, predicate);
         }
-        // create an iterator for the visible catalog objects
-        return new CloseableIteratorAdapter<>(iterable.iterator());
+
+        return objects;
     }
 
     /**
-     * If a local workspace is set (i.e. we are in the context of a virtual service) and if the URI
-     * of the provided namespace matches the local workspace associate namespace URI, we return the
-     * namespace associated with the current local workspace, otherwise NULL is returned.
+     * If a local workspace is set (i.e. we are in the context of a virtual service) and if the URI of the provided
+     * namespace matches the local workspace associate namespace URI, we return the namespace associated with the
+     * current local workspace, otherwise NULL is returned.
      *
      * @param namespace the namespace we will try to match against the local workspace
      * @return the namespace associated with the local workspace if matched, otherwise NULL
@@ -717,8 +696,7 @@ final class IsolatedCatalogFacade implements CatalogFacade {
         if (localWorkspace != null) {
             // get the namespace for the current local workspace
             NamespaceInfo localNamespace = facade.getNamespaceByPrefix(localWorkspace.getName());
-            if (localNamespace != null
-                    && Objects.equals(localNamespace.getURI(), namespace.getURI())) {
+            if (localNamespace != null && Objects.equals(localNamespace.getURI(), namespace.getURI())) {
                 // the URIs match, let's return the local workspace namespace
                 return localNamespace;
             }
@@ -730,8 +708,7 @@ final class IsolatedCatalogFacade implements CatalogFacade {
     /**
      * If a local workspace is set returns the namespace associated to it.
      *
-     * @return the namespace associated with the local workspace, or NULL if no local workspace is
-     *     set
+     * @return the namespace associated with the local workspace, or NULL if no local workspace is set
      */
     private NamespaceInfo getLocalNamespace() {
         WorkspaceInfo localWorkspace = getLocalWorkspace();
@@ -750,30 +727,22 @@ final class IsolatedCatalogFacade implements CatalogFacade {
      * @return an iterator over the catalog objects visible in the current context
      */
     @SuppressWarnings("unchecked")
-    private <T extends CatalogInfo> CloseableIterator<T> filterIsolated(
-            Class<T> type, CloseableIterator<T> objects) {
+    private <T extends CatalogInfo> CloseableIterator<T> filterIsolated(Class<T> type, CloseableIterator<T> objects) {
         if (StoreInfo.class.isAssignableFrom(type)) {
             return (CloseableIterator<T>)
-                    filterIsolated(
-                            (CloseableIterator<StoreInfo>) objects, this::enforceStoreIsolation);
+                    filterIsolated((CloseableIterator<StoreInfo>) objects, this::enforceStoreIsolation);
         } else if (ResourceInfo.class.isAssignableFrom(type)) {
             return (CloseableIterator<T>)
-                    filterIsolated(
-                            (CloseableIterator<ResourceInfo>) objects,
-                            this::enforceResourceIsolation);
+                    filterIsolated((CloseableIterator<ResourceInfo>) objects, this::enforceResourceIsolation);
         } else if (LayerInfo.class.isAssignableFrom(type)) {
             return (CloseableIterator<T>)
-                    filterIsolated(
-                            (CloseableIterator<LayerInfo>) objects, this::enforceLayerIsolation);
+                    filterIsolated((CloseableIterator<LayerInfo>) objects, this::enforceLayerIsolation);
         } else if (LayerGroupInfo.class.isAssignableFrom(type)) {
             return (CloseableIterator<T>)
-                    filterIsolated(
-                            (CloseableIterator<LayerGroupInfo>) objects,
-                            this::enforceLayerGroupIsolation);
+                    filterIsolated((CloseableIterator<LayerGroupInfo>) objects, this::enforceLayerGroupIsolation);
         } else if (StyleInfo.class.isAssignableFrom(type)) {
             return (CloseableIterator<T>)
-                    filterIsolated(
-                            (CloseableIterator<StyleInfo>) objects, this::enforceStyleIsolation);
+                    filterIsolated((CloseableIterator<StyleInfo>) objects, this::enforceStyleIsolation);
         }
         // unknown type of catalog object, there is not much we can do so we just let it go
         return objects;

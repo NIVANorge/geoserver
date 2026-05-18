@@ -11,19 +11,19 @@
 package org.geoserver.gsr.translate.feature;
 
 import java.util.HashSet;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.Id;
+import org.geotools.api.filter.PropertyIsEqualTo;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Literal;
+import org.geotools.api.filter.identity.FeatureId;
 import org.geotools.filter.AttributeExpressionImpl;
 import org.geotools.filter.visitor.DuplicatingFilterVisitor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.Id;
-import org.opengis.filter.PropertyIsEqualTo;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Literal;
-import org.opengis.filter.identity.FeatureId;
 
 /**
- * Remaps {@link PropertyIsEqualTo} filters of {@link AttributeExpressionImpl} that represent an
- * ESRI OBJECTID to {@link Id} filters where applicable.
+ * Remaps {@link PropertyIsEqualTo} filters of {@link AttributeExpressionImpl} that represent an ESRI OBJECTID to
+ * {@link Id} filters where applicable.
  *
  * <p>Also converts OBJECTID=OBJECTID into Filter.INCLUDE
  */
@@ -38,10 +38,10 @@ public class ObjectIdRemappingFilterVisitor extends DuplicatingFilterVisitor {
     }
 
     /**
-     * @param objectIdField The property name to be remapped to the id. Defaults to {@link
-     *     org.geoserver.gsr.translate.feature.FeatureEncoder#OBJECTID_FIELD_NAME}
-     * @param featureIdPrefix The prefix of the GeoTools FeatureId, including any delimiters.
-     *     Defaults to and empty string
+     * @param objectIdField The property name to be remapped to the id. Defaults to
+     *     {@link org.geoserver.gsr.translate.feature.FeatureEncoder#OBJECTID_FIELD_NAME}
+     * @param featureIdPrefix The prefix of the GeoTools FeatureId, including any delimiters. Defaults to and empty
+     *     string
      */
     public ObjectIdRemappingFilterVisitor(String objectIdField, String featureIdPrefix) {
         this.featureIdPrefix = featureIdPrefix;
@@ -72,8 +72,7 @@ public class ObjectIdRemappingFilterVisitor extends DuplicatingFilterVisitor {
     }
 
     private boolean isIdAttribute(Expression expr, boolean matchCase) {
-        if (expr instanceof AttributeExpressionImpl) {
-            AttributeExpressionImpl attr = (AttributeExpressionImpl) expr;
+        if (expr instanceof AttributeExpressionImpl attr) {
             if (attr.getPropertyName().equals(objectId)
                     || (!matchCase && attr.getPropertyName().equalsIgnoreCase(objectId))) {
                 return true;

@@ -5,8 +5,8 @@
 package org.geoserver.csw.store.internal;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
@@ -16,6 +16,7 @@ import java.io.PrintWriter;
 import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.geoserver.csw.CSWTestSupport;
+import org.geoserver.csw.util.PropertyPath;
 import org.geoserver.security.PropertyFileWatcher;
 import org.junit.Test;
 
@@ -32,37 +33,45 @@ public class InternalCatalogStoreTest extends CSWTestSupport {
         }
 
         // get the store
-        InternalCatalogStore store =
-                applicationContext.getBean(
-                        InternalCatalogStore
-                                .class); // new InternalCatalogStore(this.getGeoServer());
+        InternalCatalogStore store = applicationContext.getBean(
+                InternalCatalogStore.class); // new InternalCatalogStore(this.getGeoServer());
         assertNotNull(store);
 
         // test if we have default mapping
         File record = new File(csw, "Record.properties");
         assertTrue(record.exists());
 
-        assertNotNull(store.getMapping("Record"));
-        assertNotNull(store.getMapping("Record").getElement("identifier.value"));
+        assertNotNull(store.getMappings("Record"));
+        assertEquals(1, store.getMappings("Record").size());
+        CatalogStoreMapping mapping = store.getMappings("Record").get(0);
+        assertTrue(mapping.elements(PropertyPath.fromDotPath("format.value")).isEmpty());
+        assertFalse(store.getMappings("Record")
+                .get(0)
+                .elements(PropertyPath.fromDotPath("identifier.value"))
+                .isEmpty());
 
-        assertNull(store.getMapping("Record").getElement("format.value"));
-
+        assertTrue(store.getMappings("Record")
+                .get(0)
+                .elements(PropertyPath.fromDotPath("format.value"))
+                .isEmpty());
         // On Linux and older versions of JDK last modification resolution is one second,
         // and we need the watcher to see the file as changed. Account for slow build servers too.
-        PropertyFileWatcher watcher = store.watchers.get("Record");
-        Awaitility.await()
-                .atMost(5, TimeUnit.SECONDS)
-                .until(
-                        () -> {
-                            try (PrintWriter out = new PrintWriter(new FileWriter(record, true))) {
-                                out.println("\nformat.value='img/jpeg'");
-                            }
-                            return watcher.isStale();
-                        });
+        PropertyFileWatcher watcher = store.watchers.get("Record").iterator().next();
+        Awaitility.await().atMost(5, TimeUnit.SECONDS).until(() -> {
+            try (PrintWriter out = new PrintWriter(new FileWriter(record, true))) {
+                out.println("\nformat.value='img/jpeg'");
+            }
+            return watcher.isStale();
+        });
 
+        mapping = store.getMappings("Record").get(0);
         // mapping should be automatically reloaded now
         assertEquals(
                 "img/jpeg",
-                store.getMapping("Record").getElement("format.value").getContent().toString());
+                store.getMappings("Record").get(0).elements(PropertyPath.fromDotPath("format.value")).stream()
+                        .findFirst()
+                        .get()
+                        .getContent()
+                        .toString());
     }
 }

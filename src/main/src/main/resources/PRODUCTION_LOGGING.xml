@@ -31,12 +31,16 @@
             <AppenderRef ref="stdout"/>
             <AppenderRef ref="geoserverlogfile"/>
         </Logger>
+        <Logger name="org.geoserver.config" level="warn" additivity="false">
+            <AppenderRef ref="stdout"/>
+            <AppenderRef ref="geoserverlogfile"/>
+        </Logger>
         <Logger name="org.vfny.geoserver" level="warn" additivity="false">
             <AppenderRef ref="stdout"/>
             <AppenderRef ref="geoserverlogfile"/>
         </Logger>
 
-        <Logger name="org.springframework" level="warn" additivity="false">
+        <Logger name="org.springframework" level="error" additivity="false">
             <AppenderRef ref="stdout"/>
             <AppenderRef ref="geoserverlogfile"/>
         </Logger>

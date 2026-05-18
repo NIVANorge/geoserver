@@ -10,14 +10,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 import org.geoserver.web.wicket.GeoServerDataProvider;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.GeometryDescriptor;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.VirtualTable;
 import org.geotools.referencing.CRS;
 import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
 
 @SuppressWarnings("serial")
 public class SQLViewAttributeProvider extends GeoServerDataProvider<SQLViewAttribute> {
@@ -26,17 +26,16 @@ public class SQLViewAttributeProvider extends GeoServerDataProvider<SQLViewAttri
 
     static final Property<SQLViewAttribute> NAME = new BeanProperty<>("name", "name");
 
-    static final Property<SQLViewAttribute> TYPE =
-            new AbstractProperty<SQLViewAttribute>("type") {
+    static final Property<SQLViewAttribute> TYPE = new AbstractProperty<>("type") {
 
-                @Override
-                public Object getPropertyValue(SQLViewAttribute item) {
-                    if (item.getType() != null) {
-                        return item.getType().getSimpleName();
-                    }
-                    return null;
-                }
-            };
+        @Override
+        public Object getPropertyValue(SQLViewAttribute item) {
+            if (item.getType() != null) {
+                return item.getType().getSimpleName();
+            }
+            return null;
+        }
+    };
 
     static final Property<SQLViewAttribute> SRID = new BeanProperty<>("srid", "srid");
 
@@ -55,8 +54,7 @@ public class SQLViewAttributeProvider extends GeoServerDataProvider<SQLViewAttri
                     new SQLViewAttribute(ad.getLocalName(), ad.getType().getBinding());
             String attName = ad.getName().getLocalPart();
             attributes.add(at);
-            if (ad instanceof GeometryDescriptor) {
-                GeometryDescriptor gd = (GeometryDescriptor) ad;
+            if (ad instanceof GeometryDescriptor gd) {
                 if (gd.getUserData().get(JDBCDataStore.JDBC_NATIVE_SRID) != null) {
                     at.setSrid((Integer) gd.getUserData().get(JDBCDataStore.JDBC_NATIVE_SRID));
                 } else if (gd.getCoordinateReferenceSystem() != null) {
@@ -96,13 +94,9 @@ public class SQLViewAttributeProvider extends GeoServerDataProvider<SQLViewAttri
         for (SQLViewAttribute att : attributes) {
             if (Geometry.class.isAssignableFrom(att.getType())) {
                 if (att.getSrid() == null) {
-                    vt.addGeometryMetadatata(
-                            att.getName(), (Class<? extends Geometry>) att.getType(), 4326);
+                    vt.addGeometryMetadatata(att.getName(), (Class<? extends Geometry>) att.getType(), 4326);
                 } else {
-                    vt.addGeometryMetadatata(
-                            att.getName(),
-                            (Class<? extends Geometry>) att.getType(),
-                            att.getSrid());
+                    vt.addGeometryMetadatata(att.getName(), (Class<? extends Geometry>) att.getType(), att.getSrid());
                 }
             }
             if (att.pk) {

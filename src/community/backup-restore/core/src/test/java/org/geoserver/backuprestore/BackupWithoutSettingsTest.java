@@ -1,8 +1,8 @@
 package org.geoserver.backuprestore;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.util.HashMap;
@@ -11,7 +11,6 @@ import java.util.logging.Level;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.geoserver.platform.resource.Files;
-import org.junit.Before;
 import org.junit.Test;
 import org.springframework.batch.core.BatchStatus;
 
@@ -20,7 +19,6 @@ public class BackupWithoutSettingsTest extends BackupRestoreTestSupport {
     protected static Backup backupFacade;
 
     @Override
-    @Before
     public void beforeTest() throws InterruptedException {
         backupFacade = (Backup) applicationContext.getBean("backupFacade");
         ensureCleanedQueues();
@@ -38,20 +36,17 @@ public class BackupWithoutSettingsTest extends BackupRestoreTestSupport {
 
         File backupFile = File.createTempFile("testRunSpringBatchBackupJob", ".zip");
         BackupExecutionAdapter backupExecution =
-                backupFacade.runBackupAsync(
-                        Files.asResource(backupFile), true, null, null, null, params);
+                backupFacade.runBackupAsync(Files.asResource(backupFile), true, null, null, null, params);
 
         // Wait a bit
         Thread.sleep(100);
 
         assertNotNull(backupFacade.getBackupExecutions());
-        assertTrue(!backupFacade.getBackupExecutions().isEmpty());
+        assertFalse(backupFacade.getBackupExecutions().isEmpty());
         assertNotNull(backupExecution);
 
         int cnt = 0;
-        while (cnt < 100
-                && (backupExecution.getStatus() != BatchStatus.COMPLETED
-                        || !backupExecution.isRunning())) {
+        while (cnt < 100 && (backupExecution.getStatus() != BatchStatus.COMPLETED || !backupExecution.isRunning())) {
             Thread.sleep(100);
             cnt++;
 
@@ -60,8 +55,7 @@ public class BackupWithoutSettingsTest extends BackupRestoreTestSupport {
                     || backupExecution.getStatus() == BatchStatus.UNKNOWN) {
 
                 for (Throwable exception : backupExecution.getAllFailureExceptions()) {
-                    LOGGER.log(
-                            Level.WARNING, "ERROR: " + exception.getLocalizedMessage(), exception);
+                    LOGGER.log(Level.WARNING, "ERROR: " + exception.getLocalizedMessage(), exception);
                 }
                 break;
             }

@@ -4,14 +4,12 @@
  */
 package org.geoserver.opensearch.eo.response;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonFactory;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.config.GeoServer;
 import org.geoserver.featurestemplating.builders.impl.RootBuilder;
 import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
@@ -26,17 +24,19 @@ import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Response;
 import org.geoserver.platform.Operation;
 import org.geoserver.platform.ServiceException;
-import org.geotools.data.Parameter;
-import org.geotools.data.Query;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.filter.function.EnvFunction;
-import org.opengis.feature.Feature;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.json.JsonFactoryBuilder;
 
 public class GeoJSONSearchResponse extends Response {
 
     public static final String MIME = "application/geo+json";
-    public static final String OSEO_GEOJSON_PROFILE =
-            "http://www.opengis.net/spec/owc-geojson/1.0/req/core";
+    public static final String OSEO_GEOJSON_PROFILE = "http://www.opengis.net/spec/owc-geojson/1.0/req/core";
     private final OpenSearchTemplates templates;
     private GeoServer gs;
 
@@ -52,14 +52,12 @@ public class GeoJSONSearchResponse extends Response {
     }
 
     @Override
-    public void write(Object value, OutputStream output, Operation operation)
-            throws IOException, ServiceException {
+    public void write(Object value, OutputStream output, Operation operation) throws IOException, ServiceException {
         SearchResults results = (SearchResults) value;
 
-        try (GeoJSONWriter writer =
-                new GeoJSONWriter(
-                        new JsonFactory().createGenerator(output, JsonEncoding.UTF8),
-                        TemplateIdentifier.GEOJSON)) {
+        try (GeoJSONWriter writer = new GeoJSONWriter(
+                new JsonFactoryBuilder().build().createGenerator(ObjectWriteContext.empty(), output, JsonEncoding.UTF8),
+                TemplateIdentifier.GEOJSON)) {
             writer.startTemplateOutput(null);
             try (FeatureIterator features = results.getResults().features()) {
                 while (features.hasNext()) {
@@ -88,7 +86,7 @@ public class GeoJSONSearchResponse extends Response {
 
     private void writeAdditionalFields(GeoJSONWriter w, SearchResults results) throws IOException {
         writeSimple(w, "id", getRequestedURL());
-        writeSimple(w, "totalResults", results.getTotalResults());
+        if (results.getTotalResults() != null) writeSimple(w, "totalResults", results.getTotalResults());
         Query query = results.getRequest().getQuery();
         writeSimple(w, "itemsPerPage", query.getMaxFeatures());
         // OpenSearch is 1-based, not zero based
@@ -113,8 +111,7 @@ public class GeoJSONSearchResponse extends Response {
         }
     }
 
-    private void writeCollectionProperties(SearchResults results, GeoJSONWriter w)
-            throws IOException {
+    private void writeCollectionProperties(SearchResults results, GeoJSONWriter w) throws IOException {
         OSEOInfo oseo = gs.getService(OSEOInfo.class);
 
         writeSimple(w, "title", oseo.getName() + " - Search Response");
@@ -132,28 +129,18 @@ public class GeoJSONSearchResponse extends Response {
         writeSimple(w, "updated", new Date());
         writeSimple(w, "lang", "en");
 
-        PaginationLinkBuilder builder =
-                new PaginationLinkBuilder(results, oseo, GeoJSONSearchResponse.MIME);
+        PaginationLinkBuilder builder = new PaginationLinkBuilder(results, oseo, GeoJSONSearchResponse.MIME);
         w.writeElementName("links", null);
         w.writeStartObject();
         writeSingleLink(w, "profiles", new Link(OSEO_GEOJSON_PROFILE));
-        writeSingleLink(
-                w,
-                "first",
-                new Link(builder.getFirst(), "First results", GeoJSONSearchResponse.MIME));
+        writeSingleLink(w, "first", new Link(builder.getFirst(), "First results", GeoJSONSearchResponse.MIME));
         if (builder.getNext() != null)
-            writeSingleLink(
-                    w,
-                    "next",
-                    new Link(builder.getNext(), "Next results", GeoJSONSearchResponse.MIME));
+            writeSingleLink(w, "next", new Link(builder.getNext(), "Next results", GeoJSONSearchResponse.MIME));
         if (builder.getPrevious() != null)
             writeSingleLink(
-                    w,
-                    "previous",
-                    new Link(
-                            builder.getPrevious(), "Previous results", GeoJSONSearchResponse.MIME));
-        writeSingleLink(
-                w, "last", new Link(builder.getLast(), "Last results", GeoJSONSearchResponse.MIME));
+                    w, "previous", new Link(builder.getPrevious(), "Previous results", GeoJSONSearchResponse.MIME));
+        if (builder.getLast() != null)
+            writeSingleLink(w, "last", new Link(builder.getLast(), "Last results", GeoJSONSearchResponse.MIME));
         w.writeEndObject();
     }
 

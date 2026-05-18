@@ -29,41 +29,37 @@ public class StylesTest extends MapsTestSupport {
 
     @Test
     public void testCollectionsJson() throws Exception {
-        DocumentContext json =
-                getAsJSONPath("ogc/maps/v1/collections/BlueMarble/styles?f=json", 200);
+        DocumentContext json = getAsJSONPath("ogc/maps/v1/collections/BlueMarble/styles?f=json", 200);
         testStylesJson(json, MediaType.APPLICATION_JSON);
     }
 
     @Test
     public void testCollectionsJsonSlash() throws Exception {
-        DocumentContext json =
-                getAsJSONPath("ogc/maps/v1/collections/BlueMarble/styles/?f=json", 200);
+        DocumentContext json = getAsJSONPath("ogc/maps/v1/collections/BlueMarble/styles/?f=json", 200);
         testStylesJson(json, MediaType.APPLICATION_JSON);
     }
 
     @Test
     public void testCollectionsYaml() throws Exception {
-        String yaml = getAsString("ogc/maps/v1/collections/BlueMarble/styles?f=application/x-yaml");
+        String yaml = getAsString("ogc/maps/v1/collections/BlueMarble/styles?f=application/yaml");
         DocumentContext json = convertYamlToJsonPath(yaml);
-        testStylesJson(json, MediaType.parseMediaType("application/x-yaml"));
+        testStylesJson(json, MediaType.parseMediaType("application/yaml"));
     }
 
     private void testStylesJson(DocumentContext json, MediaType defaultFormat) {
         assertEquals(1, (int) json.read("styles.length()", Integer.class));
-        Collection<MediaType> formats =
-                GeoServerExtensions.bean(
-                                APIDispatcher.class, GeoServerSystemTestSupport.applicationContext)
-                        .getProducibleMediaTypes(CollectionsDocument.class, true);
-        formats.forEach(
-                format -> {
-                    // check rel
-                    List items = json.read("links[?(@.type=='" + format + "')]", List.class);
-                    Map item = (Map) items.get(0);
-                    if (defaultFormat.equals(format)) {
-                        assertEquals("self", item.get("rel"));
-                    } else {
-                        assertEquals("alternate", item.get("rel"));
-                    }
-                });
+        Collection<MediaType> formats = GeoServerExtensions.bean(
+                        APIDispatcher.class, GeoServerSystemTestSupport.applicationContext)
+                .getProducibleMediaTypes(CollectionsDocument.class, true);
+        formats.forEach(format -> {
+            // check rel
+            List items = json.read("links[?(@.type=='" + format + "')]", List.class);
+            Map item = (Map) items.get(0);
+            if (defaultFormat.equals(format)) {
+                assertEquals("self", item.get("rel"));
+            } else {
+                assertEquals("alternate", item.get("rel"));
+            }
+        });
     }
 }

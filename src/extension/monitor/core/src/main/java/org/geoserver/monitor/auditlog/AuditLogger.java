@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.monitor.MemoryMonitorDAO;
@@ -42,8 +43,8 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
 
 /**
- * Writes all requests to a log file. The log file can be configured in the MonitorConfig, as well
- * as a Freemarker template to drive its contents
+ * Writes all requests to a log file. The log file can be configured in the MonitorConfig, as well as a Freemarker
+ * template to drive its contents
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -98,12 +99,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
 
             // setup the dumper
             this.dumper =
-                    new RequestDumper(
-                            loggingDir.dir(),
-                            rollLimit,
-                            headerTemplate,
-                            contentTemplate,
-                            footerTemplate);
+                    new RequestDumper(loggingDir.dir(), rollLimit, headerTemplate, contentTemplate, footerTemplate);
         }
     }
 
@@ -182,9 +178,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
             }
         } catch (Exception e) {
             throw new RuntimeException(
-                    "Unexpected error occurred while trying to "
-                            + "store the request data in the logger queue",
-                    e);
+                    "Unexpected error occurred while trying to " + "store the request data in the logger queue", e);
         }
     }
 
@@ -208,13 +202,13 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
 
     private final class RequestDumper extends Thread {
 
-        private long lineCounter = 0;
+        private AtomicLong lineCounter = new AtomicLong(0);
 
-        private long fileRollCounter = 0;
+        private AtomicLong fileRollCounter = new AtomicLong(0);
 
         /**
-         * We use a {@link BlockingQueue} to decouple to incoming flux of {@link RequestData} to
-         * audit with the thread that writes to disk.
+         * We use a {@link BlockingQueue} to decouple to incoming flux of {@link RequestData} to audit with the thread
+         * that writes to disk.
          */
         BlockingQueue<RequestData> queue = new ArrayBlockingQueue<>(10000);
 
@@ -234,9 +228,8 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
         private String footerTemplate;
 
         /**
-         * Constructs and starts a new thread as a daemon. This thread will be sleeping most of the
-         * time. It will run only some few nanoseconds each time a new {@link RequestData} is
-         * enqueded.
+         * Constructs and starts a new thread as a daemon. This thread will be sleeping most of the time. It will run
+         * only some few nanoseconds each time a new {@link RequestData} is enqueded.
          */
         private RequestDumper(
                 final File path,
@@ -266,7 +259,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                 while (true) {
                     // grab as many items from the queue as possible
                     List<RequestData> rds = new ArrayList<>();
-                    if (queue.size() > 0) {
+                    if (!queue.isEmpty()) {
                         queue.drainTo(rds);
                     } else {
                         rds.add(queue.take());
@@ -285,7 +278,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                         }
 
                         template.process(rd, writer);
-                        this.lineCounter++;
+                        lineCounter.incrementAndGet();
                     }
 
                     // flush the writer so that the file is up to date, otherwise a request
@@ -300,10 +293,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                 }
             } catch (Exception e) {
                 if (LOGGER.isLoggable(Level.WARNING))
-                    LOGGER.log(
-                            Level.WARNING,
-                            "Request Dumper exiting due to :" + e.getLocalizedMessage(),
-                            e);
+                    LOGGER.log(Level.WARNING, "Request Dumper exiting due to :" + e.getLocalizedMessage(), e);
             } finally {
                 closeWriter(writer);
             }
@@ -316,14 +306,14 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
             final GregorianCalendar current = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
 
             // check if we have to close the file and reopen it for rolling
-            if (this.lineCounter >= lineRollingLimit
+            if (this.lineCounter.get() >= lineRollingLimit
                     || (day > 0 && day != current.get(GregorianCalendar.DAY_OF_YEAR))
                     || (logFile != null && !logFile.exists())) {
                 closeWriter(writer);
 
                 // play with counters
-                this.fileRollCounter++;
-                this.lineCounter = 0;
+                this.fileRollCounter.incrementAndGet();
+                this.lineCounter.set(0);
 
                 // clean
                 writer = null;
@@ -334,62 +324,48 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                 // create proper file to write to
                 final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
                 dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-                final String auditFileName =
-                        "geoserver_audit_" + dateFormat.format(current.getTime()) + "_";
+                final String auditFileName = "geoserver_audit_" + dateFormat.format(current.getTime()) + "_";
 
                 // look for similar files to pick up numbering
-                if (fileRollCounter == 0) {
-                    final String[] files =
-                            path.list(
-                                    makeFileOnly(
-                                            and(
-                                                    prefixFileFilter("geoserver_audit_"),
-                                                    suffixFileFilter(".log"))));
+                if (fileRollCounter.get() == 0) {
+                    final String[] files = path.list(
+                            makeFileOnly(and(prefixFileFilter("geoserver_audit_"), suffixFileFilter(".log"))));
                     if (files != null && files.length > 0) {
-                        Arrays.sort(
-                                files,
-                                (o1, o2) -> {
-                                    // extract dates and compare
-                                    final String[] o1s =
-                                            o1.substring(0, o1.length() - 4).split("_");
-                                    final String[] o2s =
-                                            o2.substring(0, o2.length() - 4).split("_");
-                                    int dateCompare;
-                                    try {
-                                        dateCompare =
-                                                dateFormat
-                                                        .parse(o1s[2])
-                                                        .compareTo(dateFormat.parse(o2s[2]));
-                                    } catch (ParseException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                    if (dateCompare == 0) {
-                                        // compare counter
-                                        return Integer.valueOf(o1s[3])
-                                                .compareTo(Integer.valueOf(o2s[3]));
+                        Arrays.sort(files, (o1, o2) -> {
+                            // extract dates and compare
+                            final String[] o1s =
+                                    o1.substring(0, o1.length() - 4).split("_");
+                            final String[] o2s =
+                                    o2.substring(0, o2.length() - 4).split("_");
+                            int dateCompare;
+                            try {
+                                dateCompare = dateFormat.parse(o1s[2]).compareTo(dateFormat.parse(o2s[2]));
+                            } catch (ParseException e) {
+                                throw new RuntimeException(e);
+                            }
+                            if (dateCompare == 0) {
+                                // compare counter
+                                return Integer.valueOf(o1s[3]).compareTo(Integer.valueOf(o2s[3]));
 
-                                    } else return dateCompare;
-                                });
+                            } else return dateCompare;
+                        });
                         // get the max counter
                         final String target = files[files.length - 1];
                         int start = target.lastIndexOf("_") + 1;
                         int end = target.lastIndexOf(".");
-                        fileRollCounter = Integer.parseInt(target.substring(start, end));
+                        fileRollCounter.set(Long.parseLong(target.substring(start, end)));
                         // move to the next one
-                        fileRollCounter++;
+                        fileRollCounter.incrementAndGet();
                     }
                 }
 
                 // create file
                 this.logFile = new File(path, auditFileName + fileRollCounter + ".log");
                 if (!logFile.exists() && !this.logFile.createNewFile()) {
-                    throw new IllegalStateException(
-                            "Unable to create monitoring file:" + logFile.getCanonicalPath());
+                    throw new IllegalStateException("Unable to create monitoring file:" + logFile.getCanonicalPath());
                 }
                 // save day
-                day =
-                        new GregorianCalendar(TimeZone.getTimeZone("GMT"))
-                                .get(GregorianCalendar.DAY_OF_YEAR);
+                day = new GregorianCalendar(TimeZone.getTimeZone("GMT")).get(GregorianCalendar.DAY_OF_YEAR);
 
                 // now the writer
                 writer = new BufferedWriter(new FileWriter(logFile, true));
@@ -409,8 +385,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                 }
             } catch (Exception e) {
                 // eat me
-                if (LOGGER.isLoggable(Level.FINE))
-                    LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
+                if (LOGGER.isLoggable(Level.FINE)) LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
             }
             try {
                 if (writer != null) {
@@ -418,14 +393,13 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                 }
             } catch (Exception e) {
                 // eat me
-                if (LOGGER.isLoggable(Level.FINE))
-                    LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
+                if (LOGGER.isLoggable(Level.FINE)) LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
             }
         }
 
         /**
-         * Stops the cleaner thread. Calling this method is recommended in all long running
-         * applications with custom class loaders (e.g., web applications).
+         * Stops the cleaner thread. Calling this method is recommended in all long running applications with custom
+         * class loaders (e.g., web applications).
          */
         @SuppressWarnings("deprecation")
         public void exit() {
@@ -436,8 +410,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                     this.join(1000);
                 } catch (InterruptedException e) {
                     // eat me
-                    if (LOGGER.isLoggable(Level.FINE))
-                        LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
+                    if (LOGGER.isLoggable(Level.FINE)) LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
                 }
 
                 this.interrupt();
@@ -445,8 +418,7 @@ public class AuditLogger implements RequestDataListener, ApplicationListener<App
                     this.join(1000);
                 } catch (InterruptedException e) {
                     // eat me
-                    if (LOGGER.isLoggable(Level.FINE))
-                        LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
+                    if (LOGGER.isLoggable(Level.FINE)) LOGGER.log(Level.FINE, e.getLocalizedMessage(), e);
                 }
                 // last resort tentative to kill the cleaner thread
                 if (this.isAlive()) this.stop();

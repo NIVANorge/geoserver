@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.data.store.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.FormComponent;
@@ -18,6 +20,19 @@ import org.geoserver.web.data.workspace.WorkspacesModel;
 /** A label + workspace dropdown form panel */
 @SuppressWarnings("serial")
 public class WorkspacePanel extends Panel implements ParamPanel<WorkspaceInfo> {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(WorkspacePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     private DropDownChoice<WorkspaceInfo> choice;
 
@@ -36,12 +51,8 @@ public class WorkspacePanel extends Panel implements ParamPanel<WorkspaceInfo> {
         add(label);
 
         // the drop down field, with a decorator for validations
-        choice =
-                new DropDownChoice<>(
-                        "paramValue",
-                        workspaceModel,
-                        new WorkspacesModel(),
-                        new WorkspaceChoiceRenderer());
+        choice = new DropDownChoice<>(
+                "paramValue", workspaceModel, new WorkspacesModel(), new WorkspaceChoiceRenderer());
         choice.setRequired(required);
         // set the label to be the paramLabelModel otherwise a validation error would look like
         // "Parameter 'paramValue' is required"
@@ -52,10 +63,7 @@ public class WorkspacePanel extends Panel implements ParamPanel<WorkspaceInfo> {
         add(feedback);
     }
 
-    /**
-     * Returns the form component used in the panel in case it is needed for related form components
-     * validation
-     */
+    /** Returns the form component used in the panel in case it is needed for related form components validation */
     @Override
     public FormComponent<WorkspaceInfo> getFormComponent() {
         return choice;

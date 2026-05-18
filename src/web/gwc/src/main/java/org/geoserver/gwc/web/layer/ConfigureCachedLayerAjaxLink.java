@@ -5,6 +5,7 @@
  */
 package org.geoserver.gwc.web.layer;
 
+import java.io.Serial;
 import org.apache.wicket.Page;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.model.IModel;
@@ -21,11 +22,12 @@ import org.geoserver.web.wicket.SimpleAjaxLink;
 import org.geowebcache.layer.TileLayer;
 
 /**
- * A simple ajax link that links to the edit page for the given {@link GeoServerTileLayer} (that is,
- * either to the layerinfo edit page or layergroup edit page, as appropriate)
+ * A simple ajax link that links to the edit page for the given {@link GeoServerTileLayer} (that is, either to the
+ * layerinfo edit page or layergroup edit page, as appropriate)
  */
 class ConfigureCachedLayerAjaxLink extends SimpleAjaxLink<TileLayer> {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     private Class<? extends Page> returnPage;
@@ -33,12 +35,10 @@ class ConfigureCachedLayerAjaxLink extends SimpleAjaxLink<TileLayer> {
     /**
      * @param id component id
      * @param itemModel model over the tile layer to configure
-     * @param returnPage which page to instruct the LayerInfo or LayerGroupInfo edit page to return
-     *     to
+     * @param returnPage which page to instruct the LayerInfo or LayerGroupInfo edit page to return to
      */
-    public ConfigureCachedLayerAjaxLink(
-            String id, IModel<TileLayer> itemModel, Class<? extends Page> returnPage) {
-        super(id, itemModel, new PropertyModel<String>(itemModel, "name"));
+    public ConfigureCachedLayerAjaxLink(String id, IModel<TileLayer> itemModel, Class<? extends Page> returnPage) {
+        super(id, itemModel, new PropertyModel<>(itemModel, "name"));
         this.returnPage = returnPage;
     }
 
@@ -50,17 +50,20 @@ class ConfigureCachedLayerAjaxLink extends SimpleAjaxLink<TileLayer> {
         }
         final GeoServerTileLayer geoserverTileLayer = (GeoServerTileLayer) getModelObject();
         PublishedInfo publishedInfo = geoserverTileLayer.getPublishedInfo();
-        if (publishedInfo instanceof LayerInfo) {
-            ResourceConfigurationPage resourceConfigPage =
-                    new ResourceConfigurationPage((LayerInfo) publishedInfo, false);
+
+        String ws = getPage().getPageParameters().get("workspace").toOptionalString();
+        PageParameters returnParams = (ws != null && !ws.isEmpty()) ? new PageParameters().add("workspace", ws) : null;
+
+        if (publishedInfo instanceof LayerInfo info) {
+            ResourceConfigurationPage resourceConfigPage = new ResourceConfigurationPage(info, false);
             // tell the resource/layer edit page to start up on the tile cache tab
             resourceConfigPage.setSelectedTab(LayerCacheOptionsTabPanel.class);
             if (returnPage != null) {
-                resourceConfigPage.setReturnPage(returnPage);
+                if (returnParams != null) resourceConfigPage.setReturnPage(returnPage, returnParams);
+                else resourceConfigPage.setReturnPage(returnPage);
             }
             setResponsePage(resourceConfigPage);
-        } else if (publishedInfo instanceof LayerGroupInfo) {
-            LayerGroupInfo layerGroup = (LayerGroupInfo) publishedInfo;
+        } else if (publishedInfo instanceof LayerGroupInfo layerGroup) {
             WorkspaceInfo workspace = layerGroup.getWorkspace();
             String wsName = workspace == null ? null : workspace.getName();
             PageParameters parameters = new PageParameters();
@@ -70,7 +73,8 @@ class ConfigureCachedLayerAjaxLink extends SimpleAjaxLink<TileLayer> {
             }
             LayerGroupEditPage layerGroupEditPage = new LayerGroupEditPage(parameters);
             if (returnPage != null) {
-                layerGroupEditPage.setReturnPage(returnPage);
+                if (returnParams != null) layerGroupEditPage.setReturnPage(returnPage, returnParams);
+                else layerGroupEditPage.setReturnPage(returnPage);
             }
             setResponsePage(layerGroupEditPage);
         }

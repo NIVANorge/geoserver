@@ -16,13 +16,15 @@ import org.geoserver.ows.Request;
 public class SimpleThreadBlocker implements ThreadBlocker {
 
     /**
-     * This queue contains the requests that are running. The ones waiting are not "visible", are
-     * all blocked on {@link BlockingQueue#offer(Object, long, TimeUnit)}} or {@link
-     * BlockingQueue#put(Object)}
+     * This queue contains the requests that are running. The ones waiting are not "visible", are all blocked on
+     * {@link BlockingQueue#offer(Object, long, TimeUnit)}} or {@link BlockingQueue#put(Object)}
      */
     BlockingQueue<Request> queue;
 
+    private final int queueSize;
+
     public SimpleThreadBlocker(int queueSize) {
+        this.queueSize = queueSize;
         queue = new ArrayBlockingQueue<>(queueSize, true);
     }
 
@@ -47,5 +49,10 @@ public class SimpleThreadBlocker implements ThreadBlocker {
             queue.put(request);
             return true;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "SimpleBlocker(" + queueSize + ")";
     }
 }

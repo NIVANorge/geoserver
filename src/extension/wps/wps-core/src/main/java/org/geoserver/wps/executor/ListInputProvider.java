@@ -8,9 +8,9 @@ package org.geoserver.wps.executor;
 import java.util.ArrayList;
 import java.util.List;
 import org.geoserver.wps.WPSException;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.util.NullProgressListener;
 import org.geotools.data.util.SubProgressListener;
-import org.opengis.util.ProgressListener;
 
 /**
  * A InputProvider that handles a list of simple providers (used for multi-valued inputs)
@@ -52,11 +52,8 @@ class ListInputProvider implements InputProvider {
                 float providerLongSteps = provider.longStepCount();
                 ProgressListener subListener;
                 if (providerLongSteps > 0) {
-                    subListener =
-                            new SubProgressListener(
-                                    listener,
-                                    (stepsSoFar / totalSteps) * 100,
-                                    (providerLongSteps / totalSteps) * 100);
+                    subListener = new SubProgressListener(
+                            listener, (stepsSoFar / totalSteps) * 100, (providerLongSteps / totalSteps) * 100);
                 } else {
                     subListener = new NullProgressListener();
                 }

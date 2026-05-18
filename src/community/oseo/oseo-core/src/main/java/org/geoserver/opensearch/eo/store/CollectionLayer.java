@@ -10,9 +10,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
 
 public class CollectionLayer {
 
@@ -140,32 +139,27 @@ public class CollectionLayer {
     }
 
     /**
-     * Builds a CollectionLayer bean from the {@link OpenSearchAccess#LAYERS} property of a
-     * Collection feature.
+     * Builds a CollectionLayer bean from the {@link OpenSearchAccess#LAYERS} property of a Collection feature.
      *
      * @return The layer, or null if the property was not found
      */
-    public static List<CollectionLayer> buildCollectionLayersFromFeature(Feature feature)
-            throws IOException {
+    public static List<CollectionLayer> buildCollectionLayersFromFeature(Feature feature) throws IOException {
         // map to a single bean
         List<CollectionLayer> result = new ArrayList<>();
-        Collection<Property> layers =
-                feature.getProperties(org.geoserver.opensearch.eo.store.OpenSearchAccess.LAYERS);
+        Collection<Property> layers = feature.getProperties(org.geoserver.opensearch.eo.store.OpenSearchAccess.LAYERS);
         if (layers != null) {
             for (Property p : layers) {
-                SimpleFeature lf = (SimpleFeature) p;
+                Feature lf = (Feature) p;
                 CollectionLayer layer = new CollectionLayer();
                 layer.setWorkspace((String) getAttribute(lf, "workspace"));
                 layer.setLayer((String) getAttribute(lf, "layer"));
                 layer.setSeparateBands(Boolean.TRUE.equals(getAttribute(lf, "separateBands")));
                 layer.setBands((String[]) getAttribute(lf, "bands"));
                 layer.setBrowseBands((String[]) getAttribute(lf, "browseBands"));
-                layer.setHeterogeneousCRS(
-                        Boolean.TRUE.equals(getAttribute(lf, "heterogeneousCRS")));
+                layer.setHeterogeneousCRS(Boolean.TRUE.equals(getAttribute(lf, "heterogeneousCRS")));
                 layer.setMosaicCRS((String) getAttribute(lf, "mosaicCRS"));
-                layer.setDefaultLayer(
-                        Optional.ofNullable((Boolean) getAttribute(lf, "defaultLayer"))
-                                .orElse(false));
+                layer.setDefaultLayer(Optional.ofNullable((Boolean) getAttribute(lf, "defaultLayer"))
+                        .orElse(false));
                 result.add(layer);
             }
         }

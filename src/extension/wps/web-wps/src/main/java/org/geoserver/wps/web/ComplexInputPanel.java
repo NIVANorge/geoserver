@@ -5,6 +5,8 @@
  */
 package org.geoserver.wps.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,7 +17,6 @@ import javax.xml.transform.TransformerException;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.form.AjaxFormComponentUpdatingBehavior;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.form.DropDownChoice;
 import org.apache.wicket.markup.html.form.TextArea;
@@ -29,19 +30,34 @@ import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.LayerInfo;
 import org.geoserver.web.GeoServerApplication;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.geoserver.web.wicket.Select2DropDownChoice;
 import org.geoserver.wps.web.InputParameterValues.ParameterType;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.logging.Logging;
 
 /**
- * Allows the user to edit a complex input parameter providing a variety of different editors
- * depending on the parameter type
+ * Allows the user to edit a complex input parameter providing a variety of different editors depending on the parameter
+ * type
  *
  * @author Andrea Aime - OpenGeo
  */
 @SuppressWarnings("serial")
 public class ComplexInputPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ComplexInputPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     static final Logger LOGGER = Logging.getLogger(WPSRequestBuilderPanel.class);
 
     private DropDownChoice typeChoice;
@@ -50,7 +66,7 @@ public class ComplexInputPanel extends Panel {
 
     List<String> mimeTypes;
 
-    ModalWindow subprocesswindow;
+    GSModalWindow subprocesswindow;
 
     public ComplexInputPanel(String id, InputParameterValues pv, int valueIndex) {
         super(id);
@@ -61,32 +77,24 @@ public class ComplexInputPanel extends Panel {
 
         List<ParameterType> ptypes = pv.getSupportedTypes();
         ptypes.remove(ParameterType.LITERAL);
-        typeChoice =
-                new DropDownChoice<>(
-                        "type", new PropertyModel<>(getDefaultModelObject(), "type"), ptypes);
+        typeChoice = new DropDownChoice<>("type", new PropertyModel<>(getDefaultModelObject(), "type"), ptypes);
         add(typeChoice);
 
-        subprocesswindow = new ModalWindow("subprocessPopupWindow");
+        subprocesswindow = new GSModalWindow("subprocessPopupWindow");
         subprocesswindow.setInitialWidth(700);
         subprocesswindow.setInitialHeight(500);
         add(subprocesswindow);
-        subprocesswindow.setPageCreator(
-                () ->
-                        new SubProcessBuilder(
-                                (ExecuteRequest) subprocesswindow.getDefaultModelObject(),
-                                subprocesswindow));
 
         updateEditor();
 
-        typeChoice.add(
-                new AjaxFormComponentUpdatingBehavior("change") {
+        typeChoice.add(new AjaxFormComponentUpdatingBehavior("change") {
 
-                    @Override
-                    protected void onUpdate(AjaxRequestTarget target) {
-                        updateEditor();
-                        target.add(ComplexInputPanel.this);
-                    }
-                });
+            @Override
+            protected void onUpdate(AjaxRequestTarget target) {
+                updateEditor();
+                target.add(ComplexInputPanel.this);
+            }
+        });
     }
 
     void updateEditor() {
@@ -105,8 +113,7 @@ public class ComplexInputPanel extends Panel {
             // data as plain text
             Fragment f = new Fragment("editor", "text", this);
             DropDownChoice mimeChoice =
-                    new DropDownChoice<>(
-                            "mime", new PropertyModel<>(getDefaultModel(), "mime"), mimeTypes);
+                    new DropDownChoice<>("mime", new PropertyModel<>(getDefaultModel(), "mime"), mimeTypes);
             f.add(mimeChoice);
 
             f.add(new TextArea<>("textarea", valueModel));
@@ -119,11 +126,8 @@ public class ComplexInputPanel extends Panel {
 
             new PropertyModel<>(getDefaultModel(), "mime").setObject("text/xml");
             Fragment f = new Fragment("editor", "vectorLayer", this);
-            DropDownChoice layer =
-                    new Select2DropDownChoice<>(
-                            "layer",
-                            new PropertyModel<>(valueModel, "layerName"),
-                            getVectorLayerNames());
+            DropDownChoice layer = new Select2DropDownChoice<>(
+                    "layer", new PropertyModel<>(valueModel, "layerName"), getVectorLayerNames());
             f.add(layer);
             add(f);
         } else if (pt == ParameterType.RASTER_LAYER) {
@@ -133,30 +137,23 @@ public class ComplexInputPanel extends Panel {
             }
 
             Fragment f = new Fragment("editor", "rasterLayer", this);
-            final DropDownChoice layer =
-                    new Select2DropDownChoice<>(
-                            "layer",
-                            new PropertyModel<>(valueModel, "layerName"),
-                            getRasterLayerNames());
+            final DropDownChoice layer = new Select2DropDownChoice<>(
+                    "layer", new PropertyModel<>(valueModel, "layerName"), getRasterLayerNames());
             f.add(layer);
             add(f);
 
             // we need to update the raster own bounding box as wcs requests
             // mandate a spatial extent (why oh why???)
-            layer.add(
-                    new AjaxFormComponentUpdatingBehavior("change") {
+            layer.add(new AjaxFormComponentUpdatingBehavior("change") {
 
-                        @Override
-                        protected void onUpdate(AjaxRequestTarget target) {
-                            String name = layer.getDefaultModelObjectAsString();
-                            LayerInfo li =
-                                    GeoServerApplication.get().getCatalog().getLayerByName(name);
-                            ReferencedEnvelope spatialDomain =
-                                    li.getResource().getNativeBoundingBox();
-                            ((RasterLayerConfiguration) valueModel.getObject())
-                                    .setSpatialDomain(spatialDomain);
-                        }
-                    });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    String name = layer.getDefaultModelObjectAsString();
+                    LayerInfo li = GeoServerApplication.get().getCatalog().getLayerByName(name);
+                    ReferencedEnvelope spatialDomain = li.getResource().getNativeBoundingBox();
+                    ((RasterLayerConfiguration) valueModel.getObject()).setSpatialDomain(spatialDomain);
+                }
+            });
         } else if (pt == ParameterType.REFERENCE) {
             // an external reference
             if (!(valueModel.getObject() instanceof ReferenceConfiguration)) {
@@ -164,18 +161,14 @@ public class ComplexInputPanel extends Panel {
             }
 
             Fragment f = new Fragment("editor", "reference", this);
-            final DropDownChoice method =
-                    new DropDownChoice<>(
-                            "method",
-                            new PropertyModel<>(valueModel, "method"),
-                            Arrays.asList(
-                                    ReferenceConfiguration.Method.GET,
-                                    ReferenceConfiguration.Method.POST));
+            final DropDownChoice method = new DropDownChoice<>(
+                    "method",
+                    new PropertyModel<>(valueModel, "method"),
+                    Arrays.asList(ReferenceConfiguration.Method.GET, ReferenceConfiguration.Method.POST));
             f.add(method);
 
             DropDownChoice mimeChoice =
-                    new DropDownChoice<>(
-                            "mime", new PropertyModel<>(valueModel, "mime"), mimeTypes);
+                    new DropDownChoice<>("mime", new PropertyModel<>(valueModel, "mime"), mimeTypes);
             f.add(mimeChoice);
 
             f.add(new TextField<>("url", new PropertyModel<>(valueModel, "url")).setRequired(true));
@@ -188,18 +181,16 @@ public class ComplexInputPanel extends Panel {
             bodyContainer.add(body);
             bodyContainer.setVisible(false);
 
-            method.add(
-                    new AjaxFormComponentUpdatingBehavior("change") {
+            method.add(new AjaxFormComponentUpdatingBehavior("change") {
 
-                        @Override
-                        protected void onUpdate(AjaxRequestTarget target) {
-                            boolean post =
-                                    method.getModelObject() == ReferenceConfiguration.Method.POST;
-                            bodyContainer.setVisible(post);
-                            body.setRequired(post);
-                            target.add(ComplexInputPanel.this);
-                        }
-                    });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    boolean post = method.getModelObject() == ReferenceConfiguration.Method.POST;
+                    bodyContainer.setVisible(post);
+                    body.setRequired(post);
+                    target.add(ComplexInputPanel.this);
+                }
+            });
 
             add(f);
         } else if (pt == ParameterType.SUBPROCESS) {
@@ -208,15 +199,16 @@ public class ComplexInputPanel extends Panel {
             }
 
             Fragment f = new Fragment("editor", "subprocess", this);
-            f.add(
-                    new AjaxLink("edit") {
+            f.add(new AjaxLink<>("edit") {
 
-                        @Override
-                        public void onClick(AjaxRequestTarget target) {
-                            subprocesswindow.setDefaultModel(valueModel);
-                            subprocesswindow.show(target);
-                        }
-                    });
+                @Override
+                public void onClick(AjaxRequestTarget target) {
+                    subprocesswindow.setDefaultModel(valueModel);
+                    subprocesswindow.setContent(new SubProcessBuilder(
+                            (ExecuteRequest) subprocesswindow.getDefaultModelObject(), subprocesswindow));
+                    subprocesswindow.show(target);
+                }
+            });
 
             final TextArea<String> xml = new TextArea<>("xml");
             if (((ExecuteRequest) valueModel.getObject()).processName != null) {
@@ -231,14 +223,12 @@ public class ComplexInputPanel extends Panel {
             xml.setOutputMarkupId(true);
             f.add(xml);
 
-            subprocesswindow.setWindowClosedCallback(
-                    (ModalWindow.WindowClosedCallback)
-                            target -> {
-                                // turn the GUI request into an actual WPS request
-                                xml.setModelObject(getExecuteXML());
+            subprocesswindow.setWindowClosedCallback((GSModalWindow.WindowClosedCallback) target -> {
+                // turn the GUI request into an actual WPS request
+                xml.setModelObject(getExecuteXML());
 
-                                target.add(xml);
-                            });
+                target.add(xml);
+            });
 
             add(f);
         } else {

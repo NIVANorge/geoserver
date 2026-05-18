@@ -5,20 +5,19 @@
  */
 package org.geoserver.wcs2_0.response;
 
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.UnsupportedFlavorException;
+import jakarta.activation.ActivationDataFlavor;
+import jakarta.activation.DataContentHandler;
+import jakarta.activation.DataSource;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.activation.DataContentHandler;
-import javax.activation.DataSource;
 import javax.xml.transform.TransformerException;
 import org.geoserver.wcs2_0.util.EnvelopeAxesLabelsMapper;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.vfny.geoserver.wcs.WcsException;
 
 /**
- * A data handler for the fake "geoserver/coverage20" mime type. In fact, it encodes WCS 2.0 GMLCov
- * document (an xml document)
+ * A data handler for the fake "geoserver/coverage20" mime type. In fact, it encodes WCS 2.0 GMLCov document (an xml
+ * document)
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -26,19 +25,16 @@ public class GMLCovHandler implements DataContentHandler {
 
     @Override
     public Object getContent(DataSource source) throws IOException {
-        throw new UnsupportedOperationException(
-                "This handler is not able to work on the parsing side");
+        throw new UnsupportedOperationException("This handler is not able to work on the parsing side");
     }
 
     @Override
-    public Object getTransferData(DataFlavor flavor, DataSource source)
-            throws UnsupportedFlavorException, IOException {
-        throw new UnsupportedOperationException(
-                "This handler is not able to work on the parsing side");
+    public Object getTransferData(ActivationDataFlavor flavor, DataSource source) throws IOException {
+        throw new UnsupportedOperationException("This handler is not able to work on the parsing side");
     }
 
     @Override
-    public DataFlavor[] getTransferDataFlavors() {
+    public ActivationDataFlavor[] getTransferDataFlavors() {
         return null;
     }
 

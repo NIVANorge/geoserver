@@ -5,14 +5,13 @@
  */
 package org.geoserver.web;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.apache.wicket.RestartResponseException;
 import org.geoserver.security.GeoServerSecurityFilterChainProxy;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.PortResolverImpl;
 import org.springframework.security.web.savedrequest.DefaultSavedRequest;
 import org.springframework.security.web.savedrequest.SavedRequest;
 
@@ -29,21 +28,16 @@ public class GeoServerSecuredPage extends GeoServerBasePage {
     public GeoServerSecuredPage() {
         super();
 
-        if (GeoServerSecurityFilterChainProxy.isSecurityEnabledForCurrentRequest() == false)
-            return; // nothing to do
+        if (GeoServerSecurityFilterChainProxy.isSecurityEnabledForCurrentRequest() == false) return; // nothing to do
 
         Authentication auth = getSession().getAuthentication();
-        if (auth == null
-                || !auth.isAuthenticated()
-                || auth instanceof AnonymousAuthenticationToken) {
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
             // emulate what spring security url control would do so that we get a proper redirect
             // after login
-            HttpServletRequest httpRequest =
-                    (HttpServletRequest) getRequest().getContainerRequest();
+            HttpServletRequest httpRequest = (HttpServletRequest) getRequest().getContainerRequest();
             // ExceptionTranslationFilter translator = (ExceptionTranslationFilter)
             // getGeoServerApplication().getBean("consoleExceptionTranslationFilter");
-            SavedRequest savedRequest =
-                    new DefaultSavedRequest(httpRequest, new PortResolverImpl());
+            SavedRequest savedRequest = new DefaultSavedRequest(httpRequest);
 
             HttpSession session = httpRequest.getSession();
             // TODO, Justin, WebAttributes.SAVED_REQUEST has disappeared in spring security
@@ -57,16 +51,14 @@ public class GeoServerSecuredPage extends GeoServerBasePage {
     }
 
     /**
-     * Override to use a page authorizer other than the default one. When you do so, remember to
-     * perform the same change in the associated {@link MenuPageInfo} instance
+     * Override to use a page authorizer other than the default one. When you do so, remember to perform the same change
+     * in the associated {@link MenuPageInfo} instance
      */
     protected ComponentAuthorizer getPageAuthorizer() {
         return DEFAULT_AUTHORIZER;
     }
 
-    /**
-     * Convenience method to determine if the current user is authenticated as full administartor.
-     */
+    /** Convenience method to determine if the current user is authenticated as full administartor. */
     protected boolean isAuthenticatedAsAdmin() {
 
         return ComponentAuthorizer.ADMIN.isAccessAllowed(

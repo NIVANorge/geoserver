@@ -17,20 +17,33 @@ import java.util.logging.Logger;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.ProjectionPolicy;
-import org.geotools.data.DataSourceException;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataSourceException;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureListener;
+import org.geotools.api.data.FeatureLocking;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.QueryCapabilities;
+import org.geotools.api.data.ResourceInfo;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.OperationNotFoundException;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureListener;
-import org.geotools.data.FeatureLocking;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.Query;
-import org.geotools.data.QueryCapabilities;
-import org.geotools.data.ResourceInfo;
 import org.geotools.data.crs.ForceCoordinateSystemFeatureResults;
 import org.geotools.data.crs.ReprojectFeatureResults;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureTypes;
 import org.geotools.feature.SchemaException;
@@ -41,50 +54,36 @@ import org.geotools.filter.spatial.ReprojectingFilterVisitor;
 import org.geotools.filter.visitor.SimplifyingFilterVisitor;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
+import org.geotools.util.decorate.AbstractDecorator;
 import org.geotools.util.factory.Hints;
 import org.geotools.util.factory.Hints.ConfigurationMetadataKey;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.OperationNotFoundException;
-import org.opengis.referencing.operation.TransformException;
 
 /**
  * GeoServer wrapper for backend Geotools2 DataStore.
  *
- * <p>Support FeatureSource decorator for FeatureTypeInfo that takes care of mapping the
- * FeatureTypeInfo's FeatureSource with the schema and definition query configured for it.
+ * <p>Support FeatureSource decorator for FeatureTypeInfo that takes care of mapping the FeatureTypeInfo's FeatureSource
+ * with the schema and definition query configured for it.
  *
- * <p>Because GeoServer requires that attributes always be returned in the same order we need a way
- * to smoothly inforce this. Could we use this class to do so?
+ * <p>Because GeoServer requires that attributes always be returned in the same order we need a way to smoothly inforce
+ * this. Could we use this class to do so?
  *
  * @author Gabriel Roldan
- * @version $Id$
  */
-public class GeoServerFeatureSource implements SimpleFeatureSource {
+public class GeoServerFeatureSource extends AbstractDecorator<SimpleFeatureSource> implements SimpleFeatureSource {
     /** Shared package logger */
-    private static final Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.vfny.geoserver.global");
+    private static final Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.vfny.geoserver.global");
 
     /** FeatureSource being served up */
     protected SimpleFeatureSource source;
 
     /** The single filter factory for this source (grabbing it has a high sync penalty */
-    static FilterFactory2 ff = CommonFactoryFinder.getFilterFactory2(null);
+    static FilterFactory ff = CommonFactoryFinder.getFilterFactory(null);
 
     /**
      * GeoTools2 Schema information
      *
-     * <p>Is this the same as source.getSchema() or is it used supply the order that GeoServer
-     * requires attributes to be returned in?
+     * <p>Is this the same as source.getSchema() or is it used supply the order that GeoServer requires attributes to be
+     * returned in?
      */
     protected SimpleFeatureType schema;
 
@@ -100,10 +99,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     /** FeatureTypeInfo metadata to pass to extensions within the Query * */
     protected MetadataMap metadata;
 
-    /**
-     * Distance used for curve linearization tolerance, as an absolute value expressed in the data
-     * native CRS
-     */
+    /** Distance used for curve linearization tolerance, as an absolute value expressed in the data native CRS */
     protected Double linearizationTolerance;
 
     /**
@@ -113,8 +109,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      * @param schema SimpleFeatureType returned by this FeatureSource
      * @param definitionQuery Filter used to limit results
      * @param declaredCRS Geometries will be forced or projected to this CRS
-     * @param linearizationTolerance Distance used for curve linearization tolerance, as an absolute
-     *     value expressed in the data native CRS
+     * @param linearizationTolerance Distance used for curve linearization tolerance, as an absolute value expressed in
+     *     the data native CRS
      */
     GeoServerFeatureSource(
             FeatureSource<SimpleFeatureType, SimpleFeature> source,
@@ -124,15 +120,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
             int srsHandling,
             Double linearizationTolerance,
             MetadataMap metadata) {
-        this(
-                source,
-                new Settings(
-                        schema,
-                        definitionQuery,
-                        declaredCRS,
-                        srsHandling,
-                        linearizationTolerance,
-                        metadata));
+        this(source, new Settings(schema, definitionQuery, declaredCRS, srsHandling, linearizationTolerance, metadata));
     }
 
     /**
@@ -141,8 +129,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      * @param source GeoTools2 FeatureSource
      * @param settings Settings for this source
      */
-    GeoServerFeatureSource(
-            FeatureSource<SimpleFeatureType, SimpleFeature> source, Settings settings) {
+    GeoServerFeatureSource(FeatureSource<SimpleFeatureType, SimpleFeature> source, Settings settings) {
+        super(DataUtilities.simple(source));
         this.source = DataUtilities.simple(source);
         this.schema = settings.schema;
         this.definitionQuery = settings.definitionQuery;
@@ -157,9 +145,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     }
 
     /**
-     * Returns the same name than the feature type (ie, {@code getSchema().getName()} to honor the
-     * simple feature land common practice of calling the same both the Features produces and their
-     * types
+     * Returns the same name than the feature type (ie, {@code getSchema().getName()} to honor the simple feature land
+     * common practice of calling the same both the Features produces and their types
      *
      * @since 1.7
      * @see FeatureSource#getName()
@@ -172,8 +159,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     /**
      * Factory that make the correct decorator for the provided featureSource.
      *
-     * <p>This factory method is public and will be used to create all required subclasses. By
-     * comparison the constructors for this class have package visibility.
+     * <p>This factory method is public and will be used to create all required subclasses. By comparison the
+     * constructors for this class have package visibility.
      *
      * @param settings Settings for this store
      */
@@ -183,8 +170,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
             return new GeoServerFeatureLocking(
                     (FeatureLocking<SimpleFeatureType, SimpleFeature>) featureSource, settings);
         } else if (featureSource instanceof FeatureStore) {
-            return new GeoServerFeatureStore(
-                    (FeatureStore<SimpleFeatureType, SimpleFeature>) featureSource, settings);
+            return new GeoServerFeatureStore((FeatureStore<SimpleFeatureType, SimpleFeature>) featureSource, settings);
         }
 
         return new GeoServerFeatureSource(featureSource, settings);
@@ -227,19 +213,17 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
             return defQuery;
         } catch (Exception ex) {
             throw new DataSourceException(
-                    "Could not restrict the query to the definition criteria: " + ex.getMessage(),
-                    ex);
+                    "Could not restrict the query to the definition criteria: " + ex.getMessage(), ex);
         }
     }
 
     /**
      * List of allowed attributes.
      *
-     * <p>Creates a list of FeatureTypeInfo's attribute names based on the attributes requested by
-     * <code>query</code> and making sure they not contain any non exposed attribute.
+     * <p>Creates a list of FeatureTypeInfo's attribute names based on the attributes requested by <code>query</code>
+     * and making sure they not contain any non exposed attribute.
      *
-     * <p>Exposed attributes are those configured in the "attributes" element of the
-     * FeatureTypeInfo's configuration
+     * <p>Exposed attributes are those configured in the "attributes" element of the FeatureTypeInfo's configuration
      *
      * @param query User's origional query
      * @param schema TODO
@@ -271,10 +255,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
                 if (schema.getDescriptor(queriedAtt) != null) {
                     allowedAtts.add(queriedAtt);
                 } else {
-                    LOGGER.info(
-                            "queried a not allowed property: "
-                                    + queriedAtt
-                                    + ". Ommitting it from query");
+                    LOGGER.info("queried a not allowed property: " + queriedAtt + ". Ommitting it from query");
                 }
             }
 
@@ -285,9 +266,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     }
 
     /**
-     * If a definition query has been configured for the FeatureTypeInfo, makes and return a new
-     * Filter that contains both the query's filter and the layer's definition one, by logic AND'ing
-     * them.
+     * If a definition query has been configured for the FeatureTypeInfo, makes and return a new Filter that contains
+     * both the query's filter and the layer's definition one, by logic AND'ing them.
      *
      * @param filter Origional user supplied Filter
      * @return Filter adjusted to the limitations of definitionQuery
@@ -320,7 +300,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Description ...
      *
-     * @see org.geotools.data.FeatureSource#getDataStore()
+     * @see org.geotools.api.data.FeatureSource#getDataStore()
      */
     @Override
     public DataStore getDataStore() {
@@ -332,7 +312,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Description ...
      *
-     * @see org.geotools.data.FeatureSource#addFeatureListener(org.geotools.data.FeatureListener)
+     * @see org.geotools.api.data.FeatureSource#addFeatureListener(org.geotools.api.data.FeatureListener)
      */
     @Override
     public void addFeatureListener(FeatureListener listener) {
@@ -344,7 +324,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Description ...
      *
-     * @see org.geotools.data.FeatureSource#removeFeatureListener(org.geotools.data.FeatureListener)
+     * @see org.geotools.api.data.FeatureSource#removeFeatureListener(org.geotools.api.data.FeatureListener)
      */
     @Override
     public void removeFeatureListener(FeatureListener listener) {
@@ -356,7 +336,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Description ...
      *
-     * @see org.geotools.data.FeatureSource#getFeatures(org.geotools.data.Query)
+     * @see org.geotools.api.data.FeatureSource#getFeatures(org.geotools.api.data.Query)
      */
     @Override
     public SimpleFeatureCollection getFeatures(Query query) throws IOException {
@@ -366,14 +346,13 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
         Integer offset = null, maxFeatures = null;
         if (sortBy != null && sortBy != SortBy.UNSORTED) {
             if (!source.getQueryCapabilities().supportsSorting(sortBy)) {
-                query.setSortBy(null);
+                query.setSortBy((SortBy[]) null);
 
                 // if paging is in and we cannot do sorting natively
                 // we should not let the datastore handle it: we need to sort first, then
                 // page on it
                 offset = query.getStartIndex();
-                maxFeatures =
-                        query.getMaxFeatures() == Integer.MAX_VALUE ? null : query.getMaxFeatures();
+                maxFeatures = query.getMaxFeatures() == Integer.MAX_VALUE ? null : query.getMaxFeatures();
 
                 query.setStartIndex(null);
                 query.setMaxFeatures(Query.DEFAULT_MAX);
@@ -387,8 +366,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
         if (query.getStartIndex() != null) {
             if (!source.getQueryCapabilities().isOffsetSupported()) {
                 offset = query.getStartIndex();
-                maxFeatures =
-                        query.getMaxFeatures() == Integer.MAX_VALUE ? null : query.getMaxFeatures();
+                maxFeatures = query.getMaxFeatures() == Integer.MAX_VALUE ? null : query.getMaxFeatures();
 
                 query.setStartIndex(null);
                 query.setMaxFeatures(Query.DEFAULT_MAX);
@@ -423,11 +401,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
 
             // apply limit offset if necessary
             if (offset != null || maxFeatures != null) {
-                fc =
-                        new MaxSimpleFeatureCollection(
-                                fc,
-                                offset == null ? 0 : offset,
-                                maxFeatures == null ? Integer.MAX_VALUE : maxFeatures);
+                fc = new MaxSimpleFeatureCollection(
+                        fc, offset == null ? 0 : offset, maxFeatures == null ? Integer.MAX_VALUE : maxFeatures);
             }
 
             // apply reprojection
@@ -452,8 +427,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
             // that case we completely ignore the native one)
             CoordinateReferenceSystem nativeCRS = geom.getCoordinateReferenceSystem();
 
-            if (srsHandling == ProjectionPolicy.NONE
-                    && metadata.get(FeatureTypeInfo.OTHER_SRS) != null) {
+            if (srsHandling == ProjectionPolicy.NONE && metadata.get(FeatureTypeInfo.OTHER_SRS) != null) {
                 // a feature type with multiple native srs (cascaded feature from WFS-NG or
                 // WMSStore)
                 // and policy is set to keep native
@@ -477,8 +451,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
 
             // and then we reproject all geometries so that the datastore receives
             // them in the native projection system (or the forced one, in case of force)
-            ReprojectingFilterVisitor reprojectingVisitor =
-                    new ReprojectingFilterVisitor(ff, nativeFeatureType);
+            ReprojectingFilterVisitor reprojectingVisitor = new ReprojectingFilterVisitor(ff, nativeFeatureType);
             Filter reprojectedFilter = (Filter) defaultedFilter.accept(reprojectingVisitor, null);
 
             Query reprojectedQuery = new Query(query);
@@ -491,13 +464,12 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     }
 
     /**
-     * Wraps feature collection as needed in order to respect the current projection policy and the
-     * target CRS, if any (can be null, in that case only the projection policy is applied)
+     * Wraps feature collection as needed in order to respect the current projection policy and the target CRS, if any
+     * (can be null, in that case only the projection policy is applied)
      */
     protected SimpleFeatureCollection applyProjectionPolicies(
             CoordinateReferenceSystem targetCRS, SimpleFeatureCollection fc)
-            throws IOException, SchemaException, TransformException, OperationNotFoundException,
-                    FactoryException {
+            throws IOException, SchemaException, TransformException, OperationNotFoundException, FactoryException {
         if (fc.getSchema().getGeometryDescriptor() == null) {
             // reprojection and crs forcing do not make sense, bail out
             return fc;
@@ -510,8 +482,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
                 fc = new ForceCoordinateSystemFeatureResults(fc, declaredCRS);
                 nativeCRS = declaredCRS;
             }
-        } else if (srsHandling == ProjectionPolicy.FORCE_DECLARED
-                && !nativeCRS.equals(declaredCRS)) {
+        } else if (srsHandling == ProjectionPolicy.FORCE_DECLARED && !nativeCRS.equals(declaredCRS)) {
             fc = new ForceCoordinateSystemFeatureResults(fc, declaredCRS);
             nativeCRS = declaredCRS;
         } else if (srsHandling == ProjectionPolicy.REPROJECT_TO_DECLARED
@@ -539,8 +510,8 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     }
 
     /**
-     * Transforms the query applying the definition query in this layer, removes reprojection since
-     * data stores cannot be trusted
+     * Transforms the query applying the definition query in this layer, removes reprojection since data stores cannot
+     * be trusted
      *
      * @param schema TODO
      */
@@ -579,8 +550,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
         if (newQuery.getCoordinateSystemReproject() != null) {
             newQuery.setCoordinateSystemReproject(null);
         }
-        if (newQuery.getCoordinateSystem() != null
-                && metadata.get(FeatureTypeInfo.OTHER_SRS) == null) {
+        if (newQuery.getCoordinateSystem() != null && metadata.get(FeatureTypeInfo.OTHER_SRS) == null) {
             newQuery.setCoordinateSystem(null);
         }
         return newQuery;
@@ -601,7 +571,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Description ...
      *
-     * @see org.geotools.data.FeatureSource#getSchema()
+     * @see org.geotools.api.data.FeatureSource#getSchema()
      */
     @Override
     public SimpleFeatureType getSchema() {
@@ -613,7 +583,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
      *
      * <p>Please note this extent will reflect the provided definitionQuery.
      *
-     * @return Extent of this FeatureSource, or <code>null</code> if no optimizations exist.
+     * @return Extent of this FeatureSource, or {@code null} if no optimizations exist.
      * @throws IOException If bounds of definitionQuery
      */
     @Override
@@ -631,14 +601,14 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     /**
      * Retrive the extent of the Query.
      *
-     * <p>This method provides access to an optimized getBounds opperation. If no optimized
-     * opperation is available <code>null</code> will be returned.
+     * <p>This method provides access to an optimized getBounds opperation. If no optimized opperation is available
+     * {@code null} will be returned.
      *
-     * <p>You may still make use of getFeatures( Query ).getCount() which will return the correct
-     * answer (even if it has to itterate through all the results to do so.
+     * <p>You may still make use of getFeatures( Query ).getCount() which will return the correct answer (even if it has
+     * to itterate through all the results to do so.
      *
      * @param query User's query
-     * @return Extend of Query or <code>null</code> if no optimization is available
+     * @return Extend of Query or {@code null} if no optimization is available
      * @throws IOException If a problem is encountered with source
      */
     @Override
@@ -656,11 +626,11 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
     /**
      * Adjust query and forward to source.
      *
-     * <p>This method provides access to an optimized getCount opperation. If no optimized
-     * opperation is available <code>-1</code> will be returned.
+     * <p>This method provides access to an optimized getCount opperation. If no optimized opperation is available
+     * <code>-1</code> will be returned.
      *
-     * <p>You may still make use of getFeatures( Query ).getCount() which will return the correct
-     * answer (even if it has to itterate through all the results to do so).
+     * <p>You may still make use of getFeatures( Query ).getCount() which will return the correct answer (even if it has
+     * to itterate through all the results to do so).
      *
      * @param query User's query.
      * @return Number of Features for Query, or -1 if no optimization is available.
@@ -700,7 +670,7 @@ public class GeoServerFeatureSource implements SimpleFeatureSource {
             }
 
             @Override
-            public boolean supportsSorting(SortBy[] sortAttributes) {
+            public boolean supportsSorting(SortBy... sortAttributes) {
                 return true;
             }
         };

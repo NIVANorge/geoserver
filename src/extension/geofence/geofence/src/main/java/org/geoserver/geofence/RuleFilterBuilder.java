@@ -19,10 +19,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 
 /** Builder class for a {@link RuleFilter}. */
-class RuleFilterBuilder {
+public class RuleFilterBuilder {
 
     private Request owsRequest;
     private String ipAddress;
+    private String date;
     private String workspace;
     private String layer;
     private Authentication user;
@@ -30,7 +31,7 @@ class RuleFilterBuilder {
 
     private static final Logger LOGGER = Logging.getLogger(RuleFilterBuilder.class);
 
-    RuleFilterBuilder(GeoFenceConfiguration configuration) {
+    public RuleFilterBuilder(GeoFenceConfiguration configuration) {
         this.config = configuration;
     }
 
@@ -40,7 +41,7 @@ class RuleFilterBuilder {
      * @param request the OWS Request.
      * @return this builder.
      */
-    RuleFilterBuilder withRequest(Request request) {
+    public RuleFilterBuilder withRequest(Request request) {
         this.owsRequest = request;
         return this;
     }
@@ -51,8 +52,19 @@ class RuleFilterBuilder {
      * @param ipAddress the ipAddress.
      * @return this builder.
      */
-    RuleFilterBuilder withIpAddress(String ipAddress) {
+    public RuleFilterBuilder withIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
+        return this;
+    }
+
+    /**
+     * Set the date.
+     *
+     * @param date the date of the request in format yyyy-mm-dd
+     * @return this builder.
+     */
+    public RuleFilterBuilder withDate(String date) {
+        this.date = date;
         return this;
     }
 
@@ -62,7 +74,7 @@ class RuleFilterBuilder {
      * @param workspace the workspace name.
      * @return this builder.
      */
-    RuleFilterBuilder withWorkspace(String workspace) {
+    public RuleFilterBuilder withWorkspace(String workspace) {
         this.workspace = workspace;
         return this;
     }
@@ -73,7 +85,7 @@ class RuleFilterBuilder {
      * @param layer the layer name.
      * @return this builder.
      */
-    RuleFilterBuilder withLayer(String layer) {
+    public RuleFilterBuilder withLayer(String layer) {
         this.layer = layer;
         return this;
     }
@@ -84,7 +96,7 @@ class RuleFilterBuilder {
      * @param authentication the authentication object.
      * @return this builder.
      */
-    RuleFilterBuilder withUser(Authentication authentication) {
+    public RuleFilterBuilder withUser(Authentication authentication) {
         this.user = authentication;
         return this;
     }
@@ -94,7 +106,7 @@ class RuleFilterBuilder {
      *
      * @return a {@link RuleFilter} instance.
      */
-    RuleFilter build() {
+    public RuleFilter build() {
         RuleFilter ruleFilter = new RuleFilter(RuleFilter.SpecialFilterType.ANY);
         setRuleFilterUserAndRole(ruleFilter);
         ruleFilter.setInstance(config.getInstanceName());
@@ -133,6 +145,12 @@ class RuleFilterBuilder {
             LOGGER.log(Level.WARNING, "No source IP address found");
             ruleFilter.setSourceAddress(RuleFilter.SpecialFilterType.DEFAULT);
         }
+        if (date != null) {
+            ruleFilter.setDate(date);
+        } else {
+            LOGGER.log(Level.WARNING, "No date found");
+            ruleFilter.setDate(RuleFilter.SpecialFilterType.DEFAULT);
+        }
 
         LOGGER.log(Level.FINE, "ResourceInfo filter: {0}", ruleFilter);
 
@@ -166,17 +184,13 @@ class RuleFilterBuilder {
             }
 
             if (LOGGER.isLoggable(Level.FINE)) {
-                String authList =
-                        user.getAuthorities().stream()
-                                .map(a -> a.getAuthority())
-                                .collect(Collectors.joining(",", "[", "]"));
+                String authList = user.getAuthorities().stream()
+                        .map(a -> a.getAuthority())
+                        .collect(Collectors.joining(",", "[", "]"));
                 LOGGER.log(
-                        Level.FINE,
-                        "Authorizations found for user {0}: {1}",
-                        new Object[] {user.getName(), authList});
+                        Level.FINE, "Authorizations found for user {0}: {1}", new Object[] {user.getName(), authList});
 
-                String allowedAuth =
-                        config.getRoles().stream().collect(Collectors.joining(",", "[", "]"));
+                String allowedAuth = config.getRoles().stream().collect(Collectors.joining(",", "[", "]"));
                 LOGGER.log(Level.FINE, "Authorizations allowed: {0}", new Object[] {allowedAuth});
             }
         }
@@ -196,13 +210,12 @@ class RuleFilterBuilder {
         }
     }
 
-    List<String> getFilteredRoles() {
+    public List<String> getFilteredRoles() {
         boolean getAllRoles = config.getRoles().contains("*");
-        Set<String> excluded =
-                config.getRoles().stream()
-                        .filter(r -> r.startsWith("-"))
-                        .map(r -> r.substring(1))
-                        .collect(Collectors.toSet());
+        Set<String> excluded = config.getRoles().stream()
+                .filter(r -> r.startsWith("-"))
+                .map(r -> r.substring(1))
+                .collect(Collectors.toSet());
 
         return getFilteredRoles(getAllRoles, excluded);
     }
@@ -220,6 +233,6 @@ class RuleFilterBuilder {
 
     private boolean addRole(String role, Set<String> excluded, boolean getAllRoles) {
         boolean addRole = getAllRoles || config.getRoles().contains(role);
-        return addRole && !(excluded.contains(role));
+        return addRole && !excluded.contains(role);
     }
 }

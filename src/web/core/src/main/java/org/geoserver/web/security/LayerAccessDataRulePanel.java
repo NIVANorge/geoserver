@@ -4,21 +4,32 @@
  */
 package org.geoserver.web.security;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import org.apache.wicket.model.IModel;
 import org.geoserver.catalog.LayerGroupInfo;
-import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.security.impl.DataAccessRule;
 import org.geoserver.web.publish.PublishedEditTabPanel;
 
 public class LayerAccessDataRulePanel extends PublishedEditTabPanel<PublishedInfo> {
-    /**
-     * @param id The id given to the panel.
-     * @param model The model for the panel which wraps a {@link LayerInfo} instance.
-     */
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(LayerAccessDataRulePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     private AccessDataRulePanel dataAccessPanel;
 
     private IModel<List<DataAccessRuleInfo>> ownModel;
@@ -26,9 +37,7 @@ public class LayerAccessDataRulePanel extends PublishedEditTabPanel<PublishedInf
     private IModel<? extends PublishedInfo> model;
 
     public LayerAccessDataRulePanel(
-            String id,
-            IModel<? extends PublishedInfo> model,
-            IModel<List<DataAccessRuleInfo>> ownModel) {
+            String id, IModel<? extends PublishedInfo> model, IModel<List<DataAccessRuleInfo>> ownModel) {
         super(id, model);
         this.model = model;
         this.ownModel = ownModel;
@@ -53,7 +62,6 @@ public class LayerAccessDataRulePanel extends PublishedEditTabPanel<PublishedInf
         AccessDataRuleInfoManager infoManager = new AccessDataRuleInfoManager();
         String wsName = group.getWorkspace() != null ? group.getWorkspace().getName() : null;
         Set<DataAccessRule> rules = infoManager.getResourceRule(wsName, group);
-        ownModel.setObject(
-                infoManager.mapTo(rules, infoManager.getAvailableRoles(), wsName, group.getName()));
+        ownModel.setObject(infoManager.mapTo(rules, infoManager.getAvailableRoles(), wsName, group.getName()));
     }
 }

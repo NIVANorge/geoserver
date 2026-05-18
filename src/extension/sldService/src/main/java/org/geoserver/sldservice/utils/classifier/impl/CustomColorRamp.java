@@ -89,8 +89,7 @@ public class CustomColorRamp implements ColorRamp {
                 int total = 0;
                 for (int i = 0; i < slices - 1; i++) {
                     total += sliceSize - 1;
-                    interpolate(
-                            colors, inputColors.get(i), inputColors.get(i + 1), sliceSize, i > 0);
+                    interpolate(colors, inputColors.get(i), inputColors.get(i + 1), sliceSize, i > 0);
                 }
                 interpolate(
                         colors,
@@ -128,18 +127,14 @@ public class CustomColorRamp implements ColorRamp {
         }
     }
 
-    private void interpolate(
-            List<Color> result, Color start, Color end, int samples, boolean offset) {
+    private void interpolate(List<Color> result, Color start, Color end, int samples, boolean offset) {
         if (offset) {
-            double sRed = ((double) end.getRed() - start.getRed()) / (double) (samples);
-            double sGreen = ((double) end.getGreen() - start.getGreen()) / (double) (samples);
-            double sBlue = ((double) end.getBlue() - start.getBlue()) / (double) (samples);
+            double sRed = ((double) end.getRed() - start.getRed()) / samples;
+            double sGreen = ((double) end.getGreen() - start.getGreen()) / samples;
+            double sBlue = ((double) end.getBlue() - start.getBlue()) / samples;
 
-            start =
-                    new Color(
-                            (int) (start.getRed() + sRed),
-                            (int) (start.getGreen() + sGreen),
-                            (int) (start.getBlue() + sBlue));
+            start = new Color(
+                    (int) (start.getRed() + sRed), (int) (start.getGreen() + sGreen), (int) (start.getBlue() + sBlue));
         }
         interpolate(colors, start, end, samples);
     }
@@ -148,9 +143,9 @@ public class CustomColorRamp implements ColorRamp {
         int red;
         int green;
         int blue;
-        double sRed = ((double) end.getRed() - start.getRed()) / (double) (samples - 1);
-        double sGreen = ((double) end.getGreen() - start.getGreen()) / (double) (samples - 1);
-        double sBlue = ((double) end.getBlue() - start.getBlue()) / (double) (samples - 1);
+        double sRed = ((double) end.getRed() - start.getRed()) / (samples - 1);
+        double sGreen = ((double) end.getGreen() - start.getGreen()) / (samples - 1);
+        double sBlue = ((double) end.getBlue() - start.getBlue()) / (samples - 1);
         for (int i = 0; i < samples; i++) {
             red = (int) (sRed * i + start.getRed());
             green = (int) (sGreen * i + start.getGreen());

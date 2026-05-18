@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.util.tester.FormTester;
 import org.geoserver.taskmanager.AbstractWicketTaskManagerTest;
@@ -23,6 +22,7 @@ import org.geoserver.taskmanager.data.TaskManagerFactory;
 import org.geoserver.taskmanager.util.TaskManagerBeans;
 import org.geoserver.taskmanager.web.model.ConfigurationsModel;
 import org.geoserver.taskmanager.web.panel.DropDownPanel;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 import org.junit.After;
@@ -93,8 +93,7 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
 
         @SuppressWarnings("unchecked")
         GeoServerTablePanel<Configuration> table =
-                (GeoServerTablePanel<Configuration>)
-                        tester.getComponentFromLastRenderedPage("configurationsPanel");
+                (GeoServerTablePanel<Configuration>) tester.getComponentFromLastRenderedPage("configurationsPanel");
 
         assertEquals(configurations.size(), table.getDataProvider().size());
         assertTrue(containsConfig(getConfigurationsFromTable(table), dummy1));
@@ -119,9 +118,10 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
 
         tester.clickLink("addNew");
 
-        tester.assertComponent("dialog:dialog:content:form:userPanel", DropDownPanel.class);
+        tester.assertComponent(
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel", DropDownPanel.class);
 
-        tester.executeAjaxEvent("dialog:dialog:content:form:submit", "click");
+        tester.executeAjaxEvent("dialog:dialog:modal:overlay:dialog:content:content:form:submit", "click");
 
         tester.assertRenderedPage(ConfigurationPage.class);
 
@@ -139,8 +139,7 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
         ConfigurationsPage page = new ConfigurationsPage();
         tester.startPage(page);
 
-        tester.clickLink(
-                "configurationsPanel:listContainer:items:1:itemProperties:1:component:link");
+        tester.clickLink("configurationsPanel:listContainer:items:1:itemProperties:1:component:link");
 
         tester.assertRenderedPage(ConfigurationPage.class);
 
@@ -162,13 +161,14 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
 
         tester.clickLink("addNew");
 
-        tester.assertComponent("dialog:dialog:content:form:userPanel", DropDownPanel.class);
+        tester.assertComponent(
+                "dialog:dialog:modal:overlay:dialog:content:content:form:userPanel", DropDownPanel.class);
 
-        FormTester formTester = tester.newFormTester("dialog:dialog:content:form");
+        FormTester formTester = tester.newFormTester("dialog:dialog:modal:overlay:dialog:content:content:form");
 
         formTester.select("userPanel:dropdown", 0);
 
-        tester.executeAjaxEvent("dialog:dialog:content:form:submit", "click");
+        tester.executeAjaxEvent("dialog:dialog:modal:overlay:dialog:content:content:form:submit", "click");
 
         tester.assertRenderedPage(ConfigurationPage.class);
 
@@ -186,8 +186,7 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
 
         @SuppressWarnings("unchecked")
         GeoServerTablePanel<Configuration> table =
-                (GeoServerTablePanel<Configuration>)
-                        tester.getComponentFromLastRenderedPage("configurationsPanel");
+                (GeoServerTablePanel<Configuration>) tester.getComponentFromLastRenderedPage("configurationsPanel");
 
         Configuration dummy1 = dao.save(dummyConfiguration1());
         Configuration dummy2 = dao.save(dummyConfiguration2());
@@ -202,23 +201,21 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
         tester.clickLink("configurationsPanel:listContainer:sortableLinks:1:header:link");
 
         // select
-        CheckBox selector =
-                ((CheckBox)
-                        tester.getComponentFromLastRenderedPage(
-                                "configurationsPanel:listContainer:items:3:selectItemContainer:selectItem"));
+        CheckBox selector = ((CheckBox) tester.getComponentFromLastRenderedPage(
+                "configurationsPanel:listContainer:items:3:selectItemContainer:selectItem"));
         tester.getRequest().getPostParameters().addParameterValue(selector.getInputName(), "true");
         tester.executeAjaxEvent(selector, "click");
 
         assertEquals(dummy1.getId(), table.getSelection().get(0).getId());
 
         // click delete
-        ModalWindow w = (ModalWindow) tester.getComponentFromLastRenderedPage("dialog:dialog");
+        GSModalWindow w = (GSModalWindow) tester.getComponentFromLastRenderedPage("dialog:dialog");
         assertFalse(w.isShown());
         tester.clickLink("removeSelected");
         assertTrue(w.isShown());
 
         // confirm
-        tester.executeAjaxEvent("dialog:dialog:content:form:submit", "click");
+        tester.executeAjaxEvent("dialog:dialog:modal:overlay:dialog:content:content:form:submit", "click");
 
         assertFalse(containsConfig(dao.getConfigurations(false), dummy1));
         assertTrue(containsConfig(dao.getConfigurations(false), dummy2));
@@ -244,10 +241,8 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
         tester.startPage(page);
 
         // select
-        CheckBox selector =
-                ((CheckBox)
-                        tester.getComponentFromLastRenderedPage(
-                                "configurationsPanel:listContainer:items:1:selectItemContainer:selectItem"));
+        CheckBox selector = ((CheckBox) tester.getComponentFromLastRenderedPage(
+                "configurationsPanel:listContainer:items:1:selectItemContainer:selectItem"));
         tester.getRequest().getPostParameters().addParameterValue(selector.getInputName(), "true");
         tester.executeAjaxEvent(selector, "click");
 
@@ -263,8 +258,7 @@ public class ConfigurationsPageTest extends AbstractWicketTaskManagerTest {
         logout();
     }
 
-    protected List<Configuration> getConfigurationsFromTable(
-            GeoServerTablePanel<Configuration> table) {
+    protected List<Configuration> getConfigurationsFromTable(GeoServerTablePanel<Configuration> table) {
         List<Configuration> result = new ArrayList<Configuration>();
         Iterator<Configuration> it = table.getDataProvider().iterator(0, table.size());
         while (it.hasNext()) {

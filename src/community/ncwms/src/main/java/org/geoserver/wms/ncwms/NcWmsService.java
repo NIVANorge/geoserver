@@ -7,10 +7,8 @@ package org.geoserver.wms.ncwms;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -39,7 +37,11 @@ import org.geoserver.wms.MapLayerInfo;
 import org.geoserver.wms.WMS;
 import org.geoserver.wms.WMSInfo;
 import org.geoserver.wms.featureinfo.LayerIdentifier;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -47,15 +49,11 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.util.DateRange;
 import org.geotools.util.SimpleInternationalString;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 import org.springframework.beans.factory.DisposableBean;
 
 /**
- * Implements the methods of the NcWMS service which are not included on the WMS standard. For the
- * moment, only GetTimeSeries method is supported.
+ * Implements the methods of the NcWMS service which are not included on the WMS standard. For the moment, only
+ * GetTimeSeries method is supported.
  */
 public class NcWmsService implements DisposableBean {
 
@@ -84,11 +82,10 @@ public class NcWmsService implements DisposableBean {
 
         public void checkTimeout() {
             if (maxRenderingTime > 0 && System.currentTimeMillis() > end) {
-                throw new ServiceException(
-                        "This request used more time than allowed and has been forcefully stopped. "
-                                + "Max rendering time is "
-                                + (maxRenderingTime / 1000.0)
-                                + "s");
+                throw new ServiceException("This request used more time than allowed and has been forcefully stopped. "
+                        + "Max rendering time is "
+                        + (maxRenderingTime / 1000.0)
+                        + "s");
             }
         }
     }
@@ -101,10 +98,7 @@ public class NcWmsService implements DisposableBean {
      */
     public static int getMaxDimensions(WMS wms) {
         // use the ncWMS local maximum
-        NcWmsInfo ncWMSInfo =
-                wms.getServiceInfo()
-                        .getMetadata()
-                        .get(NcWmsService.WMS_CONFIG_KEY, NcWmsInfo.class);
+        NcWmsInfo ncWMSInfo = wms.getServiceInfo().getMetadata().get(NcWmsService.WMS_CONFIG_KEY, NcWmsInfo.class);
         return Optional.ofNullable(ncWMSInfo)
                 .map(i -> i.getMaxTimeSeriesValues())
                 .orElseGet(wms::getMaxRequestedDimensionValues);
@@ -114,8 +108,7 @@ public class NcWmsService implements DisposableBean {
         NEAREST {
             // This is used when nearest match is supported.
             @Override
-            List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times)
-                    throws IOException {
+            List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times) throws IOException {
                 TreeSet<Date> availableDates = wms.queryCoverageNearestMatchTimes(coverage, times);
                 return availableDates.stream()
                         .map(date -> new DateRange(date, date))
@@ -126,30 +119,22 @@ public class NcWmsService implements DisposableBean {
             // When nearest match isn't enabled, let's query the coverage to identify
             // available dates only
             @Override
-            List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times)
-                    throws IOException {
-                TreeSet<Object> availableDates =
-                        new TreeSet<>(ReaderDimensionsAccessor.TEMPORAL_COMPARATOR);
+            List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times) throws IOException {
+                TreeSet<Object> availableDates = new TreeSet<>(ReaderDimensionsAccessor.TEMPORAL_COMPARATOR);
                 final boolean isRange = times.get(0) instanceof DateRange;
                 for (Object time : times) {
                     TreeSet<Object> foundTimes =
-                            wms.queryCoverageTimes(
-                                    coverage, getAsRange(time, isRange), Query.DEFAULT_MAX);
+                            wms.queryCoverageTimes(coverage, getAsRange(time, isRange), Query.DEFAULT_MAX);
                     availableDates.addAll(foundTimes);
                 }
                 return availableDates.stream()
-                        .map(
-                                d ->
-                                        d instanceof Date
-                                                ? new DateRange((Date) d, (Date) d)
-                                                : (DateRange) d)
+                        .map(d -> d instanceof Date d1 ? new DateRange(d1, d1) : (DateRange) d)
                         .collect(Collectors.toList());
             }
         };
 
         // times should be a not null List. (Null Check is made before calling this method)
-        abstract List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times)
-                throws IOException;
+        abstract List<DateRange> findDates(WMS wms, CoverageInfo coverage, List<Object> times) throws IOException;
 
         protected DateRange getAsRange(Object time, boolean isRange) {
             return isRange ? (DateRange) time : new DateRange((Date) time, (Date) time);
@@ -163,23 +148,20 @@ public class NcWmsService implements DisposableBean {
 
     private ExecutorService getExecutorService(WMSInfo wms) {
         NcWmsInfo info = wms.getMetadata().get(WMS_CONFIG_KEY, NcWmsInfo.class);
-        int poolSize =
-                Optional.ofNullable(info)
-                        .map(i -> i.getTimeSeriesPoolSize())
-                        .filter(size -> size > 0)
-                        .orElseGet(() -> Runtime.getRuntime().availableProcessors());
+        int poolSize = Optional.ofNullable(info)
+                .map(i -> i.getTimeSeriesPoolSize())
+                .filter(size -> size > 0)
+                .orElseGet(() -> Runtime.getRuntime().availableProcessors());
 
-        return Executors.newFixedThreadPool(
-                poolSize,
-                new ThreadFactory() {
+        return Executors.newFixedThreadPool(poolSize, new ThreadFactory() {
 
-                    private final AtomicInteger counter = new AtomicInteger();
+            private final AtomicInteger counter = new AtomicInteger();
 
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        return new Thread(r, "gs-ncwms-" + counter.incrementAndGet());
-                    }
-                });
+            @Override
+            public Thread newThread(Runnable r) {
+                return new Thread(r, "gs-ncwms-" + counter.incrementAndGet());
+            }
+        });
     }
 
     @Override
@@ -200,16 +182,15 @@ public class NcWmsService implements DisposableBean {
             }
         }
 
-        throw new ServiceException(
-                "Could not find any identifier that can handle layer "
-                        + layer.getLayerInfo().prefixedName()
-                        + " among these identifiers: "
-                        + identifiers);
+        throw new ServiceException("Could not find any identifier that can handle layer "
+                + layer.getLayerInfo().prefixedName()
+                + " among these identifiers: "
+                + identifiers);
     }
 
     /**
-     * Implements the GetTimeSeries method, which can retrieve a time series of values on a certain
-     * point, using a syntax similar to the GetFeatureInfo operation.
+     * Implements the GetTimeSeries method, which can retrieve a time series of values on a certain point, using a
+     * syntax similar to the GetFeatureInfo operation.
      */
     public FeatureCollectionType getTimeSeries(GetFeatureInfoRequest request) {
         FeatureCollectionType result = WfsFactory.eINSTANCE.createFeatureCollectionType();
@@ -218,7 +199,7 @@ public class NcWmsService implements DisposableBean {
 
         // Process the request only if we have a time range
         List<Object> times = request.getGetMapRequest().getTime();
-        if (times == null || times.size() == 0) {
+        if (times == null || times.isEmpty()) {
             throw new ServiceException("The TIME parameter was missing");
         }
 
@@ -234,16 +215,15 @@ public class NcWmsService implements DisposableBean {
         try {
             coverage = layer.getCoverage();
         } catch (Exception cex) {
-            throw new ServiceException(
-                    "The GetTimeSeries operation is only defined for coverage layers");
+            throw new ServiceException("The GetTimeSeries operation is only defined for coverage layers");
         }
 
         // we'll just pick the first band anyways, no need to read them all
         if (request.getPropertyNames() == null
-                || request.getPropertyNames().size() == 0
+                || request.getPropertyNames().isEmpty()
                 || request.getPropertyNames().get(0).isEmpty()) {
             String firstBand = coverage.getDimensions().get(0).getName();
-            request.setPropertyNames(Arrays.asList(Arrays.asList(firstBand)));
+            request.setPropertyNames(List.of(Collections.singletonList(firstBand)));
         }
 
         // control how much time we spend doing queries to gather times and values
@@ -270,15 +250,13 @@ public class NcWmsService implements DisposableBean {
                 // request parameter, which, inside, does not contain a reference
                 // to the request anymore
                 request.getGetMapRequest().setTime(Collections.singletonList(date));
-                FeatureInfoRequestParameters requestParams =
-                        new FeatureInfoRequestParameters(request);
-                callables.add(
-                        () -> {
-                            // check timeout and then run identify
-                            countdownClock.checkTimeout();
-                            identifyDate(identifier, resultType, features, date, requestParams);
-                            return null;
-                        });
+                FeatureInfoRequestParameters requestParams = new FeatureInfoRequestParameters(request);
+                callables.add(() -> {
+                    // check timeout and then run identify
+                    countdownClock.checkTimeout();
+                    identifyDate(identifier, resultType, features, date, requestParams);
+                    return null;
+                });
             }
 
             // invoke and get all to make sure no exception was raised
@@ -288,13 +266,18 @@ public class NcWmsService implements DisposableBean {
             }
 
             // sort by time and accumulate values
-            List<SimpleFeature> featureList =
+            FeatureCollection<SimpleFeatureType, SimpleFeature> fc = new ListFeatureCollection(
+                    resultType,
                     features.entrySet().stream()
-                            .sorted(Comparator.comparing(e -> e.getKey()))
-                            .map(e -> e.getValue())
-                            .collect(Collectors.toList());
-
-            result.getFeature().add(new ListFeatureCollection(resultType, featureList));
+                            .sorted(Map.Entry.comparingByKey()) // Date keys
+                            .map(Map.Entry::getValue)
+                            .collect(Collectors.toList()));
+            // result.getFeature() is (at runtime) a List of FeatureCollection,
+            // but older WFS model types expose it as a raw List.
+            // Do a narrow, localized cast when adding.
+            @SuppressWarnings("unchecked")
+            List<FeatureCollection<SimpleFeatureType, SimpleFeature>> out = (List) result.getFeature();
+            out.add(fc);
         } catch (ServiceException e) {
             throw e;
         } catch (Exception e) {
@@ -315,7 +298,9 @@ public class NcWmsService implements DisposableBean {
             FeatureInfoRequestParameters requestParams)
             throws Exception {
         // identify
-        List<FeatureCollection> identifiedCollections = identifier.identify(requestParams, 1);
+        @SuppressWarnings("unchecked")
+        List<FeatureCollection<SimpleFeatureType, SimpleFeature>> identifiedCollections =
+                (List) identifier.identify(requestParams, 1);
 
         // collect the data
         if (identifiedCollections != null) {
@@ -343,8 +328,7 @@ public class NcWmsService implements DisposableBean {
         }
     }
 
-    private List<DateRange> getAvailableDates(CoverageInfo coverage, List<Object> times)
-            throws IOException {
+    private List<DateRange> getAvailableDates(CoverageInfo coverage, List<Object> times) throws IOException {
 
         // We have 3 input cases here:
         // (A) Simple range: e.g. 2018-01-01/2020-01-01
@@ -354,11 +338,9 @@ public class NcWmsService implements DisposableBean {
         // (A) and (B) will result into a list of DateRange but (A) will only have 1 element
         // (C) will result into a list of Dates
 
-        DimensionInfo timeDimension =
-                coverage.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
+        DimensionInfo timeDimension = coverage.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
         if (timeDimension == null || !timeDimension.isEnabled()) {
-            throw new ServiceException(
-                    "Layer " + coverage.prefixedName() + " does not have time support enabled");
+            throw new ServiceException("Layer " + coverage.prefixedName() + " does not have time support enabled");
         }
 
         // We have already checked before invoking this method that the list isn't null nor empty
@@ -389,11 +371,10 @@ public class NcWmsService implements DisposableBean {
         return results;
     }
 
-    private List<DateRange> handleSimpleInterval(CoverageInfo coverage, List<Object> times)
-            throws IOException {
+    private List<DateRange> handleSimpleInterval(CoverageInfo coverage, List<Object> times) throws IOException {
         DateFinder finder = DateFinder.QUERY;
         List<DateRange> results = finder.findDates(wms, coverage, times);
-        if (results.size() == 0) results = DateFinder.NEAREST.findDates(wms, coverage, times);
+        if (results.isEmpty()) results = DateFinder.NEAREST.findDates(wms, coverage, times);
         return results;
     }
 
@@ -403,11 +384,10 @@ public class NcWmsService implements DisposableBean {
                 && layer.getCoverage().getDimensions().size() == 1
                 && layer.getCoverage().getDimensions().get(0).getName() != null
                 && layer.getCoverage().getDimensions().get(0).getUnit() != null) {
-            name =
-                    layer.getCoverage().getDimensions().get(0).getName()
-                            + " ("
-                            + layer.getCoverage().getDimensions().get(0).getUnit()
-                            + ")";
+            name = layer.getCoverage().getDimensions().get(0).getName()
+                    + " ("
+                    + layer.getCoverage().getDimensions().get(0).getUnit()
+                    + ")";
         }
         return name;
     }

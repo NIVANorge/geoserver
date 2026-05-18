@@ -5,6 +5,8 @@
  */
 package org.geoserver.importer.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.AttributeModifier;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -13,7 +15,6 @@ import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.form.PasswordTextField;
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.Panel;
-import org.apache.wicket.model.AbstractReadOnlyModel;
 import org.apache.wicket.model.PropertyModel;
 
 /**
@@ -23,6 +24,19 @@ import org.apache.wicket.model.PropertyModel;
  */
 @SuppressWarnings("serial")
 class BasicDbParamPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(BasicDbParamPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     String host;
     int port;
@@ -58,13 +72,10 @@ class BasicDbParamPanel extends Panel {
         add(new TextField<>("host", new PropertyModel<>(this, "host")).setRequired(true));
         add(new TextField<>("port", new PropertyModel<>(this, "port")).setRequired(true));
         add(new TextField<>("username", new PropertyModel<>(this, "username")).setRequired(true));
-        add(
-                new PasswordTextField("password", new PropertyModel<>(this, "password"))
-                        .setResetPassword(false)
-                        .setRequired(false));
-        add(
-                new TextField<>("database", new PropertyModel<>(this, "database"))
-                        .setRequired(databaseRequired));
+        add(new PasswordTextField("password", new PropertyModel<>(this, "password"))
+                .setResetPassword(false)
+                .setRequired(false));
+        add(new TextField<>("database", new PropertyModel<>(this, "database")).setRequired(databaseRequired));
         add(new TextField<>("schema", new PropertyModel<>(this, "schema")));
 
         connPoolLink = toggleConnectionPoolLink();
@@ -80,26 +91,16 @@ class BasicDbParamPanel extends Panel {
 
     /** Toggles the connection pool param panel */
     Component toggleConnectionPoolLink() {
-        AjaxLink connPoolLink =
-                new AjaxLink("connectionPoolLink") {
+        AjaxLink connPoolLink = new AjaxLink("connectionPoolLink") {
 
-                    @Override
-                    public void onClick(AjaxRequestTarget target) {
-                        connPoolPanel.setVisible(!connPoolPanel.isVisible());
-                        target.add(connPoolPanelContainer);
-                        target.add(this);
-                    }
-                };
-        connPoolLink.add(
-                new AttributeModifier(
-                        "class",
-                        new AbstractReadOnlyModel() {
-
-                            @Override
-                            public Object getObject() {
-                                return connPoolPanel.isVisible() ? "expanded" : "collapsed";
-                            }
-                        }));
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                connPoolPanel.setVisible(!connPoolPanel.isVisible());
+                target.add(connPoolPanelContainer);
+                target.add(this);
+            }
+        };
+        connPoolLink.add(new AttributeModifier("class", () -> connPoolPanel.isVisible() ? "expanded" : "collapsed"));
         connPoolLink.setOutputMarkupId(true);
         return connPoolLink;
     }

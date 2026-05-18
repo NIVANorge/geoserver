@@ -7,18 +7,17 @@ package org.geoserver.sldservice.rest;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.rest.RestBaseController;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 public class CapabilitiesTest extends SLDServiceBaseTest {
 
     @Test
     public void testClassifyForFeatureDefault() throws Exception {
-        final String restPath =
-                RestBaseController.ROOT_PATH + "/sldservice/" + getServiceUrl() + ".json";
+        final String restPath = RestBaseController.ROOT_PATH + "/sldservice/" + getServiceUrl() + ".json";
         MockHttpServletResponse response = getAsServletResponse(restPath);
         assertEquals(200, response.getStatus());
         JSONObject json = (JSONObject) getAsJSON(restPath, 200);
@@ -28,17 +27,11 @@ public class CapabilitiesTest extends SLDServiceBaseTest {
         JSONArray rClassifications = raster.getJSONArray("classifications");
         SldServiceCapabilities capabilities = new SldServiceCapabilities();
         for (int i = 0; i < vClassifications.size(); i++) {
-            assertTrue(
-                    capabilities
-                            .getVectorClassifications()
-                            .contains(vClassifications.getString(i)));
+            assertTrue(capabilities.getVectorClassifications().contains(vClassifications.getString(i)));
         }
 
         for (int i = 0; i < rClassifications.size(); i++) {
-            assertTrue(
-                    capabilities
-                            .getRasterClassifications()
-                            .contains(vClassifications.getString(i)));
+            assertTrue(capabilities.getRasterClassifications().contains(vClassifications.getString(i)));
         }
     }
 

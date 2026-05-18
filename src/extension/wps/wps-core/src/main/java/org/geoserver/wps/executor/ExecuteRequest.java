@@ -5,6 +5,8 @@
  */
 package org.geoserver.wps.executor;
 
+import static org.geoserver.platform.ServiceException.INVALID_PARAMETER_VALUE;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -20,15 +22,15 @@ import net.opengis.wps10.ResponseDocumentType;
 import net.opengis.wps10.ResponseFormType;
 import org.eclipse.emf.common.util.EList;
 import org.geoserver.ows.Ows11Util;
-import org.geoserver.platform.ServiceException;
 import org.geoserver.wps.WPSException;
 import org.geoserver.wps.ppio.ProcessParameterIO;
 import org.geoserver.wps.process.AbstractRawData;
 import org.geoserver.wps.process.GeoServerProcessors;
 import org.geoserver.wps.validator.ProcessLimitsFilter;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.feature.type.Name;
+import org.geotools.data.ows.URLCheckerException;
 import org.geotools.process.ProcessFactory;
-import org.opengis.feature.type.Name;
 import org.springframework.validation.Validator;
 
 /**
@@ -68,7 +70,8 @@ public class ExecuteRequest {
 
     /** Returns true if status update is requested */
     public boolean isStatusEnabled() {
-        return isAsynchronous() && request.getResponseForm().getResponseDocument().isStatus();
+        return isAsynchronous()
+                && request.getResponseForm().getResponseDocument().isStatus();
     }
 
     /** Returns the process name according to the GeoTools API */
@@ -91,8 +94,7 @@ public class ExecuteRequest {
 
         // see what output raw data we have that need the user chosen mime type to be
         // sent back to the process as an input
-        Map<String, String> outputMimeParameters =
-                AbstractRawData.getOutputMimeParameters(processName, pf);
+        Map<String, String> outputMimeParameters = AbstractRawData.getOutputMimeParameters(processName, pf);
         if (!outputMimeParameters.isEmpty()) {
             Map<String, String> requestedRawDataMimeTypes =
                     getRequestedRawDataMimeTypes(outputMimeParameters.keySet(), processName, pf);
@@ -136,9 +138,8 @@ public class ExecuteRequest {
 
             // build the provider
             try {
-                InputProvider provider =
-                        AbstractInputProvider.getInputProvider(
-                                input, ppio, manager, manager.applicationContext, validators);
+                InputProvider provider = AbstractInputProvider.getInputProvider(
+                        input, ppio, manager, manager.applicationContext, validators);
 
                 // store the input
                 if (p.maxOccurs > 1) {
@@ -152,8 +153,14 @@ public class ExecuteRequest {
                 } else {
                     providers.put(p.key, provider);
                 }
+            } catch (URLCheckerException e) {
+                WPSException exception = new WPSException(INVALID_PARAMETER_VALUE, "Invalid input: " + inputId, e);
+                exception.setLocator(inputId);
+                throw exception;
             } catch (Exception e) {
-                throw new WPSException("Failed to parse process inputs", e);
+                WPSException exception = new WPSException("Failed to parse process input: " + inputId, e);
+                exception.setLocator(inputId);
+                throw exception;
             }
         }
 
@@ -241,13 +248,8 @@ public class ExecuteRequest {
                 String outputIdentifier = output.getIdentifier().getValue();
                 if (!resultInfo.containsKey(outputIdentifier)) {
                     String locator =
-                            output instanceof DocumentOutputDefinitionType
-                                    ? "ResponseDocument"
-                                    : "RawDataOutput";
-                    throw new WPSException(
-                            "Unknow output " + outputIdentifier,
-                            ServiceException.INVALID_PARAMETER_VALUE,
-                            locator);
+                            output instanceof DocumentOutputDefinitionType ? "ResponseDocument" : "RawDataOutput";
+                    throw new WPSException("Unknow output " + outputIdentifier, INVALID_PARAMETER_VALUE, locator);
                 }
             }
         }

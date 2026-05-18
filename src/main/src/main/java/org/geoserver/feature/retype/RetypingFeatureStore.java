@@ -11,25 +11,22 @@ import java.util.Arrays;
 import java.util.List;
 import org.geoserver.feature.RetypingFeatureCollection;
 import org.geoserver.feature.RetypingFeatureCollection.RetypingFeatureReader;
+import org.geotools.api.data.FeatureReader;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.identity.FeatureId;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureReader;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.Transaction;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
 import org.geotools.util.Converters;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.identity.FeatureId;
 
-/**
- * Renaming wrapper for a {@link FeatureStore} instance, to be used along with {@link
- * RetypingDataStore}
- */
+/** Renaming wrapper for a {@link FeatureStore} instance, to be used along with {@link RetypingDataStore} */
 public class RetypingFeatureStore extends RetypingFeatureSource implements SimpleFeatureStore {
 
     RetypingFeatureStore(RetypingDataStore ds, SimpleFeatureStore wrapped, FeatureTypeMap typeMap) {
@@ -60,42 +57,34 @@ public class RetypingFeatureStore extends RetypingFeatureSource implements Simpl
     }
 
     @Override
-    public void setFeatures(FeatureReader<SimpleFeatureType, SimpleFeature> reader)
-            throws IOException {
-        @SuppressWarnings("PMD.CloseResource") // just a wrapper
+    public void setFeatures(FeatureReader<SimpleFeatureType, SimpleFeature> reader) throws IOException {
         RetypingFeatureReader retypingFeatureReader =
                 new RetypingFeatureReader(reader, typeMap.getOriginalFeatureType());
         featureStore().setFeatures(retypingFeatureReader);
     }
 
     @Override
-    public List<FeatureId> addFeatures(
-            FeatureCollection<SimpleFeatureType, SimpleFeature> collection) throws IOException {
-        List<FeatureId> ids =
-                featureStore()
-                        .addFeatures(
-                                new RetypingFeatureCollection(
-                                        DataUtilities.simple(collection),
-                                        typeMap.getOriginalFeatureType()));
+    public List<FeatureId> addFeatures(FeatureCollection<SimpleFeatureType, SimpleFeature> collection)
+            throws IOException {
+        List<FeatureId> ids = featureStore()
+                .addFeatures(new RetypingFeatureCollection(
+                        DataUtilities.simple(collection), typeMap.getOriginalFeatureType()));
         List<FeatureId> retyped = new ArrayList<>();
         for (FeatureId id : ids) {
             retyped.add(
-                    RetypingFeatureCollection.reTypeId(
-                            id, typeMap.getOriginalFeatureType(), typeMap.getFeatureType()));
+                    RetypingFeatureCollection.reTypeId(id, typeMap.getOriginalFeatureType(), typeMap.getFeatureType()));
         }
         return retyped;
     }
 
     @Override
-    public void modifyFeatures(String[] names, Object[] attributeValues, Filter filter)
-            throws IOException {
+    public void modifyFeatures(String[] names, Object[] attributeValues, Filter filter) throws IOException {
         Name[] param = Arrays.stream(names).map(n -> new NameImpl(n)).toArray(n -> new Name[n]);
         modifyFeatures(param, attributeValues, filter);
     }
 
     @Override
-    public void modifyFeatures(String name, Object attributeValue, Filter filter)
-            throws IOException {
+    public void modifyFeatures(String name, Object attributeValue, Filter filter) throws IOException {
         modifyFeatures(new Name[] {new NameImpl(name)}, new Object[] {attributeValue}, filter);
     }
 
@@ -119,8 +108,7 @@ public class RetypingFeatureStore extends RetypingFeatureSource implements Simpl
     }
 
     @Override
-    public void modifyFeatures(Name attributeName, Object attributeValue, Filter filter)
-            throws IOException {
+    public void modifyFeatures(Name attributeName, Object attributeValue, Filter filter) throws IOException {
         modifyFeatures(new Name[] {attributeName}, new Object[] {attributeValue}, filter);
     }
 }

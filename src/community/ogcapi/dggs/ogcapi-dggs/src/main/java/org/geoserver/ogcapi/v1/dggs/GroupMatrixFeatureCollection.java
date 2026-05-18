@@ -11,22 +11,23 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import org.geotools.data.CloseableIterator;
+import org.geotools.api.data.CloseableIterator;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.DataUtilities;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.dggs.GroupedMatrixAggregate;
 import org.geotools.dggs.GroupedMatrixAggregate.GroupByResult;
+import org.geotools.dggs.IterableCalcResult;
 import org.geotools.feature.collection.FilteringSimpleFeatureCollection;
 import org.geotools.feature.collection.SortedSimpleFeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.geometry.jts.ReferencedEnvelope;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.util.ProgressListener;
 
 /**
  * A feature colleciton building on top of a {@link GroupedMatrixAggregate.IterableResult} and a
@@ -41,12 +42,12 @@ import org.opengis.util.ProgressListener;
 class GroupMatrixFeatureCollection implements SimpleFeatureCollection {
 
     private final SimpleFeatureType schema;
-    private final GroupedMatrixAggregate.IterableResult result;
+    private final IterableCalcResult<GroupByResult> result;
     private final Function<GroupByResult, SimpleFeature> featureMapper;
 
     public GroupMatrixFeatureCollection(
             SimpleFeatureType schema,
-            GroupedMatrixAggregate.IterableResult result,
+            IterableCalcResult<GroupedMatrixAggregate.GroupByResult> result,
             Function<GroupByResult, SimpleFeature> featureMapper) {
         this.schema = schema;
         this.result = result;
@@ -116,7 +117,7 @@ class GroupMatrixFeatureCollection implements SimpleFeatureCollection {
     @Override
     public boolean isEmpty() {
         try (CloseableIterator<GroupByResult> it = result.getIterator()) {
-            return features().hasNext();
+            return it.hasNext();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -5,29 +5,39 @@
 package org.geoserver.opensearch.eo.store;
 
 import static org.geoserver.opensearch.eo.store.JDBCOpenSearchAccess.FF;
+import static org.geoserver.opensearch.eo.store.OpenSearchAccess.COLLECTION_PROPERTY_NAME;
+import static org.geoserver.opensearch.eo.store.OpenSearchAccess.EO_IDENTIFIER;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import org.geotools.data.Join;
-import org.geotools.data.Query;
+import org.geoserver.catalog.WorkspaceInfo;
+import org.geoserver.featurestemplating.builders.JSONFieldSupport;
+import org.geoserver.ows.LocalWorkspace;
+import org.geotools.api.data.Join;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.data.DataUtilities;
 import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.AttributeBuilder;
-import org.geotools.feature.ComplexFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Maps joined simple features up to a complex Collection feature
@@ -40,10 +50,15 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
 
     String granuleForeignKey;
 
-    public JDBCProductFeatureStore(JDBCOpenSearchAccess openSearchAccess, FeatureType schema)
-            throws IOException {
-        super(openSearchAccess, schema);
+    /** The list of properties that come from JSONB fields and will need to be sorted by key */
+    Set<Name> jsonBProperties;
 
+    public JDBCProductFeatureStore(JDBCOpenSearchAccess openSearchAccess, FeatureType schema) throws IOException {
+        super(openSearchAccess, schema);
+        jsonBProperties = schema.getDescriptors().stream()
+                .filter(JSONFieldSupport::isJSONBField)
+                .map(ad -> ad.getName())
+                .collect(Collectors.toSet());
         for (AttributeDescriptor ad :
                 getFeatureStoreForTable("granule").getSchema().getAttributeDescriptors()) {
             if (ad.getLocalName().equalsIgnoreCase("product_id")) {
@@ -51,14 +66,16 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
             }
         }
         if (granuleForeignKey == null) {
-            throw new IllegalStateException(
-                    "Could not locate a column named 'product'_id in table 'granule'");
+            throw new IllegalStateException("Could not locate a column named 'product'_id in table 'granule'");
         }
     }
 
     @Override
-    protected SimpleFeatureSource getDelegateCollectionSource() throws IOException {
-        return openSearchAccess.getDelegateStore().getFeatureSource(JDBCOpenSearchAccess.PRODUCT);
+    public SimpleFeatureSource getDelegateSource() throws IOException {
+        WorkspaceInfo workspaceInfo = LocalWorkspace.get();
+        SimpleFeatureSource delegate =
+                openSearchAccess.getDelegateStore().getFeatureSource(JDBCOpenSearchAccess.PRODUCT);
+        return new WorkspaceFeatureSource(delegate, workspaceInfo, openSearchAccess);
     }
 
     @Override
@@ -84,60 +101,94 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
             result.getJoins().add(join);
         }
 
-        if (addJoins
-                && hasOutputProperty(query, OpenSearchAccess.COLLECTION_PROPERTY_NAME, false)) {
-            Filter filter =
-                    FF.equal(
-                            FF.property("eoParentIdentifier"),
-                            FF.property("collection.eoIdentifier"),
-                            true);
-            Join join = new Join("collection", filter);
-            join.setAlias("collection");
-            result.getJoins().add(join);
-        }
-
         return result;
     }
 
     @Override
-    protected void mapPropertiesToComplex(ComplexFeatureBuilder builder, SimpleFeature fi) {
+    protected boolean needsJoins(Query query) {
+        return super.needsJoins(query) || hasOutputProperty(query, OpenSearchAccess.QUICKLOOK_PROPERTY_NAME, false);
+    }
+
+    @Override
+    protected void mapPropertiesToComplex(
+            ComplexFeatureBuilder builder, SimpleFeature fi, Map<String, Object> mapperState) {
+        // JSONB Keys are Unsorted, so we sort them here
+        jsonBProperties.stream()
+                .filter(n -> fi.getAttribute(n) != null && fi.getAttribute(n) instanceof String)
+                .forEach(n -> sortJSONBKeys(fi, n));
         // basic mappings
-        super.mapPropertiesToComplex(builder, fi);
+        super.mapPropertiesToComplex(builder, fi, mapperState);
 
         // quicklook extraction
         Object metadataValue = fi.getAttribute("quicklook");
-        if (metadataValue instanceof SimpleFeature) {
-            SimpleFeature quicklookFeature = (SimpleFeature) metadataValue;
+        if (metadataValue instanceof SimpleFeature quicklookFeature) {
             AttributeBuilder ab = new AttributeBuilder(CommonFactoryFinder.getFeatureFactory(null));
-            ab.setDescriptor(
-                    (AttributeDescriptor)
-                            schema.getDescriptor(OpenSearchAccess.QUICKLOOK_PROPERTY_NAME));
+            ab.setDescriptor((AttributeDescriptor) schema.getDescriptor(OpenSearchAccess.QUICKLOOK_PROPERTY_NAME));
             Attribute attribute = ab.buildSimple(null, quicklookFeature.getAttribute("thumb"));
             builder.append(OpenSearchAccess.QUICKLOOK_PROPERTY_NAME, attribute);
         }
 
         // collection extraction
-        Object collection = fi.getAttribute("collection");
-        if (collection instanceof SimpleFeature) {
+        String parentIdentifier = (String) fi.getAttribute("eoParentIdentifier");
+        if (parentIdentifier != null) {
+            Feature collectionFeature = getCollectionFeature(mapperState, parentIdentifier);
+            builder.append(COLLECTION_PROPERTY_NAME, collectionFeature);
+        }
+    }
+
+    private Feature getCollectionFeature(Map<String, Object> mapperState, String parentIdentifier) {
+        Feature collectionFeature = (Feature) mapperState.get(parentIdentifier);
+        if (collectionFeature == null) {
             try {
-                FeatureType collectionType =
-                        (FeatureType)
-                                getSchema()
-                                        .getDescriptor(
-                                                JDBCOpenSearchAccess.COLLECTION_PROPERTY_NAME)
-                                        .getType();
                 JDBCCollectionFeatureStore collectionSource =
-                        (JDBCCollectionFeatureStore)
-                                ((JDBCOpenSearchAccess) getDataStore()).getCollectionSource();
-                ComplexFeatureBuilder cb = new ComplexFeatureBuilder(collectionType);
-                SimpleFeature sf = (SimpleFeature) collection;
-                collectionSource.mapPropertiesToComplex(cb, sf);
-                Feature collectionFeature =
-                        cb.buildFeature((String) sf.getAttribute("eoIdentifier"));
-                builder.append(OpenSearchAccess.COLLECTION_PROPERTY_NAME, collectionFeature);
+                        (JDBCCollectionFeatureStore) ((JDBCOpenSearchAccess) getDataStore()).getCollectionSource();
+                Query q = new Query(Query.ALL);
+                q.setFilter(FF.equals(FF.property(EO_IDENTIFIER), FF.literal(parentIdentifier)));
+                Feature first = DataUtilities.first(collectionSource.getFeatures(q));
+
+                // remap the feature, it's using the wrong namespace
+                collectionFeature = remapCollectionToEONamespace(parentIdentifier, first);
+
+                mapperState.put(parentIdentifier, collectionFeature);
             } catch (IOException e) {
-                throw new RuntimeException("Failed to access collection schema", e);
+                // not impossible, but unexpected
+                throw new RuntimeException(e);
             }
+        }
+        return collectionFeature;
+    }
+
+    /**
+     * The collection feature is generated in the store provided namespaceURI, but the collection property in the
+     * product uses the EO namespace instead (to have a stable namespace for usage in JSON templates). So we need to
+     * remap, cannot have a feature with a namespaceURI different from the one of its type descriptor....
+     */
+    private Feature remapCollectionToEONamespace(String parentIdentifier, Feature first) {
+        FeatureType collectionType = (FeatureType)
+                getSchema().getDescriptor(COLLECTION_PROPERTY_NAME).getType();
+        ComplexFeatureBuilder cb = new ComplexFeatureBuilder(collectionType, FEATURE_FACTORY);
+        for (Property p : first.getProperties()) {
+            if (p instanceof Feature) {
+                cb.append(p.getName(), p);
+            } else {
+                cb.append(p.getName().getLocalPart(), p.getValue());
+            }
+        }
+        Feature feature = cb.buildFeature(parentIdentifier);
+        return feature;
+    }
+
+    private static void sortJSONBKeys(SimpleFeature fi, Name n) {
+        try {
+            // convert from string to JSON
+            JsonNode sortedJsonNode = JSONFieldSupport.SORT_BY_KEY_MAPPER.readTree((String) fi.getAttribute(n));
+            // convert back to string and set the attribute
+            fi.setAttribute(n, sortedJsonNode.toString());
+        } catch (JacksonException e) {
+            LOGGER.log(
+                    java.util.logging.Level.WARNING,
+                    "Error sorting JSONB field, could not parse JSON from field: " + n,
+                    e);
         }
     }
 
@@ -146,20 +197,18 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
         super.removeChildFeatures(collectionIdentifiers);
 
         // remove thumbnail
-        List<Filter> filters =
-                collectionIdentifiers.stream()
-                        .map(id -> FF.equal(FF.property("tid"), FF.literal(id), false))
-                        .collect(Collectors.toList());
+        List<Filter> filters = collectionIdentifiers.stream()
+                .map(id -> FF.equal(FF.property("tid"), FF.literal(id), false))
+                .collect(Collectors.toList());
         Filter metadataFilter = FF.or(filters);
         SimpleFeatureStore thumbStore = getFeatureStoreForTable("product_thumb");
         thumbStore.setTransaction(getTransaction());
         thumbStore.removeFeatures(metadataFilter);
 
         // remove granules
-        filters =
-                collectionIdentifiers.stream()
-                        .map(id -> FF.equal(FF.property(granuleForeignKey), FF.literal(id), false))
-                        .collect(Collectors.toList());
+        filters = collectionIdentifiers.stream()
+                .map(id -> FF.equal(FF.property(granuleForeignKey), FF.literal(id), false))
+                .collect(Collectors.toList());
         Filter granulesFilter = FF.or(filters);
         SimpleFeatureStore granuleStore = getFeatureStoreForTable("granule");
         granuleStore.setTransaction(getTransaction());
@@ -167,8 +216,7 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
     }
 
     @Override
-    protected boolean modifySecondaryAttribute(Name name, Object value, Filter mappedFilter)
-            throws IOException {
+    protected boolean modifySecondaryAttribute(Name name, Object value, Filter mappedFilter) throws IOException {
         if (OpenSearchAccess.GRANULES.equals(name.getLocalPart())) {
             final String tableName = "granule";
             modifySecondaryTable(
@@ -178,18 +226,14 @@ public class JDBCProductFeatureStore extends AbstractMappingStore {
                     id -> FF.equal(FF.property("product_id"), FF.literal(id), true),
                     (id, granulesStore) -> {
                         SimpleFeatureCollection granules = (SimpleFeatureCollection) value;
-                        SimpleFeatureBuilder fb =
-                                new SimpleFeatureBuilder(granulesStore.getSchema());
-                        ListFeatureCollection mappedGranules =
-                                new ListFeatureCollection(granulesStore.getSchema());
+                        SimpleFeatureBuilder fb = new SimpleFeatureBuilder(granulesStore.getSchema());
+                        ListFeatureCollection mappedGranules = new ListFeatureCollection(granulesStore.getSchema());
                         granules.accepts(
                                 f -> {
                                     SimpleFeature sf = (SimpleFeature) f;
                                     for (AttributeDescriptor ad :
                                             granulesStore.getSchema().getAttributeDescriptors()) {
-                                        fb.set(
-                                                ad.getLocalName(),
-                                                sf.getAttribute(ad.getLocalName()));
+                                        fb.set(ad.getLocalName(), sf.getAttribute(ad.getLocalName()));
                                     }
                                     fb.set("the_geom", sf.getDefaultGeometry());
                                     fb.set("product_id", id);

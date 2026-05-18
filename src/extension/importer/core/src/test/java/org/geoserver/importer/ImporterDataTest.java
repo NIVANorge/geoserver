@@ -59,24 +59,29 @@ import org.geoserver.importer.transform.AbstractInlineVectorTransform;
 import org.geoserver.importer.transform.AttributesToPointGeometryTransform;
 import org.geoserver.importer.transform.PostScriptTransform;
 import org.geoserver.platform.resource.Resources;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.style.Style;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
-import org.geotools.data.h2.H2DataStoreFactory;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.filter.text.cql2.CQL;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.geometry.jts.ReferencedEnvelope;
+import org.geotools.geopkg.GeoPkgDataStoreFactory;
 import org.geotools.jdbc.Index;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.referencing.CRS;
 import org.geotools.renderer.style.StyleAttributeExtractor;
-import org.geotools.styling.Style;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assume;
 import org.junit.Test;
@@ -85,11 +90,6 @@ import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
-import org.opengis.feature.Feature;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
 
 public class ImporterDataTest extends ImporterTestSupport {
 
@@ -99,10 +99,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
         @Override
         public SimpleFeature apply(
-                ImportTask task,
-                DataStore dataStore,
-                SimpleFeature oldFeature,
-                SimpleFeature feature)
+                ImportTask task, DataStore dataStore, SimpleFeature oldFeature, SimpleFeature feature)
                 throws Exception {
             Object origDesc = feature.getAttribute("description");
             if (origDesc == null) {
@@ -138,8 +135,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportShapefile() throws Exception {
         File dir = unpack("shape/archsites_epsg_prj.zip");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -179,8 +175,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
     @Test
     public void testImportRemoteDataFromZip() throws Exception {
-        URL resource =
-                ImporterTestSupport.class.getResource("test-data/shape/archsites_epsg_prj.zip");
+        URL resource = ImporterTestSupport.class.getResource("test-data/shape/archsites_epsg_prj.zip");
 
         ImportContext context = importer.createContext(new RemoteData(resource.toExternalForm()));
         assertEquals(1, context.getTasks().size());
@@ -205,8 +200,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
         File dir = unpack("shape/archsites_epsg_prj.zip", dataDir);
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -221,7 +215,11 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(ImportTask.State.COMPLETE, task.getState());
         assertEquals(
                 "file:archsites.shp",
-                task.getLayer().getResource().getStore().getConnectionParameters().get("url"));
+                task.getLayer()
+                        .getResource()
+                        .getStore()
+                        .getConnectionParameters()
+                        .get("url"));
 
         runChecks("archsites");
     }
@@ -392,8 +390,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
     @Test
     public void testImportUnknownFileIndirect() throws Exception {
-
-        DataStoreInfo ds = createH2DataStore(null, "foo");
+        DataStoreInfo ds = creatGeopkgDataStore(null, "foo");
         File randomDir = setupRandomFileData();
         ImportContext context = importer.createContext(new Directory(randomDir), ds);
         assertEquals(1, context.getTasks().size());
@@ -408,8 +405,7 @@ public class ImporterDataTest extends ImporterTestSupport {
         randomDir.mkdirs();
         File randomFile = new File("./target/random/random.dat");
         try (FileOutputStream out = new FileOutputStream(randomFile);
-                InputStream in =
-                        ImporterDataTest.class.getResourceAsStream("test-data/random/random.dat")) {
+                InputStream in = ImporterDataTest.class.getResourceAsStream("test-data/random/random.dat")) {
             IOUtils.copy(in, out);
         }
         return randomDir;
@@ -417,11 +413,11 @@ public class ImporterDataTest extends ImporterTestSupport {
 
     @Test
     public void testImportDatabase() throws Exception {
-        File dir = unpack("h2/cookbook.zip");
+        File cookbook = ImporterTestUtils.file("gpkg/cookbook.gpkg");
 
         Map<String, Serializable> params = new HashMap<>();
-        params.put(H2DataStoreFactory.DBTYPE.key, "h2");
-        params.put(H2DataStoreFactory.DATABASE.key, new File(dir, "cookbook").getAbsolutePath());
+        params.put(GeoPkgDataStoreFactory.DBTYPE.key, "geopkg");
+        params.put(GeoPkgDataStoreFactory.DATABASE.key, cookbook.getAbsolutePath());
 
         ImportContext context = importer.createContext(new Database(params));
         assertEquals(3, context.getTasks().size());
@@ -460,7 +456,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportIntoDatabase() throws Exception {
         Catalog cat = getCatalog();
 
-        DataStoreInfo ds = createH2DataStore(cat.getDefaultWorkspace().getName(), "spearfish");
+        DataStoreInfo ds = creatGeopkgDataStore(cat.getDefaultWorkspace().getName(), "spearfish");
 
         File dir = tmpDir();
         unpack("shape/archsites_epsg_prj.zip", dir);
@@ -502,7 +498,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportIntoDatabaseWithEncoding() throws Exception {
         Catalog cat = getCatalog();
 
-        DataStoreInfo ds = createH2DataStore(cat.getDefaultWorkspace().getName(), "ming");
+        DataStoreInfo ds = creatGeopkgDataStore(cat.getDefaultWorkspace().getName(), "ming");
 
         File dir = tmpDir();
         unpack("shape/ming_time.zip", dir);
@@ -513,9 +509,9 @@ public class ImporterDataTest extends ImporterTestSupport {
         context.getTasks().get(0).getData().setCharsetEncoding("UTF-8");
         importer.run(context);
 
-        FeatureTypeInfo info = (FeatureTypeInfo) context.getTasks().get(0).getLayer().getResource();
-        FeatureSource<? extends FeatureType, ? extends Feature> fs =
-                info.getFeatureSource(null, null);
+        FeatureTypeInfo info =
+                (FeatureTypeInfo) context.getTasks().get(0).getLayer().getResource();
+        FeatureSource<? extends FeatureType, ? extends Feature> fs = info.getFeatureSource(null, null);
         FeatureCollection<? extends FeatureType, ? extends Feature> features = fs.getFeatures();
         try (FeatureIterator<? extends Feature> it = features.features()) {
             assertTrue(it.hasNext());
@@ -597,7 +593,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportIntoDatabaseDuplicateKey() throws Exception {
         Catalog cat = getCatalog();
 
-        DataStoreInfo ds = createH2DataStore(cat.getDefaultWorkspace().getName(), "spearfish");
+        DataStoreInfo ds = creatGeopkgDataStore(cat.getDefaultWorkspace().getName(), "spearfish");
 
         File dir = tmpDir();
         unpack("shape/archsites_epsg_prj.zip", dir);
@@ -625,16 +621,14 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(State.ERROR, task.getState());
         assertThat(
                 task.getError().getCause().getMessage(),
-                CoreMatchers.containsString(
-                        "Unique index or primary key violation: archsites_cat_ids"));
+                CoreMatchers.containsString("A UNIQUE constraint failed (UNIQUE constraint failed: archsites.CAT_ID)"));
     }
 
     @Test
     public void testImportGeoTIFF() throws Exception {
         File dir = unpack("geotiff/EmissiveCampania.tif.bz2");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "EmissiveCampania.tif")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "EmissiveCampania.tif")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -658,8 +652,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
         File dir = unpack("geotiff/EmissiveCampania.tif.bz2", dataDir);
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "EmissiveCampania.tif")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "EmissiveCampania.tif")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -683,11 +676,8 @@ public class ImporterDataTest extends ImporterTestSupport {
         // Replacing the layer
         File tempDir = FileUtils.getTempDirectory();
         dir = unpack("geotiff/EmissiveCampania.tif.bz2", tempDir);
-        context =
-                importer.createContext(
-                        new SpatialFile(new File(dir, "EmissiveCampania.tif")),
-                        store.getWorkspace(),
-                        store);
+        context = importer.createContext(
+                new SpatialFile(new File(dir, "EmissiveCampania.tif")), store.getWorkspace(), store);
 
         List<ImportTask> tasks = context.getTasks();
         assertEquals(1, tasks.size());
@@ -712,8 +702,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportNameClash() throws Exception {
         File dir = unpack("shape/archsites_epsg_prj.zip");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
         importer.run(context);
 
         Catalog cat = getCatalog();
@@ -732,10 +721,9 @@ public class ImporterDataTest extends ImporterTestSupport {
         File dir = unpack("shape/archsites_epsg_prj.zip");
         assertTrue(dir.exists());
 
-        DataStoreInfo ds = createH2DataStore(null, "foo");
+        DataStoreInfo ds = creatGeopkgDataStore(null, "foo");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp")), ds);
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")), ds);
         context.setArchive(true);
         importer.run(context);
         // under windows the shp in the original folder remains locked, but we could
@@ -756,13 +744,13 @@ public class ImporterDataTest extends ImporterTestSupport {
 
     @Test
     public void testImportDatabaseIntoDatabase() throws Exception {
-        File dir = unpack("h2/cookbook.zip");
+        File cookbook = ImporterTestUtils.file("gpkg/cookbook.gpkg");
 
-        DataStoreInfo ds = createH2DataStore("gs", "cookbook");
+        DataStoreInfo ds = creatGeopkgDataStore("gs", "cookbook");
 
         Map<String, Serializable> params = new HashMap<>();
-        params.put(H2DataStoreFactory.DBTYPE.key, "h2");
-        params.put(H2DataStoreFactory.DATABASE.key, new File(dir, "cookbook").getAbsolutePath());
+        params.put(GeoPkgDataStoreFactory.DBTYPE.key, "geopkg");
+        params.put(GeoPkgDataStoreFactory.DATABASE.key, cookbook.getAbsolutePath());
 
         ImportContext context = importer.createContext(new Database(params), ds);
         assertEquals(3, context.getTasks().size());
@@ -771,8 +759,34 @@ public class ImporterDataTest extends ImporterTestSupport {
     @Test
     public void testImportCSV() throws Exception {
         File dir = unpack("csv/locations.zip");
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "locations.csv")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "locations.csv")));
+        assertEquals(1, context.getTasks().size());
+
+        ImportTask task = context.getTasks().get(0);
+        assertEquals(ImportTask.State.NO_CRS, task.getState());
+
+        LayerInfo layer = task.getLayer();
+        ResourceInfo resource = layer.getResource();
+        resource.setSRS("EPSG:4326");
+
+        assertTrue("Item not ready", importer.prep(task));
+        assertEquals(ImportTask.State.READY, task.getState());
+
+        context.updated();
+        assertEquals(ImportContext.State.PENDING, context.getState());
+        importer.run(context);
+        assertEquals(ImportContext.State.COMPLETE, context.getState());
+        FeatureTypeInfo fti = (FeatureTypeInfo) resource;
+        SimpleFeatureType featureType = (SimpleFeatureType) fti.getFeatureType();
+        GeometryDescriptor geometryDescriptor = featureType.getGeometryDescriptor();
+        assertNull("Expecting no geometry", geometryDescriptor);
+        assertEquals(4, featureType.getAttributeCount());
+    }
+
+    @Test
+    public void testImportMars() throws Exception {
+        File dir = unpack("csv/locations.zip");
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "locations.csv")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -800,29 +814,29 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportGML2Poi() throws Exception {
         File gmlFile = file("gml/poi.gml2.gml");
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "gml2poi");
-        checkGMLPoiImport(gmlFile, h2DataStore);
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "gml2poi");
+        checkGMLPoiImport(gmlFile, geopkgDataStore);
     }
 
     @Test
     public void testImportGML3Poi() throws Exception {
         File gmlFile = file("gml/poi.gml3.gml");
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "gml3poi");
-        checkGMLPoiImport(gmlFile, h2DataStore);
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "gml3poi");
+        checkGMLPoiImport(gmlFile, geopkgDataStore);
     }
 
     /**
-     * This is a test of a indirect import from a reader (the GML one), uses a different code path
-     * than the store approach taken in the CSV test
+     * This is a test of a indirect import from a reader (the GML one), uses a different code path than the store
+     * approach taken in the CSV test
      */
     @Test
     public void testGML3ExceptionsDoNotDropTable() throws Exception {
         // initial import
         File gmlFile = file("gml/poi.gml3.gml");
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "gml3poi");
-        checkGMLPoiImport(gmlFile, h2DataStore);
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "gml3poi");
+        checkGMLPoiImport(gmlFile, geopkgDataStore);
 
         // count how many features at the beginning
         LayerInfo layer = getCatalog().getLayerByName("poi");
@@ -835,7 +849,7 @@ public class ImporterDataTest extends ImporterTestSupport {
 
         // run import a second time
         SpatialFile importData = new SpatialFile(gmlFile);
-        ImportContext context = importer.createContext(importData, h2DataStore);
+        ImportContext context = importer.createContext(importData, geopkgDataStore);
         ImportTask task = context.getTasks().get(0);
         task.setUpdateMode(UpdateMode.APPEND);
         task.setLayer(layer);
@@ -858,22 +872,19 @@ public class ImporterDataTest extends ImporterTestSupport {
         // TODO: remove this manipulation once we get relative schema references to work
         File schemaFile = new File("./target/states.gml2.xsd");
         try (FileOutputStream out = new FileOutputStream(schemaFile);
-                InputStream in =
-                        ImporterDataTest.class.getResourceAsStream(
-                                "test-data/gml/states.gml2.xsd")) {
+                InputStream in = ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml2.xsd")) {
             IOUtils.copy(in, out);
         }
         File gmlFile = new File("./target/states.gml2.gml");
-        try (InputStream in =
-                ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml2.gml")) {
+        try (InputStream in = ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml2.gml")) {
             String gml = IOUtils.toString(in, StandardCharsets.UTF_8);
             gml = gml.replace("${schemaLocation}", schemaFile.getCanonicalPath());
             FileUtils.writeStringToFile(gmlFile, gml, "UTF-8");
         }
 
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "gml2States");
-        checkGMLStatesImport(gmlFile, h2DataStore);
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "gml2States");
+        checkGMLStatesImport(gmlFile, geopkgDataStore);
     }
 
     @Test
@@ -881,28 +892,24 @@ public class ImporterDataTest extends ImporterTestSupport {
         // TODO: remove this manipulation once we get relative schema references to work
         File schemaFile = new File("./target/states.gml3.xsd");
         try (FileOutputStream out = new FileOutputStream(schemaFile);
-                InputStream in =
-                        ImporterDataTest.class.getResourceAsStream(
-                                "test-data/gml/states.gml3.xsd")) {
+                InputStream in = ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml3.xsd")) {
             IOUtils.copy(in, out);
         }
         File gmlFile = new File("./target/states.gml3.gml");
-        try (InputStream in =
-                ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml3.gml")) {
+        try (InputStream in = ImporterDataTest.class.getResourceAsStream("test-data/gml/states.gml3.gml")) {
             String gml = IOUtils.toString(in, StandardCharsets.UTF_8);
             gml = gml.replace("${schemaLocation}", schemaFile.getCanonicalPath());
             FileUtils.writeStringToFile(gmlFile, gml, "UTF-8");
         }
 
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "gml2States");
-        checkGMLStatesImport(gmlFile, h2DataStore);
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "gml2States");
+        checkGMLStatesImport(gmlFile, geopkgDataStore);
     }
 
-    private void checkGMLStatesImport(File gmlFile, DataStoreInfo h2DataStore)
-            throws IOException, CQLException {
+    private void checkGMLStatesImport(File gmlFile, DataStoreInfo geopkgDataStore) throws IOException, CQLException {
         SpatialFile importData = new SpatialFile(gmlFile);
-        ImportContext context = importer.createContext(importData, h2DataStore);
+        ImportContext context = importer.createContext(importData, geopkgDataStore);
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -934,8 +941,7 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(42.509361, envelope.getMaxY(), 1e-6);
     }
 
-    private void checkGMLPoiImport(File gmlFile, DataStoreInfo store)
-            throws IOException, CQLException {
+    private void checkGMLPoiImport(File gmlFile, DataStoreInfo store) throws IOException, CQLException {
         SpatialFile importData = new SpatialFile(gmlFile);
         ImportContext context = importer.createContext(importData, store);
         assertEquals(1, context.getTasks().size());
@@ -972,10 +978,10 @@ public class ImporterDataTest extends ImporterTestSupport {
         File dir = unpack("csv/locations.zip");
         String wsName = getCatalog().getDefaultWorkspace().getName();
 
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "csvindirecttest");
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "csvindirecttest");
         SpatialFile importData = new SpatialFile(new File(dir, "locations.csv"));
 
-        ImportContext context = importer.createContext(importData, h2DataStore);
+        ImportContext context = importer.createContext(importData, geopkgDataStore);
         assertEquals(1, context.getTasks().size());
         ImportTask task = context.getTasks().get(0);
 
@@ -1000,10 +1006,8 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertNotNull("Expecting geometry", geometryDescriptor);
         assertEquals("Invalid geometry name", "location", geometryDescriptor.getLocalName());
         assertEquals(3, featureType.getAttributeCount());
-        FeatureSource<? extends FeatureType, ? extends Feature> featureSource =
-                fti.getFeatureSource(null, null);
-        FeatureCollection<? extends FeatureType, ? extends Feature> features =
-                featureSource.getFeatures();
+        FeatureSource<? extends FeatureType, ? extends Feature> featureSource = fti.getFeatureSource(null, null);
+        FeatureCollection<? extends FeatureType, ? extends Feature> features = featureSource.getFeatures();
         assertEquals(9, features.size());
         try (FeatureIterator<? extends Feature> featureIterator = features.features()) {
             assertTrue("Expected features", featureIterator.hasNext());
@@ -1023,7 +1027,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     /** This is a test of a indirect import from a store (the CSV store) */
     @Test
     public void testCSVExceptionsDoNotDropTable() throws Exception {
-        // import and create a H2 database
+        // import and create a geopkg database
         testImportCSVIndirect();
 
         // count how many features at the beginning
@@ -1061,9 +1065,9 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportKMLIndirect() throws Exception {
         File dir = unpack("kml/sample.zip");
         String wsName = getCatalog().getDefaultWorkspace().getName();
-        DataStoreInfo h2DataStore = createH2DataStore(wsName, "kmltest");
+        DataStoreInfo geopkgDataStore = creatGeopkgDataStore(wsName, "kmltest");
         SpatialFile importData = new SpatialFile(new File(dir, "sample.kml"));
-        ImportContext context = importer.createContext(importData, h2DataStore);
+        ImportContext context = importer.createContext(importData, geopkgDataStore);
         assertEquals(1, context.getTasks().size());
         ImportTask task = context.getTasks().get(0);
 
@@ -1085,8 +1089,7 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertNotEquals("Bounding box not updated", emptyBounds, resource.getNativeBoundingBox());
         FeatureTypeInfo fti = (FeatureTypeInfo) resource;
         assertEquals("Invalid type name", "sample", fti.getName());
-        FeatureSource<? extends FeatureType, ? extends Feature> featureSource =
-                fti.getFeatureSource(null, null);
+        FeatureSource<? extends FeatureType, ? extends Feature> featureSource = fti.getFeatureSource(null, null);
         assertEquals("Unexpected feature count", 20, featureSource.getCount(Query.ALL));
     }
 
@@ -1094,7 +1097,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     public void testImportDirectoryWithRasterIndirect() throws Exception {
 
         DataStoreInfo ds =
-                createH2DataStore(getCatalog().getDefaultWorkspace().getName(), "shapes");
+                creatGeopkgDataStore(getCatalog().getDefaultWorkspace().getName(), "shapes");
 
         File dir = tmpDir();
         unpack("shape/archsites_epsg_prj.zip", dir);
@@ -1105,29 +1108,21 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(3, context.getTasks().size());
         assertTrue(context.getData() instanceof Directory);
 
-        ImportTask task =
-                Iterables.find(
-                        context.getTasks(),
-                        input -> "archsites".equals(input.getLayer().getResource().getName()));
+        ImportTask task = Iterables.find(context.getTasks(), input -> "archsites"
+                .equals(input.getLayer().getResource().getName()));
         assertEquals(ImportTask.State.READY, task.getState());
         assertTrue(task.getData() instanceof SpatialFile);
         assertEquals("Shapefile", task.getData().getFormat().getName());
 
-        task =
-                Iterables.find(
-                        context.getTasks(),
-                        input -> "bugsites".equals(input.getLayer().getResource().getName()));
+        task = Iterables.find(context.getTasks(), input -> "bugsites"
+                .equals(input.getLayer().getResource().getName()));
         assertEquals(ImportTask.State.READY, task.getState());
 
         assertTrue(task.getData() instanceof SpatialFile);
         assertEquals("Shapefile", task.getData().getFormat().getName());
 
-        task =
-                Iterables.find(
-                        context.getTasks(),
-                        input ->
-                                "EmissiveCampania"
-                                        .equals(input.getLayer().getResource().getName()));
+        task = Iterables.find(context.getTasks(), input -> "EmissiveCampania"
+                .equals(input.getLayer().getResource().getName()));
         assertEquals(ImportTask.State.BAD_FORMAT, task.getState());
         assertTrue(task.getData() instanceof SpatialFile);
         assertEquals("GeoTIFF", task.getData().getFormat().getName());
@@ -1166,11 +1161,10 @@ public class ImporterDataTest extends ImporterTestSupport {
     @Test
     public void testGeoJSONImport() throws Exception {
         DataStoreInfo h2 =
-                createH2DataStore(getCatalog().getDefaultWorkspace().getName(), "jsontest");
+                creatGeopkgDataStore(getCatalog().getDefaultWorkspace().getName(), "jsontest");
 
         File dir = unpack("geojson/point.json.zip");
-        ImportContext imp =
-                importer.createContext(new SpatialFile(new File(dir, "point.json")), h2);
+        ImportContext imp = importer.createContext(new SpatialFile(new File(dir, "point.json")), h2);
 
         assertEquals(1, imp.getTasks().size());
         assertEquals(ImportTask.State.READY, imp.task(0).getState());
@@ -1210,7 +1204,7 @@ public class ImporterDataTest extends ImporterTestSupport {
     @Test
     public void testGeoJSONImportDirectory() throws Exception {
         DataStoreInfo h2 =
-                createH2DataStore(getCatalog().getDefaultWorkspace().getName(), "jsontest");
+                creatGeopkgDataStore(getCatalog().getDefaultWorkspace().getName(), "jsontest");
 
         File dir = unpack("geojson/point.json.zip");
         unpack("geojson/line.json.zip", dir);
@@ -1256,39 +1250,38 @@ public class ImporterDataTest extends ImporterTestSupport {
         File dir = unpack("shape/archsites_epsg_prj.zip");
 
         // add an sld file
-        String sld =
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                        + "<StyledLayerDescriptor version=\"1.0.0\" "
-                        + " xsi:schemaLocation=\"http://www.opengis.net/sld StyledLayerDescriptor.xsd\" "
-                        + " xmlns:ogc=\"http://www.opengis.net/ogc\" "
-                        + " xmlns=\"http://www.opengis.net/sld\" "
-                        + " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
-                        + "  <!-- a Named Layer is the basic building block of an SLD document -->"
-                        + "  <NamedLayer>"
-                        + "    <UserStyle>"
-                        + "      <FeatureTypeStyle>"
-                        + "        <Rule>"
-                        + "            <PointSymbolizer>"
-                        + "              <Graphic>"
-                        + "                <Mark>"
-                        + "                  <WellKnownName>square</WellKnownName>"
-                        + "                  <Fill>"
-                        + "                    <CssParameter name=\"fill\">#FF0000</CssParameter>"
-                        + "                  </Fill>"
-                        + "                </Mark>"
-                        + "              <Size>6</Size>"
-                        + "            </Graphic>"
-                        + "          </PointSymbolizer>"
-                        + "          <TextSymbolizer>"
-                        + "            <Label>"
-                        + "             <ogc:PropertyName>CAT_ID</ogc:PropertyName>"
-                        + "           </Label>"
-                        + "          </TextSymbolizer>"
-                        + "        </Rule>"
-                        + "      </FeatureTypeStyle>"
-                        + "    </UserStyle>"
-                        + "  </NamedLayer>"
-                        + "</StyledLayerDescriptor>";
+        String sld = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<StyledLayerDescriptor version=\"1.0.0\" "
+                + " xsi:schemaLocation=\"http://www.opengis.net/sld StyledLayerDescriptor.xsd\" "
+                + " xmlns:ogc=\"http://www.opengis.net/ogc\" "
+                + " xmlns=\"http://www.opengis.net/sld\" "
+                + " xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+                + "  <!-- a Named Layer is the basic building block of an SLD document -->"
+                + "  <NamedLayer>"
+                + "    <UserStyle>"
+                + "      <FeatureTypeStyle>"
+                + "        <Rule>"
+                + "            <PointSymbolizer>"
+                + "              <Graphic>"
+                + "                <Mark>"
+                + "                  <WellKnownName>square</WellKnownName>"
+                + "                  <Fill>"
+                + "                    <CssParameter name=\"fill\">#FF0000</CssParameter>"
+                + "                  </Fill>"
+                + "                </Mark>"
+                + "              <Size>6</Size>"
+                + "            </Graphic>"
+                + "          </PointSymbolizer>"
+                + "          <TextSymbolizer>"
+                + "            <Label>"
+                + "             <ogc:PropertyName>CAT_ID</ogc:PropertyName>"
+                + "           </Label>"
+                + "          </TextSymbolizer>"
+                + "        </Rule>"
+                + "      </FeatureTypeStyle>"
+                + "    </UserStyle>"
+                + "  </NamedLayer>"
+                + "</StyledLayerDescriptor>";
 
         StyleInfo info = writeStyleAndImport(sld, "archsites.sld", dir);
         Style style = info.getStyle();
@@ -1304,26 +1297,25 @@ public class ImporterDataTest extends ImporterTestSupport {
         File dir = unpack("shape/archsites_epsg_prj.zip");
 
         // add an sld file
-        String sld =
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                        + "<StyledLayerDescriptor xmlns=\"http://www.opengis.net/sld\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.1.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.opengis.net/sld http://schemas.opengis.net/sld/1.1.0/StyledLayerDescriptor.xsd\" xmlns:se=\"http://www.opengis.net/se\">"
-                        + "  <NamedLayer>"
-                        + "    <UserStyle>"
-                        + "      <se:FeatureTypeStyle>"
-                        + "        <se:Rule>"
-                        + "          <se:PolygonSymbolizer>"
-                        + "            <se:Fill>"
-                        + "              <se:SvgParameter name=\"fill\">#d7191c</se:SvgParameter>"
-                        + "            </se:Fill>"
-                        + "            <se:Stroke>"
-                        + "              <se:SvgParameter name=\"stroke\">#000000</se:SvgParameter>"
-                        + "            </se:Stroke>"
-                        + "          </se:PolygonSymbolizer>"
-                        + "        </se:Rule>"
-                        + "      </se:FeatureTypeStyle>"
-                        + "    </UserStyle>"
-                        + "  </NamedLayer>"
-                        + "</StyledLayerDescriptor>";
+        String sld = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<StyledLayerDescriptor xmlns=\"http://www.opengis.net/sld\" xmlns:ogc=\"http://www.opengis.net/ogc\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"1.1.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" xsi:schemaLocation=\"http://www.opengis.net/sld http://schemas.opengis.net/sld/1.1.0/StyledLayerDescriptor.xsd\" xmlns:se=\"http://www.opengis.net/se\">"
+                + "  <NamedLayer>"
+                + "    <UserStyle>"
+                + "      <se:FeatureTypeStyle>"
+                + "        <se:Rule>"
+                + "          <se:PolygonSymbolizer>"
+                + "            <se:Fill>"
+                + "              <se:SvgParameter name=\"fill\">#d7191c</se:SvgParameter>"
+                + "            </se:Fill>"
+                + "            <se:Stroke>"
+                + "              <se:SvgParameter name=\"stroke\">#000000</se:SvgParameter>"
+                + "            </se:Stroke>"
+                + "          </se:PolygonSymbolizer>"
+                + "        </se:Rule>"
+                + "      </se:FeatureTypeStyle>"
+                + "    </UserStyle>"
+                + "  </NamedLayer>"
+                + "</StyledLayerDescriptor>";
 
         StyleInfo info = writeStyleAndImport(sld, "archsites.sld", dir);
         assertEquals(SLDHandler.VERSION_11, info.getFormatVersion());
@@ -1341,16 +1333,16 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(ImportContext.State.COMPLETE, imp.getState());
         checkNoErrors(imp);
 
-        return getCatalog().getStyle(imp.getTasks().get(0).getLayer().getDefaultStyle().getId());
+        return getCatalog()
+                .getStyle(imp.getTasks().get(0).getLayer().getDefaultStyle().getId());
     }
 
     @Test
     public void testImportSpaceInNames() throws Exception {
         File dir = unpack("shape/spaceInNames.zip");
-        DataStoreInfo ds = createH2DataStore(null, "spaceInNamesContainer");
+        DataStoreInfo ds = creatGeopkgDataStore(null, "spaceInNamesContainer");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "spaceInNames.shp")), ds);
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "spaceInNames.shp")), ds);
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -1369,8 +1361,7 @@ public class ImporterDataTest extends ImporterTestSupport {
         assertEquals(ImportTask.State.COMPLETE, task.getState());
 
         SimpleFeatureSource fs =
-                (SimpleFeatureSource)
-                        cat.getFeatureTypeByName("spaceInNames").getFeatureSource(null, null);
+                (SimpleFeatureSource) cat.getFeatureTypeByName("spaceInNames").getFeatureSource(null, null);
         SimpleFeature sf = DataUtilities.first(fs.getFeatures());
         assertNotNull(sf.getAttribute("WIND_SPEED"));
         assertNotNull(sf.getAttribute("WIND_DIREC"));
@@ -1393,8 +1384,7 @@ public class ImporterDataTest extends ImporterTestSupport {
         // create a simple import and place the script in the transform chain
         File dir = unpack("shape/archsites_epsg_prj.zip");
 
-        ImportContext context =
-                importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "archsites.shp")));
         assertEquals(1, context.getTasks().size());
 
         ImportTask task = context.getTasks().get(0);
@@ -1454,10 +1444,30 @@ public class ImporterDataTest extends ImporterTestSupport {
             new PostScriptTransform("/bin/sh", Collections.emptyList());
             fail("Should have failed disallowing usage of absoute path");
         } catch (Exception e) {
-            assertThat(
-                    e.getMessage(),
-                    allOf(containsString("/bin/sh"), containsString("not " + "found")));
+            assertThat(e.getMessage(), allOf(containsString("/bin/sh"), containsString("not " + "found")));
         }
+    }
+
+    @Test
+    public void testImportMarsPoi() throws Exception {
+        File dir = unpack("shape/mars_poi.zip");
+
+        ImportContext context = importer.createContext(new SpatialFile(new File(dir, "mars_poi.shp")));
+        assertEquals(1, context.getTasks().size());
+
+        ImportTask task = context.getTasks().get(0);
+        assertEquals(ImportTask.State.READY, task.getState());
+        assertEquals("mars_poi", task.getLayer().getResource().getName());
+
+        importer.run(context);
+        assertEquals(ImportTask.State.COMPLETE, task.getState());
+
+        Catalog cat = getCatalog();
+        assertNotNull(cat.getLayerByName("mars_poi"));
+        FeatureTypeInfo ft = cat.getFeatureTypeByName("mars_poi");
+        assertEquals("IAU:49900", ft.getSRS());
+
+        runChecks("mars_poi");
     }
 
     public static boolean checkShellAvailable() {

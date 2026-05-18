@@ -6,16 +6,15 @@ package org.geoserver.featurestemplating.response;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.featurestemplating.configuration.SupportedFormat;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 
 public class GeoJSONGetComplexFeaturesResponseWFSTest extends TemplateComplexTestSupport {
 
@@ -68,16 +67,14 @@ public class GeoJSONGetComplexFeaturesResponseWFSTest extends TemplateComplexTes
 
     @Test
     public void testGeoJSONQueryWithGET() throws Exception {
-        StringBuilder sb =
-                new StringBuilder("wfs?request=GetFeature&version=2.0")
-                        .append("&TYPENAME=gsml:MappedFeature&outputFormat=")
-                        .append("application/json")
-                        .append(
-                                "&cql_filter=features.gsml:GeologicUnit.description = 'Olivine basalt'");
+        StringBuilder sb = new StringBuilder("wfs?request=GetFeature&version=2.0")
+                .append("&TYPENAME=gsml:MappedFeature&outputFormat=")
+                .append("application/json")
+                .append("&cql_filter=features.gsml:GeologicUnit.description = 'Olivine basalt'");
         sb.append(GEOJSON_MF_PARAM);
         JSONObject result = (JSONObject) getJson(sb.toString());
         JSONArray features = (JSONArray) result.get("features");
-        assertTrue(features.size() == 1);
+        assertEquals(1, features.size());
         assertEquals(((JSONObject) features.get(0)).get("@id").toString(), "mf4");
         checkMappedFeatureGeoJSON(features.getJSONObject(0));
         checkAdditionalInfo(result);
@@ -85,15 +82,14 @@ public class GeoJSONGetComplexFeaturesResponseWFSTest extends TemplateComplexTes
 
     @Test
     public void testGeoJSONQueryPointingToExpr() throws Exception {
-        StringBuilder sb =
-                new StringBuilder("wfs?request=GetFeature&version=2.0")
-                        .append("&TYPENAME=gsml:MappedFeature&outputFormat=")
-                        .append("application/json")
-                        .append("&cql_filter= features.name = 'FeatureName: MURRADUC BASALT'");
+        StringBuilder sb = new StringBuilder("wfs?request=GetFeature&version=2.0")
+                .append("&TYPENAME=gsml:MappedFeature&outputFormat=")
+                .append("application/json")
+                .append("&cql_filter= features.name = 'FeatureName: MURRADUC BASALT'");
         sb.append(GEOJSON_MF_PARAM);
         JSONObject result = (JSONObject) getJson(sb.toString());
         JSONArray features = (JSONArray) result.get("features");
-        assertTrue(features.size() == 1);
+        assertEquals(1, features.size());
         JSONObject feature = features.getJSONObject(0);
         assertEquals("FeatureName: MURRADUC BASALT", feature.getString("name"));
         checkMappedFeatureGeoJSON(feature);
@@ -102,26 +98,23 @@ public class GeoJSONGetComplexFeaturesResponseWFSTest extends TemplateComplexTes
 
     @Test
     public void testGeoJSONQueryWithPOST() throws Exception {
-        StringBuilder xml =
-                new StringBuilder("<wfs:GetFeature ")
-                        .append(" service=\"WFS\" ")
-                        .append(" outputFormat=\"application/json\" ")
-                        .append(" version=\"1.0.0\" ")
-                        .append(" xmlns:gsml=\"urn:cgi:xmlns:CGI:GeoSciML:2.0\" ")
-                        .append(" xmlns:wfs=\"http://www.opengis.net/wfs\" ")
-                        .append(" xmlns:ogc=\"http://www.opengis.net/ogc\" ")
-                        .append(">")
-                        .append(" <wfs:Query typeName=\"gsml:MappedFeature\">")
-                        .append(" <ogc:Filter><ogc:PropertyIsEqualTo> ")
-                        .append(
-                                "<ogc:PropertyName>features.gsml:GeologicUnit.description</ogc:PropertyName>")
-                        .append("<ogc:Literal>Olivine basalt</ogc:Literal>")
-                        .append("</ogc:PropertyIsEqualTo></ogc:Filter></wfs:Query>")
-                        .append("</wfs:GetFeature>");
-        JSONObject result =
-                (JSONObject) postJson("wfs?" + GEOJSON_MF_TEMPLATE + "=true", xml.toString());
+        StringBuilder xml = new StringBuilder("<wfs:GetFeature ")
+                .append(" service=\"WFS\" ")
+                .append(" outputFormat=\"application/json\" ")
+                .append(" version=\"1.0.0\" ")
+                .append(" xmlns:gsml=\"urn:cgi:xmlns:CGI:GeoSciML:2.0\" ")
+                .append(" xmlns:wfs=\"http://www.opengis.net/wfs\" ")
+                .append(" xmlns:ogc=\"http://www.opengis.net/ogc\" ")
+                .append(">")
+                .append(" <wfs:Query typeName=\"gsml:MappedFeature\">")
+                .append(" <ogc:Filter><ogc:PropertyIsEqualTo> ")
+                .append("<ogc:PropertyName>features.gsml:GeologicUnit.description</ogc:PropertyName>")
+                .append("<ogc:Literal>Olivine basalt</ogc:Literal>")
+                .append("</ogc:PropertyIsEqualTo></ogc:Filter></wfs:Query>")
+                .append("</wfs:GetFeature>");
+        JSONObject result = (JSONObject) postJson("wfs?" + GEOJSON_MF_TEMPLATE + "=true", xml.toString());
         JSONArray features = (JSONArray) result.get("features");
-        assertTrue(features.size() == 1);
+        assertEquals(1, features.size());
         assertEquals(((JSONObject) features.get(0)).get("@id").toString(), "mf4");
         checkMappedFeatureGeoJSON(features.getJSONObject(0));
         checkAdditionalInfo(result);
@@ -141,8 +134,7 @@ public class GeoJSONGetComplexFeaturesResponseWFSTest extends TemplateComplexTes
             String id = feature.getString("@id");
             JSONObject props = feature.getJSONObject("properties");
             String lithology = null;
-            if (props != null && !props.isEmpty() && !props.isNullObject())
-                lithology = props.getString("lithology");
+            if (props != null && !props.isEmpty() && !props.isNullObject()) lithology = props.getString("lithology");
             switch (id) {
                 case "mf5":
                     assertNull(lithology);

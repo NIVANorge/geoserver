@@ -8,6 +8,14 @@ package org.geoserver.test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -25,14 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.Filter;
-import javax.servlet.ReadListener;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import javax.xml.XMLConstants;
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
@@ -46,8 +46,6 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
-import net.sf.json.JSON;
-import net.sf.json.JSONSerializer;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -60,6 +58,7 @@ import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.config.GeoServerLoader;
 import org.geoserver.config.GeoServerLoaderProxy;
 import org.geoserver.data.test.TestData;
+import org.geoserver.filters.SpringDelegatingFilter;
 import org.geoserver.logging.LoggingUtils;
 import org.geoserver.ows.util.KvpUtils;
 import org.geoserver.ows.util.ResponseUtils;
@@ -68,13 +67,15 @@ import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.platform.GeoServerExtensionsHelper;
 import org.geoserver.platform.GeoServerResourceLoader;
 import org.geoserver.security.GeoServerSecurityManager;
+import org.geotools.api.data.SimpleFeatureSource;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.referencing.CRS;
 import org.geotools.util.factory.Hints;
 import org.geotools.util.logging.Log4JLoggerFactory;
 import org.geotools.util.logging.Logging;
 import org.geotools.xsd.XSD;
+import org.kordamp.json.JSON;
+import org.kordamp.json.JSONSerializer;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -96,19 +97,18 @@ import org.xml.sax.SAXParseException;
 /**
  * Base test class for GeoServer unit tests.
  *
- * <p>This test case provides a spring application context which loads the application contexts from
- * all modules on the classpath.
+ * <p>This test case provides a spring application context which loads the application contexts from all modules on the
+ * classpath.
  *
- * <p>Subclasses should provide a data directory location, that will be inserted in the mock servlet
- * context for GeoServer to pick up
+ * <p>Subclasses should provide a data directory location, that will be inserted in the mock servlet context for
+ * GeoServer to pick up
  *
  * @author Justin Deoliveira, The Open Planning Project, jdeolive@openplans.org
  * @author Andrea Aime, The Open Planning Project
  */
 public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /** Common logger for test cases */
-    protected static final Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.test");
+    protected static final Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.geoserver.test");
 
     /** Application context */
     protected static GeoServerTestApplicationContext applicationContext;
@@ -183,8 +183,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
             LOGGER.log(Level.SEVERE, "Could not configure log4j logging redirection", e);
         }
         System.setProperty(LoggingUtils.RELINQUISH_LOG4J_CONTROL, "true");
-        GeoServerResourceLoader loader =
-                new GeoServerResourceLoader(testData.getDataDirectoryRoot());
+        GeoServerResourceLoader loader = new GeoServerResourceLoader(testData.getDataDirectoryRoot());
 
         LoggingUtils.initLogging(loader, getLogConfiguration(), false, true, null);
 
@@ -209,9 +208,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
             servletContext.setMinorVersion(4);
             servletContext.setInitParameter("serviceStrategy", "PARTIAL-BUFFER2");
 
-            applicationContext =
-                    new GeoServerTestApplicationContext(
-                            getSpringContextLocations(), servletContext);
+            applicationContext = new GeoServerTestApplicationContext(getSpringContextLocations(), servletContext);
             applicationContext.setValidating(validating);
             applicationContext.setUseLegacyGeoServerLoader(useLegacyDataDirectory());
             applicationContext.refresh();
@@ -221,35 +218,32 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
             // wipes
             // out all parameters
             servletContext.setAttribute(
-                    WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE,
-                    applicationContext);
+                    WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, applicationContext);
         }
     }
 
     /**
      * Flag which controls the mock data directory setup.
      *
-     * <p>If true is returned, the legacy structure is presevered on sstartup, and no conversion to
-     * the new data directory structure happens.
+     * <p>If true is returned, the legacy structure is presevered on sstartup, and no conversion to the new data
+     * directory structure happens.
      */
     protected boolean useLegacyDataDirectory() {
         return true;
     }
 
     /**
-     * Returns the spring context locations to be used in order to build the GeoServer Spring
-     * context. Subclasses might want to provide extra locations in order to test extension points.
+     * Returns the spring context locations to be used in order to build the GeoServer Spring context. Subclasses might
+     * want to provide extra locations in order to test extension points.
      */
     protected String[] getSpringContextLocations() {
-        return new String[] {
-            "classpath*:/applicationContext.xml", "classpath*:/applicationSecurityContext.xml"
-        };
+        return new String[] {"classpath*:/applicationContext.xml", "classpath*:/applicationSecurityContext.xml"};
     }
 
     /**
-     * Returns the logging configuration profile. The default value is "TEST_LOGGING", which is a
-     * pretty quiet configuration. Should you need more verbose logging override this method in
-     * subclasses and choose a different configuration, for example "DEFAULT_LOGGING".
+     * Returns the logging configuration profile. The default value is "TEST_LOGGING", which is a pretty quiet
+     * configuration. Should you need more verbose logging override this method in subclasses and choose a different
+     * configuration, for example "DEFAULT_LOGGING".
      *
      * <p>To overide with a custom configuration copy the required into position.
      */
@@ -258,17 +252,17 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Returns a default services.xml file with WMS, WFS and WCS enabled. Subclasses may need to
-     * override this in order to test extra services or specific configurations
+     * Returns a default services.xml file with WMS, WFS and WCS enabled. Subclasses may need to override this in order
+     * to test extra services or specific configurations
      */
     protected URL getServicesFile() {
         return GeoServerAbstractTestSupport.class.getResource("services.xml");
     }
 
     /**
-     * Subclasses may override this method to force memory cleaning before the test data dir is
-     * cleaned up. This is necessary on windows if coverages are used in the test, since readers
-     * might still be around in the heap as garbage without having been disposed of
+     * Subclasses may override this method to force memory cleaning before the test data dir is cleaned up. This is
+     * necessary on windows if coverages are used in the test, since readers might still be around in the heap as
+     * garbage without having been disposed of
      */
     protected boolean isMemoryCleanRequired() {
         return false;
@@ -292,10 +286,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
 
                 // reset log4j2 to default, to drop any open files
 
-                @SuppressWarnings({
-                    "resource",
-                    "PMD.CloseResource"
-                }) // current context, no need to enforce AutoClosable
+                @SuppressWarnings({"PMD.CloseResource"}) // current context, no need to enforce AutoClosable
                 LoggerContext loggerContext = (LoggerContext) LogManager.getContext(false);
                 loggerContext.reconfigure(new DefaultConfiguration());
 
@@ -318,12 +309,10 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Reloads the catalog and configuration from disk.
      *
-     * <p>This method can be used by subclasses from a test method after they have changed the
-     * configuration on disk.
+     * <p>This method can be used by subclasses from a test method after they have changed the configuration on disk.
      */
     protected void reloadCatalogAndConfiguration() throws Exception {
-        GeoServerLoaderProxy loader =
-                GeoServerExtensions.bean(GeoServerLoaderProxy.class, applicationContext);
+        GeoServerLoaderProxy loader = GeoServerExtensions.bean(GeoServerLoaderProxy.class, applicationContext);
         loader.reload();
     }
 
@@ -393,16 +382,15 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      * @param typename the QName for the type
      */
     protected FeatureTypeInfo getFeatureTypeInfo(QName typename) {
-        return getCatalog()
-                .getFeatureTypeByName(typename.getNamespaceURI(), typename.getLocalPart());
+        return getCatalog().getFeatureTypeByName(typename.getNamespaceURI(), typename.getLocalPart());
     }
 
     /**
-     * Sets the authentication for this test run (will be removed during {@link #tearDownInternal()}
-     * ). Use a null user name to turn off authentication again.
+     * Sets the authentication for this test run (will be removed during {@link #tearDownInternal()} ). Use a null user
+     * name to turn off authentication again.
      *
-     * <p>Remember to override the getFilters() method so that Spring Security filters are enabled
-     * during testing (otherwise no authentication will take place):
+     * <p>Remember to override the getFilters() method so that Spring Security filters are enabled during testing
+     * (otherwise no authentication will take place):
      *
      * <pre>
      * protected List&lt;javax.servlet.Filter&gt; getFilters() {
@@ -455,12 +443,11 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Given a qualified layer name returns a string in the form "prefix:localPart" if prefix is
-     * available, "localPart" if prefix is null
+     * Given a qualified layer name returns a string in the form "prefix:localPart" if prefix is available, "localPart"
+     * if prefix is null
      */
     public String getLayerId(QName layerName) {
-        if (layerName.getPrefix() != null)
-            return layerName.getPrefix() + ":" + layerName.getLocalPart();
+        if (layerName.getPrefix() != null) return layerName.getPrefix() + ":" + layerName.getLocalPart();
         else return layerName.getLocalPart();
     }
 
@@ -485,13 +472,11 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         request.setScheme("http");
         request.setServerName("localhost");
         request.setContextPath("/geoserver");
-        request.setRequestURI(
-                ResponseUtils.stripQueryString(ResponseUtils.appendPath("/geoserver/", path)));
+        request.setRequestURI(ResponseUtils.stripQueryString(ResponseUtils.appendPath("/geoserver/", path)));
         // request.setRequestURL(ResponseUtils.appendPath("http://localhost/geoserver", path ) );
         request.setQueryString(ResponseUtils.getQueryString(path));
         request.setRemoteAddr("127.0.0.1");
-        request.setServletPath(
-                ResponseUtils.makePathAbsolute(ResponseUtils.stripRemainingPath(path)));
+        request.setServletPath(ResponseUtils.makePathAbsolute(ResponseUtils.stripRemainingPath(path)));
         request.setPathInfo(ResponseUtils.makePathAbsolute(ResponseUtils.stripBeginningPath(path)));
 
         // deal with authentication
@@ -500,8 +485,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
             if (password != null) {
                 token += password;
             }
-            request.addHeader(
-                    "Authorization", "Basic " + new String(Base64.encodeBase64(token.getBytes())));
+            request.addHeader("Authorization", "Basic " + new String(Base64.encodeBase64(token.getBytes())));
         }
 
         kvp(request, path);
@@ -547,8 +531,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
      * @return An input stream which is the result of the request.
      */
     protected InputStream get(String path) throws Exception {
@@ -559,8 +542,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
      * @return the mock servlet response
      */
     protected MockHttpServletResponse getAsServletResponse(String path) throws Exception {
@@ -570,13 +552,11 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
      * @param charset The character set of the response.
      * @return the mock servlet response
      */
-    protected MockHttpServletResponse getAsServletResponse(String path, String charset)
-            throws Exception {
+    protected MockHttpServletResponse getAsServletResponse(String path, String charset) throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("GET");
         request.setContent(new byte[] {});
@@ -587,8 +567,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the POST method with key value pairs form encoded.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
      * @return An input stream which is the result of the request.
      */
     protected InputStream post(String path) throws Exception {
@@ -647,13 +626,13 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         return putAsServletResponse(path, new byte[] {}, "text/plain");
     }
 
-    protected MockHttpServletResponse putAsServletResponse(
-            String path, String body, String contentType) throws Exception {
+    protected MockHttpServletResponse putAsServletResponse(String path, String body, String contentType)
+            throws Exception {
         return putAsServletResponse(path, body != null ? body.getBytes() : null, contentType);
     }
 
-    protected MockHttpServletResponse putAsServletResponse(
-            String path, byte[] body, String contentType) throws Exception {
+    protected MockHttpServletResponse putAsServletResponse(String path, byte[] body, String contentType)
+            throws Exception {
 
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("PUT");
@@ -669,8 +648,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      *
      * <p>
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @return An input stream which is the result of the request.
      */
     protected InputStream post(String path, String xml) throws Exception {
@@ -681,21 +659,18 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the POST method, with xml as body content.
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @param xml The body content.
      * @return the servlet response
      */
-    protected MockHttpServletResponse postAsServletResponse(String path, String xml)
-            throws Exception {
+    protected MockHttpServletResponse postAsServletResponse(String path, String xml) throws Exception {
 
         return postAsServletResponse(path, xml, "application/xml");
     }
 
     /**
-     * Extracts the true binary stream out of the response. The usual way (going thru {@link
-     * MockHttpServletResponse#getOutputStreamContent()}) mangles bytes if the content is not made
-     * of chars.
+     * Extracts the true binary stream out of the response. The usual way (going thru
+     * {@link MockHttpServletResponse#getOutputStreamContent()}) mangles bytes if the content is not made of chars.
      */
     protected ByteArrayInputStream getBinaryInputStream(MockHttpServletResponse response) {
         return new ByteArrayInputStream(response.getContentAsByteArray());
@@ -704,8 +679,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the POST method.
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @param body the body of the request
      * @param contentType the mimetype to set for the request
      * @return An input stream which is the result of the request.
@@ -715,8 +689,8 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         return new ByteArrayInputStream(response.getContentAsString().getBytes());
     }
 
-    protected MockHttpServletResponse postAsServletResponse(
-            String path, String body, String contentType) throws Exception {
+    protected MockHttpServletResponse postAsServletResponse(String path, String body, String contentType)
+            throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("POST");
         request.setContentType(contentType);
@@ -742,10 +716,9 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the GET method and returns the result as an xml document.
      *
-     * @param path The portion of the request after the context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
-     * @param the list of validation errors encountered during document parsing (validation will be
-     *     activated only if this list is non null)
+     * @param path The portion of the request after the context, example: 'wms?request=GetMap&version=1.1.1&..."
+     * @param the list of validation errors encountered during document parsing (validation will be activated only if
+     *     this list is non null)
      * @return A result of the request parsed into a dom.
      */
     protected Document getAsDOM(final String path) throws Exception {
@@ -771,10 +744,8 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     /**
      * Executes an ows request using the GET method and returns the result as an xml document.
      *
-     * @param path The portion of the request after the context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
-     * @param skipDTD if true, will avoid loading and validating against the response document
-     *     schema or DTD
+     * @param path The portion of the request after the context, example: 'wms?request=GetMap&version=1.1.1&..."
+     * @param skipDTD if true, will avoid loading and validating against the response document schema or DTD
      * @return A result of the request parsed into a dom.
      */
     protected Document getAsDOM(final String path, final boolean skipDTD) throws Exception {
@@ -782,13 +753,11 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Executes an ows request using the POST method with key value pairs form encoded, returning
-     * the result as a dom.
+     * Executes an ows request using the POST method with key value pairs form encoded, returning the result as a dom.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
-     * @param the list of validation errors encountered during document parsing (validation will be
-     *     activated only if this list is non null)
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
+     * @param the list of validation errors encountered during document parsing (validation will be activated only if
+     *     this list is non null)
      * @return An input stream which is the result of the request.
      */
     protected Document postAsDOM(String path) throws Exception {
@@ -796,11 +765,9 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Executes an ows request using the POST method with key value pairs form encoded, returning
-     * the result as a dom.
+     * Executes an ows request using the POST method with key value pairs form encoded, returning the result as a dom.
      *
-     * @param path The porition of the request after hte context, example:
-     *     'wms?request=GetMap&version=1.1.1&..."
+     * @param path The porition of the request after hte context, example: 'wms?request=GetMap&version=1.1.1&..."
      * @return An input stream which is the result of the request.
      */
     protected Document postAsDOM(String path, List<Exception> validationErrors) throws Exception {
@@ -812,8 +779,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      *
      * <p>
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @return An input stream which is the result of the request.
      */
     protected Document postAsDOM(String path, String xml) throws Exception {
@@ -825,12 +791,10 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      *
      * <p>
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @return An input stream which is the result of the request.
      */
-    protected Document postAsDOM(String path, String xml, List<Exception> validationErrors)
-            throws Exception {
+    protected Document postAsDOM(String path, String xml, List<Exception> validationErrors) throws Exception {
         return dom(post(path, xml));
     }
 
@@ -839,8 +803,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /** Parses a stream into a dom. */
-    protected Document dom(InputStream is)
-            throws ParserConfigurationException, SAXException, IOException {
+    protected Document dom(InputStream is) throws ParserConfigurationException, SAXException, IOException {
         return dom(is, true);
     }
 
@@ -870,8 +833,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Resolves everything to an empty xml document, useful for skipping errors due to missing dtds
-     * and the like
+     * Resolves everything to an empty xml document, useful for skipping errors due to missing dtds and the like
      *
      * @author Andrea Aime - TOPP
      */
@@ -888,39 +850,33 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         }
     }
 
-    protected void checkValidationErorrs(Document dom, String schemaLocation)
-            throws SAXException, IOException {
+    protected void checkValidationErorrs(Document dom, String schemaLocation) throws SAXException, IOException {
         final SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
         Schema schema = factory.newSchema(new File(schemaLocation));
         checkValidationErrors(dom, schema);
     }
 
-    /**
-     * Given a dom and a schema, checks that the dom validates against the schema of the validation
-     * errors instead
-     */
-    protected void checkValidationErrors(Document dom, Schema schema)
-            throws SAXException, IOException {
+    /** Given a dom and a schema, checks that the dom validates against the schema of the validation errors instead */
+    protected void checkValidationErrors(Document dom, Schema schema) throws SAXException, IOException {
         final Validator validator = schema.newValidator();
         final List<Exception> validationErrors = new ArrayList<>();
-        validator.setErrorHandler(
-                new ErrorHandler() {
+        validator.setErrorHandler(new ErrorHandler() {
 
-                    @Override
-                    public void warning(SAXParseException exception) throws SAXException {
-                        LOGGER.warning(exception.getMessage());
-                    }
+            @Override
+            public void warning(SAXParseException exception) throws SAXException {
+                LOGGER.warning(exception.getMessage());
+            }
 
-                    @Override
-                    public void fatalError(SAXParseException exception) throws SAXException {
-                        validationErrors.add(exception);
-                    }
+            @Override
+            public void fatalError(SAXParseException exception) throws SAXException {
+                validationErrors.add(exception);
+            }
 
-                    @Override
-                    public void error(SAXParseException exception) throws SAXException {
-                        validationErrors.add(exception);
-                    }
-                });
+            @Override
+            public void error(SAXParseException exception) throws SAXException {
+                validationErrors.add(exception);
+            }
+        });
         validator.validate(new DOMSource(dom));
         if (validationErrors != null && !validationErrors.isEmpty()) {
             StringBuilder sb = new StringBuilder();
@@ -937,19 +893,18 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     }
 
     /**
-     * Performs basic checks on an OWS 1.0 exception, to ensure it's well formed and ensuring that a
-     * particular exceptionCode is used.
+     * Performs basic checks on an OWS 1.0 exception, to ensure it's well formed and ensuring that a particular
+     * exceptionCode is used.
      */
     protected void checkOws10Exception(Document dom, String exceptionCode) throws Exception {
         checkOws10Exception(dom, exceptionCode, null);
     }
 
     /**
-     * Performs basic checks on an OWS 1.0 exception, to ensure it's well formed and ensuring that a
-     * particular exceptionCode is used.
+     * Performs basic checks on an OWS 1.0 exception, to ensure it's well formed and ensuring that a particular
+     * exceptionCode is used.
      */
-    protected void checkOws10Exception(Document dom, String exceptionCode, String locator)
-            throws Exception {
+    protected void checkOws10Exception(Document dom, String exceptionCode, String locator) throws Exception {
         Element root = dom.getDocumentElement();
         assertEquals("ows:ExceptionReport", root.getNodeName());
         assertEquals("1.0.0", root.getAttribute("version"));
@@ -970,8 +925,8 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         checkOws11Exception(dom, null);
     }
     /**
-     * Performs basic checks on an OWS 1.1 exception, to ensure it's well formed and ensuring that a
-     * particular exceptionCode is used.
+     * Performs basic checks on an OWS 1.1 exception, to ensure it's well formed and ensuring that a particular
+     * exceptionCode is used.
      */
     protected void checkOws11Exception(Document dom, String exceptionCode) throws Exception {
         Element root = dom.getDocumentElement();
@@ -988,10 +943,9 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
 
     /** Parses a stream into a String */
     protected String string(InputStream input) throws Exception {
-        StringBuffer sb = new StringBuffer();
-        char[] buf = new char[8192];
+        StringBuilder sb = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
-            String line = null;
+            String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line);
                 sb.append("\n");
@@ -1004,8 +958,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     protected void print(Document dom) throws Exception {
         TransformerFactory txFactory = TransformerFactory.newInstance();
         try {
-            txFactory.setAttribute(
-                    "{http://xml.apache.org/xalan}indent-number", Integer.valueOf(2));
+            txFactory.setAttribute("{http://xml.apache.org/xalan}indent-number", Integer.valueOf(2));
         } catch (Exception e) {
             // some
         }
@@ -1014,9 +967,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         tx.setOutputProperty(OutputKeys.METHOD, "xml");
         tx.setOutputProperty(OutputKeys.INDENT, "yes");
 
-        tx.transform(
-                new DOMSource(dom),
-                new StreamResult(new OutputStreamWriter(System.out, StandardCharsets.UTF_8)));
+        tx.transform(new DOMSource(dom), new StreamResult(new OutputStreamWriter(System.out, StandardCharsets.UTF_8)));
     }
 
     /** Utility method to print out the contents of an input stream. */
@@ -1035,10 +986,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         System.out.println(json.toString(2));
     }
 
-    /**
-     * Convenience method for element.getElementsByTagName() to return the first element in the
-     * resulting node list.
-     */
+    /** Convenience method for element.getElementsByTagName() to return the first element in the resulting node list. */
     protected Element getFirstElementByTagName(Element element, String name) {
         NodeList elements = element.getElementsByTagName(name);
         if (elements.getLength() > 0) {
@@ -1048,10 +996,7 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         return null;
     }
 
-    /**
-     * Convenience method for element.getElementsByTagName() to return the first element in the
-     * resulting node list.
-     */
+    /** Convenience method for element.getElementsByTagName() to return the first element in the resulting node list. */
     protected Element getFirstElementByTagName(Document dom, String name) {
         return getFirstElementByTagName(dom.getDocumentElement(), name);
     }
@@ -1063,8 +1008,8 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         Map<String, Object> params = KvpUtils.parseQueryString(path);
         for (String key : params.keySet()) {
             Object value = params.get(key);
-            if (value instanceof String) {
-                request.addParameter(key, (String) value);
+            if (value instanceof String string) {
+                request.addParameter(key, string);
             } else {
                 String[] values = (String[]) value;
                 for (String v : values) {
@@ -1078,15 +1023,13 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
         return dispatch(request, (String) null);
     }
 
-    protected MockHttpServletResponse dispatch(HttpServletRequest request, String charset)
-            throws Exception {
+    protected MockHttpServletResponse dispatch(HttpServletRequest request, String charset) throws Exception {
         MockHttpServletResponse response = null;
         if (charset == null) {
-            response =
-                    new MockHttpServletResponse() {
-                        @Override
-                        public void setCharacterEncoding(String encoding) {}
-                    };
+            response = new MockHttpServletResponse() {
+                @Override
+                public void setCharacterEncoding(String encoding) {}
+            };
         } else {
             response = new MockHttpServletResponse();
             response.setCharacterEncoding(charset);
@@ -1104,52 +1047,47 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
 
         DispatcherServlet dispatcher = new DispatcherServlet();
 
-        dispatcher.setContextConfigLocation(
-                GeoServerAbstractTestSupport.class
-                        .getResource("dispatcher-servlet.xml")
-                        .toString());
+        dispatcher.setContextConfigLocation(GeoServerAbstractTestSupport.class
+                .getResource("dispatcher-servlet.xml")
+                .toString());
         dispatcher.init(config);
 
         return dispatcher;
     }
 
-    private void dispatch(HttpServletRequest request, HttpServletResponse response)
-            throws Exception {
+    private void dispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
         final DispatcherServlet dispatcher = getDispatcher();
 
         // build a filter chain so that we can test with filters as well
-        HttpServlet servlet =
-                new HttpServlet() {
-                    @Override
-                    protected void service(HttpServletRequest request, HttpServletResponse response)
-                            throws ServletException, IOException {
-                        try {
-                            // excute the pre handler step
-                            Collection interceptors =
-                                    GeoServerExtensions.extensions(
-                                            HandlerInterceptor.class, applicationContext);
-                            for (Object value : interceptors) {
-                                HandlerInterceptor interceptor = (HandlerInterceptor) value;
-                                interceptor.preHandle(request, response, dispatcher);
-                            }
-
-                            // execute
-                            // dispatcher.handleRequest( request, response );
-                            dispatcher.service(request, response);
-
-                            // execute the post handler step
-                            for (Object o : interceptors) {
-                                HandlerInterceptor interceptor = (HandlerInterceptor) o;
-                                interceptor.postHandle(request, response, dispatcher, null);
-                            }
-                        } catch (RuntimeException | ServletException | IOException e) {
-                            throw e;
-                        } catch (Exception e) {
-                            throw (IOException)
-                                    new IOException("Failed to handle the request").initCause(e);
-                        }
+        HttpServlet servlet = new HttpServlet() {
+            @Override
+            protected void service(HttpServletRequest request, HttpServletResponse response)
+                    throws ServletException, IOException {
+                try {
+                    // excute the pre handler step
+                    Collection interceptors =
+                            GeoServerExtensions.extensions(HandlerInterceptor.class, applicationContext);
+                    for (Object value : interceptors) {
+                        HandlerInterceptor interceptor = (HandlerInterceptor) value;
+                        interceptor.preHandle(request, response, dispatcher);
                     }
-                };
+
+                    // execute
+                    // dispatcher.handleRequest( request, response );
+                    dispatcher.service(request, response);
+
+                    // execute the post handler step
+                    for (Object o : interceptors) {
+                        HandlerInterceptor interceptor = (HandlerInterceptor) o;
+                        interceptor.postHandle(request, response, dispatcher, null);
+                    }
+                } catch (RuntimeException | ServletException | IOException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw (IOException) new IOException("Failed to handle the request").initCause(e);
+                }
+            }
+        };
         List<Filter> filterList = getFilters();
         MockFilterChain chain;
         if (filterList != null) {
@@ -1173,20 +1111,25 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
     //    }
 
     /**
-     * Subclasses needed to do integration tests with servlet filters can override this method and
-     * return the list of filters to be used during mocked requests
+     * Subclasses needed to do integration tests with servlet filters can override this method and return the list of
+     * filters to be used during mocked requests. By default it returns a list with a single SpringDelegatingFilter
      */
     protected List<Filter> getFilters() {
-        return null;
+        try {
+            SpringDelegatingFilter filter = new SpringDelegatingFilter();
+            filter.init(null);
+            return List.of(filter);
+        } catch (ServletException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
      * Assert that a GET request to a path will have a particular status code for the response.
      *
      * @param code the number of the HTTP status code that is expected
-     * @param path the path to which a GET request should be made, without the protocol, server and
-     *     servlet context. For example, to make a request to "http://localhost:8080/geoserver/ows"
-     *     the path would be "ows"
+     * @param path the path to which a GET request should be made, without the protocol, server and servlet context. For
+     *     example, to make a request to "http://localhost:8080/geoserver/ows" the path would be "ows"
      * @throws Exception on test failure
      */
     protected void assertStatusCodeForGet(int code, String path) throws Exception {
@@ -1197,15 +1140,13 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      * Assert that a POST request to a path will have a particular status code for the response.
      *
      * @param code the number of the HTTP status code that is expected
-     * @param path the path to which a POST request should be made, without the protocol, server and
-     *     servlet context. For example, to make a request to "http://localhost:8080/geoserver/ows"
-     *     the path would be "ows"
+     * @param path the path to which a POST request should be made, without the protocol, server and servlet context.
+     *     For example, to make a request to "http://localhost:8080/geoserver/ows" the path would be "ows"
      * @param body the body to send with the request. May be empty, but must not be null.
      * @param type the mimetype to report for the body
      * @throws Exception on test failure
      */
-    protected void assertStatusCodeForPost(int code, String path, String body, String type)
-            throws Exception {
+    protected void assertStatusCodeForPost(int code, String path, String body, String type) throws Exception {
         assertStatusCodeForRequest(code, "POST", path, body, type);
     }
 
@@ -1213,15 +1154,13 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      * Assert that a PUT request to a path will have a particular status code for the response.
      *
      * @param code the number of the HTTP status code that is expected
-     * @param path the path to which a PUT request should be made, without the protocol, server and
-     *     servlet context. For example, to make a request to "http://localhost:8080/geoserver/ows"
-     *     the path would be "ows"
+     * @param path the path to which a PUT request should be made, without the protocol, server and servlet context. For
+     *     example, to make a request to "http://localhost:8080/geoserver/ows" the path would be "ows"
      * @param body the body to send with the request. May be empty, but must not be null.
      * @param type the mimetype to report for the body
      * @throws Exception on test failure
      */
-    protected void assertStatusCodeForPut(int code, String path, String body, String type)
-            throws Exception {
+    protected void assertStatusCodeForPut(int code, String path, String body, String type) throws Exception {
         assertStatusCodeForRequest(code, "PUT", path, body, type);
     }
 
@@ -1230,21 +1169,19 @@ public abstract class GeoServerAbstractTestSupport extends OneTimeSetupTest {
      *
      * @param code the number of the HTTP status code that is expected
      * @param method the HTTP method for the request (eg, GET, PUT)
-     * @param path the path for the request, excluding the protocol, server, port, and servlet
-     *     context. For example, to make a request to "http://localhost:8080/geoserver/ows" the path
-     *     would be "ows"
+     * @param path the path for the request, excluding the protocol, server, port, and servlet context. For example, to
+     *     make a request to "http://localhost:8080/geoserver/ows" the path would be "ows"
      * @param body the body for the request. May be empty, but must not be null.
      * @param type the mimetype for the request.
      */
-    protected void assertStatusCodeForRequest(
-            int code, String method, String path, String body, String type) throws Exception {
+    protected void assertStatusCodeForRequest(int code, String method, String path, String body, String type)
+            throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod(method);
         request.setContent(body.getBytes(StandardCharsets.UTF_8));
         request.setContentType(type);
 
-        CodeExpectingHttpServletResponse response =
-                new CodeExpectingHttpServletResponse(new MockHttpServletResponse());
+        CodeExpectingHttpServletResponse response = new CodeExpectingHttpServletResponse(new MockHttpServletResponse());
         dispatch(request, response);
         assertEquals(code, response.getErrorCode());
     }

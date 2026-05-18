@@ -14,18 +14,17 @@ import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.WMSStoreInfo;
 import org.geoserver.catalog.WorkspaceInfo;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wms.WebMapServer;
 import org.geotools.util.decorate.AbstractDecorator;
-import org.opengis.util.ProgressListener;
 
 /**
- * Delegates every method to the delegate wms store info. Subclasses will override selected methods
- * to perform their "decoration" job
+ * Delegates every method to the delegate wms store info. Subclasses will override selected methods to perform their
+ * "decoration" job
  *
  * @author Andrea Aime - GeoSolutions
  */
-public class DecoratingWMSStoreInfo extends AbstractDecorator<WMSStoreInfo>
-        implements WMSStoreInfo {
+public class DecoratingWMSStoreInfo extends AbstractDecorator<WMSStoreInfo> implements WMSStoreInfo {
 
     public DecoratingWMSStoreInfo(WMSStoreInfo delegate) {
         super(delegate);
@@ -154,6 +153,36 @@ public class DecoratingWMSStoreInfo extends AbstractDecorator<WMSStoreInfo>
     @Override
     public void setPassword(String password) {
         delegate.setPassword(password);
+    }
+
+    @Override
+    public String getHeaderName() {
+        return delegate.getHeaderName();
+    }
+
+    @Override
+    public void setHeaderName(String headerName) {
+        delegate.setHeaderName(headerName);
+    }
+
+    @Override
+    public String getHeaderValue() {
+        return delegate.getHeaderValue();
+    }
+
+    @Override
+    public void setHeaderValue(String headerValue) {
+        delegate.setHeaderValue(headerValue);
+    }
+
+    @Override
+    public String getAuthKey() {
+        return delegate.getAuthKey();
+    }
+
+    @Override
+    public void setAuthKey(String authKey) {
+        delegate.setAuthKey(authKey);
     }
 
     @Override

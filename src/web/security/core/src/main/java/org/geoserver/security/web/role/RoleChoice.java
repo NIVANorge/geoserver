@@ -45,11 +45,10 @@ public class RoleChoice extends DropDownChoice<String> {
             List<String> roleNames = new ArrayList<>();
             if (config.getId() != null) {
                 try {
-                    for (GeoServerRole role :
-                            GeoServerApplication.get()
-                                    .getSecurityManager()
-                                    .loadRoleService(config.getName())
-                                    .getRoles()) {
+                    for (GeoServerRole role : GeoServerApplication.get()
+                            .getSecurityManager()
+                            .loadRoleService(config.getName())
+                            .getRoles()) {
                         roleNames.add(role.getAuthority());
                     }
                 } catch (IOException e) {
@@ -61,9 +60,6 @@ public class RoleChoice extends DropDownChoice<String> {
             }
             return roleNames;
         }
-
-        @Override
-        public void detach() {}
 
         @Override
         public void setObject(List<String> object) {

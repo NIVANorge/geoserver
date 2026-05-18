@@ -9,9 +9,9 @@ import java.util.logging.Logger;
 import org.geoserver.platform.ExtensionPriority;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.wps.process.ProcessFilter;
+import org.geotools.api.feature.type.Name;
 import org.geotools.process.ProcessFactory;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.type.Name;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -26,9 +26,7 @@ public class SecurityProcessFilter implements ProcessFilter, ExtensionPriority {
         if (manager == null) {
             manager = GeoServerExtensions.bean(ProcessAccessManager.class);
             if (manager == null) {
-                manager =
-                        new DefaultProcessAccessManager(
-                                GeoServerExtensions.bean(WpsAccessRuleDAO.class));
+                manager = new DefaultProcessAccessManager(GeoServerExtensions.bean(WpsAccessRuleDAO.class));
             }
         }
         return new SecurityProcessFactory(pf, this);

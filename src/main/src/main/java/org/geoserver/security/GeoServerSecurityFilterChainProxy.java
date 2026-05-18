@@ -5,19 +5,19 @@
  */
 package org.geoserver.security;
 
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.security.config.SecurityManagerConfig;
 import org.geoserver.security.filter.GeoServerSecurityContextPersistenceFilter;
@@ -30,7 +30,6 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.security.web.DefaultSecurityFilterChain;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 public class GeoServerSecurityFilterChainProxy
@@ -41,11 +40,11 @@ public class GeoServerSecurityFilterChainProxy
     static ThreadLocal<HttpServletRequest> REQUEST = new ThreadLocal<>();
 
     /**
-     * Request header attribute indicating if the request was running through a Geoserver security
-     * filter chain. The default is <code>false</code>.
+     * Request header attribute indicating if the request was running through a GeoServer security filter chain. The
+     * default is <code>false</code>.
      *
-     * <p>The mandatory {@link GeoServerSecurityContextPersistenceFilter} object sets this attribute
-     * to <code>true</code>
+     * <p>The mandatory {@link GeoServerSecurityContextPersistenceFilter} object sets this attribute to <code>true
+     * </code>
      */
     public static final String SECURITY_ENABLED_ATTRIBUTE = "org.geoserver.security.enabled";
 
@@ -99,8 +98,7 @@ public class GeoServerSecurityFilterChainProxy
     */
 
     /**
-     * Returns <code>true</code> if the current {@link HttpServletRequest} has traveled through a
-     * security filter chain.
+     * Returns <code>true</code> if the current {@link HttpServletRequest} has traveled through a security filter chain.
      */
     public static boolean isSecurityEnabledForCurrentRequest() {
 
@@ -108,8 +106,7 @@ public class GeoServerSecurityFilterChainProxy
             return true;
         }
 
-        if (Boolean.TRUE.equals(REQUEST.get().getAttribute(SECURITY_ENABLED_ATTRIBUTE)))
-            return true;
+        if (Boolean.TRUE.equals(REQUEST.get().getAttribute(SECURITY_ENABLED_ATTRIBUTE))) return true;
 
         return false;
     }
@@ -153,7 +150,7 @@ public class GeoServerSecurityFilterChainProxy
     @Override
     public void afterPropertiesSet() {
         createFilterChain();
-    };
+    }
 
     void createFilterChain() {
 
@@ -163,8 +160,7 @@ public class GeoServerSecurityFilterChainProxy
         }
 
         SecurityManagerConfig config = securityManager.getSecurityConfig();
-        GeoServerSecurityFilterChain filterChain =
-                new GeoServerSecurityFilterChain(config.getFilterChain());
+        GeoServerSecurityFilterChain filterChain = new GeoServerSecurityFilterChain(config.getFilterChain());
 
         // similar to the list of authentication providers
         // adding required providers like GeoServerRootAuthenticationProvider
@@ -181,8 +177,7 @@ public class GeoServerSecurityFilterChainProxy
                 try {
                     Filter filter = lookupFilter(filterName);
                     if (filter == null) {
-                        throw new NullPointerException(
-                                "No filter named " + filterName + " could " + "be found");
+                        throw new NullPointerException("No filter named " + filterName + " could " + "be found");
                     }
                     filters.add(filter);
                 } catch (Exception ex) {
@@ -205,15 +200,13 @@ public class GeoServerSecurityFilterChainProxy
             securityManager.getAuthenticationCache().removeAll();
 
             proxy = new FilterChainProxy(filterChains);
-            proxy.setFirewall(new DefaultHttpFirewall());
+            proxy.setFirewall(new GeoServerHttpFirewall());
             proxy.afterPropertiesSet();
             chainsInitialized = true;
         }
     }
 
-    /**
-     * Creates a {@link GeoServerRequestMatcher} object for the specified {@link RequestFilterChain}
-     */
+    /** Creates a {@link GeoServerRequestMatcher} object for the specified {@link RequestFilterChain} */
     public GeoServerRequestMatcher matcherForChain(RequestFilterChain chain) {
 
         Set<HTTPMethod> methods = chain.getHttpMethods();
@@ -243,8 +236,8 @@ public class GeoServerSecurityFilterChainProxy
         if (filter == null) {
             try {
                 Object obj = GeoServerExtensions.bean(filterName, appContext);
-                if (obj != null && obj instanceof Filter) {
-                    filter = (Filter) obj;
+                if (obj != null && obj instanceof Filter filter1) {
+                    filter = filter1;
                 }
             } catch (NoSuchBeanDefinitionException ex) {
                 // do nothing
@@ -255,10 +248,13 @@ public class GeoServerSecurityFilterChainProxy
 
     @Override
     public void destroy() {
-        proxy.destroy();
-
+        if (proxy != null) {
+            proxy.destroy();
+        }
         // do some cleanup
-        securityManager.removeListener(this);
+        if (securityManager != null) {
+            securityManager.removeListener(this);
+        }
     }
 
     public List<SecurityFilterChain> getFilterChains() {

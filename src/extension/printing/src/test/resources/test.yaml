@@ -34,7 +34,7 @@ layouts:
           width: 440
           height: 483
   #===========================================================================
-  A4 portrait:
+  A4 portrait test:
   #===========================================================================
     metaData:
 #      title: '${mapTitle}'
@@ -139,8 +139,6 @@ layouts:
                 backgroundColor: #A0A0A0
               cell: !text
                 align: center
-                maxWidth: 15
-                maxHeight: 15
                 text: TEXT
         - !text
           font: Helvetica

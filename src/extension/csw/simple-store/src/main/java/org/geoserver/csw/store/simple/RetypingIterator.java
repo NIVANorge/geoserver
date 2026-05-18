@@ -11,13 +11,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.geoserver.csw.records.CSWRecordDescriptor;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.feature.ComplexFeatureBuilder;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.NameImpl;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.expression.PropertyName;
 
 /**
  * Basic attribute shaver, works properly only against {@link CSWRecordDescriptor#RECORD}
@@ -32,8 +32,7 @@ class RetypingIterator<F extends Feature> implements Iterator<F>, Closeable {
 
     ComplexFeatureBuilder builder;
 
-    public RetypingIterator(
-            FeatureIterator<F> delegate, FeatureType schema, List<PropertyName> properties) {
+    public RetypingIterator(FeatureIterator<F> delegate, FeatureType schema, List<PropertyName> properties) {
         this.delegate = delegate;
         this.builder = new ComplexFeatureBuilder(schema);
         this.names = buildNames(properties);
@@ -44,10 +43,9 @@ class RetypingIterator<F extends Feature> implements Iterator<F>, Closeable {
         for (PropertyName pn : properties) {
             String fullName = pn.getPropertyName();
             if (fullName.indexOf('@') != -1 || fullName.indexOf('/') != -1) {
-                throw new IllegalArgumentException(
-                        "Invalid property "
-                                + fullName
-                                + ", this code can only handle properties with the 'name' or 'prefix:name' structure");
+                throw new IllegalArgumentException("Invalid property "
+                        + fullName
+                        + ", this code can only handle properties with the 'name' or 'prefix:name' structure");
             }
 
             // try to split in prefix and name if possible

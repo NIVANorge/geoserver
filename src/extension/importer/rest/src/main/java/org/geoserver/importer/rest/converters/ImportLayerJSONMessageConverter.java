@@ -6,12 +6,12 @@ package org.geoserver.importer.rest.converters;
 
 import java.io.IOException;
 import java.io.InputStream;
-import net.sf.json.JSONObject;
 import org.geoserver.importer.ImportTask;
 import org.geoserver.importer.Importer;
 import org.geoserver.importer.rest.ImportLayer;
 import org.geoserver.rest.converters.BaseMessageConverter;
 import org.geoserver.rest.util.MediaTypeExtensions;
+import org.kordamp.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
@@ -51,8 +51,7 @@ public class ImportLayerJSONMessageConverter extends BaseMessageConverter<Import
     // Reading
     //
     @Override
-    protected ImportLayer readInternal(
-            Class<? extends ImportLayer> clazz, HttpInputMessage inputMessage)
+    protected ImportLayer readInternal(Class<? extends ImportLayer> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
         try (InputStream in = inputMessage.getBody()) {
             ImportJSONReader reader = new ImportJSONReader(importer);

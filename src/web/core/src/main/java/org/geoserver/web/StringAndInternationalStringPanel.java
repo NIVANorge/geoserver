@@ -4,6 +4,8 @@
  */
 package org.geoserver.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.WebMarkupContainer;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.TextField;
@@ -13,11 +15,21 @@ import org.apache.wicket.model.PropertyModel;
 import org.apache.wicket.model.StringResourceModel;
 import org.apache.wicket.validation.IValidator;
 
-/**
- * A reusable component for values that can be provided both as a TextField and as an i18n editable
- * table.
- */
+/** A reusable component for values that can be provided both as a TextField and as an i18n editable table. */
 public class StringAndInternationalStringPanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(StringAndInternationalStringPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     /**
      * Create using id to generate labelKey, stringProperty, internationalProperty.
@@ -26,15 +38,8 @@ public class StringAndInternationalStringPanel extends Panel {
      * @param model the model of the form object.
      * @param labelProvider the WebMarkupContainer being the context for labels in properties files.
      */
-    public StringAndInternationalStringPanel(
-            String id, IModel<?> model, WebMarkupContainer labelProvider) {
-        this(
-                id,
-                model,
-                id,
-                id,
-                "international" + id.substring(0, 1).toUpperCase() + id.substring(1),
-                labelProvider);
+    public StringAndInternationalStringPanel(String id, IModel<?> model, WebMarkupContainer labelProvider) {
+        this(id, model, id, id, "international" + id.substring(0, 1).toUpperCase() + id.substring(1), labelProvider);
     }
 
     /**
@@ -75,19 +80,15 @@ public class StringAndInternationalStringPanel extends Panel {
         WebMarkupContainer container = new WebMarkupContainer("labelContainer");
         add(container);
         container.add(new Label("stringLabel", new StringResourceModel(labelKey, labelProvider)));
-        TextField<String> title =
-                new TextField<>("stringField", new PropertyModel<>(model, stringProperty));
+        TextField<String> title = new TextField<>("stringField", new PropertyModel<>(model, stringProperty));
         add(title);
         if (validator != null) {
             title.add(validator);
         }
 
         InternationalStringPanel<TextField<String>> internationalStringField =
-                new InternationalStringPanel<TextField<String>>(
-                        "internationalField",
-                        new PropertyModel<>(model, internationalProperty),
-                        title,
-                        container) {
+                new InternationalStringPanel<>(
+                        "internationalField", new PropertyModel<>(model, internationalProperty), title, container) {
                     @Override
                     protected TextField<String> getTextComponent(String id, IModel<String> model) {
                         TextField<String> field = new TextField<>(id, model);

@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -29,8 +30,7 @@ import org.geotools.util.logging.Logging;
 /**
  * Utility class for File handling code. For additional utilities see IOUtils.
  *
- * <p>This utility class focuses on making file management tasks easier for ResourceStore
- * implementors.
+ * <p>This utility class focuses on making file management tasks easier for ResourceStore implementors.
  *
  * @since 2.5
  */
@@ -39,15 +39,32 @@ public final class Files {
     /**
      * Quick Resource adaptor suitable for a single file.
      *
-     * <p>This can be used to handle absolute file references that are not located in the data
-     * directory.
+     * <p>This can be used to handle absolute file references that are not located in the data directory.
      */
     static final class ResourceAdaptor implements Resource {
 
         final File file;
 
         private ResourceAdaptor(File file) {
+            valid(file.getPath());
             this.file = file.getAbsoluteFile();
+        }
+
+        /**
+         * GeoServer unit tests heavily utilize single period path components (e.g., ./something or target/./something)
+         * and Windows path separators when running on Windows so this method is a more lenient version of
+         * {@link Paths#valid(String)} that only checks for double period path components to prevent path traversal
+         * vulnerabilities.
+         *
+         * @param path the file path
+         * @return the file path
+         * @throws IllegalArgumentException If path contains '..'
+         */
+        private static String valid(String path) {
+            if (path != null && Arrays.stream(Paths.convert(path).split("/")).anyMatch(".."::equals)) {
+                throw new IllegalArgumentException("Contains invalid '..' path: " + path);
+            }
+            return path;
         }
 
         @Override
@@ -101,10 +118,7 @@ public final class Files {
                 File tryTemp;
                 do {
                     UUID uuid = UUID.randomUUID();
-                    tryTemp =
-                            new File(
-                                    file.getParentFile(),
-                                    String.format("%s.%s.tmp", file.getName(), uuid));
+                    tryTemp = new File(file.getParentFile(), "%s.%s.tmp".formatted(file.getName(), uuid));
                 } while (tryTemp.exists());
 
                 temp = tryTemp;
@@ -199,7 +213,7 @@ public final class Files {
 
         @Override
         public Resource get(String resourcePath) {
-            return new ResourceAdaptor(new File(file, resourcePath));
+            return new ResourceAdaptor(new File(file, valid(resourcePath)));
         }
 
         @Override
@@ -216,9 +230,7 @@ public final class Files {
 
         @Override
         public Type getType() {
-            return file.exists()
-                    ? (file.isDirectory() ? Type.DIRECTORY : Type.RESOURCE)
-                    : Type.UNDEFINED;
+            return file.exists() ? (file.isDirectory() ? Type.DIRECTORY : Type.RESOURCE) : Type.UNDEFINED;
         }
 
         @Override
@@ -233,10 +245,10 @@ public final class Files {
 
         @Override
         public boolean renameTo(Resource dest) {
-            if (dest instanceof FileSystemResourceStore.FileSystemResource) {
-                return file.renameTo(((FileSystemResourceStore.FileSystemResource) dest).file);
-            } else if (dest instanceof ResourceAdaptor) {
-                return file.renameTo(((ResourceAdaptor) dest).file);
+            if (dest instanceof FileSystemResourceStore.FileSystemResource resource) {
+                return file.renameTo(resource.file);
+            } else if (dest instanceof ResourceAdaptor adaptor) {
+                return file.renameTo(adaptor.file);
             } else {
                 return Resources.renameByCopy(this, dest);
             }
@@ -261,6 +273,11 @@ public final class Files {
             } else if (!file.equals(other.file)) return false;
             return true;
         }
+
+        @Override
+        public boolean isInternal() {
+            return false;
+        }
     }
 
     private static final Logger LOGGER = Logging.getLogger(Files.class);
@@ -279,9 +296,8 @@ public final class Files {
     /**
      * Used to look up Files based on user provided url (or path).
      *
-     * <p>This method is used to process a URL provided by a user: <i>given a path, tries to
-     * interpret it as a file into the data directory, or as an absolute location, and returns the
-     * actual absolute location of the file.</i>
+     * <p>This method is used to process a URL provided by a user: <i>given a path, tries to interpret it as a file into
+     * the data directory, or as an absolute location, and returns the actual absolute location of the file.</i>
      *
      * <p>Over time this url method has grown in the telling to support:
      *
@@ -289,8 +305,7 @@ public final class Files {
      *   <li>Actual URL to external resoruce using http or ftp protocol - will return null
      *   <li>Resource URL - support resources from resource store
      *   <li>File URL - will support absolute file references
-     *   <li>File URL - will support relative file references - this is deprecated, use resource:
-     *       instead
+     *   <li>File URL - will support relative file references - this is deprecated, use resource: instead
      *   <li>Fake URLs - sde://user:pass@server:port - will return null.
      *   <li>path - user supplied file path (operating specific specific)
      * </ul>
@@ -300,7 +315,9 @@ public final class Files {
      * @param baseDirectory Optional base directory used to resolve relative file URLs
      * @param url File URL or path relative to data directory
      * @return File indicated by provided URL location
+     * @deprecated use {@link Resources#fromURL(Resource, URL)}
      */
+    @Deprecated
     public static File url(File baseDirectory, String url) {
         String ss;
         if (!Objects.equals(url, ss = StringUtils.removeStart(url, "resource:"))) {
@@ -354,23 +371,12 @@ public final class Files {
     }
 
     /**
-     * Adapter allowing a File reference to be quickly used a Resource.
+     * Adapter allowing a File reference to be quickly used as a Resource.
      *
-     * <p>This is used as a placeholder when updating code to use resource, while still maintaining
-     * deprecated File methods:
+     * <p>This is used as a placeholder when updating code to use resource, while still maintaining deprecated File
+     * methods. It is also useful in writing test cases to simulate interaction with the data directory.
      *
-     * <pre><code>
-     * //deprecated
-     * public FileWatcher( File file ){
-     *    this.resource = Files.asResource( file );
-     * }
-     * //deprecated
-     * public FileWatcher( Resource resource ){
-     *    this.resource = resource;
-     * }
-     * </code></pre>
-     *
-     * Note this only an adapter for single files (not directories).
+     * <p>Note this only an adapter for single files (not directories).
      *
      * @param file File to adapt as a Resource
      * @return resource adaptor for provided file
@@ -394,8 +400,7 @@ public final class Files {
     /**
      * Safe buffered output stream to temp file, output stream close used to renmae file into place.
      *
-     * @return buffered output stream to temporary file (output stream close used to rename file
-     *     into place)
+     * @return buffered output stream to temporary file (output stream close used to rename file into place)
      */
     public static OutputStream out(final File file) throws FileNotFoundException {
         // first save to a temp file
@@ -452,10 +457,9 @@ public final class Files {
         }
 
         boolean win = System.getProperty("os.name").startsWith("Windows");
-        boolean samePath =
-                win
-                        ? source.getCanonicalPath().equalsIgnoreCase(dest.getCanonicalPath())
-                        : source.getCanonicalPath().equals(dest.getCanonicalPath());
+        boolean samePath = win
+                ? source.getCanonicalPath().equalsIgnoreCase(dest.getCanonicalPath())
+                : source.getCanonicalPath().equals(dest.getCanonicalPath());
         if (samePath) return true;
 
         // windows needs special treatment, we cannot rename onto an existing file
@@ -463,17 +467,15 @@ public final class Files {
             // windows does not do atomic renames, and can not rename a file if the dest file
             // exists
             if (!dest.delete()) {
-                throw new IOException(
-                        "Failed to move "
-                                + source.getAbsolutePath()
-                                + " - unable to remove existing: "
-                                + dest.getCanonicalPath());
+                throw new IOException("Failed to move "
+                        + source.getAbsolutePath()
+                        + " - unable to remove existing: "
+                        + dest.getCanonicalPath());
             }
         }
         // make sure the rename actually succeeds
         if (!source.renameTo(dest)) {
-            throw new IOException(
-                    "Failed to move " + source.getAbsolutePath() + " to " + dest.getAbsolutePath());
+            throw new IOException("Failed to move " + source.getAbsolutePath() + " to " + dest.getAbsolutePath());
         }
         return true;
     }
@@ -481,8 +483,8 @@ public final class Files {
     /**
      * Easy to use file delete (works for both files and directories).
      *
-     * <p>Recursively deletes the contents of the specified directory, and finally wipes out the
-     * directory itself. For each file that cannot be deleted a warning log will be issued.
+     * <p>Recursively deletes the contents of the specified directory, and finally wipes out the directory itself. For
+     * each file that cannot be deleted a warning log will be issued.
      *
      * @param file File to remove
      * @return true if any file present is removed
@@ -495,15 +497,14 @@ public final class Files {
     }
 
     /**
-     * Recursively deletes the contents of the specified directory (but not the directory itself).
-     * For each file that cannot be deleted a warning log will be issued.
+     * Recursively deletes the contents of the specified directory (but not the directory itself). For each file that
+     * cannot be deleted a warning log will be issued.
      *
-     * @returns true if all the directory contents could be deleted, false otherwise
+     * @return true if all the directory contents could be deleted, false otherwise
      */
     private static boolean emptyDirectory(File directory) {
         if (!directory.isDirectory()) {
-            throw new IllegalArgumentException(
-                    directory + " does not appear to be a directory at all...");
+            throw new IllegalArgumentException(directory + " does not appear to be a directory at all...");
         }
 
         boolean allClean = true;

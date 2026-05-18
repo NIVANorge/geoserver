@@ -2,8 +2,9 @@
   "type": "FeatureCollection",
   "features": [
     {
-      "stac_version": "$${env('stac_version', '1.0.0-rc2')}",
+      "stac_version": "$${env('stac_version', '1.0.0')}",
       "stac_extensions": [
+        "https://stac-extensions.github.io/projection/v1.0.0/schema.json",
         // skip SAR sensors
         "$filter{eop:parentIdentifier LIKE 'SENTINEL%' or eop:parentIdentifier LIKE 'LANDSAT%'},https://stac-extensions.github.io/eo/v1.0.0/schema.json",
         "https://stac-extensions.github.io/view/v1.0.0/schema.json"
@@ -36,12 +37,14 @@
         "sar:frequency_band": "$filter{eop:parentIdentifier = 'SENTINEL1'},C",
         "sar:center_frequency": "${sar:dopplerFrequency}",
         "sar:center_frequency": "${sar:dopplerFrequency}",
-        "sar:polarizations": "${sar:polarisationChannels}", // should be an array, what to do here?
+        "sar:polarizations": "${sar:polarisationChannels}",
+        // should be an array, what to do here?
         "sar:product_type": "$filter{eop:parentIdentifier = 'SENTINEL1'},GRD",
-        "sar:observation_direction" : "$${strToLowerCase(sar:antennaLookDirection)}",
+        "sar:observation_direction": "$${strToLowerCase(sar:antennaLookDirection)}",
         "sat:orbit_state": "$${strToLowerCase(eop:orbitDirection)}",
         "sat:absolute_orbit": "${eop:orbitNumber}",
-        "sat:anx_datetime": "${eop:startTimeFromAscendingNode}" // eoCompletionTimeFromAscendingNode?
+        "sat:anx_datetime": "${eop:startTimeFromAscendingNode}"
+        // eoCompletionTimeFromAscendingNode?
       },
       "collection": "${eop:parentIdentifier}",
       "assets": "${assets}",

@@ -14,7 +14,6 @@ import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -25,16 +24,29 @@ import org.custommonkey.xmlunit.SimpleNamespaceContext;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.custommonkey.xmlunit.XpathEngine;
 import org.geoserver.backuprestore.utils.BackupUtils;
-import org.geoserver.catalog.*;
+import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.CatalogBuilder;
+import org.geoserver.catalog.DataStoreInfo;
+import org.geoserver.catalog.FeatureTypeInfo;
+import org.geoserver.catalog.LayerGroupInfo;
+import org.geoserver.catalog.LayerInfo;
+import org.geoserver.catalog.StoreInfo;
+import org.geoserver.catalog.StyleInfo;
+import org.geoserver.catalog.WMSLayerInfo;
+import org.geoserver.catalog.WMSStoreInfo;
+import org.geoserver.catalog.WMTSLayerInfo;
+import org.geoserver.catalog.WMTSStoreInfo;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.data.test.CiteTestData;
 import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.test.GeoServerSystemTestSupport;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.referencing.FactoryException;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
@@ -42,8 +54,6 @@ import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
 import org.junit.Before;
 import org.locationtech.jts.io.WKTReader;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.referencing.FactoryException;
 
 /** @author Alessio Fabiani, GeoSolutions */
 public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
@@ -62,16 +72,12 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
         return dd;
     }
 
-    public static final Set<String> DEFAULT_STYLEs =
-            new HashSet<String>() {
-                {
-                    add(StyleInfo.DEFAULT_POINT);
-                    add(StyleInfo.DEFAULT_LINE);
-                    add(StyleInfo.DEFAULT_GENERIC);
-                    add(StyleInfo.DEFAULT_POLYGON);
-                    add(StyleInfo.DEFAULT_RASTER);
-                }
-            };
+    public static final Set<String> DEFAULT_STYLEs = Set.of(
+            StyleInfo.DEFAULT_POINT,
+            StyleInfo.DEFAULT_LINE,
+            StyleInfo.DEFAULT_GENERIC,
+            StyleInfo.DEFAULT_POLYGON,
+            StyleInfo.DEFAULT_RASTER);
 
     @Before
     public void beforeTest() throws InterruptedException {
@@ -160,6 +166,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
         setUpInternal(testData);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     protected void setUpInternal(SystemTestData data) throws Exception {
         root = File.createTempFile("template", "tmp", new File("target"));
         root.delete();
@@ -167,7 +174,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
 
         setupHTTPStores();
 
-        // setup an H2 datastore for the purpose of doing joins
+        // set up an H2 datastore for the purpose of doing joins
         // run all the tests against a store that can do native paging (h2) and one that
         // can't (property)
         DataStoreInfo ds = catalog.getFactory().createDataStore();
@@ -274,8 +281,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
 
         // add three joinable types with same code, but different type names
         SimpleFeatureType ft1 =
-                DataUtilities.createType(
-                        SystemTestData.CITE_URI, "t1", "g1:Point:srid=4326,code1:int,name1:String");
+                DataUtilities.createType(SystemTestData.CITE_URI, "t1", "g1:Point:srid=4326,code1:int,name1:String");
         store.createSchema(ft1);
         fs = (FeatureStore) store.getFeatureSource("t1");
         addFeature(fs, "POINT(1 1)", Integer.valueOf(1), "First");
@@ -283,8 +289,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
         catalog.add(ft);
 
         SimpleFeatureType ft2 =
-                DataUtilities.createType(
-                        SystemTestData.CITE_URI, "t2", "g2:Point:srid=4326,code2:int,name2:String");
+                DataUtilities.createType(SystemTestData.CITE_URI, "t2", "g2:Point:srid=4326,code2:int,name2:String");
         store.createSchema(ft2);
         fs = (FeatureStore) store.getFeatureSource("t2");
         addFeature(fs, "POINT(2 2)", Integer.valueOf(1), "Second");
@@ -292,8 +297,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
         catalog.add(ft);
 
         SimpleFeatureType ft3 =
-                DataUtilities.createType(
-                        SystemTestData.CITE_URI, "t3", "g3:Point:srid=4326,code3:int,name3:String");
+                DataUtilities.createType(SystemTestData.CITE_URI, "t3", "g3:Point:srid=4326,code3:int,name3:String");
         store.createSchema(ft3);
         fs = (FeatureStore) store.getFeatureSource("t3");
         addFeature(fs, "POINT(3 3)", Integer.valueOf(1), "Third");
@@ -306,8 +310,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
 
         Map pedsParams = peDatastore.getConnectionParameters();
         pedsParams.put("dbtype", "h2");
-        pedsParams.put(
-                "database", getTestData().getDataDirectoryRoot().getAbsolutePath() + "/foo_pe");
+        pedsParams.put("database", getTestData().getDataDirectoryRoot().getAbsolutePath() + "/foo_pe");
         pedsParams.put("passwd", "foo");
         catalog.add(peDatastore);
 
@@ -366,6 +369,7 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
         catalog.add(lay2);
     }
 
+    @SuppressWarnings("unchecked")
     void addFeature(FeatureStore store, String wkt, Object... atts) throws Exception {
         SimpleFeatureBuilder b = new SimpleFeatureBuilder((SimpleFeatureType) store.getSchema());
         b.add(new WKTReader().read(wkt));
@@ -408,10 +412,8 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
                 in.close();
             }
 
-            if (out != null) {
-                out.flush();
-                out.close();
-            }
+            out.flush();
+            out.close();
         }
 
         return org.geoserver.platform.resource.Files.asResource(file);
@@ -439,13 +441,14 @@ public class BackupRestoreTestSupport extends GeoServerSystemTestSupport {
                 }
             } while (root.exists() && cnt < 30);
         } catch (Exception e) {
-            LOGGER.log(
-                    Level.WARNING,
-                    "Please, ensure the temp folder have been correctly cleaned out!",
-                    e);
+            LOGGER.log(Level.WARNING, "Please, ensure the temp folder have been correctly cleaned out!", e);
         }
 
-        catalog.dispose();
+        try {
+            catalog.dispose();
+        } catch (NullPointerException e) {
+            //
+        }
     }
 
     /** @throws InterruptedException */

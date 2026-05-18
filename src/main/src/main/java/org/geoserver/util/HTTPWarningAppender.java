@@ -4,11 +4,11 @@
  */
 package org.geoserver.util;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.ows.AbstractDispatcherCallback;
 import org.geoserver.ows.Request;
 import org.geoserver.ows.Response;
@@ -18,8 +18,7 @@ import org.springframework.http.HttpHeaders;
 /** Appends warning messages in case of nearest match or default value */
 public class HTTPWarningAppender extends AbstractDispatcherCallback {
 
-    static final ThreadLocal<Set<DimensionWarning>> WARNINGS =
-            ThreadLocal.withInitial(() -> new LinkedHashSet<>());
+    static final ThreadLocal<Set<DimensionWarning>> WARNINGS = ThreadLocal.withInitial(() -> new LinkedHashSet<>());
 
     @Override
     public Request init(Request request) {
@@ -53,8 +52,7 @@ public class HTTPWarningAppender extends AbstractDispatcherCallback {
     }
 
     @Override
-    public Response responseDispatched(
-            Request request, Operation operation, Object result, Response response) {
+    public Response responseDispatched(Request request, Operation operation, Object result, Response response) {
         Set<DimensionWarning> warnings = WARNINGS.get();
         if (warnings != null && !warnings.isEmpty()) {
             HttpServletResponse httpResponse = request.getHttpResponse();

@@ -5,21 +5,31 @@
  */
 package org.geoserver.web.demo;
 
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
-import org.apache.wicket.markup.html.WebPage;
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.basic.Label;
-import org.apache.wicket.model.PropertyModel;
+import org.apache.wicket.markup.html.panel.Panel;
 
 /**
  * Shows the text in a <pre> section
  */
-public class PlainCodePage extends WebPage {
-    String code;
+public class PlainCodePage extends Panel {
 
-    public PlainCodePage(
-            final ModalWindow container, final ModalWindow responseWindow, String initialXml) {
-        this.code = initialXml;
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(PlainCodePage.class);
 
-        add(new Label("code", new PropertyModel(this, "code")));
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    public PlainCodePage(String id, String initialXml) {
+        super(id);
+        add(new Label("code", initialXml));
     }
 }

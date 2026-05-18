@@ -5,10 +5,14 @@
  */
 package org.geoserver.web.wicket.browser;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.File;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.extensions.ajax.markup.html.IndicatingAjaxFallbackLink;
 import org.apache.wicket.markup.html.basic.Label;
@@ -19,12 +23,28 @@ import org.apache.wicket.markup.html.panel.Panel;
 import org.apache.wicket.model.IModel;
 
 /**
- * A panel showing the path between the root directory and the current directory as a set of links
- * separated by "/", much like breadcrumbs in a web site.
+ * A panel showing the path between the root directory and the current directory as a set of links separated by "/",
+ * much like breadcrumbs in a web site.
  *
  * @author Andrea Aime - OpenGeo
  */
+// TODO WICKET8 - Verify this page works OK
 public abstract class FileBreadcrumbs extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(FileBreadcrumbs.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = 2821319341957784628L;
 
     IModel<File> rootFile;
@@ -33,35 +53,33 @@ public abstract class FileBreadcrumbs extends Panel {
         super(id, currentFile);
 
         this.rootFile = rootFile;
-        add(
-                new ListView<File>("path", new BreadcrumbModel(rootFile, currentFile)) {
+        add(new ListView<>("path", new BreadcrumbModel(rootFile, currentFile)) {
 
-                    private static final long serialVersionUID = -855582301247703291L;
+            @Serial
+            private static final long serialVersionUID = -855582301247703291L;
+
+            @Override
+            protected void populateItem(ListItem<File> item) {
+                File file = item.getModelObject();
+                boolean last = item.getIndex() == getList().size() - 1;
+
+                // the link to the current path item
+                Label name = new Label("pathItem", file.getName() + " /");
+                Link<File> link = new IndicatingAjaxFallbackLink<>("pathItemLink", item.getModel()) {
+
+                    @Serial
+                    private static final long serialVersionUID = 4295991386838610752L;
 
                     @Override
-                    protected void populateItem(ListItem<File> item) {
-                        File file = item.getModelObject();
-                        boolean last = item.getIndex() == getList().size() - 1;
-
-                        // the link to the current path item
-                        Label name = new Label("pathItem", file.getName() + "/");
-                        Link<File> link =
-                                new IndicatingAjaxFallbackLink<File>(
-                                        "pathItemLink", item.getModel()) {
-
-                                    private static final long serialVersionUID =
-                                            4295991386838610752L;
-
-                                    @Override
-                                    public void onClick(AjaxRequestTarget target) {
-                                        pathItemClicked(getModelObject(), target);
-                                    }
-                                };
-                        link.add(name);
-                        item.add(link);
-                        link.setEnabled(!last);
+                    public void onClick(Optional<AjaxRequestTarget> target) {
+                        pathItemClicked(getModelObject(), target);
                     }
-                });
+                };
+                link.add(name);
+                item.add(link);
+                link.setEnabled(!last);
+            }
+        });
     }
 
     public void setRootFile(File root) {
@@ -72,9 +90,10 @@ public abstract class FileBreadcrumbs extends Panel {
         setDefaultModelObject(selection);
     }
 
-    protected abstract void pathItemClicked(File file, AjaxRequestTarget target);
+    protected abstract void pathItemClicked(File file, Optional<AjaxRequestTarget> target);
 
     static class BreadcrumbModel implements IModel<List<File>> {
+        @Serial
         private static final long serialVersionUID = -3497123851146725406L;
 
         IModel<File> rootFileModel;
@@ -108,11 +127,6 @@ public abstract class FileBreadcrumbs extends Panel {
         @Override
         public void setObject(List<File> object) {
             throw new UnsupportedOperationException("This model cannot be set!");
-        }
-
-        @Override
-        public void detach() {
-            // nothing to do here
         }
     }
 }

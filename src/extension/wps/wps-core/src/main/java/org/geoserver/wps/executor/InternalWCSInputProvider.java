@@ -4,17 +4,15 @@
  */
 package org.geoserver.wps.executor;
 
-import net.opengis.wcs11.GetCoverageType;
+import java.lang.reflect.Method;
 import net.opengis.wps10.InputReferenceType;
 import net.opengis.wps10.InputType;
 import net.opengis.wps10.MethodType;
 import org.geoserver.ows.KvpRequestReader;
-import org.geoserver.wcs.WebCoverageService100;
-import org.geoserver.wcs.WebCoverageService111;
 import org.geoserver.wcs2_0.WebCoverageService20;
 import org.geoserver.wps.WPSException;
 import org.geoserver.wps.ppio.ProcessParameterIO;
-import org.opengis.util.ProgressListener;
+import org.geotools.api.util.ProgressListener;
 import org.springframework.context.ApplicationContext;
 
 /**
@@ -26,8 +24,7 @@ public class InternalWCSInputProvider extends AbstractInputProvider {
 
     private ApplicationContext context;
 
-    public InternalWCSInputProvider(
-            InputType input, ProcessParameterIO ppio, ApplicationContext context) {
+    public InternalWCSInputProvider(InputType input, ProcessParameterIO ppio, ApplicationContext context) {
         super(input, ppio);
         this.context = context;
     }
@@ -55,17 +52,19 @@ public class InternalWCSInputProvider extends AbstractInputProvider {
         }
 
         // perform GetCoverage
-        if (getCoverage instanceof GetCoverageType) {
-            WebCoverageService111 wcs =
-                    (WebCoverageService111) context.getBean("wcs111ServiceTarget");
-            return wcs.getCoverage((net.opengis.wcs11.GetCoverageType) getCoverage)[0];
-        } else if (getCoverage instanceof net.opengis.wcs10.GetCoverageType) {
-            WebCoverageService100 wcs =
-                    (WebCoverageService100) context.getBean("wcs100ServiceTarget");
-            return wcs.getCoverage((net.opengis.wcs10.GetCoverageType) getCoverage)[0];
-        } else if (getCoverage instanceof net.opengis.wcs20.GetCoverageType) {
+        if (getCoverage instanceof net.opengis.wcs11.GetCoverageType type2) {
+            Object wcs = context.getBean("wcs111ServiceTarget");
+            Method getCoverageMethod = wcs.getClass().getMethod("getCoverage", net.opengis.wcs11.GetCoverageType.class);
+            Object[] result = (Object[]) getCoverageMethod.invoke(wcs, type2);
+            return result[0];
+        } else if (getCoverage instanceof net.opengis.wcs10.GetCoverageType type1) {
+            Object wcs = context.getBean("wcs100ServiceTarget");
+            Method getCoverageMethod = wcs.getClass().getMethod("getCoverage", net.opengis.wcs10.GetCoverageType.class);
+            Object[] result = (Object[]) getCoverageMethod.invoke(wcs, type1);
+            return result[0];
+        } else if (getCoverage instanceof net.opengis.wcs20.GetCoverageType type) {
             WebCoverageService20 wcs = (WebCoverageService20) context.getBean("wcs20ServiceTarget");
-            return wcs.getCoverage((net.opengis.wcs20.GetCoverageType) getCoverage);
+            return wcs.getCoverage(type);
         } else {
             throw new WPSException("Unrecognized request type " + getCoverage);
         }

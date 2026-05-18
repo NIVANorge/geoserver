@@ -5,7 +5,10 @@
  */
 package org.geoserver.web.data.workspace;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -45,6 +48,7 @@ import org.geoserver.web.wicket.XMLNameValidator;
 /** Allows creation of a new workspace */
 public class WorkspaceNewPage extends GeoServerSecuredPage {
 
+    @Serial
     private static final long serialVersionUID = -4355978268880701910L;
 
     TextField<String> nsUriTextField;
@@ -57,65 +61,65 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
     public WorkspaceNewPage() {
         WorkspaceInfo ws = getCatalog().getFactory().createWorkspace();
         this.model = new CompoundPropertyModel<>(ws);
-        Form form = new Form("form");
+        Form form = new Form<>("form");
         List<ITab> tabs = new ArrayList<>();
 
-        tabs.add(
-                new AbstractTab(new Model<>("Basic Info")) {
+        tabs.add(new AbstractTab(new Model<>("Basic Info")) {
 
-                    private static final long serialVersionUID = 1L;
+            @Serial
+            private static final long serialVersionUID = 1L;
 
-                    @Override
-                    public WebMarkupContainer getPanel(String panelId) {
-                        try {
-                            infoPanel = new WsNewInfoPanel(panelId, model);
-                            return infoPanel;
-                        } catch (Exception e) {
-                            throw new WicketRuntimeException(e);
-                        }
-                    }
-                });
+            @Override
+            public WebMarkupContainer getPanel(String panelId) {
+                try {
+                    infoPanel = new WsNewInfoPanel(panelId, model);
+                    return infoPanel;
+                } catch (Exception e) {
+                    throw new WicketRuntimeException(e);
+                }
+            }
+        });
         if (AccessDataRuleInfoManager.canAccess()) {
-            tabs.add(
-                    new AbstractTab(new Model<>("Security")) {
+            tabs.add(new AbstractTab(new Model<>("Security")) {
 
-                        private static final long serialVersionUID = 1L;
+                @Serial
+                private static final long serialVersionUID = 1L;
 
-                        @Override
-                        public WebMarkupContainer getPanel(String panelId) {
-                            try {
-                                AccessDataRuleInfoManager manager = new AccessDataRuleInfoManager();
-                                ListModel<DataAccessRuleInfo> ownModel =
-                                        new ListModel<>(
-                                                manager.getDataAccessRuleInfo(model.getObject()));
-                                accessdataPanel = new AccessDataRulePanel(panelId, model, ownModel);
-                                return accessdataPanel;
-                            } catch (Exception e) {
-                                throw new WicketRuntimeException(e);
-                            }
-                        }
-                    });
+                @Override
+                public WebMarkupContainer getPanel(String panelId) {
+                    try {
+                        AccessDataRuleInfoManager manager = new AccessDataRuleInfoManager();
+                        ListModel<DataAccessRuleInfo> ownModel =
+                                new ListModel<>(manager.getDataAccessRuleInfo(model.getObject()));
+                        accessdataPanel = new AccessDataRulePanel(panelId, model, ownModel);
+                        return accessdataPanel;
+                    } catch (Exception e) {
+                        throw new WicketRuntimeException(e);
+                    }
+                }
+            });
         }
 
-        tabbedPanel =
-                new TabbedPanel<ITab>("tabs", tabs) {
+        tabbedPanel = new TabbedPanel<>("tabs", tabs) {
 
+            @Serial
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected WebMarkupContainer newLink(String linkId, final int index) {
+                return new SubmitLink(linkId) {
+
+                    @Serial
                     private static final long serialVersionUID = 1L;
 
                     @Override
-                    protected WebMarkupContainer newLink(String linkId, final int index) {
-                        return new SubmitLink(linkId) {
+                    public void onSubmit() {
 
-                            private static final long serialVersionUID = 1L;
-
-                            @Override
-                            public void onSubmit() {
-
-                                setSelectedTab(index);
-                            }
-                        };
+                        setSelectedTab(index);
                     }
                 };
+            }
+        };
         form.add(tabbedPanel);
 
         form.add(submitLink());
@@ -125,7 +129,8 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
     }
 
     private AjaxLink<Void> cancelLink() {
-        return new AjaxLink<Void>("cancel") {
+        return new AjaxLink<>("cancel") {
+            @Serial
             private static final long serialVersionUID = -1731475076965108576L;
 
             @Override
@@ -138,6 +143,7 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
     private SubmitLink submitLink() {
         return new SubmitLink("submit") {
 
+            @Serial
             private static final long serialVersionUID = -3462848930497720229L;
 
             @Override
@@ -147,9 +153,8 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
         };
     }
     /**
-     * Helper method that takes care of storing the user entered workspace information and
-     * associated namespace. This method makes sure that or both the workspace and namespace are
-     * successfully stored or none is stored.
+     * Helper method that takes care of storing the user entered workspace information and associated namespace. This
+     * method makes sure that or both the workspace and namespace are successfully stored or none is stored.
      */
     private void handleOnSubmit() {
         Catalog catalog = getCatalog();
@@ -181,17 +186,14 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
             if (accessdataPanel != null) accessdataPanel.save();
             doReturn(WorkspacePage.class);
         } catch (IOException e) {
-            LOGGER.log(
-                    Level.INFO,
-                    "Error saving access rules associated to workspace " + workspace.getName(),
-                    e);
+            LOGGER.log(Level.INFO, "Error saving access rules associated to workspace " + workspace.getName(), e);
             error(e.getMessage() == null ? e.toString() : e.getMessage());
         }
     }
 
     /**
-     * Executes a validation and in the case of a failure reports the found errors in the provided
-     * form, this method will log the found exception too.
+     * Executes a validation and in the case of a failure reports the found errors in the provided form, this method
+     * will log the found exception too.
      *
      * @param validation validation to be executed
      * @return TRUE if the validation was successful, otherwise false
@@ -219,9 +221,9 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
     }
 
     /**
-     * Helper method that checks in the case of an exception if both the workspace and namespace
-     * where created or removed, if it is not the case then removes the remaining one. The invoker
-     * is responsible to log the exception as needed.
+     * Helper method that checks in the case of an exception if both the workspace and namespace where created or
+     * removed, if it is not the case then removes the remaining one. The invoker is responsible to log the exception as
+     * needed.
      *
      * @param exception exception that happen
      */
@@ -243,7 +245,22 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
 
     class WsNewInfoPanel extends Panel {
 
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(WorkspaceNewPage.WsNewInfoPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
+
+        @Serial
         private static final long serialVersionUID = 4286364808180616865L;
+
         boolean defaultWs;
 
         public WsNewInfoPanel(String id, IModel<WorkspaceInfo> model) {
@@ -251,20 +268,18 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
             TextField<String> nameTextField = new TextField<>("name");
             nameTextField.setRequired(true);
             nameTextField.add(new XMLNameValidator());
-            nameTextField.add(
-                    new StringValidator() {
+            nameTextField.add(new StringValidator() {
 
-                        private static final long serialVersionUID = -5475431734680134780L;
+                @Serial
+                private static final long serialVersionUID = -5475431734680134780L;
 
-                        @Override
-                        public void validate(IValidatable<String> validatable) {
-                            if (CatalogImpl.DEFAULT.equals(validatable.getValue())) {
-                                validatable.error(
-                                        new ValidationError("defaultWsError")
-                                                .addKey("defaultWsError"));
-                            }
-                        }
-                    });
+                @Override
+                public void validate(IValidatable<String> validatable) {
+                    if (CatalogImpl.DEFAULT.equals(validatable.getValue())) {
+                        validatable.error(new ValidationError("defaultWsError").addKey("defaultWsError"));
+                    }
+                }
+            });
             add(nameTextField.setRequired(true));
 
             nsUriTextField = new TextField<>("uri", new Model<>());
@@ -277,8 +292,7 @@ public class WorkspaceNewPage extends GeoServerSecuredPage {
             add(defaultChk);
 
             // add checkbox for isolated workspaces
-            CheckBox isolatedChk =
-                    new CheckBox("isolated", new PropertyModel<>(model.getObject(), "isolated"));
+            CheckBox isolatedChk = new CheckBox("isolated", new PropertyModel<>(model.getObject(), "isolated"));
             if (!getCatalog().getCatalogCapabilities().supportsIsolatedWorkspaces()) {
                 // is isolated workspaces are not supported by the current catalog disable them
                 isolatedChk.setEnabled(false);

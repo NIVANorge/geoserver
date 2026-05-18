@@ -9,6 +9,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.geoserver.wps.WPSTestSupport;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.factory.CommonFactoryFinder;
@@ -23,8 +25,6 @@ import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.impl.CoordinateArraySequence;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.filter.FilterFactory;
 
 public class UnionFeatureCollectionTest extends WPSTestSupport {
 
@@ -32,7 +32,6 @@ public class UnionFeatureCollectionTest extends WPSTestSupport {
     GeometryFactory gf = new GeometryFactory();
 
     @Test
-    @SuppressWarnings("PMD.SimplifiableTestAssertion") // JTS geometry equality
     public void testExecute() throws Exception {
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
         tb.setName("featureType");
@@ -43,8 +42,7 @@ public class UnionFeatureCollectionTest extends WPSTestSupport {
         SimpleFeatureBuilder b = new SimpleFeatureBuilder(tb.buildFeatureType());
 
         DefaultFeatureCollection features = new DefaultFeatureCollection(null, b.getFeatureType());
-        DefaultFeatureCollection secondFeatures =
-                new DefaultFeatureCollection(null, b.getFeatureType());
+        DefaultFeatureCollection secondFeatures = new DefaultFeatureCollection(null, b.getFeatureType());
         Geometry[] firstArrayGeometry = new Geometry[5];
         Geometry[] secondArrayGeometry = new Geometry[5];
         for (int numFeatures = 0; numFeatures < 5; numFeatures++) {

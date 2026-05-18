@@ -5,8 +5,8 @@
  */
 package org.geoserver.logging;
 
+import jakarta.servlet.ServletContext;
 import java.util.List;
-import javax.servlet.ServletContext;
 import org.geoserver.config.ConfigurationListenerAdapter;
 import org.geoserver.config.GeoServer;
 import org.geoserver.config.GeoServerInitializer;
@@ -26,8 +26,7 @@ import org.springframework.web.context.WebApplicationContext;
  *
  * @author Justin Deoliveira, The Open Planning Project
  */
-public class LoggingInitializer
-        implements GeoServerInitializer, ApplicationContextAware, GeoServerLifecycleHandler {
+public class LoggingInitializer implements GeoServerInitializer, ApplicationContextAware, GeoServerLifecycleHandler {
 
     @Override
     public void onReset() {}
@@ -47,17 +46,12 @@ public class LoggingInitializer
         if (previousLogging != null && !previousLogging.equals(newLogging)) {
             // No need to re-init logging when nothing changed
             try {
-                String logLocation =
-                        LoggingUtils.getLogFileLocation(newLogging.getLocation(), servletContext);
+                // Log location only from GEOSERVER_LOG_LOCATION property (GeoServer 3.0+)
+                String logLocation = LoggingUtils.getLogFileLocation(null, servletContext);
 
                 LoggingUtils.initLogging(
-                        resourceLoader,
-                        newLogging.getLevel(),
-                        !newLogging.isStdOutLogging(),
-                        false,
-                        logLocation);
+                        resourceLoader, newLogging.getLevel(), !newLogging.isStdOutLogging(), false, logLocation);
 
-                newLogging.setLocation(logLocation);
                 listener.setCurrentLogging(newLogging);
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -71,8 +65,7 @@ public class LoggingInitializer
         private LoggingInfo currentLogging = new LoggingInfoImpl();
         private ServletContext servletContext;
 
-        public LoggingListener(
-                GeoServerResourceLoader resourceLoader, ServletContext servletContext) {
+        public LoggingListener(GeoServerResourceLoader resourceLoader, ServletContext servletContext) {
             super();
             this.resourceLoader = resourceLoader;
             this.servletContext = servletContext;
@@ -98,25 +91,17 @@ public class LoggingInitializer
 
         @Override
         public void handleLoggingChange(
-                LoggingInfo logging,
-                List<String> propertyNames,
-                List<Object> oldValues,
-                List<Object> newValues) {
+                LoggingInfo logging, List<String> propertyNames, List<Object> oldValues, List<Object> newValues) {
 
             this.currentLogging = logging;
 
             boolean reload = false;
 
             String loggingProfile = logging.getLevel();
-            String loggingLocation = logging.getLocation();
             Boolean stdOutLogging = logging.isStdOutLogging();
 
             if (propertyNames.contains("level")) {
                 loggingProfile = (String) newValues.get(propertyNames.indexOf("level"));
-                reload = true;
-            }
-            if (propertyNames.contains("location")) {
-                loggingLocation = (String) newValues.get(propertyNames.indexOf("location"));
                 reload = true;
             }
             if (propertyNames.contains("stdOutLogging")) {
@@ -124,13 +109,12 @@ public class LoggingInitializer
                 reload = true;
             }
 
-            // maintain the system variable overlay
-            loggingLocation = LoggingUtils.getLogFileLocation(loggingLocation, servletContext);
+            // Log location only from GEOSERVER_LOG_LOCATION property (GeoServer 3.0+)
+            String loggingLocation = LoggingUtils.getLogFileLocation(null, servletContext);
 
             if (reload) {
                 try {
-                    LoggingUtils.initLogging(
-                            resourceLoader, loggingProfile, !stdOutLogging, false, loggingLocation);
+                    LoggingUtils.initLogging(resourceLoader, loggingProfile, !stdOutLogging, false, loggingLocation);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -166,8 +150,8 @@ public class LoggingInitializer
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        if (applicationContext instanceof WebApplicationContext) {
-            servletContext = ((WebApplicationContext) applicationContext).getServletContext();
+        if (applicationContext instanceof WebApplicationContext context) {
+            servletContext = context.getServletContext();
         }
     }
 

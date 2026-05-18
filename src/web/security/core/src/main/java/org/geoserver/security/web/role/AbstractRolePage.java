@@ -48,23 +48,18 @@ public abstract class AbstractRolePage extends AbstractSecurityPage {
 
         StringResourceModel descriptionModel;
         if (role.getUserName() != null) {
-            descriptionModel =
-                    new StringResourceModel("personalizedRole", getPage())
-                            .setParameters(role.getUserName());
+            descriptionModel = new StringResourceModel("personalizedRole", getPage()).setParameters(role.getUserName());
         } else {
             descriptionModel = new StringResourceModel("anonymousRole", getPage());
         }
         form.add(new Label("description", descriptionModel));
 
-        form.add(
-                new TextField<>("name", new Model<>(role.getAuthority()))
-                        .setRequired(true)
-                        .setEnabled(hasRoleStore));
-        form.add(
-                new DropDownChoice<>(
-                                "parent", new ParentRoleModel(role), new ParentRolesModel(role))
-                        .setNullValid(true)
-                        .setEnabled(hasRoleStore));
+        form.add(new TextField<>("name", new Model<>(role.getAuthority()))
+                .setRequired(true)
+                .setEnabled(hasRoleStore));
+        form.add(new DropDownChoice<>("parent", new ParentRoleModel(role), new ParentRolesModel(role))
+                .setNullValid(true)
+                .setEnabled(hasRoleStore));
         form.add(new PropertyEditorFormComponent("properties").setEnabled(hasRoleStore));
 
         form.add(
@@ -78,10 +73,7 @@ public abstract class AbstractRolePage extends AbstractSecurityPage {
                             if (e.getCause() instanceof AbstractSecurityException) {
                                 error(e.getCause());
                             } else {
-                                error(
-                                        new ParamResourceModel(
-                                                        "saveError", getPage(), e.getMessage())
-                                                .getObject());
+                                error(new ParamResourceModel("saveError", getPage(), e.getMessage()).getObject());
                             }
                             LOGGER.log(Level.SEVERE, "Error occurred while saving role", e);
                         }
@@ -122,11 +114,11 @@ public abstract class AbstractRolePage extends AbstractSecurityPage {
         }
 
         List<String> computeAllowableParentRoles(GeoServerRole role) throws IOException {
-            Map<String, String> parentMappings =
-                    getRoleService(roleServiceName).getParentMappings();
+            Map<String, String> parentMappings = getRoleService(roleServiceName).getParentMappings();
             // if no parent mappings, return empty list
             if (parentMappings == null || parentMappings.isEmpty()) return Collections.emptyList();
 
+            List<String> parentRoles;
             if (role != null && StringUtils.hasLength(role.getAuthority())) {
                 // filter out roles already used as parents
                 RoleHierarchyHelper helper = new RoleHierarchyHelper(parentMappings);
@@ -134,12 +126,14 @@ public abstract class AbstractRolePage extends AbstractSecurityPage {
                 Set<String> parents = new HashSet<>(parentMappings.keySet());
                 parents.removeAll(helper.getDescendants(role.getAuthority()));
                 parents.remove(role.getAuthority());
-                return new ArrayList<>(parents);
+                parentRoles = new ArrayList<>(parents);
 
             } else {
                 // no rolename given, we are creating a new one
-                return new ArrayList<>(parentMappings.keySet());
+                parentRoles = new ArrayList<>(parentMappings.keySet());
             }
+            Collections.sort(parentRoles);
+            return parentRoles;
         }
 
         @Override
@@ -149,9 +143,6 @@ public abstract class AbstractRolePage extends AbstractSecurityPage {
 
         @Override
         public void setObject(List<String> object) {}
-
-        @Override
-        public void detach() {}
     }
 
     /** Implements the actual save action */

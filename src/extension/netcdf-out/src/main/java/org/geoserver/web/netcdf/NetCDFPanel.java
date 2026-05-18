@@ -4,6 +4,9 @@
  */
 package org.geoserver.web.netcdf;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,38 +26,50 @@ import org.apache.wicket.markup.html.list.ListView;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.model.PropertyModel;
-import org.apache.wicket.request.resource.PackageResourceReference;
 import org.apache.wicket.util.visit.IVisitor;
 import org.apache.wicket.validation.validator.RangeValidator;
 import org.geoserver.web.GeoServerApplication;
-import org.geoserver.web.GeoServerBasePage;
+import org.geoserver.web.netcdf.NetCDFSettingsContainer.BandSetting;
 import org.geoserver.web.netcdf.NetCDFSettingsContainer.ExtraVariable;
 import org.geoserver.web.netcdf.NetCDFSettingsContainer.GlobalAttribute;
 import org.geoserver.web.netcdf.NetCDFSettingsContainer.VariableAttribute;
 import org.geoserver.web.wicket.GeoServerAjaxFormLink;
-import org.geoserver.web.wicket.Icon;
+import org.geoserver.web.wicket.GsIcon;
 import org.geoserver.web.wicket.ImageAjaxLink;
 import org.geoserver.web.wicket.ParamResourceModel;
 
 public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponentPanel<T> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(NetCDFPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     /** serialVersionUID */
+    @Serial
     private static final long serialVersionUID = 1L;
 
     protected final ListView<GlobalAttribute> globalAttributes;
     protected final ListView<VariableAttribute> variableAttributes;
     protected final ListView<ExtraVariable> extraVariables;
+    protected final ListView<BandSetting> bandSettings;
     protected final CheckBox shuffle;
     protected final CheckBox copyAttributes;
     protected final CheckBox copyGlobalAttributes;
 
     protected final TextField<Integer> compressionLevel;
 
-    public static final PackageResourceReference ADD_ICON =
-            new PackageResourceReference(GeoServerBasePage.class, "img/icons/silk/add.png");
+    public static final String ADD_ICON = "gs-icon-add";
 
-    public static final PackageResourceReference DELETE_ICON =
-            new PackageResourceReference(GeoServerBasePage.class, "img/icons/silk/delete.png");
+    public static final String DELETE_ICON = "gs-icon-delete";
 
     protected final DropDownChoice<DataPacking> dataPacking;
 
@@ -67,28 +82,20 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         container = new WebMarkupContainer("container");
         container.setOutputMarkupId(true);
         add(container);
-        shuffle = new CheckBox("shuffle", new PropertyModel(netcdfModel, "shuffle"));
+        shuffle = new CheckBox("shuffle", new PropertyModel<>(netcdfModel, "shuffle"));
         container.add(shuffle);
-        copyAttributes =
-                new CheckBox("copyAttributes", new PropertyModel<>(netcdfModel, "copyAttributes"));
+        copyAttributes = new CheckBox("copyAttributes", new PropertyModel<>(netcdfModel, "copyAttributes"));
         container.add(copyAttributes);
         copyGlobalAttributes =
-                new CheckBox(
-                        "copyGlobalAttributes",
-                        new PropertyModel(netcdfModel, "copyGlobalAttributes"));
+                new CheckBox("copyGlobalAttributes", new PropertyModel<>(netcdfModel, "copyGlobalAttributes"));
         container.add(copyGlobalAttributes);
-        compressionLevel =
-                new TextField<>(
-                        "compressionLevel", new PropertyModel<>(netcdfModel, "compressionLevel"));
+        compressionLevel = new TextField<>("compressionLevel", new PropertyModel<>(netcdfModel, "compressionLevel"));
         List<DataPacking> dataPackings = Arrays.asList(DataPacking.values());
         dataPacking =
-                new DropDownChoice<>(
-                        "dataPacking",
-                        new PropertyModel<>(netcdfModel, "dataPacking"),
-                        dataPackings);
+                new DropDownChoice<>("dataPacking", new PropertyModel<>(netcdfModel, "dataPacking"), dataPackings);
         dataPacking.setOutputMarkupId(true);
         container.add(dataPacking);
-        compressionLevel.add(new RangeValidator(0, 9));
+        compressionLevel.add(new RangeValidator<>(0, 9));
         container.add(compressionLevel);
 
         ///////////////////////////////
@@ -96,43 +103,31 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         ///////////////////////////////
 
         {
-            IModel<List<GlobalAttribute>> model =
-                    new PropertyModel(netcdfModel, "globalAttributes");
-            globalAttributes =
-                    new ListView<GlobalAttribute>("globalAttributes", model) {
+            IModel<List<GlobalAttribute>> model = new PropertyModel<>(netcdfModel, "globalAttributes");
+            globalAttributes = new ListView<>("globalAttributes", model) {
+
+                @Override
+                protected void populateItem(final ListItem<GlobalAttribute> item) {
+                    Label keyField = new Label("globalAttributeKey", new PropertyModel<>(item.getModel(), "key"));
+                    item.add(keyField);
+                    Label valueField = new Label("globalAttributeValue", new PropertyModel<>(item.getModel(), "value"));
+                    item.add(valueField);
+                    Component removeLink = new ImageAjaxLink<>("removeGlobalAttributeIcon", DELETE_ICON) {
 
                         @Override
-                        protected void populateItem(final ListItem<GlobalAttribute> item) {
-                            Label keyField =
-                                    new Label(
-                                            "globalAttributeKey",
-                                            new PropertyModel<String>(item.getModel(), "key"));
-                            item.add(keyField);
-                            Label valueField =
-                                    new Label(
-                                            "globalAttributeValue",
-                                            new PropertyModel<String>(item.getModel(), "value"));
-                            item.add(valueField);
-                            Component removeLink =
-                                    new ImageAjaxLink("removeGlobalAttributeIcon", DELETE_ICON) {
-
-                                        @Override
-                                        protected void onClick(AjaxRequestTarget target) {
-                                            List<GlobalAttribute> list =
-                                                    new ArrayList<>(
-                                                            globalAttributes.getModelObject());
-                                            final GlobalAttribute attribute =
-                                                    (GlobalAttribute) getDefaultModelObject();
-                                            list.remove(attribute);
-                                            globalAttributes.setModelObject(list);
-                                            item.remove();
-                                            target.add(container);
-                                        }
-                                    };
-                            removeLink.setDefaultModel(item.getModel());
-                            item.add(removeLink);
+                        protected void onClick(AjaxRequestTarget target) {
+                            List<GlobalAttribute> list = new ArrayList<>(globalAttributes.getModelObject());
+                            final GlobalAttribute attribute = (GlobalAttribute) getDefaultModelObject();
+                            list.remove(attribute);
+                            globalAttributes.setModelObject(list);
+                            item.remove();
+                            target.add(container);
                         }
                     };
+                    removeLink.setDefaultModel(item.getModel());
+                    item.add(removeLink);
+                }
+            };
             globalAttributes.setOutputMarkupId(true);
             container.add(globalAttributes);
             TextField<String> newValue = new TextField<>("newGlobalAttributeValue", Model.of(""));
@@ -141,31 +136,29 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
             TextField<String> newKey = new TextField<>("newGlobalAttributeKey", Model.of(""));
             newKey.setOutputMarkupId(true);
             container.add(newKey);
-            GeoServerAjaxFormLink addLink =
-                    new GeoServerAjaxFormLink("addGlobalAttribute") {
+            GeoServerAjaxFormLink addLink = new GeoServerAjaxFormLink("addGlobalAttribute") {
 
-                        @Override
-                        protected void onClick(AjaxRequestTarget ajaxTarget, Form form) {
-                            newKey.processInput();
-                            newValue.processInput();
-                            String key = newKey.getModelObject();
-                            String value = newValue.getModelObject();
-                            if (key == null || key.trim().isEmpty()) {
-                                ParamResourceModel rm =
-                                        new ParamResourceModel("NetCDFOut.emptyKey", null, "");
-                                error(rm.getString());
-                            } else {
-                                GlobalAttribute attribute = new GlobalAttribute(key, value);
-                                if (!globalAttributes.getModelObject().contains(attribute)) {
-                                    globalAttributes.getModelObject().add(attribute);
-                                }
-                                newKey.setModel(Model.of(""));
-                                newValue.setModel(Model.of(""));
-                                ajaxTarget.add(container);
-                            }
+                @Override
+                protected void onClick(AjaxRequestTarget ajaxTarget, Form form) {
+                    newKey.processInput();
+                    newValue.processInput();
+                    String key = newKey.getModelObject();
+                    String value = newValue.getModelObject();
+                    if (key == null || key.trim().isEmpty()) {
+                        ParamResourceModel rm = new ParamResourceModel("NetCDFOut.emptyKey", null, "");
+                        error(rm.getString());
+                    } else {
+                        GlobalAttribute attribute = new GlobalAttribute(key, value);
+                        if (!globalAttributes.getModelObject().contains(attribute)) {
+                            globalAttributes.getModelObject().add(attribute);
                         }
-                    };
-            addLink.add(new Icon("addGlobalAttributeIcon", ADD_ICON));
+                        newKey.setModel(Model.of(""));
+                        newValue.setModel(Model.of(""));
+                        ajaxTarget.add(container);
+                    }
+                }
+            };
+            addLink.add(new GsIcon("addGlobalAttributeIcon", ADD_ICON));
             container.add(addLink);
         }
 
@@ -173,28 +166,25 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         // Variable Attributes definition
         /////////////////////////////////
 
-        IModel<List<VariableAttribute>> varAttributesModel =
-                new PropertyModel(netcdfModel, "variableAttributes");
+        IModel<List<VariableAttribute>> varAttributesModel = new PropertyModel<>(netcdfModel, "variableAttributes");
         variableAttributes = new VariableAttributeListView(varAttributesModel);
         variableAttributes.setOutputMarkupId(true);
         container.add(variableAttributes);
-        final TextField<String> newValue =
-                new TextField<>("newVariableAttributeValue", Model.of(""));
+        final TextField<String> newValue = new TextField<>("newVariableAttributeValue", Model.of(""));
         newValue.setOutputMarkupId(true);
         container.add(newValue);
         final TextField<String> newKey = new TextField<>("newVariableAttributeKey", Model.of(""));
         newKey.setOutputMarkupId(true);
         container.add(newKey);
         GeoServerAjaxFormLink addVariableLink = new AddVariableLink(newKey, newValue);
-        addVariableLink.add(new Icon("addVariableAttributeIcon", ADD_ICON));
+        addVariableLink.add(new GsIcon("addVariableAttributeIcon", ADD_ICON));
         container.add(addVariableLink);
 
         /////////////////////////////
         // Extra Variables definition
         /////////////////////////////
 
-        IModel<List<ExtraVariable>> extraVarModel =
-                new PropertyModel(netcdfModel, "extraVariables");
+        IModel<List<ExtraVariable>> extraVarModel = new PropertyModel<>(netcdfModel, "extraVariables");
         extraVariables = new ExtraVariableListView(extraVarModel);
         extraVariables.setOutputMarkupId(true);
         container.add(extraVariables);
@@ -204,14 +194,34 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         TextField<String> newOutput = new TextField<>("newExtraVariableOutput", Model.of(""));
         newOutput.setOutputMarkupId(true);
         container.add(newOutput);
-        TextField<String> newDimensions =
-                new TextField<>("newExtraVariableDimensions", Model.of(""));
+        TextField<String> newDimensions = new TextField<>("newExtraVariableDimensions", Model.of(""));
         newDimensions.setOutputMarkupId(true);
         container.add(newDimensions);
-        GeoServerAjaxFormLink addExtraVariableLink =
-                new AddExtraVariableLink(newSource, newOutput, newDimensions);
-        addExtraVariableLink.add(new Icon("addExtraVariableIcon", ADD_ICON));
+        GeoServerAjaxFormLink addExtraVariableLink = new AddExtraVariableLink(newSource, newOutput, newDimensions);
+        addExtraVariableLink.add(new GsIcon("addExtraVariableIcon", ADD_ICON));
         container.add(addExtraVariableLink);
+
+        ////////////////////////////////
+        // Per-band Settings definition
+        ////////////////////////////////
+        // One entry per source band — overrides the auto-derived output variable name and unit when the source
+        // coverage has multiple sample dimensions (typically a COVERAGE_VIEW with BAND_SELECT). Per-band
+        // variable attributes are NOT exposed in this UI yet — set them via the REST API or via the catalog
+        // XML; the container-level Variable Attributes list (above) applies to every output variable.
+
+        IModel<List<BandSetting>> bandSettingsModel = new PropertyModel<>(netcdfModel, "bandSettings");
+        bandSettings = new BandSettingListView(bandSettingsModel);
+        bandSettings.setOutputMarkupId(true);
+        container.add(bandSettings);
+        TextField<String> newBandName = new TextField<>("newBandSettingName", Model.of(""));
+        newBandName.setOutputMarkupId(true);
+        container.add(newBandName);
+        TextField<String> newBandUom = new TextField<>("newBandSettingUom", Model.of(""));
+        newBandUom.setOutputMarkupId(true);
+        container.add(newBandUom);
+        GeoServerAjaxFormLink addBandSettingLink = new AddBandSettingLink(newBandName, newBandUom);
+        addBandSettingLink.add(new GsIcon("addBandSettingIcon", ADD_ICON));
+        container.add(addBandSettingLink);
 
         ///////////////////////////
         // End of definition blocks
@@ -230,16 +240,15 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
 
     @Override
     public void convertInput() {
-        IVisitor<Component, Object> formComponentVisitor =
-                (component, visit) -> {
-                    if (component instanceof FormComponent) {
-                        FormComponent<?> formComponent = (FormComponent<?>) component;
-                        formComponent.processInput();
-                    }
-                };
+        IVisitor<Component, Object> formComponentVisitor = (component, visit) -> {
+            if (component instanceof FormComponent<?> formComponent) {
+                formComponent.processInput();
+            }
+        };
         globalAttributes.visitChildren(formComponentVisitor);
         variableAttributes.visitChildren(formComponentVisitor);
         extraVariables.visitChildren(formComponentVisitor);
+        bandSettings.visitChildren(formComponentVisitor);
         compressionLevel.processInput();
         dataPacking.processInput();
         shuffle.processInput();
@@ -250,18 +259,17 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         convertedInput.setGlobalAttributes(globalAttributes.getModelObject());
         convertedInput.setVariableAttributes(variableAttributes.getModelObject());
         convertedInput.setExtraVariables(extraVariables.getModelObject());
+        convertedInput.setBandSettings(bandSettings.getModelObject());
         convertedInput.setDataPacking(dataPacking.getModelObject());
         convertedInput.setShuffle(shuffle.getModelObject());
         convertedInput.setCopyAttributes(copyAttributes.getModelObject());
         convertedInput.setCopyGlobalAttributes(copyGlobalAttributes.getModelObject());
 
-        extensionPanels.visitChildren(
-                (component, visit) -> {
-                    if (component instanceof NetCDFExtensionPanel) {
-                        NetCDFExtensionPanel extension = (NetCDFExtensionPanel) component;
-                        extension.convertInput(convertedInput);
-                    }
-                });
+        extensionPanels.visitChildren((component, visit) -> {
+            if (component instanceof NetCDFExtensionPanel extension) {
+                extension.convertInput(convertedInput);
+            }
+        });
 
         setConvertedInputGenerics(convertedInput);
     }
@@ -271,20 +279,18 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         setConvertedInput((T) convertedInput);
     }
 
-    protected ListView<NetCDFExtensionPanelInfo> createExtensionPanelList(
-            String id, final IModel infoModel) {
+    protected ListView<NetCDFExtensionPanelInfo> createExtensionPanelList(String id, final IModel infoModel) {
         List<NetCDFExtensionPanelInfo> panels =
                 GeoServerApplication.get().getBeansOfType(NetCDFExtensionPanelInfo.class);
-        return new ListView<NetCDFExtensionPanelInfo>(id, panels) {
+        return new ListView<>(id, panels) {
 
             @Override
             protected void populateItem(ListItem<NetCDFExtensionPanelInfo> item) {
                 NetCDFExtensionPanelInfo info = item.getModelObject();
                 try {
-                    NetCDFExtensionPanel panel =
-                            info.getComponentClass()
-                                    .getConstructor(String.class, IModel.class, NetCDFPanel.class)
-                                    .newInstance("content", infoModel, NetCDFPanel.this);
+                    NetCDFExtensionPanel panel = info.getComponentClass()
+                            .getConstructor(String.class, IModel.class, NetCDFPanel.class)
+                            .newInstance("content", infoModel, NetCDFPanel.this);
                     item.add(panel);
                 } catch (Exception e) {
                     throw new WicketRuntimeException(
@@ -305,29 +311,22 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
 
         @Override
         protected void populateItem(final ListItem<VariableAttribute> item) {
-            Label keyField =
-                    new Label("variableAttributeKey", new PropertyModel<>(item.getModel(), "key"));
+            Label keyField = new Label("variableAttributeKey", new PropertyModel<>(item.getModel(), "key"));
             item.add(keyField);
-            Label valueField =
-                    new Label(
-                            "variableAttributeValue",
-                            new PropertyModel<>(item.getModel(), "value"));
+            Label valueField = new Label("variableAttributeValue", new PropertyModel<>(item.getModel(), "value"));
             item.add(valueField);
-            Component removeLink =
-                    new ImageAjaxLink("removeVariableAttributeIcon", DELETE_ICON) {
+            Component removeLink = new ImageAjaxLink("removeVariableAttributeIcon", DELETE_ICON) {
 
-                        @Override
-                        protected void onClick(AjaxRequestTarget target) {
-                            List<VariableAttribute> list =
-                                    new ArrayList<>(variableAttributes.getModelObject());
-                            VariableAttribute attribute =
-                                    (VariableAttribute) getDefaultModelObject();
-                            list.remove(attribute);
-                            variableAttributes.setModelObject(list);
-                            item.remove();
-                            target.add(container);
-                        }
-                    };
+                @Override
+                protected void onClick(AjaxRequestTarget target) {
+                    List<VariableAttribute> list = new ArrayList<>(variableAttributes.getModelObject());
+                    VariableAttribute attribute = (VariableAttribute) getDefaultModelObject();
+                    list.remove(attribute);
+                    variableAttributes.setModelObject(list);
+                    item.remove();
+                    target.add(container);
+                }
+            };
             removeLink.setDefaultModel(item.getModel());
             item.add(removeLink);
         }
@@ -341,30 +340,21 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
 
         @Override
         protected void populateItem(final ListItem<ExtraVariable> item) {
-            item.add(
-                    new Label(
-                            "extraVariableSource", new PropertyModel<>(item.getModel(), "source")));
-            item.add(
-                    new Label(
-                            "extraVariableOutput", new PropertyModel<>(item.getModel(), "output")));
-            item.add(
-                    new Label(
-                            "extraVariableDimensions",
-                            new PropertyModel<>(item.getModel(), "dimensions")));
-            Component removeLink =
-                    new ImageAjaxLink("removeExtraVariableIcon", DELETE_ICON) {
+            item.add(new Label("extraVariableSource", new PropertyModel<>(item.getModel(), "source")));
+            item.add(new Label("extraVariableOutput", new PropertyModel<>(item.getModel(), "output")));
+            item.add(new Label("extraVariableDimensions", new PropertyModel<>(item.getModel(), "dimensions")));
+            Component removeLink = new ImageAjaxLink("removeExtraVariableIcon", DELETE_ICON) {
 
-                        @Override
-                        protected void onClick(AjaxRequestTarget target) {
-                            List<ExtraVariable> list =
-                                    new ArrayList<>(extraVariables.getModelObject());
-                            final ExtraVariable attribute = (ExtraVariable) getDefaultModelObject();
-                            list.remove(attribute);
-                            extraVariables.setModelObject(list);
-                            item.remove();
-                            target.add(container);
-                        }
-                    };
+                @Override
+                protected void onClick(AjaxRequestTarget target) {
+                    List<ExtraVariable> list = new ArrayList<>(extraVariables.getModelObject());
+                    final ExtraVariable attribute = (ExtraVariable) getDefaultModelObject();
+                    list.remove(attribute);
+                    extraVariables.setModelObject(list);
+                    item.remove();
+                    target.add(container);
+                }
+            };
             removeLink.setDefaultModel(item.getModel());
             item.add(removeLink);
         }
@@ -402,6 +392,66 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         }
     }
 
+    private class BandSettingListView extends ListView<BandSetting> {
+
+        public BandSettingListView(IModel<List<BandSetting>> bandSettingsModel) {
+            super("bandSettings", bandSettingsModel);
+        }
+
+        @Override
+        protected void populateItem(final ListItem<BandSetting> item) {
+            item.add(new Label("bandSettingName", new PropertyModel<>(item.getModel(), "name")));
+            item.add(new Label("bandSettingUom", new PropertyModel<>(item.getModel(), "uom")));
+            Component removeLink = new ImageAjaxLink("removeBandSettingIcon", DELETE_ICON) {
+
+                @Override
+                protected void onClick(AjaxRequestTarget target) {
+                    List<BandSetting> list = new ArrayList<>(bandSettings.getModelObject());
+                    BandSetting setting = (BandSetting) getDefaultModelObject();
+                    list.remove(setting);
+                    bandSettings.setModelObject(list);
+                    item.remove();
+                    target.add(container);
+                }
+            };
+            removeLink.setDefaultModel(item.getModel());
+            item.add(removeLink);
+        }
+    }
+
+    private class AddBandSettingLink extends GeoServerAjaxFormLink {
+
+        private final TextField<String> newName;
+        private final TextField<String> newUom;
+
+        public AddBandSettingLink(TextField<String> newName, TextField<String> newUom) {
+            super("addBandSetting");
+            this.newName = newName;
+            this.newUom = newUom;
+        }
+
+        @Override
+        protected void onClick(AjaxRequestTarget ajaxTarget, Form form) {
+            newName.processInput();
+            newUom.processInput();
+            String name = newName.getModelObject();
+            String uom = newUom.getModelObject();
+            if ((name == null || name.trim().isEmpty())
+                    && (uom == null || uom.trim().isEmpty())) {
+                ParamResourceModel rm = new ParamResourceModel("NetCDFOut.emptyBandSetting", null, "");
+                error(rm.getString());
+            } else {
+                // Per-band variableAttributes are not editable through this UI yet — pass null and let users
+                // configure them via REST or the catalog XML. The container-level variableAttributes list
+                // already covers the common case of an attribute applied to every output variable.
+                bandSettings.getModelObject().add(new BandSetting(name, uom, null));
+                newName.setModel(Model.of(""));
+                newUom.setModel(Model.of(""));
+                ajaxTarget.add(container);
+            }
+        }
+    }
+
     private class AddExtraVariableLink extends GeoServerAjaxFormLink {
 
         private final TextField<String> newSource;
@@ -409,9 +459,7 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
         private final TextField<String> newDimensions;
 
         public AddExtraVariableLink(
-                TextField<String> newSource,
-                TextField<String> newOutput,
-                TextField<String> newDimensions) {
+                TextField<String> newSource, TextField<String> newOutput, TextField<String> newDimensions) {
             super("addExtraVariable");
             this.newSource = newSource;
             this.newOutput = newOutput;
@@ -428,12 +476,10 @@ public class NetCDFPanel<T extends NetCDFSettingsContainer> extends FormComponen
             String dimensions = newDimensions.getModelObject();
             if ((source == null || source.trim().isEmpty())
                     && (output == null || output.trim().isEmpty())) {
-                ParamResourceModel rm =
-                        new ParamResourceModel("NetCDFOut.emptySourceOutput", null, "");
+                ParamResourceModel rm = new ParamResourceModel("NetCDFOut.emptySourceOutput", null, "");
                 error(rm.getString());
             } else if (dimensions != null && dimensions.split("\\s").length > 1) {
-                ParamResourceModel rm =
-                        new ParamResourceModel("NetCDFOut.tooManyDimensions", null, "");
+                ParamResourceModel rm = new ParamResourceModel("NetCDFOut.tooManyDimensions", null, "");
                 error(rm.getString());
             } else {
                 extraVariables.getModelObject().add(new ExtraVariable(source, output, dimensions));

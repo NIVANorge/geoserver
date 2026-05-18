@@ -6,6 +6,7 @@
 
 package org.geoserver.security.jdbc;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -13,7 +14,6 @@ import java.sql.SQLException;
 import java.sql.SQLInvalidAuthorizationSpecException;
 import java.util.HashSet;
 import java.util.Set;
-import javax.servlet.http.HttpServletRequest;
 import org.geoserver.security.GeoServerAuthenticationProvider;
 import org.geoserver.security.GeoServerUserGroupService;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
@@ -45,24 +45,24 @@ public class JDBCConnectAuthProvider extends GeoServerAuthenticationProvider {
         return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
     }
 
+    @SuppressWarnings({"PMD.EmptyControlStatement", "PMD.UnusedLocalVariable"})
     @Override
     public Authentication authenticate(Authentication authentication, HttpServletRequest request)
             throws AuthenticationException {
 
-        UsernamePasswordAuthenticationToken token =
-                (UsernamePasswordAuthenticationToken) authentication;
+        UsernamePasswordAuthenticationToken token = (UsernamePasswordAuthenticationToken) authentication;
 
         // check for valid user name
         if (token.getPrincipal() == null || token.getPrincipal().toString().isEmpty()) return null;
         String user = token.getPrincipal().toString();
-        String password = token.getCredentials() == null ? "" : token.getCredentials().toString();
+        String password =
+                token.getCredentials() == null ? "" : token.getCredentials().toString();
 
         UserDetails details = null;
 
         if (userGroupServiceName != null) {
             try {
-                GeoServerUserGroupService service =
-                        getSecurityManager().loadUserGroupService(userGroupServiceName);
+                GeoServerUserGroupService service = getSecurityManager().loadUserGroupService(userGroupServiceName);
                 details = service.loadUserByUsername(user);
                 if (details.isEnabled() == false) {
                     log(new DisabledException("User " + user + " is disabled"));

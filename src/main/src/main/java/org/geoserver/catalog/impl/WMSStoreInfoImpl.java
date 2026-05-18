@@ -9,8 +9,9 @@ import java.io.IOException;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.WMSStoreInfo;
+import org.geoserver.config.util.patch.PatchProperty;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.ows.wms.WebMapServer;
-import org.opengis.util.ProgressListener;
 
 @SuppressWarnings("serial")
 public class WMSStoreInfoImpl extends StoreInfoImpl implements WMSStoreInfo {
@@ -22,8 +23,14 @@ public class WMSStoreInfoImpl extends StoreInfoImpl implements WMSStoreInfo {
     public static final int DEFAULT_READ_TIMEOUT = 60;
 
     String capabilitiesURL;
+
+    @PatchProperty("username")
     private String user;
+
     private String password;
+    private String headerName;
+    private String headerValue;
+    private String authKey;
     private int maxConnections;
     private int readTimeout;
     private int connectTimeout;
@@ -92,6 +99,36 @@ public class WMSStoreInfoImpl extends StoreInfoImpl implements WMSStoreInfo {
     @Override
     public void setConnectTimeout(int timeoutSeconds) {
         this.connectTimeout = timeoutSeconds;
+    }
+
+    @Override
+    public String getHeaderName() {
+        return headerName;
+    }
+
+    @Override
+    public void setHeaderName(String headerName) {
+        this.headerName = headerName;
+    }
+
+    @Override
+    public String getHeaderValue() {
+        return headerValue;
+    }
+
+    @Override
+    public void setHeaderValue(String headerValue) {
+        this.headerValue = headerValue;
+    }
+
+    @Override
+    public String getAuthKey() {
+        return authKey;
+    }
+
+    @Override
+    public void setAuthKey(String authKey) {
+        this.authKey = authKey;
     }
 
     @Override

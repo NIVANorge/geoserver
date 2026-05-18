@@ -16,11 +16,11 @@ import org.geoserver.catalog.Styles;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.util.EntityResolverProvider;
+import org.geotools.api.style.Description;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.UserLayer;
 import org.geotools.styling.DefaultResourceLocator;
-import org.geotools.styling.Description;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.UserLayer;
 
 /** Helper class to work with style and their contents */
 class StyleWorker {
@@ -28,8 +28,7 @@ class StyleWorker {
     private final GeoServerDataDirectory dataDirectory;
     private final EntityResolverProvider resolverProvider;
 
-    public StyleWorker(
-            GeoServerDataDirectory dataDirectory, EntityResolverProvider resolverProvider) {
+    public StyleWorker(GeoServerDataDirectory dataDirectory, EntityResolverProvider resolverProvider) {
         this.dataDirectory = dataDirectory;
         this.resolverProvider = resolverProvider;
     }
@@ -41,8 +40,7 @@ class StyleWorker {
         StyleHandler handler = Styles.handler(format);
         File file = styleResource.file();
         DefaultResourceLocator mockLocator = new DefaultResourceLocator();
-        return handler.parse(
-                file, style.getFormatVersion(), mockLocator, resolverProvider.getEntityResolver());
+        return handler.parse(file, style.getFormatVersion(), mockLocator, resolverProvider.getEntityResolver());
     }
 
     public String getStyleBody(StyleInfo style) throws IOException {
@@ -100,11 +98,7 @@ class StyleWorker {
         return Optional.ofNullable(sld.getStyledLayers())
                 .filter(layers -> layers.length > 0)
                 .map(layers -> layers[0])
-                .map(
-                        l ->
-                                l instanceof UserLayer
-                                        ? ((UserLayer) l).getUserStyles()
-                                        : ((NamedLayer) l).getStyles())
+                .map(l -> l instanceof UserLayer ul ? ul.getUserStyles() : ((NamedLayer) l).getStyles())
                 .filter(styles -> styles != null && styles.length > 0)
                 .map(styles -> styles[0])
                 .map(s -> s.getDescription());

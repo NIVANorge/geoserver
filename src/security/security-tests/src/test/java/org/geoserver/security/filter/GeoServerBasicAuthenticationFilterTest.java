@@ -35,19 +35,16 @@ public class GeoServerBasicAuthenticationFilterTest {
     @Before
     public void setUp() throws Exception {
         authenticationFilter = createAuthenticationFilter();
-        StringBuffer buff = new StringBuffer(PASSWORD);
-        buff.append(":");
-        buff.append(authenticationFilter.getName());
+        String buff = PASSWORD + ":" + authenticationFilter.getName();
         MessageDigest digest = MessageDigest.getInstance("MD5");
-        String digestString =
-                new String(Hex.encode(digest.digest(buff.toString().getBytes(UTF_8))));
+        String digestString = String.valueOf(Hex.encode(digest.digest(buff.getBytes(UTF_8))));
         expected = USERNAME + digestString;
     }
 
     @Test
     public void testMultiThreadGetCacheKey() throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(NTHREADS);
         List<Future<Boolean>> list = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(NTHREADS);
         for (int i = 0; i < 600; i++) {
             Callable<Boolean> worker = new AuthenticationCallable(authenticationFilter);
             Future<Boolean> submit = executor.submit(worker);
@@ -64,9 +61,8 @@ public class GeoServerBasicAuthenticationFilterTest {
     }
 
     private GeoServerBasicAuthenticationFilter createAuthenticationFilter() {
-        GeoServerBasicAuthenticationFilter authenticationFilter =
-                new GeoServerBasicAuthenticationFilter();
-        GeoServerSecurityManager sm = null;
+        GeoServerBasicAuthenticationFilter authenticationFilter = new GeoServerBasicAuthenticationFilter();
+        GeoServerSecurityManager sm;
         try {
             sm = new GeoServerSecurityManager(new GeoServerDataDirectory(new File("target")));
             authenticationFilter.setSecurityManager(sm);
@@ -80,15 +76,13 @@ public class GeoServerBasicAuthenticationFilterTest {
 
     @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
     private MockHttpServletRequest createRequest() {
-        MockHttpServletRequest request =
-                new GeoServerAbstractTestSupport.GeoServerMockHttpServletRequest();
+        MockHttpServletRequest request = new GeoServerAbstractTestSupport.GeoServerMockHttpServletRequest();
         request.setScheme("http");
         request.setServerName("localhost");
         request.setContextPath("/geoserver");
         request.setRemoteAddr("127.0.0.1");
         String token = "admin:" + PASSWORD;
-        request.addHeader(
-                "Authorization", "Basic " + new String(Base64.encodeBase64(token.getBytes())));
+        request.addHeader("Authorization", "Basic " + new String(Base64.encodeBase64(token.getBytes())));
         return request;
     }
 

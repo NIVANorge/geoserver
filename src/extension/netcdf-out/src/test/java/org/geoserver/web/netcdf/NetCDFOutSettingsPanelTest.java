@@ -35,9 +35,7 @@ public class NetCDFOutSettingsPanelTest extends GeoServerWicketTestSupport {
         // Ensure the element is in the map
         assertNotNull(container);
         // Ensure the panel is present
-        NetCDFPanel panel =
-                (NetCDFPanel)
-                        tester.getComponentFromLastRenderedPage("form:extensions:0:content:panel");
+        NetCDFPanel panel = (NetCDFPanel) tester.getComponentFromLastRenderedPage("form:extensions:0:content:panel");
         assertNotNull(panel);
         // Check that the values are the same
         NetCDFSettingsContainer container2 = (NetCDFSettingsContainer) panel.getModelObject();
@@ -60,5 +58,10 @@ public class NetCDFOutSettingsPanelTest extends GeoServerWicketTestSupport {
         assertNotNull(container.getExtraVariables());
         assertNotNull(container2.getExtraVariables());
         assertEquals(container.getExtraVariables(), container2.getExtraVariables());
+
+        // bandSettings round-trip: the per-band settings list is part of the global container's contract too.
+        assertNotNull(container.getBandSettings());
+        assertNotNull(container2.getBandSettings());
+        assertEquals(container.getBandSettings(), container2.getBandSettings());
     }
 }

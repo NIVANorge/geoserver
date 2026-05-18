@@ -6,8 +6,6 @@ import static org.junit.Assert.assertNotNull;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.data.test.SystemTestData;
@@ -15,6 +13,8 @@ import org.geoserver.featurestemplating.configuration.SupportedFormat;
 import org.geoserver.test.AbstractAppSchemaMockData;
 import org.geoserver.test.FeatureChainingMockData;
 import org.junit.Test;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.w3c.dom.Document;
 
 public class ManagedComplexFeaturesResponseTest extends TemplateComplexTestSupport {
@@ -77,17 +77,10 @@ public class ManagedComplexFeaturesResponseTest extends TemplateComplexTestSuppo
         assertXpathCount(4, "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit", doc);
 
         assertXpathCount(
-                4,
-                "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gml:description/@xlink:href",
-                doc);
+                4, "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gml:description/@xlink:href", doc);
+        assertXpathCount(4, "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gsml:staticContent", doc);
         assertXpathCount(
-                4,
-                "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gsml:staticContent",
-                doc);
-        assertXpathCount(
-                4,
-                "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gsml:staticContent/@xlink:title",
-                doc);
+                4, "//gsml:MappedFeature/gsml:specification/gsml:GeologicUnit/gsml:staticContent/@xlink:title", doc);
 
         // filter on array element lithology
         assertXpathCount(2, "//gsml:lithology", doc);

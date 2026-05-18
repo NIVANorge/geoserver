@@ -18,7 +18,7 @@ import org.geoserver.ogcapi.APIRequestInfo;
 import org.geoserver.ogcapi.AbstractDocument;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.ows.util.ResponseUtils;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
 import org.geotools.dggs.gstore.DGGSStore;
 import org.geotools.feature.visitor.MinVisitor;
 import org.geotools.geometry.jts.ReferencedEnvelope;
@@ -36,13 +36,12 @@ public class CollectionDAPA extends AbstractDocument {
     DAPAVariables variables;
     List<String> functions = new ArrayList<>(AggregateConverter.getAggregates().keySet());
 
-    public CollectionDAPA(String collectionId, FeatureTypeInfo info) throws IOException {
+    public CollectionDAPA(String collectionId, FeatureTypeInfo info, String zoneColumnName) throws IOException {
         this.id = collectionId;
-        this.description =
-                "The following endpoints are available to retrieve and process the "
-                        + collectionId
-                        + " zones in addition to the standard DGGS queries.\n The endpoints are described in the API definition and the links point to the specification of the operation in the OpenAPI definition with the available input parameters and the response schema";
-        this.variables = new DAPAVariables(collectionId, info);
+        this.description = "The following endpoints are available to retrieve and process the "
+                + collectionId
+                + " zones in addition to the standard DGGS queries.\n The endpoints are described in the API definition and the links point to the specification of the operation in the OpenAPI definition with the available input parameters and the response schema";
+        this.variables = new DAPAVariables(collectionId, info, zoneColumnName);
         this.variables.getLinks().clear();
         this.minResolution = getMinResolution(info);
         this.center = getCenter(info);
@@ -103,8 +102,9 @@ public class CollectionDAPA extends AbstractDocument {
         endpoint.setTitle(
                 "Retrieve a time series for selected variables for each zone in an area and apply functions on the values of each time series.");
         endpoint.setDescription(
-                "This DAPA endpoint returns a time aggregate for each zone in an area, in the selected time interval.\n"
-                        + "Each result contains contains the aggregation functions evaluated over the time series of each value associated to the zone.");
+                """
+                This DAPA endpoint returns a time aggregate for each zone in an area, in the selected time interval.
+                Each result contains contains the aggregation functions evaluated over the time series of each value associated to the zone.""");
         Link executeLink = getExecuteLink(collectionId, "processes/area:aggregate-time");
         endpoint.addLink(executeLink);
         endpoint.setMediaTypes(AGGREGATION_MEDIA_TYPES);
@@ -133,8 +133,7 @@ public class CollectionDAPA extends AbstractDocument {
                 "This DAPA endpoint returns a time series in the selected zone (or point), in the selected time interval or at the selected time instant (parameter datetime).");
         endpoint.setDescription(
                 "The time series contains values for each selected variable (parameter variables) for which a value can be interpolated at the location.");
-        Link executeLink =
-                getExecuteLink(collectionId, "processes/position:retrieve", "geom", center);
+        Link executeLink = getExecuteLink(collectionId, "processes/position:retrieve", "geom", center);
         endpoint.addLink(executeLink);
         endpoint.setMediaTypes(Arrays.asList("application/geo+json", "application/dggs+json"));
 
@@ -147,8 +146,7 @@ public class CollectionDAPA extends AbstractDocument {
                 "This DAPA endpoint returns values at the selected zone (parameter geom or zone_id) in the selected time interval or at the selected time instant (parameter datetime).");
         endpoint.setDescription(
                 "All values in the time interval for each requested variable (parameter variables) are aggregated and each of the requested statistical functions (parameter functions) is applied to the aggregated values.");
-        Link executeLink =
-                getExecuteLink(collectionId, "processes/position:aggregate-time", "geom", center);
+        Link executeLink = getExecuteLink(collectionId, "processes/position:aggregate-time", "geom", center);
         endpoint.addLink(executeLink);
         endpoint.setMediaTypes(AGGREGATION_MEDIA_TYPES);
 
@@ -157,7 +155,7 @@ public class CollectionDAPA extends AbstractDocument {
 
     private Link getExecuteLink(String collectionId, String operation, String... extraKVP) {
         String baseURL = APIRequestInfo.get().getBaseURL();
-        String path = appendPath("ogc/dggs/collections", collectionId, operation);
+        String path = appendPath("ogc/dggs/v1/collections", collectionId, operation);
         Map<String, String> kvp = new LinkedHashMap<>();
         kvp.put("resolution", String.valueOf(minResolution));
         // TODO: let is use HTML if/when an HTML representation for the DAPA resources is produced

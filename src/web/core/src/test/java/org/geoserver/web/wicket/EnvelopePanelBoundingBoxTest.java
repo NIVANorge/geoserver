@@ -11,11 +11,11 @@ import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.util.tester.FormTester;
 import org.geoserver.web.FormTestPage;
 import org.geoserver.web.GeoServerWicketTestSupport;
+import org.geotools.api.referencing.FactoryException;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.geometry.jts.ReferencedEnvelope3D;
 import org.geotools.referencing.CRS;
 import org.junit.Test;
-import org.opengis.referencing.FactoryException;
 
 public class EnvelopePanelBoundingBoxTest extends GeoServerWicketTestSupport {
 
@@ -23,8 +23,7 @@ public class EnvelopePanelBoundingBoxTest extends GeoServerWicketTestSupport {
 
     @Test
     public void testInvalidBoundingBoxValuesEqual() throws FactoryException {
-        final ReferencedEnvelope e =
-                new ReferencedEnvelope3D(180, 180, 90, 90, 20, 20, CRS.decode("EPSG:7415"));
+        final ReferencedEnvelope e = new ReferencedEnvelope3D(180, 180, 90, 90, 20, 20, CRS.decode("EPSG:7415"));
         tester.startPage(new FormTestPage(id -> providePanel(e, id)));
 
         tester.assertComponent(FORM, Form.class);
@@ -38,8 +37,7 @@ public class EnvelopePanelBoundingBoxTest extends GeoServerWicketTestSupport {
 
     @Test
     public void testInvalidBoundingBoxValuesLower() throws FactoryException {
-        final ReferencedEnvelope e =
-                new ReferencedEnvelope3D(180, 180, 90, 90, 20, 20, CRS.decode("EPSG:7415"));
+        final ReferencedEnvelope e = new ReferencedEnvelope3D(180, 180, 90, 90, 20, 20, CRS.decode("EPSG:7415"));
         tester.startPage(new FormTestPage(id -> providePanel(e, id)));
 
         tester.assertComponent(FORM, Form.class);
@@ -57,8 +55,7 @@ public class EnvelopePanelBoundingBoxTest extends GeoServerWicketTestSupport {
 
     @Test
     public void testValidBoundingBoxValues() throws FactoryException {
-        final ReferencedEnvelope e =
-                new ReferencedEnvelope3D(180, 181, 90, 91, 20, 21, CRS.decode("EPSG:7415"));
+        final ReferencedEnvelope e = new ReferencedEnvelope3D(180, 181, 90, 91, 20, 21, CRS.decode("EPSG:7415"));
         tester.startPage(new FormTestPage(id -> providePanel(e, id)));
 
         tester.assertComponent(FORM, Form.class);

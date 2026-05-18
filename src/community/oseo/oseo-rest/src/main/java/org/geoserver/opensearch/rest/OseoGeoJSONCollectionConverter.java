@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 public class OseoGeoJSONCollectionConverter extends BaseMessageConverter<Object> {
 
     public OseoGeoJSONCollectionConverter() {
-        super(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON_UTF8);
+        super(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON);
     }
 
     @Override
@@ -44,8 +44,7 @@ public class OseoGeoJSONCollectionConverter extends BaseMessageConverter<Object>
     @Override
     protected Object readInternal(Class<? extends Object> clazz, HttpInputMessage inputMessage)
             throws IOException, HttpMessageNotReadableException {
-        return GeoJSONReader.parseFeatureCollection(
-                IOUtils.toString(inputMessage.getBody(), StandardCharsets.UTF_8));
+        return GeoJSONReader.parseFeatureCollection(IOUtils.toString(inputMessage.getBody(), StandardCharsets.UTF_8));
     }
 
     @Override

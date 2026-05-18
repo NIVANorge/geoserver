@@ -8,22 +8,21 @@ package org.geoserver.wps.gs.download;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.catalog.FeatureTypeInfo;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.spatial.Intersects;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.coverage.util.FeatureUtilities;
-import org.geotools.data.Query;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.filter.visitor.SimplifyingFilterVisitor;
 import org.geotools.util.factory.GeoTools;
 import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.filter.Filter;
-import org.opengis.filter.spatial.Intersects;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.util.ProgressListener;
 
 /**
- * Checks whether or not the provided request exceeds the provided download limits for a vectorial
- * resource.
+ * Checks whether or not the provided request exceeds the provided download limits for a vectorial resource.
  *
  * @author Simone Giannecchini, GeoSolutions SAS
  */
@@ -37,8 +36,7 @@ class VectorEstimator {
     /**
      * Constructor.
      *
-     * @param limits an instance of the {@link DownloadEstimatorProcess} that contains the limits to
-     *     enforce
+     * @param limits an instance of the {@link DownloadEstimatorProcess} that contains the limits to enforce
      */
     public VectorEstimator(DownloadServiceConfiguration limits) {
         this.downloadServiceConfiguration = limits;
@@ -97,8 +95,7 @@ class VectorEstimator {
 
         // access feature source and collection of features
         final SimpleFeatureSource featureSource =
-                (SimpleFeatureSource)
-                        resourceInfo.getFeatureSource(null, GeoTools.getDefaultHints());
+                (SimpleFeatureSource) resourceInfo.getFeatureSource(null, GeoTools.getDefaultHints());
 
         // basic filter preparation
         Filter ra = Filter.INCLUDE;
@@ -115,11 +112,9 @@ class VectorEstimator {
             }
             final String dataGeomName =
                     featureSource.getSchema().getGeometryDescriptor().getLocalName();
-            final Intersects intersectionFilter =
-                    FeatureUtilities.DEFAULT_FILTER_FACTORY.intersects(
-                            FeatureUtilities.DEFAULT_FILTER_FACTORY.property(dataGeomName),
-                            FeatureUtilities.DEFAULT_FILTER_FACTORY.literal(
-                                    roiManager.getSafeRoiInNativeCRS()));
+            final Intersects intersectionFilter = FeatureUtilities.DEFAULT_FILTER_FACTORY.intersects(
+                    FeatureUtilities.DEFAULT_FILTER_FACTORY.property(dataGeomName),
+                    FeatureUtilities.DEFAULT_FILTER_FACTORY.literal(roiManager.getSafeRoiInNativeCRS()));
             ra = FeatureUtilities.DEFAULT_FILTER_FACTORY.and(ra, intersectionFilter);
         }
 
@@ -146,8 +141,7 @@ class VectorEstimator {
         }
         if (maxFeatures > 0 && count > maxFeatures) {
             if (LOGGER.isLoggable(Level.SEVERE)) {
-                LOGGER.log(
-                        Level.SEVERE, "MaxFeatures limit exceeded. " + count + " > " + maxFeatures);
+                LOGGER.log(Level.SEVERE, "MaxFeatures limit exceeded. " + count + " > " + maxFeatures);
             }
             return false;
         }

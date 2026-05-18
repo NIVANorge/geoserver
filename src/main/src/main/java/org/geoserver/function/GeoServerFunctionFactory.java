@@ -7,18 +7,17 @@ package org.geoserver.function;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.filter.expression.Expression;
+import org.geotools.api.filter.expression.Function;
+import org.geotools.api.filter.expression.Literal;
 import org.geotools.feature.NameImpl;
 import org.geotools.filter.FunctionFactory;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.filter.expression.Expression;
-import org.opengis.filter.expression.Function;
-import org.opengis.filter.expression.Literal;
 
 /**
- * This class implements the {@link FunctionFactory} interface and can be used for creating a new
- * Function from the input parameters. Actually it implements only the {@link IsInstanceOf}
- * function.
+ * This class implements the {@link FunctionFactory} interface and can be used for creating a new Function from the
+ * input parameters. Actually it implements only the {@link IsInstanceOf} function.
  *
  * @author Nicola Lagomarsini geosolutions
  */

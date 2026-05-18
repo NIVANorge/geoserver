@@ -4,6 +4,9 @@
  */
 package org.geoserver.taskmanager.web.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.Collection;
 import java.util.Iterator;
 import org.apache.wicket.extensions.ajax.markup.html.autocomplete.AutoCompleteTextField;
@@ -12,21 +15,35 @@ import org.apache.wicket.model.IModel;
 
 public class AutoCompleteTextFieldPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(AutoCompleteTextFieldPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -1829729746678003578L;
 
     public AutoCompleteTextFieldPanel(String id, IModel<String> model, Collection<String> orig) {
         super(id, model);
 
-        add(
-                new AutoCompleteTextField<String>("textfield", model) {
+        add(new AutoCompleteTextField<String>("textfield", model) {
 
-                    private static final long serialVersionUID = 3534191360864988131L;
+            @Serial
+            private static final long serialVersionUID = 3534191360864988131L;
 
-                    @Override
-                    protected Iterator<String> getChoices(String input) {
-                        return orig.stream().filter(s -> s.startsWith(input)).iterator();
-                    }
-                });
+            @Override
+            protected Iterator<String> getChoices(String input) {
+                return orig.stream().filter(s -> s.startsWith(input)).iterator();
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")

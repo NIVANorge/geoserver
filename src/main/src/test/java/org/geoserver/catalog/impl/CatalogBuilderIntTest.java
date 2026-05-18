@@ -6,18 +6,24 @@
 package org.geoserver.catalog.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Properties;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.CatalogBuilder;
 import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.CoverageStoreInfo;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.data.test.SystemTestData;
+import org.geoserver.platform.resource.Resource;
 import org.geoserver.test.GeoServerSystemTestSupport;
 import org.geoserver.test.SystemTest;
 import org.geotools.coverage.grid.GridCoverage2D;
@@ -26,6 +32,7 @@ import org.geotools.gce.geotiff.GeoTiffWriter;
 import org.geotools.gce.imagemosaic.ImageMosaicFormat;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.referencing.CRS;
+import org.geotools.util.URLs;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -90,7 +97,9 @@ public class CatalogBuilderIntTest extends GeoServerSystemTestSupport {
                     String.valueOf(-1),
                     ci.getParameters()
                             .get(ImageMosaicFormat.MAX_ALLOWED_TILES.getName().toString()));
-            assertEquals("", ci.getParameters().get(ImageMosaicFormat.FILTER.getName().toString()));
+            assertEquals(
+                    "",
+                    ci.getParameters().get(ImageMosaicFormat.FILTER.getName().toString()));
             cat.getResourcePool().dispose();
         } finally {
             if (mosaic.exists() && mosaic.isDirectory()) {
@@ -117,7 +126,7 @@ public class CatalogBuilderIntTest extends GeoServerSystemTestSupport {
         GridCoverage2D test = factory.create("test", bi, envelope);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         GeoTiffWriter writer = new GeoTiffWriter(bos);
-        writer.write(test, null);
+        writer.write(test);
         writer.dispose();
 
         // create the lot of files
@@ -146,9 +155,39 @@ public class CatalogBuilderIntTest extends GeoServerSystemTestSupport {
         // and the regex itself
         p.clear();
         p.put("regex", "(?<=_)(\\d{4})");
-        try (FileOutputStream fos =
-                new FileOutputStream(new File(mosaic, "elevationregex.properties"))) {
+        try (FileOutputStream fos = new FileOutputStream(new File(mosaic, "elevationregex.properties"))) {
             p.store(fos, null);
         }
+    }
+
+    @Test
+    public void testMarsCoverage() throws Exception {
+        Resource data = getDataDirectory().get("data");
+        data.dir();
+        try (InputStream is = SystemTestData.class.getResourceAsStream("viking.tiff");
+                OutputStream os = data.get("viking.tif").out()) {
+            IOUtils.copy(is, os);
+            os.flush();
+        }
+
+        Catalog cat = getCatalog();
+        CatalogBuilder cb = new CatalogBuilder(cat);
+
+        // setup the store
+        cb.setWorkspace(cat.getDefaultWorkspace());
+        CoverageStoreInfo store = cb.buildCoverageStore("viking");
+        store.setType("GeoTIFF");
+        store.setURL(URLs.fileToUrl(data.get("viking.tif").file()).toExternalForm());
+        cat.add(store);
+
+        // create the coverage
+        cb.setStore(store);
+        CoverageInfo ci = cb.buildCoverage("viking");
+
+        // the expected CRS
+        assertTrue(CRS.equalsIgnoreMetadata(CRS.decode("IAU:49900"), ci.getCRS()));
+
+        // it can be looked up
+        assertEquals("IAU:49900", ResourcePool.lookupIdentifier(ci.getCRS(), true));
     }
 }

@@ -14,6 +14,9 @@ import org.geoserver.catalog.CoverageDimensionInfo;
 import org.geoserver.catalog.CoverageInfo;
 import org.geoserver.catalog.CoverageView;
 import org.geoserver.catalog.MetadataMap;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.coverage.TypeMap;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
@@ -25,13 +28,9 @@ import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
-import org.opengis.filter.Filter;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.util.ProgressListener;
 
 /**
- * This class check whether or not the provided download request goes beyond the provided limits for
- * raster data or not.
+ * This class check whether or not the provided download request goes beyond the provided limits for raster data or not.
  *
  * @author Simone Giannecchini, GeoSolutions
  */
@@ -47,8 +46,7 @@ class RasterEstimator {
     /**
      * Constructor
      *
-     * @param limits the parent {@link DownloadEstimatorProcess} that contains the download limits
-     *     to be enforced.
+     * @param limits the parent {@link DownloadEstimatorProcess} that contains the download limits to be enforced.
      */
     public RasterEstimator(DownloadServiceConfiguration limits, Catalog catalog) {
         this.downloadServiceConfiguration = limits;
@@ -103,10 +101,8 @@ class RasterEstimator {
         // STEP 0 - Push ROI back to native CRS (if ROI is provided)
         //
         // get a reader for this CoverageInfo
-        final GridCoverage2DReader reader =
-                (GridCoverage2DReader) coverageInfo.getGridCoverageReader(null, null);
-        CRSRequestHandler crsRequestHandler =
-                new CRSRequestHandler(reader, catalog, targetCRS, roi);
+        final GridCoverage2DReader reader = (GridCoverage2DReader) coverageInfo.getGridCoverageReader(null, null);
+        CRSRequestHandler crsRequestHandler = new CRSRequestHandler(reader, catalog, targetCRS, roi);
         crsRequestHandler.setFilter(filter);
         crsRequestHandler.init();
 
@@ -120,17 +116,11 @@ class RasterEstimator {
             }
             final Geometry safeRoiInNativeCRS =
                     crsRequestHandler.getRoiManager().getSafeRoiInNativeCRS();
-            Geometry roiInNativeCRS_ =
-                    safeRoiInNativeCRS.intersection(
-                            FeatureUtilities.getPolygon(
-                                    reader.getOriginalEnvelope(),
-                                    new GeometryFactory(
-                                            new PrecisionModel(PrecisionModel.FLOATING))));
+            Geometry roiInNativeCRS_ = safeRoiInNativeCRS.intersection(FeatureUtilities.getPolygon(
+                    reader.getOriginalEnvelope(), new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING))));
             if (roiInNativeCRS_.isEmpty()) {
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    LOGGER.log(
-                            Level.FINE,
-                            "Empty intersection, so the result does not exceed the limits");
+                    LOGGER.log(Level.FINE, "Empty intersection, so the result does not exceed the limits");
                 }
                 return true; // EMPTY Intersection
             }
@@ -161,16 +151,11 @@ class RasterEstimator {
         }
 
         final long areaRead = (long) gg.getGridRange2D().width * gg.getGridRange2D().height;
-
         // checks on the area we want to download
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("Area to read in pixels: " + areaRead);
         }
 
-        // If the area to read or the target image size are above Integer.MAX_VALUE, false is
-        // returned,
-        // as raster processing operations (e.g. Crop, Scale) may fail if image size exceeds integer
-        // limits
         long targetArea;
         Integer[] targetSize = scaling.getTargetSize();
         if (targetSize[0] != null && targetSize[1] != null) {
@@ -178,15 +163,15 @@ class RasterEstimator {
         } else {
             targetArea = areaRead;
         }
-        if (areaRead >= Integer.MAX_VALUE || targetArea >= Integer.MAX_VALUE) {
-            if (LOGGER.isLoggable(Level.FINE)) {
-                LOGGER.log(
-                        Level.FINE,
-                        "Area to read or target image size exceeds maximum integer value: "
-                                + Integer.MAX_VALUE);
-            }
-            return false;
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("Area to write in pixels: " + targetArea);
         }
+
+        // Here we used to have a check to refuse processing if the read area or
+        // the target area exceeded the Integer.MAX_INT limits. However, this is
+        // often not a problem, because we are processing based on tiles.
+        // Let the download eventually fail on cases where things are not properly
+        // handled, rather than failing all requests because a subset migth.
 
         // If the area exceeds the limits, false is returned
         if (rasterSizeLimits > DownloadServiceConfiguration.NO_LIMIT
@@ -216,9 +201,8 @@ class RasterEstimator {
             for (int bandIndex : bandIndices) {
                 // Use valid indices
                 if (bandIndex >= 0 && bandIndex < bandsCount)
-                    accumulatedPixelSizeInBits +=
-                            TypeMap.getSize(
-                                    coverageDimensionInfoList.get(bandIndex).getDimensionType());
+                    accumulatedPixelSizeInBits += TypeMap.getSize(
+                            coverageDimensionInfoList.get(bandIndex).getDimensionType());
             }
         } else {
             for (int i = 0; i < bandsCount; i++) {
@@ -231,10 +215,16 @@ class RasterEstimator {
         long rasterSizeInBytes = targetArea * accumulatedPixelSizeInBits / 8;
 
         final long writeLimits = downloadServiceConfiguration.getWriteLimits();
+        SpatioTemporalCoverageSlicer slicer = new SpatioTemporalCoverageSlicer(reader, coverageInfo, filter);
+        if (slicer.hasMultipleSlices()) {
+            // Rough assumption: the size of the raster to be written is multiplied by the number of slices
+            rasterSizeInBytes *= slicer.getNumSlices();
+        }
+        // Let's re-use the slicer to avoid having it re-initialized by the actual download machinery
+        SpatioTemporalCoverageSlicer.SpatioTemporalCoverageSlicerHolder.set(slicer);
 
         // If size exceeds the write limits, false is returned
-        if (writeLimits > DownloadServiceConfiguration.NO_LIMIT
-                && rasterSizeInBytes > writeLimits) {
+        if (writeLimits > DownloadServiceConfiguration.NO_LIMIT && rasterSizeInBytes > writeLimits) {
             if (LOGGER.isLoggable(Level.FINE)) {
                 LOGGER.log(
                         Level.FINE,
@@ -260,19 +250,15 @@ class RasterEstimator {
         return true;
     }
 
-    private List<CoverageDimensionInfo> getBandDimensionsFromCoverageInfo(CoverageInfo ci)
-            throws Exception {
+    private List<CoverageDimensionInfo> getBandDimensionsFromCoverageInfo(CoverageInfo ci) throws Exception {
         String nativeName = ci.getNativeCoverageName();
         CatalogBuilder cb = new CatalogBuilder(catalog);
         cb.setStore(ci.getStore());
         MetadataMap metadata = ci.getMetadata();
         CoverageInfo rebuilt;
         if (metadata != null && metadata.containsKey(CoverageView.COVERAGE_VIEW)) {
-            GridCoverage2DReader reader =
-                    (GridCoverage2DReader)
-                            catalog.getResourcePool()
-                                    .getGridCoverageReader(
-                                            ci, nativeName, GeoTools.getDefaultHints());
+            GridCoverage2DReader reader = (GridCoverage2DReader)
+                    catalog.getResourcePool().getGridCoverageReader(ci, nativeName, GeoTools.getDefaultHints());
             rebuilt = cb.buildCoverage(reader, nativeName, null);
         } else {
             rebuilt = cb.buildCoverage(nativeName);

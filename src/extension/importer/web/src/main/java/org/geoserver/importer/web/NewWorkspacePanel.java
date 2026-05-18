@@ -5,6 +5,8 @@
  */
 package org.geoserver.importer.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.form.TextField;
 import org.apache.wicket.markup.html.panel.FeedbackPanel;
 import org.apache.wicket.markup.html.panel.Panel;
@@ -18,13 +20,25 @@ import org.geoserver.web.wicket.XMLNameValidator;
 @SuppressWarnings("serial")
 class NewWorkspacePanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(NewWorkspacePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     String workspace;
 
     public NewWorkspacePanel(String id) {
         super(id);
         add(new FeedbackPanel("feedback").setOutputMarkupId(true));
-        TextField<String> wst =
-                new TextField<>("workspace", new PropertyModel<>(this, "workspace"));
+        TextField<String> wst = new TextField<>("workspace", new PropertyModel<>(this, "workspace"));
         wst.setRequired(true);
 
         wst.add(new WorkspaceDoesNotExistValidator());
@@ -40,9 +54,7 @@ class NewWorkspacePanel extends Panel {
         public void validate(IValidatable<String> iv) {
             String value = iv.getValue();
             if (GeoServerApplication.get().getCatalog().getWorkspaceByName(value) != null) {
-                iv.error(
-                        new ValidationError("NewWorkspacePanel.duplicateWorkspace")
-                                .setVariable("workspace", value));
+                iv.error(new ValidationError("NewWorkspacePanel.duplicateWorkspace").setVariable("workspace", value));
             }
         }
     }

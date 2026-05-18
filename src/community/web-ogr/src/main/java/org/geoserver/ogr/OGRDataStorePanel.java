@@ -6,10 +6,11 @@
 package org.geoserver.ogr;
 
 import java.io.File;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.form.AjaxSubmitLink;
@@ -32,36 +33,34 @@ import org.geotools.data.ogr.OGRDataStoreFactory;
 import org.geotools.data.ogr.jni.JniOGRDataStoreFactory;
 
 /** Custom data store panel for OGR data stores */
+// TODO WICKET8 - Verify this page works OK
+@SuppressWarnings("unchecked")
 public class OGRDataStorePanel extends DefaultDataStoreEditPanel {
 
     /**
-     * Creates a new parameters panel with a list of input fields matching the {@link Param}s for
-     * the factory related to the {@code DataStoreInfo} that's the model of the provided {@code
-     * Form}.
+     * Creates a new parameters panel with a list of input fields matching the {@link Param}s for the factory related to
+     * the {@code DataStoreInfo} that's the model of the provided {@code Form}.
      *
      * @param componentId the id for this component instance
-     * @param storeEditForm the form being build by the calling class, whose model is the {@link
-     *     DataStoreInfo} being edited
+     * @param storeEditForm the form being build by the calling class, whose model is the {@link DataStoreInfo} being
+     *     edited
      */
     public OGRDataStorePanel(String componentId, Form storeEditForm) {
         super(componentId, storeEditForm);
     }
 
     @Override
-    protected Panel getInputComponent(
-            String componentId, IModel paramsModel, ParamInfo paramMetadata) {
+    protected Panel getInputComponent(String componentId, IModel paramsModel, ParamInfo paramMetadata) {
         String paramName = paramMetadata.getName();
         IModel<String> labelModel = new ResourceModel(paramName, paramName);
 
         // show a dropdown using the available driver names
         if (OGRDataStoreFactory.OGR_DRIVER_NAME.key.equals(paramName)) {
-            List<String> drivers =
-                    new ArrayList<>(new JniOGRDataStoreFactory().getAvailableDrivers());
-            Collections.sort(drivers, String.CASE_INSENSITIVE_ORDER);
+            List<String> drivers = new ArrayList<>(new JniOGRDataStoreFactory().getAvailableDrivers());
+            drivers.sort(String.CASE_INSENSITIVE_ORDER);
 
             IModel<Serializable> valueModel = new MapModel(paramsModel, paramName);
-            return new DropDownChoiceParamPanel(
-                    componentId, valueModel, labelModel, drivers, false);
+            return new DropDownChoiceParamPanel(componentId, valueModel, labelModel, drivers, false);
         }
 
         // show a file entry, but allow for random strings to be entered as well
@@ -74,7 +73,7 @@ public class OGRDataStorePanel extends DefaultDataStoreEditPanel {
     }
 
     /** Delegate that allows both files and directories to be chosen */
-    class FileOrDirectoryParamPanel extends DirectoryParamPanel {
+    static class FileOrDirectoryParamPanel extends DirectoryParamPanel {
 
         public FileOrDirectoryParamPanel(
                 String id,
@@ -92,27 +91,25 @@ public class OGRDataStorePanel extends DefaultDataStoreEditPanel {
                 boolean required,
                 IValidator<? super String>[] validators) {
             // the file chooser
-            return new DirectoryInput(
-                    "fileInput", paramValue, paramLabelModel, required, validators) {
+            return new DirectoryInput("fileInput", paramValue, paramLabelModel, required, validators) {
                 @Override
                 protected Component chooserButton(final String windowTitle) {
-                    AjaxSubmitLink link =
-                            new AjaxSubmitLink("chooser") {
+                    return new AjaxSubmitLink("chooser") {
 
-                                private static final long serialVersionUID = -2860146532287292092L;
+                        @Serial
+                        private static final long serialVersionUID = -2860146532287292092L;
 
-                                @Override
-                                public boolean getDefaultFormProcessing() {
-                                    return false;
-                                }
+                        @Override
+                        public boolean getDefaultFormProcessing() {
+                            return false;
+                        }
 
-                                @Override
-                                public void onSubmit(AjaxRequestTarget target, Form<?> form) {
-                                    gsDialog.setTitle(new Model<String>(windowTitle));
-                                    gsDialog.showOkCancel(target, new OGRDialogDelegate());
-                                }
-                            };
-                    return link;
+                        @Override
+                        public void onSubmit(AjaxRequestTarget target) {
+                            gsDialog.setTitle(new Model<>(windowTitle));
+                            gsDialog.showOkCancel(target, new OGRDialogDelegate());
+                        }
+                    };
                 }
 
                 @Override
@@ -125,6 +122,7 @@ public class OGRDataStorePanel extends DefaultDataStoreEditPanel {
                 class OGRDialogDelegate extends GeoServerDialog.DialogDelegate {
 
                     /** */
+                    @Serial
                     private static final long serialVersionUID = 1576266249751904398L;
 
                     @Override
@@ -152,25 +150,25 @@ public class OGRDataStorePanel extends DefaultDataStoreEditPanel {
                         File file = null;
                         textField.processInput();
                         String input = textField.getConvertedInput();
-                        if (input != null && !input.equals("")) {
+                        if (input != null && !input.isEmpty()) {
                             file = new File(input);
                         }
 
-                        GeoServerFileChooser chooser =
-                                new GeoServerFileChooser(id, new Model<File>(file)) {
-                                    @Override
-                                    protected void fileClicked(
-                                            File file, AjaxRequestTarget target) {
-                                        // clear the raw input of the field
-                                        // won't show the new model
-                                        // value
-                                        textField.clearInput();
-                                        textField.setModelObject(file.getAbsolutePath());
+                        GeoServerFileChooser chooser = new GeoServerFileChooser(id, new Model<>(file)) {
+                            @Override
+                            protected void fileClicked(File file, Optional<AjaxRequestTarget> target) {
+                                // clear the raw input of the field
+                                // won't show the new model
+                                // value
+                                textField.clearInput();
+                                textField.setModelObject(file.getAbsolutePath());
 
-                                        target.add(textField);
-                                        dialog.close(target);
-                                    };
-                                };
+                                if (target.isPresent()) {
+                                    target.get().add(textField);
+                                    dialog.close(target.get());
+                                }
+                            }
+                        };
                         chooser.setFilter(fileFilter);
 
                         return chooser;

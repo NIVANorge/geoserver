@@ -10,7 +10,7 @@
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>geoserver</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver</groupId>
@@ -18,20 +18,40 @@
   <packaging>pom</packaging>
   <name>GeoServer Extensions</name>
 
+  <modules>
+    <module>wcs</module>
+  </modules>
+
   <dependencies>
     <dependency>
       <groupId>org.geoserver</groupId>
       <artifactId>gs-platform</artifactId>
     </dependency>
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
       <scope>provided</scope>
     </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.commonjava.maven.plugins</groupId>
+        <artifactId>directory-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>directories</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>highest-basedir</goal>
+            </goals>
+            <configuration>
+              <property>geoserverBaseDir</property>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
         <executions>
@@ -70,13 +90,7 @@
       <id>app-schema</id>
       <modules>
         <module>app-schema</module>
-      </modules>
-    </profile>
-
-    <profile>
-      <id>h2</id>
-      <modules>
-        <module>h2</module>
+        <module>kml</module>
       </modules>
     </profile>
 
@@ -130,13 +144,6 @@
     </profile>
 
     <profile>
-      <id>imagemap</id>
-      <modules>
-        <module>imagemap</module>
-      </modules>
-    </profile>
-
-    <profile>
       <id>ogr</id>
       <modules>
         <module>ogr</module>
@@ -146,7 +153,7 @@
     <profile>
       <id>excel</id>
       <modules>
-        <module>excel</module>
+        <module>excel-core</module>
       </modules>
     </profile>
 
@@ -168,6 +175,7 @@
       <id>wps</id>
       <modules>
         <module>wps</module>
+        <module>kml</module>
       </modules>
     </profile>
 
@@ -194,13 +202,6 @@
       <id>security</id>
       <modules>
         <module>security</module>
-      </modules>
-    </profile>
-
-    <profile>
-      <id>xslt</id>
-      <modules>
-        <module>xslt</module>
       </modules>
     </profile>
 
@@ -254,9 +255,23 @@
     </profile>
 
     <profile>
+      <id>wcs</id>
+      <modules>
+        <module>wcs</module>
+      </modules>
+    </profile>
+
+    <profile>
       <id>libjpeg-turbo</id>
       <modules>
         <module>libjpeg-turbo</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <id>kml</id>
+      <modules>
+        <module>kml</module>
       </modules>
     </profile>
 
@@ -326,7 +341,7 @@
         <module>sldService</module>
       </modules>
     </profile>
-    <profile>
+    <!-- profile>
       <id>geofence</id>
       <activation>
         <property>
@@ -347,7 +362,7 @@
       <modules>
         <module>geofence</module>
       </modules>
-    </profile>
+    </profile -->
     <profile>
       <id>authkey</id>
       <modules>
@@ -382,6 +397,7 @@
       <id>wps-download</id>
       <modules>
         <module>wps-download</module>
+        <module>kml</module>
       </modules>
     </profile>
     <profile>
@@ -408,22 +424,58 @@
         <module>metadata</module>
       </modules>
     </profile>
+    <profile>
+      <id>rat</id>
+      <modules>
+        <module>rat</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>ogcapi</id>
+      <modules>
+        <module>ogcapi</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>arcgrid</id>
+      <modules>
+        <module>arcgrid</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>image</id>
+      <modules>
+        <module>image</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <id>ogcapi-features</id>
+      <modules>
+        <module>ogcapi/ogcapi-core</module>
+        <module>ogcapi/ogcapi-features</module>
+        <module>ogcapi/web-ogcapi</module>
+        <module>ogcapi/web-features</module>
+      </modules>
+    </profile>
 
     <!-- allExtensions profile, includes all modules -->
     <profile>
       <id>allExtensions</id>
       <modules>
         <module>app-schema</module>
-        <module>h2</module>
         <module>sqlserver</module>
         <module>oracle</module>
         <module>mysql</module>
         <module>db2</module>
-        <module>imagemap</module>
         <module>gdal</module>
+        <module>iau</module>
         <module>jp2k</module>
         <module>ogr</module>
-        <module>excel</module>
+        <module>pyramid</module>
+        <module>excel-core</module>
+        <module>excel-wfs</module>
+        <module>excel-wps</module>
         <module>charts</module>
         <module>feature-pregeneralized</module>
         <module>control-flow</module>
@@ -431,7 +483,6 @@
         <module>querylayer</module>
         <module>monitor</module>
         <module>security</module>
-        <module>xslt</module>
         <module>inspire</module>
         <module>css</module>
         <module>csw</module>
@@ -448,7 +499,7 @@
         <module>mbstyle</module>
         <module>mongodb</module>
         <module>sldService</module>
-        <module>geofence</module>
+        <!-- module>geofence</module -->
         <module>authkey</module>
         <module>web-resource</module>
         <module>params-extractor</module>
@@ -459,6 +510,11 @@
         <module>mapml</module>
         <module>geopkg-output</module>
         <module>metadata</module>
+        <module>rat</module>
+        <module>ogcapi</module>
+        <module>kml</module>
+        <module>arcgrid</module>
+        <module>image</module>
       </modules>
     </profile>
 
@@ -467,16 +523,18 @@
       <id>release</id>
       <modules>
         <module>app-schema</module>
-        <module>h2</module>
         <module>sqlserver</module>
         <module>oracle</module>
         <module>mysql</module>
         <module>db2</module>
-        <module>imagemap</module>
         <module>gdal</module>
+        <module>iau</module>
         <module>jp2k</module>
         <module>ogr</module>
-        <module>excel</module>
+        <module>pyramid</module>
+        <module>excel-core</module>
+        <module>excel-wfs</module>
+        <module>excel-wps</module>
         <module>charts</module>
         <module>feature-pregeneralized</module>
         <module>control-flow</module>
@@ -484,7 +542,6 @@
         <module>querylayer</module>
         <module>monitor</module>
         <module>security</module>
-        <module>xslt</module>
         <module>inspire</module>
         <module>css</module>
         <module>csw</module>
@@ -501,7 +558,7 @@
         <module>mbstyle</module>
         <module>mongodb</module>
         <module>sldService</module>
-        <module>geofence</module>
+        <!-- module>geofence</module -->
         <module>authkey</module>
         <module>web-resource</module>
         <module>params-extractor</module>
@@ -512,7 +569,205 @@
         <module>mapml</module>
         <module>geopkg-output</module>
         <module>metadata</module>
+        <module>rat</module>
+        <module>ogcapi</module>
+        <module>kml</module>
+        <module>arcgrid</module>
+        <module>image</module>
       </modules>
+    </profile>
+    <profile>
+      <id>assembly</id>
+      <build>
+        <plugins>
+          <!-- Check if an assembly file is available in the current module, will skip otherwise -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>check-assembly-file</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <exportAntProperties>true</exportAntProperties>
+                  <target>
+                    <condition property="skipAssembly" value="true">
+                      <not>
+                        <available file="src/assembly/assembly.xml"></available>
+                      </not>
+                    </condition>
+                    <condition property="skipDependencyCopy" value="true">
+                      <or>
+                        <isset property="skipAssembly"></isset>
+                        <isset property="assembly.useDependencySets"></isset>
+                      </or>
+                    </condition>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- Copy dependencies of the current module. Bound to prepare-package
+               (not install) so it runs strictly before the assembly plugin, which
+               is bound to install. This ordering is independent of plugin
+               declaration order in the merged effective pom. -->
+          <plugin>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>copy-dependencies</goal>
+                </goals>
+                <configuration>
+                  <skip>${skipDependencyCopy}</skip>
+                  <silent>true</silent>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- Run assembly based on collected dependencies-->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>install</phase>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <descriptors>
+                <descriptor>${project.basedir}/src/assembly/assembly.xml</descriptor>
+              </descriptors>
+              <outputDirectory>${geoserverBaseDir}/target/release</outputDirectory>
+              <skipAssembly>${skipAssembly}</skipAssembly>
+              <finalName>geoserver-${project.version}</finalName>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!--
+      Renders each module's own src/assembly/*.md files as HTML into target/html so the per-module assembly.xml can bundle
+      a locally-generated README.html / LICENSE.html without depending on the centralized src/release/extensions/ pass.
+      Auto-activated on any child that owns an src/assembly/assembly.xml.
+    -->
+    <profile>
+      <id>assembly-docs</id>
+      <activation>
+        <file>
+          <exists>src/assembly/assembly.xml</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <!--
+            Stage a filtered html header/footer template locally so the markdown plugin doesn't rely on
+            the release module having built first — the release module depends on the extensions, so it
+            runs AFTER them in the reactor and can't be a prerequisite for their process-resources
+            phase. Same approach community modules use.
+          -->
+          <plugin>
+            <artifactId>maven-resources-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>copy-html-template</id>
+                <phase>process-resources</phase>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <configuration>
+                  <outputDirectory>${project.build.directory}/html-template</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>${geoserverBaseDir}/release/src/markdown/html</directory>
+                      <filtering>true</filtering>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>com.ruleoftech</groupId>
+            <artifactId>markdown-page-generator-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>extension-docs</id>
+                <phase>process-resources</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+                <configuration>
+                  <inputDirectory>${project.basedir}/src/assembly</inputDirectory>
+                  <outputDirectory>${project.build.directory}/html</outputDirectory>
+                  <recursiveInput>false</recursiveInput>
+                  <transformRelativeMarkdownLinks>true</transformRelativeMarkdownLinks>
+                  <headerHtmlFile>${project.build.directory}/html-template/header.html</headerHtmlFile>
+                  <footerHtmlFile>${project.build.directory}/html-template/footer.html</footerHtmlFile>
+                  <pegdownExtensions>TABLES,FENCED_CODE_BLOCKS,AUTOLINKS,FORCELISTITEMPARA</pegdownExtensions>
+                  <defaultTitle>true</defaultTitle>
+                  <inputFileExtensions>md</inputFileExtensions>
+                </configuration>
+              </execution>
+              <!--
+                Render the shared LICENSE.md / README.md from src/release/extensions/ into the
+                same path the per-module assembly descriptors expect.  The release module builds
+                AFTER extensions in the reactor, so extensions cannot rely on it having run first.
+                The first extension to build will generate these files; subsequent ones find them
+                already in place (the markdown plugin is a no-op when outputs are up-to-date).
+              -->
+              <execution>
+                <id>shared-extension-docs</id>
+                <phase>process-resources</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+                <configuration>
+                  <inputDirectory>${geoserverBaseDir}/release/extensions</inputDirectory>
+                  <outputDirectory>${geoserverBaseDir}/release/target/html/extensions</outputDirectory>
+                  <recursiveInput>false</recursiveInput>
+                  <transformRelativeMarkdownLinks>true</transformRelativeMarkdownLinks>
+                  <headerHtmlFile>${project.build.directory}/html-template/header.html</headerHtmlFile>
+                  <footerHtmlFile>${project.build.directory}/html-template/footer.html</footerHtmlFile>
+                  <pegdownExtensions>TABLES,FENCED_CODE_BLOCKS,AUTOLINKS,FORCELISTITEMPARA</pegdownExtensions>
+                  <defaultTitle>true</defaultTitle>
+                  <inputFileExtensions>md</inputFileExtensions>
+                </configuration>
+              </execution>
+              <!--
+                Render the top-level license files (GPL, LGPL, NOTICE, etc.) into the path
+                referenced by the assembly descriptors' licenses fileSet.
+              -->
+              <execution>
+                <id>shared-licenses</id>
+                <phase>process-resources</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+                <configuration>
+                  <inputDirectory>${geoserverBaseDir}/../licenses</inputDirectory>
+                  <outputDirectory>${geoserverBaseDir}/release/target/html/licenses</outputDirectory>
+                  <recursiveInput>false</recursiveInput>
+                  <transformRelativeMarkdownLinks>true</transformRelativeMarkdownLinks>
+                  <headerHtmlFile>${project.build.directory}/html-template/header.html</headerHtmlFile>
+                  <footerHtmlFile>${project.build.directory}/html-template/footer.html</footerHtmlFile>
+                  <pegdownExtensions>TABLES,FENCED_CODE_BLOCKS,AUTOLINKS,FORCELISTITEMPARA</pegdownExtensions>
+                  <defaultTitle>true</defaultTitle>
+                  <inputFileExtensions>md,txt</inputFileExtensions>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

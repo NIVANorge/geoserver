@@ -4,12 +4,15 @@
  */
 package org.geoserver.csw.store.internal;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import org.geoserver.csw.CSWTestSupport;
+import org.geoserver.csw.util.PropertyPath;
 import org.junit.Test;
 
 public class InternalCatalogStoreTest extends CSWTestSupport {
@@ -25,10 +28,8 @@ public class InternalCatalogStoreTest extends CSWTestSupport {
         }
 
         // get the store
-        InternalCatalogStore store =
-                applicationContext.getBean(
-                        InternalCatalogStore
-                                .class); // new InternalCatalogStore(this.getGeoServer());
+        InternalCatalogStore store = applicationContext.getBean(
+                InternalCatalogStore.class); // new InternalCatalogStore(this.getGeoServer());
         assertNotNull(store);
 
         // test if we have default mapping
@@ -37,8 +38,11 @@ public class InternalCatalogStoreTest extends CSWTestSupport {
         File md = new File(csw, "MD_Metadata.properties");
         assertTrue(md.exists());
 
-        assertNotNull(store.getMapping("Record"));
-        assertNotNull(store.getMapping("MD_Metadata"));
-        assertNotNull(store.getMapping("MD_Metadata").getElement("fileIdentifier.CharacterString"));
+        assertEquals(1, store.getMappings("Record").size());
+        assertEquals(1, store.getMappings("MD_Metadata").size());
+        assertFalse(store.getMappings("MD_Metadata")
+                .get(0)
+                .elements(PropertyPath.fromDotPath("fileIdentifier.CharacterString"))
+                .isEmpty());
     }
 }

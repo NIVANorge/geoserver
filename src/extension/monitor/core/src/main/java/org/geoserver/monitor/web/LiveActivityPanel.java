@@ -5,6 +5,9 @@
  */
 package org.geoserver.monitor.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.wicket.Component;
@@ -18,26 +21,38 @@ import org.geoserver.monitor.Query.Comparison;
 import org.geoserver.monitor.RequestData;
 import org.geoserver.monitor.RequestData.Status;
 import org.geoserver.web.wicket.GeoServerDataProvider;
-import org.geoserver.web.wicket.GeoServerDataProvider.BeanProperty;
 import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.geoserver.web.wicket.GeoServerTablePanel;
 
 public class LiveActivityPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(LiveActivityPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -2807950039989311964L;
 
     public LiveActivityPanel(String id) {
         super(id);
 
         GeoServerTablePanel<RequestData> requests =
-                new GeoServerTablePanel<RequestData>("requests", new LiveRequestDataProvider()) {
+                new GeoServerTablePanel<>("requests", new LiveRequestDataProvider()) {
+                    @Serial
                     private static final long serialVersionUID = -431473636413825153L;
 
                     @Override
                     protected Component getComponentForProperty(
-                            String id,
-                            IModel<RequestData> itemModel,
-                            Property<RequestData> property) {
+                            String id, IModel<RequestData> itemModel, Property<RequestData> property) {
                         Object prop = property.getPropertyValue(itemModel.getObject());
 
                         String value = prop != null ? prop.toString() : "";
@@ -49,6 +64,7 @@ public class LiveActivityPanel extends Panel {
 
     static class LiveRequestDataProvider extends GeoServerDataProvider<RequestData> {
 
+        @Serial
         private static final long serialVersionUID = -5576324995486786071L;
 
         static final Property<RequestData> ID = new BeanProperty<>("id", "id");
@@ -58,13 +74,8 @@ public class LiveActivityPanel extends Panel {
         @Override
         protected List<RequestData> getItems() {
             MonitorDAO dao = getApplication().getBeanOfType(Monitor.class).getDAO();
-            Query q =
-                    new Query()
-                            .filter(
-                                    "status",
-                                    Arrays.asList(
-                                            Status.RUNNING, Status.WAITING, Status.CANCELLING),
-                                    Comparison.IN);
+            Query q = new Query()
+                    .filter("status", Arrays.asList(Status.RUNNING, Status.WAITING, Status.CANCELLING), Comparison.IN);
 
             return dao.getRequests(q);
         }

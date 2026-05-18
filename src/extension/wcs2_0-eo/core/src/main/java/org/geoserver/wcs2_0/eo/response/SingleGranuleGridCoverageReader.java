@@ -12,33 +12,32 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.media.jai.ImageLayout;
+import org.eclipse.imagen.ImageLayout;
 import org.geoserver.util.ISO8601Formatter;
+import org.geotools.api.coverage.grid.Format;
+import org.geotools.api.coverage.grid.GridEnvelope;
+import org.geotools.api.data.ResourceInfo;
+import org.geotools.api.data.ServiceInfo;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.parameter.GeneralParameterValue;
+import org.geotools.api.parameter.ParameterDescriptor;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.datum.PixelInCell;
+import org.geotools.api.referencing.operation.MathTransform;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.io.DimensionDescriptor;
 import org.geotools.coverage.grid.io.GranuleSource;
 import org.geotools.coverage.grid.io.HarvestedSource;
 import org.geotools.coverage.grid.io.OverviewPolicy;
 import org.geotools.coverage.grid.io.StructuredGridCoverage2DReader;
-import org.geotools.data.ResourceInfo;
-import org.geotools.data.ServiceInfo;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.factory.Hints;
 import org.locationtech.jts.geom.Geometry;
-import org.opengis.coverage.grid.Format;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.parameter.GeneralParameterValue;
-import org.opengis.parameter.ParameterDescriptor;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.datum.PixelInCell;
-import org.opengis.referencing.operation.MathTransform;
 
 /**
- * Provides a view of a single granule to the DescribeCoverage encoder (to be used in
- * DescribeOECoverageSet response)
+ * Provides a view of a single granule to the DescribeCoverage encoder (to be used in DescribeOECoverageSet response)
  *
  * @author Andrea Aime - GeoSolutions
  */
@@ -48,7 +47,7 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
 
     private SimpleFeature feature;
 
-    GeneralEnvelope granuleEnvelope;
+    GeneralBounds granuleEnvelope;
 
     ISO8601Formatter formatter = new ISO8601Formatter();
 
@@ -66,10 +65,8 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
         }
         Geometry featureGeometry = lookupFeatureGeometry();
         ReferencedEnvelope re =
-                new ReferencedEnvelope(
-                        featureGeometry.getEnvelopeInternal(),
-                        reader.getCoordinateReferenceSystem());
-        this.granuleEnvelope = new GeneralEnvelope(re);
+                new ReferencedEnvelope(featureGeometry.getEnvelopeInternal(), reader.getCoordinateReferenceSystem());
+        this.granuleEnvelope = new GeneralBounds(re);
     }
 
     private Geometry lookupFeatureGeometry() {
@@ -121,9 +118,7 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
 
     @Override
     public String getMetadataValue(String name) throws IOException {
-        if (name.endsWith("_DOMAIN_MINIMUM")
-                || name.endsWith("_DOMAIN_MAXIMUM")
-                || name.endsWith("_DOMAIN")) {
+        if (name.endsWith("_DOMAIN_MINIMUM") || name.endsWith("_DOMAIN_MAXIMUM") || name.endsWith("_DOMAIN")) {
             String dimensionName = name.substring(0, name.indexOf("_DOMAIN"));
             DimensionDescriptor descriptor = dimensionDescriptors.get(dimensionName);
             if (descriptor != null) {
@@ -174,12 +169,12 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
     }
 
     @Override
-    public GeneralEnvelope getOriginalEnvelope() {
+    public GeneralBounds getOriginalEnvelope() {
         return granuleEnvelope;
     }
 
     @Override
-    public GeneralEnvelope getOriginalEnvelope(String coverageName) {
+    public GeneralBounds getOriginalEnvelope(String coverageName) {
         throw new UnsupportedOperationException();
     }
 
@@ -224,13 +219,12 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
     }
 
     @Override
-    public GridCoverage2D read(GeneralParameterValue[] parameters) throws IOException {
+    public GridCoverage2D read(GeneralParameterValue... parameters) throws IOException {
         return reader.read(parameters);
     }
 
     @Override
-    public GridCoverage2D read(String coverageName, GeneralParameterValue[] parameters)
-            throws IOException {
+    public GridCoverage2D read(String coverageName, GeneralParameterValue... parameters) throws IOException {
         return reader.read(coverageName, parameters);
     }
 
@@ -245,20 +239,17 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
     }
 
     @Override
-    public Set<ParameterDescriptor<List>> getDynamicParameters(String coverageName)
-            throws IOException {
+    public Set<ParameterDescriptor<List>> getDynamicParameters(String coverageName) throws IOException {
         return reader.getDynamicParameters(coverageName);
     }
 
     @Override
-    public double[] getReadingResolutions(OverviewPolicy policy, double[] requestedResolution)
-            throws IOException {
+    public double[] getReadingResolutions(OverviewPolicy policy, double[] requestedResolution) throws IOException {
         return reader.getReadingResolutions(policy, requestedResolution);
     }
 
     @Override
-    public double[] getReadingResolutions(
-            String coverageName, OverviewPolicy policy, double[] requestedResolution)
+    public double[] getReadingResolutions(String coverageName, OverviewPolicy policy, double[] requestedResolution)
             throws IOException {
         return reader.getReadingResolutions(coverageName, policy, requestedResolution);
     }
@@ -284,8 +275,7 @@ public class SingleGranuleGridCoverageReader implements StructuredGridCoverage2D
     }
 
     @Override
-    public List<DimensionDescriptor> getDimensionDescriptors(String coverageName)
-            throws IOException {
+    public List<DimensionDescriptor> getDimensionDescriptors(String coverageName) throws IOException {
         return reader.getDimensionDescriptors(coverageName);
     }
 

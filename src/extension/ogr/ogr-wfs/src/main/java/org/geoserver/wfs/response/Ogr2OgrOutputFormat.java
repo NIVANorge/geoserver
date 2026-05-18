@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +33,15 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat;
 import org.geoserver.wfs.request.FeatureCollectionResponse;
 import org.geoserver.wfs.request.GetFeatureRequest;
 import org.geoserver.wfs.request.Query;
-import org.geotools.data.DataStore;
+import org.geotools.api.data.DataStore;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.feature.type.GeometryType;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.data.shapefile.ShapefileDataStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.data.store.EmptyFeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.gml.producer.FeatureTransformer;
@@ -49,35 +53,26 @@ import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.feature.type.GeometryType;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
         implements FormatConverter, ComplexFeatureAwareFormat {
 
     /** The types of geometries a shapefile can handle */
-    private static final Set<Class<?>> SHAPEFILE_GEOM_TYPES =
-            new HashSet<Class<?>>() {
-                {
-                    add(Point.class);
-                    add(LineString.class);
-                    add(LinearRing.class);
-                    add(Polygon.class);
-                    add(MultiPoint.class);
-                    add(MultiLineString.class);
-                    add(MultiPolygon.class);
-                }
-            };
+    private static final Set<Class<?>> SHAPEFILE_GEOM_TYPES = Set.of(
+            Point.class,
+            LineString.class,
+            LinearRing.class,
+            Polygon.class,
+            MultiPoint.class,
+            MultiLineString.class,
+            MultiPolygon.class);
 
     /** Factory to create the ogr2ogr wrapper. */
     ToolWrapperFactory ogrWrapperFactory;
 
     /**
-     * The fs path to ogr2ogr. If null, we'll assume ogr2ogr is in the PATH and that we can execute
-     * it just by running ogr2ogr
+     * The fs path to ogr2ogr. If null, we'll assume ogr2ogr is in the PATH and that we can execute it just by running
+     * ogr2ogr
      */
     String ogrPath = null;
 
@@ -88,8 +83,8 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
     Map<String, String> environment = null;
 
     /**
-     * The output formats we can generate using ogr2ogr. Using a concurrent one so that it can be
-     * reconfigured while the output format is working
+     * The output formats we can generate using ogr2ogr. Using a concurrent one so that it can be reconfigured while the
+     * output format is working
      */
     static Map<String, Format> formats = new ConcurrentHashMap<>();
 
@@ -108,8 +103,8 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
     }
 
     /**
-     * Sets the ogr2ogr executable full path. The default value is simply "ogr2ogr", which will work
-     * if ogr2ogr is in the path
+     * Sets the ogr2ogr executable full path. The default value is simply "ogr2ogr", which will work if ogr2ogr is in
+     * the path
      */
     @Override
     public void setExecutable(String ogrExecutable) {
@@ -123,8 +118,8 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
     }
 
     /**
-     * Provides the environment variables that are set prior to invoking ogr2ogr (notably the
-     * GDAL_DATA variable, specifying the location of GDAL's data directory).
+     * Provides the environment variables that are set prior to invoking ogr2ogr (notably the GDAL_DATA variable,
+     * specifying the location of GDAL's data directory).
      */
     @Override
     public void setEnvironment(Map<String, String> environment) {
@@ -194,8 +189,7 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
         } else {
             String outputFileName;
 
-            if (request.getFormatOptions() != null
-                    && request.getFormatOptions().containsKey("FILENAME")) {
+            if (request.getFormatOptions() != null && request.getFormatOptions().containsKey("FILENAME")) {
                 outputFileName = (String) request.getFormatOptions().get("FILENAME");
                 if (outputFileName.contains(".")) {
                     return outputFileName; // includes extension
@@ -251,12 +245,11 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
     }
 
     /**
-     * Writes out the data to an OGR known format (GML/shapefile) to disk and then ogr2ogr each
-     * generated file into the destination format. Finally, zips up all the resulting files.
+     * Writes out the data to an OGR known format (GML/shapefile) to disk and then ogr2ogr each generated file into the
+     * destination format. Finally, zips up all the resulting files.
      */
     @Override
-    protected void write(
-            FeatureCollectionResponse featureCollection, OutputStream output, Operation getFeature)
+    protected void write(FeatureCollectionResponse featureCollection, OutputStream output, Operation getFeature)
             throws IOException, ServiceException {
 
         // figure out which output format we're going to generate
@@ -289,8 +282,7 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
                 // convert with ogr2ogr
                 final SimpleFeatureType schema = curCollection.getSchema();
                 final CoordinateReferenceSystem crs = schema.getCoordinateReferenceSystem();
-                outputFile =
-                        wrapper.convert(intermediate, tempOGR, schema.getTypeName(), format, crs);
+                outputFile = wrapper.convert(intermediate, tempOGR, schema.getTypeName(), format, crs);
 
                 // wipe out the input dir contents
                 IOUtils.emptyDirectory(tempGS);
@@ -365,8 +357,8 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
     private boolean isShapefileCompatible(SimpleFeatureType schema) {
         GeometryType gt = null;
         for (AttributeDescriptor at : schema.getAttributeDescriptors()) {
-            if (at instanceof GeometryDescriptor) {
-                if (gt == null) gt = ((GeometryDescriptor) at).getType();
+            if (at instanceof GeometryDescriptor descriptor) {
+                if (gt == null) gt = descriptor.getType();
                 else
                     // more than one geometry
                     return false;
@@ -391,9 +383,7 @@ public class Ogr2OgrOutputFormat extends WFSGetFeatureOutputFormat
             fstore.addFeatures(collection);
         } catch (IOException ioe) {
             LOGGER.log(
-                    Level.WARNING,
-                    "Error while writing featuretype '" + schema.getTypeName() + "' to shapefile.",
-                    ioe);
+                    Level.WARNING, "Error while writing featuretype '" + schema.getTypeName() + "' to shapefile.", ioe);
             throw new ServiceException(ioe);
         } finally {
             if (dstore != null) {

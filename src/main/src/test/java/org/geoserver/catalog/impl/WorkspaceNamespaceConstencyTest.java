@@ -13,7 +13,9 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 import static org.easymock.EasyMock.verify;
 
+import java.io.Serializable;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import org.easymock.EasyMock;
 import org.easymock.IArgumentMatcher;
@@ -27,7 +29,6 @@ import org.geoserver.catalog.event.CatalogModifyEvent;
 import org.geoserver.catalog.event.CatalogPostModifyEvent;
 import org.junit.Test;
 
-@SuppressWarnings("unchecked")
 public class WorkspaceNamespaceConstencyTest {
 
     @Test
@@ -163,9 +164,9 @@ public class WorkspaceNamespaceConstencyTest {
 
         DataStoreInfo ds = createNiceMock(DataStoreInfo.class);
 
-        expect(cat.getDataStoresByWorkspace(ws)).andReturn(Arrays.asList(ds));
+        expect(cat.getDataStoresByWorkspace(ws)).andReturn(Collections.singletonList(ds));
 
-        HashMap params = new HashMap();
+        HashMap<String, Serializable> params = new HashMap<>();
         params.put("namespace", "http://bar.org");
         expect(ds.getConnectionParameters()).andReturn(params).anyTimes();
 
@@ -184,19 +185,18 @@ public class WorkspaceNamespaceConstencyTest {
     }
 
     protected StoreInfo hasNamespace(final String namespace) {
-        EasyMock.reportMatcher(
-                new IArgumentMatcher() {
-                    @Override
-                    public boolean matches(Object argument) {
-                        return namespace.equals(
-                                ((StoreInfo) argument).getConnectionParameters().get("namespace"));
-                    }
+        EasyMock.reportMatcher(new IArgumentMatcher() {
+            @Override
+            public boolean matches(Object argument) {
+                return namespace.equals(
+                        ((StoreInfo) argument).getConnectionParameters().get("namespace"));
+            }
 
-                    @Override
-                    public void appendTo(StringBuffer buffer) {
-                        buffer.append("hasNamespace '").append(namespace).append("'");
-                    }
-                });
+            @Override
+            public void appendTo(StringBuffer buffer) {
+                buffer.append("hasNamespace '").append(namespace).append("'");
+            }
+        });
         return null;
     }
 }

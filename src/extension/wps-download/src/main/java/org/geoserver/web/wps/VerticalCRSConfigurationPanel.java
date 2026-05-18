@@ -4,6 +4,8 @@
  */
 package org.geoserver.web.wps;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
@@ -17,13 +19,26 @@ import org.geoserver.catalog.MetadataMap;
 import org.geoserver.web.data.resource.ResourceConfigurationPanel;
 import org.geoserver.web.wicket.CRSPanel;
 import org.geoserver.web.wicket.SRSToCRSModel;
-import org.opengis.coverage.SampleDimensionType;
+import org.geotools.api.coverage.SampleDimensionType;
 
 /**
- * A CRS Configuration panel being plugged on Layer's Data config panel when WPS-Download plugin is
- * installed and the underlying gridCoverage could potentially represent vertical data.
+ * A CRS Configuration panel being plugged on Layer's Data config panel when WPS-Download plugin is installed and the
+ * underlying gridCoverage could potentially represent vertical data.
  */
 public class VerticalCRSConfigurationPanel extends ResourceConfigurationPanel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(VerticalCRSConfigurationPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     private static final Set<SampleDimensionType> GOOD_CANDIDATES_FOR_VERTICAL_CRS;
 
@@ -67,16 +82,13 @@ public class VerticalCRSConfigurationPanel extends ResourceConfigurationPanel {
         }
 
         CRSPanel verticalCRSPanel =
-                new CRSPanel(
-                        "verticalCRS",
-                        new SRSToCRSModel(new PropertyModel<>(this, "verticalCRS"))) {
+                new CRSPanel("verticalCRS", new SRSToCRSModel(new PropertyModel<>(this, "verticalCRS"))) {
                     @Override
                     protected void onSRSUpdated(String srs, AjaxRequestTarget target) {
                         verticalCRS = srs;
                         if (verticalCRS != null) {
 
-                            final PropertyModel<MetadataMap> metadata =
-                                    new PropertyModel<>(model, "metadata");
+                            final PropertyModel<MetadataMap> metadata = new PropertyModel<>(model, "metadata");
                             if (metadata.getObject() == null) {
                                 metadata.setObject(new MetadataMap());
                             }

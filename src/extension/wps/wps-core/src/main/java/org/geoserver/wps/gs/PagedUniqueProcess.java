@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.visitor.UniqueVisitor;
@@ -18,13 +20,10 @@ import org.geotools.process.factory.DescribeParameter;
 import org.geotools.process.factory.DescribeProcess;
 import org.geotools.process.factory.DescribeResult;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.FilterFactory;
 
 /**
- * A WPS process to retrieve unique field values from a layer on Geoserver catalog. Requires a valid
- * layer name and a field name to extract the unique values. It accepts sorting and paging
- * parameters.
+ * A WPS process to retrieve unique field values from a layer on GeoServer catalog. Requires a valid layer name and a
+ * field name to extract the unique values. It accepts sorting and paging parameters.
  *
  * @author Cesar Martinez Izquierdo
  * @author Sandro Salari
@@ -39,7 +38,7 @@ public class PagedUniqueProcess implements GeoServerProcess {
     /** The LOGGER. */
     private static final Logger LOGGER = Logging.getLogger(PagedUniqueProcess.class);
 
-    private final FilterFactory FF = CommonFactoryFinder.getFilterFactory2();
+    private final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     public static final class Results {
         private String featureTypeName;
@@ -109,20 +108,16 @@ public class PagedUniqueProcess implements GeoServerProcess {
         }
         SimpleFeatureType featureType = features.getSchema();
         String featureTypeName = featureType.getTypeName();
-        LOGGER.fine(
-                "PagedUnique process called on resource: "
-                        + featureTypeName
-                        + " - field: "
-                        + fieldName);
+        LOGGER.fine("PagedUnique process called on resource: " + featureTypeName + " - field: " + fieldName);
 
-        UniqueVisitor visitor =
-                new UniqueVisitor(FF.property(fieldName)) {
-                    @Override
-                    public boolean hasLimits() {
-                        // force usage of visitor limits, also for size extraction "query"
-                        return true;
-                    }
-                };
+        UniqueVisitor visitor = new UniqueVisitor(FF.property(fieldName)) {
+            @Override
+            public boolean hasLimits() {
+                // force usage of visitor limits, also for size extraction "query"
+                return true;
+            }
+        };
+        visitor.setPreserveOrder(true);
 
         Integer listSize = 0;
         List<String> list = new ArrayList<>();
@@ -146,7 +141,6 @@ public class PagedUniqueProcess implements GeoServerProcess {
                 if (maxFeatures != null) {
                     visitor.setMaxFeatures(maxFeatures);
                 }
-                visitor.setPreserveOrder(true);
 
                 features.accepts(visitor, null);
                 if (visitor.getResult() == null || visitorAsList(visitor) == null) {

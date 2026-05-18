@@ -13,19 +13,19 @@ import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.stereotype.Component;
 
 /**
- * This one exists solely to have a converter that will care for the collection objects without
- * hitting GeoServer own xstream converter, which is generating an ugly output
+ * This one exists solely to have a converter that will care for the collection objects without hitting GeoServer own
+ * xstream converter, which is generating an ugly output
  *
  * @author Andrea Aime - GeoSolutions
  */
 @Component
 public class OseoJSONConverter extends BaseMessageConverter<Object> {
 
-    MappingJackson2HttpMessageConverter delegate = new MappingJackson2HttpMessageConverter();
+    JacksonJsonHttpMessageConverter delegate = new JacksonJsonHttpMessageConverter();
 
     public OseoJSONConverter() {
         super(MediaType.APPLICATION_JSON);

@@ -5,20 +5,18 @@
  */
 package org.vfny.geoserver.servlets;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.ows.DispatcherOutputStream;
 import org.geoserver.ows.ServiceStrategy;
 
 /**
  * Fast and Dangeroud service strategy.
  *
- * <p>Will fail when a ServiceException is encountered on writeTo, and will not tell the user about
- * it!
+ * <p>Will fail when a ServiceException is encountered on writeTo, and will not tell the user about it!
  *
- * <p>This is the worst case scenario, you are trading speed for danger by using this
- * ServiceStrategy.
+ * <p>This is the worst case scenario, you are trading speed for danger by using this ServiceStrategy.
  *
  * @author jgarnett
  */

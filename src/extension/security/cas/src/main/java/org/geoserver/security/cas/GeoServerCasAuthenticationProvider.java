@@ -7,6 +7,7 @@
 package org.geoserver.security.cas;
 
 import java.util.logging.Logger;
+import org.apereo.cas.client.proxy.ProxyGrantingTicketStorage;
 import org.geoserver.config.util.XStreamPersister;
 import org.geoserver.security.ConstantFilterChain;
 import org.geoserver.security.GeoServerSecurityFilterChain;
@@ -17,7 +18,6 @@ import org.geoserver.security.filter.AbstractFilterProvider;
 import org.geoserver.security.filter.GeoServerSecurityFilter;
 import org.geoserver.security.validation.SecurityConfigValidator;
 import org.geotools.util.logging.Logging;
-import org.jasig.cas.client.proxy.ProxyGrantingTicketStorage;
 
 /**
  * Security provider for CAS
@@ -59,8 +59,7 @@ public class GeoServerCasAuthenticationProvider extends AbstractFilterProvider {
     }
 
     @Override
-    public SecurityConfigValidator createConfigurationValidator(
-            GeoServerSecurityManager securityManager) {
+    public SecurityConfigValidator createConfigurationValidator(GeoServerSecurityManager securityManager) {
         return new CasFilterConfigValidator(securityManager);
     }
 
@@ -69,10 +68,9 @@ public class GeoServerCasAuthenticationProvider extends AbstractFilterProvider {
 
         if (filterChain.getRequestChainByName(PROXYRECEPTORCHAIN) != null) return;
 
-        RequestFilterChain casChain =
-                new ConstantFilterChain(
-                        GeoServerCasConstants.CAS_PROXY_RECEPTOR_PATTERN,
-                        GeoServerCasConstants.CAS_PROXY_RECEPTOR_PATTERN + "/");
+        RequestFilterChain casChain = new ConstantFilterChain(
+                GeoServerCasConstants.CAS_PROXY_RECEPTOR_PATTERN,
+                GeoServerCasConstants.CAS_PROXY_RECEPTOR_PATTERN + "/");
         casChain.setFilterNames(pgtCallback.getName());
         casChain.setName(PROXYRECEPTORCHAIN);
         filterChain.getRequestChains().add(0, casChain);

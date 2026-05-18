@@ -7,13 +7,14 @@ package org.geoserver.web.demo;
 
 import static org.geoserver.ows.util.ResponseUtils.baseURL;
 import static org.geoserver.ows.util.ResponseUtils.buildURL;
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.wicket.Component;
 import org.apache.wicket.behavior.Behavior;
@@ -38,19 +39,19 @@ import org.geoserver.web.GeoServerBasePage;
 import org.geoserver.web.crs.DynamicCrsMapResource;
 import org.geoserver.web.wicket.ParamResourceModel;
 import org.geoserver.web.wicket.SimpleBookmarkableLink;
-import org.geoserver.wms.WMS;
+import org.geotools.api.metadata.extent.Extent;
+import org.geotools.api.metadata.extent.GeographicBoundingBox;
+import org.geotools.api.metadata.extent.GeographicExtent;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.ProjectedCRS;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.api.util.InternationalString;
 import org.geotools.geometry.jts.JTS;
+import org.geotools.gml2.SrsSyntax;
 import org.geotools.referencing.CRS;
-import org.geotools.util.Version;
 import org.locationtech.jts.geom.Envelope;
-import org.opengis.metadata.extent.Extent;
-import org.opengis.metadata.extent.GeographicBoundingBox;
-import org.opengis.metadata.extent.GeographicExtent;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.crs.ProjectedCRS;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.util.InternationalString;
 
+// TODO: WICKET 9 verify this page still works
 public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderContributor {
 
     private String jsSrs;
@@ -63,54 +64,76 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
 
     /** Initializes the OpenLayers map when the page loads */
     @Override
-    public void renderHead(IHeaderResponse headerResponse) {
-        super.renderHead(headerResponse);
-        String onLoadJsCall =
-                "initMap('"
-                        + StringEscapeUtils.escapeEcmaScript(jsSrs)
-                        + "', '"
-                        + jsUnit
-                        + "', "
-                        + jsBbox
-                        + ", "
-                        + jsMaxResolution
-                        + ")";
-        headerResponse.render(new OnDomReadyHeaderItem(onLoadJsCall));
+    public void renderHead(IHeaderResponse response) {
+        super.renderHead(response);
+        String onLoadJsCall = "var map = null;\n"
+                + "            \n"
+                + "            function initMap(srs, units, bbox, resolution){\n"
+                + "                var format = 'image/png';\n"
+                + "\n"
+                + "                var projection = new ol.proj.Projection({\n"
+                + "                    code: srs,\n"
+                + "                    units: units,\n"
+                + "                    axisOrientation: 'neu',\n"
+                + "                });\n"
+                + "\n"
+                + "                // setup single tiled layer\n"
+                + "                var untiled = new ol.layer.Image({\n"
+                + "                    title: 'CRS Area Of Validity',\n"
+                + "                    source: new ol.source.ImageWMS({\n"
+                + "                      url: document.getElementById(\"aovMap\").src,\n"
+                + "                      params: {LAYERS: '', VERSION: '1.1.1', FORMAT: format}\n"
+                + "                    })\n"
+                + "                });\n"
+                + "\n"
+                + "                map = new ol.Map({\n"
+                + "                    target: 'aovMapContainer',\n"
+                + "                    layers: [untiled],\n"
+                + "                    controls: ol.control.defaults({attribution: false}).extend([\n"
+                + "                        new ol.control.MousePosition({\n"
+                + "                            coordinateFormat: ol.coordinate.createStringXY(4),\n"
+                + "                            projection: projection,\n"
+                + "                            undefinedHTML: '&nbsp;'\n"
+                + "                        })\n"
+                + "                    ]),\n"
+                + "                    view: new ol.View({\n"
+                + "                      center: [0, 0],\n"
+                + "                      zoom: 2,\n"
+                + "                      extent: bbox,\n"
+                + "                      projection: projection,\n"
+                + "                      maxResolution: resolution\n"
+                + "                    })\n"
+                + "                });\n"
+                + "\n"
+                + "                map.getView().fit(bbox,map.getSize());\n"
+                + "            }"
+                + "initMap('"
+                + StringEscapeUtils.escapeEcmaScript(jsSrs)
+                + "', '"
+                + jsUnit
+                + "', "
+                + jsBbox
+                + ", "
+                + jsMaxResolution
+                + ")";
+        response.render(new OnDomReadyHeaderItem(onLoadJsCall));
     }
 
     public SRSDescriptionPage(PageParameters params) {
 
         // this two contributions should be relative to the root of the webbapp's context path
-        add(
-                new Behavior() {
-                    @Override
-                    public void renderHead(Component component, IHeaderResponse response) {
-                        HttpServletRequest req =
-                                getGeoServerApplication().servletRequest(getRequest());
-                        String baseUrl = baseURL(req);
+        add(new Behavior() {
+            @Override
+            public void renderHead(Component component, IHeaderResponse response) {
+                HttpServletRequest req = getGeoServerApplication().servletRequest(getRequest());
+                String baseUrl = baseURL(req);
 
-                        response.render(
-                                new CssUrlReferenceHeaderItem(
-                                        buildURL(
-                                                baseUrl,
-                                                "openlayers3/ol.css",
-                                                null,
-                                                URLMangler.URLType.RESOURCE),
-                                        null,
-                                        null));
-                        response.render(
-                                new JavaScriptUrlReferenceHeaderItem(
-                                        buildURL(
-                                                baseUrl,
-                                                "openlayers3/ol.js",
-                                                null,
-                                                URLMangler.URLType.RESOURCE),
-                                        null,
-                                        false,
-                                        "UTF-8",
-                                        null));
-                    }
-                });
+                response.render(new CssUrlReferenceHeaderItem(
+                        buildURL(baseUrl, "openlayers3/ol.css", null, URLMangler.URLType.RESOURCE), null, null));
+                response.render(new JavaScriptUrlReferenceHeaderItem(
+                        buildURL(baseUrl, "openlayers3/ol.js", null, URLMangler.URLType.RESOURCE), null));
+            }
+        });
 
         final Locale locale = getLocale();
         final String code = params.get("code").toString();
@@ -135,7 +158,7 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
         }
 
         try {
-            String epsgOrderCode = WMS.toInternalSRS(code, new Version("1.3.0"));
+            String epsgOrderCode = SrsSyntax.OGC_URN.getSRS(code);
             CoordinateReferenceSystem epsgCrs = CRS.decode(epsgOrderCode);
             epsgWkt = epsgCrs.toString();
         } catch (Exception e) {
@@ -153,6 +176,7 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
         // screwed up by different local encodings
         this.jsUnit = crs instanceof ProjectedCRS ? "m" : "degrees";
         CoordinateReferenceSystem mapCrs = crs;
+        boolean hasAreaOfValidity = false;
         if (crs != null) {
             try {
                 String unit = crs.getCoordinateSystem().getAxis(0).getUnit().toString();
@@ -166,25 +190,13 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
 
             Extent domainOfValidity = crs.getDomainOfValidity();
             if (domainOfValidity != null) {
-                areaOfValidity =
-                        domainOfValidity.getDescription() == null
-                                ? ""
-                                : domainOfValidity.getDescription().toString(locale);
-                Collection<? extends GeographicExtent> geographicElements =
-                        domainOfValidity.getGeographicElements();
+                areaOfValidity = domainOfValidity.getDescription() == null
+                        ? ""
+                        : domainOfValidity.getDescription().toString(locale);
+                Collection<? extends GeographicExtent> geographicElements = domainOfValidity.getGeographicElements();
                 for (GeographicExtent ex : geographicElements) {
                     aovCoords.append(" ").append(ex);
                 }
-                // Envelope envelope = CRS.getEnvelope(crs);
-                // jsBbox = "[" + envelope.getMinimum(0) + "," + envelope.getMinimum(1) + ","
-                // + envelope.getMaximum(0) + "," + envelope.getMaximum(1) + "]";
-                //
-                // jsMaxResolution = getMaxResolution(envelope);
-
-                // GeographicBoundingBox box = CRS.getGeographicBoundingBox(crs);
-                // jsBbox = "[" + box.getWestBoundLongitude() + "," + box.getSouthBoundLatitude()
-                // + "," + box.getEastBoundLongitude() + "," + box.getNorthBoundLatitude()
-                // + "]";
 
                 GeographicBoundingBox box = CRS.getGeographicBoundingBox(crs);
 
@@ -198,12 +210,8 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
                 double x2;
                 double y2;
                 try {
-                    Envelope envelope =
-                            new Envelope(
-                                    westBoundLongitude,
-                                    eastBoundLongitude,
-                                    southBoundLatitude,
-                                    northBoundLatitude);
+                    Envelope envelope = new Envelope(
+                            westBoundLongitude, eastBoundLongitude, southBoundLatitude, northBoundLatitude);
                     MathTransform tr = CRS.findMathTransform(CRS.decode("EPSG:4326"), crs, true);
                     Envelope destEnvelope = JTS.transform(envelope, null, tr, 10);
 
@@ -231,6 +239,8 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
                 double height = y2 - y1;
                 double maxres = getMaxResolution(width, height);
                 this.jsMaxResolution = maxres;
+
+                hasAreaOfValidity = true;
             }
         }
 
@@ -238,58 +248,54 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
         add(new Label("crsRemarks", remarks == null ? "-" : remarks.toString(locale)));
         List<ITab> tabs = new ArrayList<>();
         String finalEpsgWkt = epsgWkt;
-        tabs.add(
-                new AbstractTab(new ParamResourceModel("epsgOrder", this)) {
-                    @Override
-                    public WebMarkupContainer getPanel(String panelId) {
-                        return new WKTPanel(
-                                panelId,
-                                new ParamResourceModel(
-                                        "epsgOrderDescription", SRSDescriptionPage.this),
-                                new Model<>(finalEpsgWkt));
-                    }
-                });
+        tabs.add(new AbstractTab(new ParamResourceModel("epsgOrder", this)) {
+            @Override
+            public WebMarkupContainer getPanel(String panelId) {
+                return new WKTPanel(
+                        panelId,
+                        new ParamResourceModel("epsgOrderDescription", SRSDescriptionPage.this),
+                        new Model<>(finalEpsgWkt));
+            }
+        });
         String finalWkt = wkt;
-        tabs.add(
-                new AbstractTab(new ParamResourceModel("internalOrder", this)) {
-                    @Override
-                    public WebMarkupContainer getPanel(String panelId) {
-                        return new WKTPanel(
-                                panelId,
-                                new ParamResourceModel(
-                                        "internalOrderDescription", SRSDescriptionPage.this),
-                                new Model<>(finalWkt));
-                    }
-                });
-        TabbedPanel<ITab> wktTabs =
-                new TabbedPanel<ITab>("wktTabs", tabs) {
-                    @Override
-                    protected String getTabContainerCssClass() {
-                        return "tab-row tab-row-compact";
-                    }
-                };
+        tabs.add(new AbstractTab(new ParamResourceModel("internalOrder", this)) {
+            @Override
+            public WebMarkupContainer getPanel(String panelId) {
+                return new WKTPanel(
+                        panelId,
+                        new ParamResourceModel("internalOrderDescription", SRSDescriptionPage.this),
+                        new Model<>(finalWkt));
+            }
+        });
+        TabbedPanel<ITab> wktTabs = new TabbedPanel<>("wktTabs", tabs) {
+            @Override
+            protected String getTabContainerCssClass() {
+                return "tab-row tab-row-compact";
+            }
+        };
         add(wktTabs);
-        add(new Label("aovCoords", aovCoords.toString()));
-        add(new Label("aovDescription", areaOfValidity));
+        WebMarkupContainer avText = new WebMarkupContainer("areaOfValidityText");
+        add(avText);
+        avText.add(new Label("aovCoords", aovCoords.toString()));
+        avText.add(new Label("aovDescription", areaOfValidity));
 
+        WebMarkupContainer avMap = new WebMarkupContainer("areaOfValidityMap");
+        add(avMap);
         Image aovMap = new Image("aovMap", new DynamicCrsMapResource(mapCrs));
-        add(aovMap);
+        avMap.add(aovMap);
+
+        avText.setVisible(hasAreaOfValidity);
+        avMap.setVisible(hasAreaOfValidity);
 
         // link with the reprojection console
-        add(
-                new SimpleBookmarkableLink(
-                        "reprojectFrom",
-                        ReprojectPage.class,
-                        new ParamResourceModel("reprojectFrom", this, code),
-                        "fromSRS",
-                        code));
-        add(
-                new SimpleBookmarkableLink(
-                        "reprojectTo",
-                        ReprojectPage.class,
-                        new ParamResourceModel("reprojectTo", this, code),
-                        "toSRS",
-                        code));
+        add(new SimpleBookmarkableLink(
+                "reprojectFrom",
+                ReprojectPage.class,
+                new ParamResourceModel("reprojectFrom", this, code),
+                "fromSRS",
+                code));
+        add(new SimpleBookmarkableLink(
+                "reprojectTo", ReprojectPage.class, new ParamResourceModel("reprojectTo", this, code), "toSRS", code));
     }
 
     private double getMaxResolution(final double w, final double h) {
@@ -299,7 +305,20 @@ public class SRSDescriptionPage extends GeoServerBasePage implements IHeaderCont
     /*
      * Panel for displaying the well known text for the CRS
      */
-    class WKTPanel extends Panel {
+    static class WKTPanel extends Panel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(SRSDescriptionPage.WKTPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public WKTPanel(String id, IModel<String> wktDescriptionModel, IModel<String> wktModel) {
             super(id);

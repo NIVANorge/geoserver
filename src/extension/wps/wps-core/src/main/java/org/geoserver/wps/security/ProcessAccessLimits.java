@@ -5,6 +5,7 @@
 
 package org.geoserver.wps.security;
 
+import java.io.Serial;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
 import org.geoserver.security.AccessLimits;
@@ -15,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public class ProcessAccessLimits extends AccessLimits {
+    @Serial
     private static final long serialVersionUID = -3253977289877833644L;
 
     private boolean allowed;
@@ -77,11 +79,8 @@ public class ProcessAccessLimits extends AccessLimits {
         // not hide, and not filtering out a list, this
         // is an unauthorized direct resource access, complain
         Authentication user = SecurityContextHolder.getContext().getAuthentication();
-        if (user == null || user.getAuthorities().size() == 0)
-            return new InsufficientAuthenticationException(
-                    "Cannot access " + resourceName + " as anonymous");
-        else
-            return new AccessDeniedException(
-                    "Cannot access " + resourceName + " with the current privileges");
+        if (user == null || user.getAuthorities().isEmpty())
+            return new InsufficientAuthenticationException("Cannot access " + resourceName + " as anonymous");
+        else return new AccessDeniedException("Cannot access " + resourceName + " with the current privileges");
     }
 }

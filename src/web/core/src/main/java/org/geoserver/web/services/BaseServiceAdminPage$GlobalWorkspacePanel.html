@@ -1,7 +1,15 @@
+<?xml version="1.0"?>
 <html xmlns:wicket="http://wicket.apache.org/">
-<body>
-<wicket:panel>
-  <select wicket:id="workspace"></select>
-</wicket:panel>
-</body>
+  <body>
+    <wicket:panel>
+      <div class="gs-panel-BaseServiceAdminPage_GlobalWorkspacePanel gs-form">
+        <div class="gs-form-group">
+          <label for="workspace">
+            <wicket:message key="workspace">Workspace</wicket:message>
+          </label>
+          <select wicket:id="workspace" class="w-fit"/>
+        </div>
+      </div>
+    </wicket:panel>
+  </body>
 </html>

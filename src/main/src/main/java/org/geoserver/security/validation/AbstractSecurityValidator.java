@@ -20,7 +20,7 @@ public abstract class AbstractSecurityValidator {
     }
 
     protected boolean isNotEmpty(String aString) {
-        return aString != null && aString.length() > 0;
+        return aString != null && !aString.isEmpty();
     }
 
     protected boolean isNotEmpty(char[] aString) {
@@ -50,11 +50,10 @@ public abstract class AbstractSecurityValidator {
     }
 
     /**
-     * Checks if the file can be created. For relative file names, {@link #getTempDir()} is used (if
-     * there is a temp dir)
+     * Checks if the file can be created. For relative file names, {@link #getTempDir()} is used (if there is a temp
+     * dir)
      *
-     * <p>returns true if file can be created or if the test is not possible due to a missing temp
-     * dir
+     * <p>returns true if file can be created or if the test is not possible due to a missing temp dir
      *
      * <p>false if file creation causes an {@link IOException}
      */

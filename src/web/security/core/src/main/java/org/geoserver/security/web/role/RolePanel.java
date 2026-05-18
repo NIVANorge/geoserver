@@ -5,6 +5,8 @@
  */
 package org.geoserver.security.web.role;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
 import org.apache.wicket.Component;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -24,12 +26,25 @@ import org.geoserver.web.GeoServerApplication;
 import org.geoserver.web.wicket.GeoServerDataProvider.Property;
 import org.geoserver.web.wicket.GeoServerDialog;
 import org.geoserver.web.wicket.GeoServerTablePanel;
-import org.geoserver.web.wicket.Icon;
+import org.geoserver.web.wicket.GsIcon;
 import org.geoserver.web.wicket.SimpleAjaxLink;
 
 /** A page listing roles, allowing for removal, addition and linking to an edit page */
 @SuppressWarnings("serial")
 public class RolePanel extends Panel {
+
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(RolePanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
 
     protected GeoServerTablePanel<GeoServerRole> roles;
     protected GeoServerDialog dialog;
@@ -43,33 +58,29 @@ public class RolePanel extends Panel {
 
         RoleListProvider provider = new RoleListProvider(this.roleServiceName);
         add(
-                roles =
-                        new GeoServerTablePanel<GeoServerRole>("table", provider, true) {
+                roles = new GeoServerTablePanel<>("table", provider, true) {
 
-                            @Override
-                            protected Component getComponentForProperty(
-                                    String id,
-                                    IModel<GeoServerRole> itemModel,
-                                    Property<GeoServerRole> property) {
-                                if (property == RoleListProvider.ROLENAME) {
-                                    return editRoleLink(id, itemModel, property);
-                                } else if (RoleListProvider.ParentPropertyName.equals(
-                                        property.getName())) {
-                                    return editParentRoleLink(id, itemModel, property);
-                                } else if (property == RoleListProvider.HASROLEPARAMS) {
-                                    if ((Boolean) property.getModel(itemModel).getObject())
-                                        return new Icon(id, CatalogIconFactory.ENABLED_ICON);
-                                    else return new Label(id, "");
-                                }
-                                throw new RuntimeException("Uknown property " + property);
-                            }
+                    @Override
+                    protected Component getComponentForProperty(
+                            String id, IModel<GeoServerRole> itemModel, Property<GeoServerRole> property) {
+                        if (property == RoleListProvider.ROLENAME) {
+                            return editRoleLink(id, itemModel, property);
+                        } else if (RoleListProvider.ParentPropertyName.equals(property.getName())) {
+                            return editParentRoleLink(id, itemModel, property);
+                        } else if (property == RoleListProvider.HASROLEPARAMS) {
+                            if ((Boolean) property.getModel(itemModel).getObject())
+                                return new GsIcon(id, CatalogIconFactory.ENABLED_ICON);
+                            else return new Label(id, "");
+                        }
+                        throw new RuntimeException("Uknown property " + property);
+                    }
 
-                            @Override
-                            protected void onSelectionUpdate(AjaxRequestTarget target) {
-                                removal.setEnabled(roles.getSelection().size() > 0);
-                                target.add(removal);
-                            }
-                        });
+                    @Override
+                    protected void onSelectionUpdate(AjaxRequestTarget target) {
+                        removal.setEnabled(!roles.getSelection().isEmpty());
+                        target.add(removal);
+                    }
+                });
         roles.setItemReuseStrategy(new DefaultItemReuseStrategy());
         roles.setOutputMarkupId(true);
         add(dialog = new GeoServerDialog("dialog"));
@@ -95,30 +106,24 @@ public class RolePanel extends Panel {
         add(h);
 
         if (!canCreateStore) {
-            h.add(
-                    new Label("message", new StringResourceModel("noCreateStore", this, null))
-                            .add(new AttributeAppender("class", new Model<>("info-link"), " ")));
+            h.add(new Label("message", new StringResourceModel("noCreateStore", this, null))
+                    .add(new AttributeAppender("class", new Model<>("info-link"), " ")));
         } else {
-            h.add(new Label("message", new Model()));
+            h.add(new Label("message", new Model<>()));
         }
 
         // the add button
         h.add(
-                add =
-                        new Link("addNew") {
-                            @Override
-                            public void onClick() {
-                                setResponsePage(
-                                        new NewRolePage(roleServiceName).setReturnPage(getPage()));
-                            }
-                        });
+                add = new Link<>("addNew") {
+                    @Override
+                    public void onClick() {
+                        setResponsePage(new NewRolePage(roleServiceName).setReturnPage(getPage()));
+                    }
+                });
         add.setVisible(canCreateStore);
 
         // the removal button
-        h.add(
-                removal =
-                        new SelectionRoleRemovalLink(
-                                roleServiceName, "removeSelected", roles, dialog));
+        h.add(removal = new SelectionRoleRemovalLink(roleServiceName, "removeSelected", roles, dialog));
         removal.setOutputMarkupId(true);
         removal.setEnabled(false);
         removal.setVisible(canCreateStore);
@@ -149,9 +154,8 @@ public class RolePanel extends Panel {
 
             @Override
             protected void onClick(AjaxRequestTarget target) {
-                setResponsePage(
-                        new EditRolePage(roleServiceName, (GeoServerRole) getDefaultModelObject())
-                                .setReturnPage(getPage()));
+                setResponsePage(new EditRolePage(roleServiceName, (GeoServerRole) getDefaultModelObject())
+                        .setReturnPage(getPage()));
             }
         };
     }
@@ -165,16 +169,14 @@ public class RolePanel extends Panel {
                 GeoServerRole role = (GeoServerRole) getDefaultModelObject();
                 GeoServerRole parentRole;
                 try {
-                    parentRole =
-                            GeoServerApplication.get()
-                                    .getSecurityManager()
-                                    .loadRoleService(roleServiceName)
-                                    .getParentRole(role);
+                    parentRole = GeoServerApplication.get()
+                            .getSecurityManager()
+                            .loadRoleService(roleServiceName)
+                            .getParentRole(role);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                setResponsePage(
-                        new EditRolePage(roleServiceName, parentRole).setReturnPage(getPage()));
+                setResponsePage(new EditRolePage(roleServiceName, parentRole).setReturnPage(getPage()));
             }
         };
     }

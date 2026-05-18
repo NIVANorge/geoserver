@@ -6,6 +6,7 @@
 package org.geoserver.web.data.resource;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import org.apache.wicket.WicketRuntimeException;
@@ -21,36 +22,37 @@ import org.geoserver.catalog.LayerInfo;
 import org.geoserver.catalog.NamespaceInfo;
 import org.geoserver.catalog.ProjectionPolicy;
 import org.geoserver.catalog.ResourceInfo;
+import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.web.data.layer.LayerPage;
 import org.geoserver.web.publish.PublishedConfigurationPage;
 import org.geoserver.web.publish.PublishedConfigurationPanel;
 import org.geoserver.web.publish.PublishedEditTabPanel;
 import org.geoserver.web.wicket.ParamResourceModel;
+import org.geotools.api.coverage.grid.GridGeometry;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.util.factory.GeoTools;
-import org.opengis.coverage.grid.GridGeometry;
 
 /**
  * Page allowing to configure a layer and its resource.
  *
- * <p>The page is completely pluggable, the UI will be made up by scanning the Spring context for
- * implementations of {@link ResourceConfigurationPanel} and {@link PublishedConfigurationPanel}.
+ * <p>The page is completely pluggable, the UI will be made up by scanning the Spring context for implementations of
+ * {@link ResourceConfigurationPanel} and {@link PublishedConfigurationPanel}.
  *
- * <p>WARNING: one crucial aspect of this page is its ability to not loose edits when one switches
- * from one tab to the other. I did not find any effective way to unit test this, so _please_, if
- * you do modify anything in this class (especially the models), manually retest that the edits are
- * not lost on tab switch.
+ * <p>WARNING: one crucial aspect of this page is its ability to not lose edits when one switches from one tab to the
+ * other. I did not find any effective way to unit test this, so _please_, if you do modify anything in this class
+ * (especially the models), manually retest that the edits are not lost on tab switch.
  */
 public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerInfo> {
 
+    @Serial
     private static final long serialVersionUID = 7870938096047218989L;
 
     IModel<ResourceInfo> myResourceModel;
 
     public ResourceConfigurationPage(PageParameters parameters) {
-        this(parameters.get(WORKSPACE).toOptionalString(), parameters.get(NAME).toString());
+        this(parameters.get(WORKSPACE).toOptionalString(), parameters.get(LAYER).toString());
     }
 
     public ResourceConfigurationPage(String workspaceName, String layerName) {
@@ -70,9 +72,7 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
         }
 
         if (layer == null) {
-            error(
-                    new ParamResourceModel("ResourceConfigurationPage.notFound", this, layerName)
-                            .getString());
+            error(new ParamResourceModel("ResourceConfigurationPage.notFound", this, layerName).getString());
             setResponsePage(returnPage);
             return;
         }
@@ -102,6 +102,22 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
                         : getCatalog().getResource(info.getResource().getId(), ResourceInfo.class));
     }
 
+    @Override
+    public PageParameters getPageParameters() {
+        PageParameters params = super.getPageParameters();
+        if (params.isEmpty() && myModel != null) {
+            LayerInfo layer = getPublishedInfo();
+            if (layer != null && layer.getResource() != null) {
+                PageParameters derived = new PageParameters();
+                WorkspaceInfo ws = layer.getResource().getStore().getWorkspace();
+                if (ws != null) derived.add(WORKSPACE, ws.getName());
+                derived.add(LAYER, layer.getName());
+                return derived;
+            }
+        }
+        return params;
+    }
+
     private void updateResourceInLayerModel(ResourceInfo resource) {
         LayerInfo layer = getPublishedInfo();
         layer.setResource(resource);
@@ -113,8 +129,7 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
         myResourceModel = new CompoundPropertyModel<>(new ResourceModel(resource));
     }
 
-    private List<ResourceConfigurationPanelInfo> filterResourcePanels(
-            List<ResourceConfigurationPanelInfo> list) {
+    private List<ResourceConfigurationPanelInfo> filterResourcePanels(List<ResourceConfigurationPanelInfo> list) {
         for (int i = 0; i < list.size(); i++) {
             if (!list.get(i).canHandle(getResourceInfo())) {
                 list.remove(i);
@@ -126,6 +141,7 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
 
     protected class DataLayerEditTabPanel extends ListEditTabPanel {
 
+        @Serial
         private static final long serialVersionUID = -3442310698941800127L;
 
         public DataLayerEditTabPanel(String id) {
@@ -134,32 +150,27 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
 
         @Override
         protected ListView<ResourceConfigurationPanelInfo> createList(String id) {
-            List<ResourceConfigurationPanelInfo> dataPanels =
-                    filterResourcePanels(
-                            getGeoServerApplication()
-                                    .getBeansOfType(ResourceConfigurationPanelInfo.class));
-            ListView<ResourceConfigurationPanelInfo> dataPanelList =
-                    new ListView<ResourceConfigurationPanelInfo>(id, dataPanels) {
+            List<ResourceConfigurationPanelInfo> dataPanels = filterResourcePanels(
+                    getGeoServerApplication().getBeansOfType(ResourceConfigurationPanelInfo.class));
+            ListView<ResourceConfigurationPanelInfo> dataPanelList = new ListView<>(id, dataPanels) {
 
-                        private static final long serialVersionUID = -845785165778837024L;
+                @Serial
+                private static final long serialVersionUID = -845785165778837024L;
 
-                        @Override
-                        protected void populateItem(ListItem<ResourceConfigurationPanelInfo> item) {
-                            ResourceConfigurationPanelInfo panelInfo = item.getModelObject();
-                            try {
-                                final Class<ResourceConfigurationPanel> componentClass =
-                                        panelInfo.getComponentClass();
-                                final Constructor<ResourceConfigurationPanel> constructor =
-                                        componentClass.getConstructor(String.class, IModel.class);
-                                ResourceConfigurationPanel panel =
-                                        constructor.newInstance("content", myResourceModel);
-                                item.add(panel);
-                            } catch (Exception e) {
-                                throw new WicketRuntimeException(
-                                        "Failed to add pluggable resource configuration panels", e);
-                            }
-                        }
-                    };
+                @Override
+                protected void populateItem(ListItem<ResourceConfigurationPanelInfo> item) {
+                    ResourceConfigurationPanelInfo panelInfo = item.getModelObject();
+                    try {
+                        final Class<ResourceConfigurationPanel> componentClass = panelInfo.getComponentClass();
+                        final Constructor<ResourceConfigurationPanel> constructor =
+                                componentClass.getConstructor(String.class, IModel.class);
+                        ResourceConfigurationPanel panel = constructor.newInstance("content", myResourceModel);
+                        item.add(panel);
+                    } catch (Exception e) {
+                        throw new WicketRuntimeException("Failed to add pluggable resource configuration panels", e);
+                    }
+                }
+            };
             return dataPanelList;
         }
     }
@@ -182,14 +193,12 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
     public void updateResource(ResourceInfo info, final AjaxRequestTarget target) {
         myResourceModel.setObject(info);
         updateResourceInLayerModel(info);
-        visitChildren(
-                (component, visit) -> {
-                    if (component instanceof ResourceConfigurationPanel) {
-                        ResourceConfigurationPanel rcp = (ResourceConfigurationPanel) component;
-                        rcp.resourceUpdated(target);
-                        visit.dontGoDeeper();
-                    }
-                });
+        visitChildren((component, visit) -> {
+            if (component instanceof ResourceConfigurationPanel rcp) {
+                rcp.resourceUpdated(target);
+                visit.dontGoDeeper();
+            }
+        });
     }
 
     @Override
@@ -203,43 +212,32 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
         ResourceInfo resourceInfo = getResourceInfo();
         validateByChildren(resourceInfo);
         // allow panels to update the model in case they are not directly editing its properties
-        visitChildren(
-                (component, visit) -> {
-                    if (component instanceof ResourceConfigurationPanel) {
-                        ResourceConfigurationPanel rcp = (ResourceConfigurationPanel) component;
-                        rcp.onSave();
-                    }
-                });
-        visitChildren(
-                (component, visit) -> {
-                    if (component instanceof PublishedConfigurationPanel) {
-                        PublishedConfigurationPanel rcp = (PublishedConfigurationPanel) component;
-                        rcp.save();
-                    }
-                });
+        visitChildren((component, visit) -> {
+            if (component instanceof ResourceConfigurationPanel rcp) {
+                rcp.onSave();
+            }
+        });
+        visitChildren((component, visit) -> {
+            if (component instanceof PublishedConfigurationPanel rcp) {
+                rcp.save();
+            }
+        });
         if (isNew) {
             // updating grid if is a coverage
-            if (resourceInfo instanceof CoverageInfo) {
+            if (resourceInfo instanceof CoverageInfo cinfo) {
                 // the coverage bounds computation path is a bit more linear, the
                 // readers always return the bounds and in the proper CRS (afaik)
-                CoverageInfo cinfo = (CoverageInfo) resourceInfo;
                 GridCoverage2DReader reader =
-                        (GridCoverage2DReader)
-                                cinfo.getGridCoverageReader(null, GeoTools.getDefaultHints());
+                        (GridCoverage2DReader) cinfo.getGridCoverageReader(null, GeoTools.getDefaultHints());
 
                 // get bounds
-                final ReferencedEnvelope bounds =
-                        new ReferencedEnvelope(reader.getOriginalEnvelope());
+                final ReferencedEnvelope bounds = new ReferencedEnvelope(reader.getOriginalEnvelope());
                 // apply the bounds, taking into account the reprojection policy if need be
                 final ProjectionPolicy projectionPolicy = resourceInfo.getProjectionPolicy();
                 if (projectionPolicy != ProjectionPolicy.NONE && bounds != null) {
                     // we need to fix the registered grid for this coverage
                     final GridGeometry grid = cinfo.getGrid();
-                    cinfo.setGrid(
-                            new GridGeometry2D(
-                                    grid.getGridRange(),
-                                    grid.getGridToCRS(),
-                                    resourceInfo.getCRS()));
+                    cinfo.setGrid(new GridGeometry2D(grid.getGridRange(), grid.getGridToCRS(), resourceInfo.getCRS()));
                 }
             }
 
@@ -271,11 +269,10 @@ public class ResourceConfigurationPage extends PublishedConfigurationPage<LayerI
 
     private void validateByChildren(final ResourceInfo resourceInfo) {
         if (resourceInfo == null || resourceInfo.getMetadata() == null) return;
-        visitChildren(
-                (component, visitor) -> {
-                    if (component instanceof MetadataMapValidator) {
-                        ((MetadataMapValidator) component).validate(resourceInfo.getMetadata());
-                    }
-                });
+        visitChildren((component, visitor) -> {
+            if (component instanceof MetadataMapValidator validator) {
+                validator.validate(resourceInfo.getMetadata());
+            }
+        });
     }
 }

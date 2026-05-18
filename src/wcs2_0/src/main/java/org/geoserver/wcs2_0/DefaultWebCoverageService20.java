@@ -31,9 +31,9 @@ import org.geoserver.wcs2_0.util.EnvelopeAxesLabelsMapper;
 import org.geoserver.wcs2_0.util.NCNameResourceCodec;
 import org.geoserver.wcs2_0.util.StringUtils;
 import org.geoserver.wcs2_0.util.WCS20DescribeCoverageExtension;
+import org.geotools.api.coverage.grid.GridCoverage;
 import org.geotools.util.logging.Logging;
 import org.geotools.xml.transform.TransformerBase;
-import org.opengis.coverage.grid.GridCoverage;
 
 /**
  * Default implementation of the Web Coverage Service 2.0
@@ -59,10 +59,7 @@ public class DefaultWebCoverageService20 implements WebCoverageService20 {
     /** Available extension points for the DescribeCoverage operation */
     private List<WCS20DescribeCoverageExtension> wcsDescribeCoverageExtensions;
 
-    /**
-     * Boolean indicating that at least an extension point for the DescribeCoverage operation is
-     * available
-     */
+    /** Boolean indicating that at least an extension point for the DescribeCoverage operation is available */
     private boolean availableDescribeCovExtensions;
 
     public DefaultWebCoverageService20(
@@ -75,8 +72,7 @@ public class DefaultWebCoverageService20 implements WebCoverageService20 {
         this.responseFactory = responseFactory;
         this.envelopeAxesMapper = envelopeDimensionsMapper;
         this.mimeMapper = mimemappe;
-        this.wcsDescribeCoverageExtensions =
-                GeoServerExtensions.extensions(WCS20DescribeCoverageExtension.class);
+        this.wcsDescribeCoverageExtensions = GeoServerExtensions.extensions(WCS20DescribeCoverageExtension.class);
         this.availableDescribeCovExtensions =
                 wcsDescribeCoverageExtensions != null && !wcsDescribeCoverageExtensions.isEmpty();
     }
@@ -150,13 +146,11 @@ public class DefaultWebCoverageService20 implements WebCoverageService20 {
                     "coverageId");
         }
 
-        return new GetCoverage(getServiceInfo(), catalog, envelopeAxesMapper, mimeMapper)
-                .run(request);
+        return new GetCoverage(getServiceInfo(), catalog, envelopeAxesMapper, mimeMapper).run(request);
     }
 
     @Override
     public TransformerBase describeEOCoverageSet(DescribeEOCoverageSetType request) {
-        throw new ServiceException(
-                "WCS-EO extension is not installed, thus the operation is not available");
+        throw new ServiceException("WCS-EO extension is not installed, thus the operation is not available");
     }
 }

@@ -15,8 +15,7 @@ import org.geoserver.catalog.DimensionPresentation;
 import org.geoserver.catalog.impl.DimensionInfoImpl;
 
 /**
- * DimensionInfo implementation with extra attributes for use in {@link
- * VectorCustomDimensionEditor}.
+ * DimensionInfo implementation with extra attributes for use in {@link VectorCustomDimensionEditor}.
  *
  * @author Fernando Mino - Geosolutions
  */
@@ -165,6 +164,16 @@ public class VectorCustomDimensionEntry implements DimensionInfo {
     @Override
     public void setEndValue(String endValue) {
         dimensionInfo.setEndValue(endValue);
+    }
+
+    @Override
+    public NearestFailBehavior getNearestFailBehavior() {
+        return dimensionInfo.getNearestFailBehavior();
+    }
+
+    @Override
+    public void setNearestFailBehavior(NearestFailBehavior matchBehavior) {
+        dimensionInfo.setNearestFailBehavior(matchBehavior);
     }
 
     @Override

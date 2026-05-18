@@ -8,19 +8,19 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import org.geotools.api.data.FeatureReader;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.FeatureVisitor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.GeometryDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureReader;
-import org.geotools.data.Query;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.geometry.jts.ReferencedEnvelope;
-import org.opengis.feature.Feature;
-import org.opengis.feature.FeatureVisitor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.util.ProgressListener;
 
 public class ComplexFeatureCollection implements FeatureCollection<FeatureType, Feature> {
 
@@ -64,7 +64,7 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
     @Override
     public FeatureCollection<FeatureType, Feature> sort(SortBy order) {
         Query query = new Query();
-        query.setSortBy(new org.opengis.filter.sort.SortBy[] {order});
+        query.setSortBy(new org.geotools.api.filter.sort.SortBy[] {order});
 
         query = DataUtilities.mixQueries(this.query, query, null);
         return new ComplexFeatureCollection(query, featureSource);
@@ -117,9 +117,7 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
 
     @Override
     public boolean contains(Object o) {
-        FeatureIterator<Feature> e = null;
-        try {
-            e = this.features();
+        try (FeatureIterator<Feature> e = this.features()) {
             if (o == null) {
                 while (e.hasNext()) {
                     if (e.next() == null) {
@@ -134,10 +132,6 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
                 }
             }
             return false;
-        } finally {
-            if (e != null) {
-                e.close();
-            }
         }
     }
 
@@ -152,8 +146,8 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
             }
             return true;
         } finally {
-            if (e instanceof FeatureIterator) {
-                ((FeatureIterator<?>) e).close();
+            if (e instanceof FeatureIterator<?> iterator) {
+                iterator.close();
             }
         }
     }
@@ -168,25 +162,18 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
         try {
             return featureSource.getCount(query);
         } catch (IOException e) {
-            throw new RuntimeException(
-                    "Failed to get the collection size. Exception is " + e.getMessage(), e);
+            throw new RuntimeException("Failed to get the collection size. Exception is " + e.getMessage(), e);
         }
     }
 
     @Override
     public Object[] toArray() {
         ArrayList<Feature> array = new ArrayList<>();
-        FeatureIterator<Feature> e = null;
-        try {
-            e = features();
+        try (FeatureIterator<Feature> e = features()) {
             while (e.hasNext()) {
                 array.add(e.next());
             }
-            return array.toArray(new Feature[array.size()]);
-        } finally {
-            if (e != null) {
-                e.close();
-            }
+            return array.toArray(new Feature[0]);
         }
     }
 
@@ -195,25 +182,16 @@ public class ComplexFeatureCollection implements FeatureCollection<FeatureType, 
     public <O> O[] toArray(O[] array) {
         int size = size();
         if (array.length < size) {
-            array =
-                    (O[])
-                            java.lang.reflect.Array.newInstance(
-                                    array.getClass().getComponentType(), size);
+            array = (O[]) java.lang.reflect.Array.newInstance(array.getClass().getComponentType(), size);
         }
-        FeatureIterator<Feature> it = features();
-        try {
-            Object[] result = array;
+        try (FeatureIterator<Feature> it = features()) {
             for (int i = 0; it.hasNext() && i < size; i++) {
-                result[i] = it.next();
+                ((Object[]) array)[i] = it.next();
             }
             if (array.length > size) {
                 array[size] = null;
             }
             return array;
-        } finally {
-            if (it != null) {
-                it.close();
-            }
         }
     }
 }

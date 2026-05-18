@@ -22,5 +22,16 @@
         <constructor-arg index="0" value="STAC"/>
         <constructor-arg index="1" value="1.0.0"/>
     </bean>
+    <bean id="aggregatesCache" class="org.geoserver.ogcapi.v1.stac.AggregatesCache">
+        <constructor-arg ref="geoServer"/>
+        <constructor-arg ref="openSearchAccessProvider"/>
+    </bean>
+
+    <bean id="stacExtension" class="org.geoserver.platform.ModuleStatusImpl">
+        <constructor-arg index="0" value="gs-oseo-stac"/>
+        <constructor-arg index="1" value="GeoServer STAC API"/>
+        <property name="category" value="PENDING"/>
+        <property name="contact" value="andrea.aime@geosolutionsgroup.com"/>
+    </bean>
 
 </beans>

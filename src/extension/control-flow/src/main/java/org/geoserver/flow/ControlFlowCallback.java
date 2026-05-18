@@ -5,18 +5,19 @@
  */
 package org.geoserver.flow;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
 import org.geoserver.filters.GeoServerFilter;
 import org.geoserver.flow.config.DefaultControlFlowConfigurator;
+import org.geoserver.flow.controller.SingleQueueFlowController;
 import org.geoserver.ows.AbstractDispatcherCallback;
 import org.geoserver.ows.HttpErrorCodeException;
 import org.geoserver.ows.Request;
@@ -31,9 +32,8 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
 
 /**
- * Callback that controls the flow of OWS requests based on user specified rules and makes sure
- * GeoServer does not get overwhelmed by too many concurrent ones. Can also be used to provide
- * different quality of service on different users.
+ * Callback that controls the flow of OWS requests based on user specified rules and makes sure GeoServer does not get
+ * overwhelmed by too many concurrent ones. Can also be used to provide different quality of service on different users.
  *
  * @author Andrea Aime - OpenGeo
  */
@@ -41,17 +41,18 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
         implements ApplicationContextAware, GeoServerFilter {
 
     /**
-     * Header added to all responses to make it visible how much deplay was applied going thorough
-     * the flow controllers
+     * Header added to all responses to make it visible how much deplay was applied going thorough the flow controllers
      */
     static final String X_RATELIMIT_DELAY = "X-Control-flow-delay-ms";
+
+    public static final String X_CONCURRENT_LIMIT = "X-Concurrent-Limit";
+    public static final String X_CONCURRENT_REQUESTS = "X-Concurrent-Requests";
 
     static final Logger LOGGER = Logging.getLogger(ControlFlowCallback.class);
 
     /**
-     * Container for the original Request object, the controllers and the timeout (to make sure we
-     * are playing with the same objects, regardless of what other machinery might do to mock up
-     * with the Dispatcher.REQUEST thread local).
+     * Container for the original Request object, the controllers and the timeout (to make sure we are playing with the
+     * same objects, regardless of what other machinery might do to mock up with the Dispatcher.REQUEST thread local).
      */
     static final class CallbackContext {
         List<FlowController> controllers;
@@ -127,51 +128,37 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
             try {
                 controllers = provider.getFlowControllers(requestWithOperation);
             } catch (Exception e) {
-                LOGGER.log(
-                        Level.SEVERE,
-                        "An error occurred setting up the flow controllers to this request",
-                        e);
+                LOGGER.log(Level.SEVERE, "An error occurred setting up the flow controllers to this request", e);
                 return operation;
             }
             if (controllers.isEmpty()) {
                 LOGGER.config("Control-flow inactive, there are no configured rules");
             } else {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(
-                            "Request ["
-                                    + requestWithOperation
-                                    + "] starting, processing through flow controllers");
+                    LOGGER.info("Request [" + requestWithOperation + "] starting, processing through flow controllers");
                 }
 
                 long timeout = provider.getTimeout(requestWithOperation);
-                CallbackContext context =
-                        new CallbackContext(requestWithOperation, controllers, timeout);
+                CallbackContext context = new CallbackContext(requestWithOperation, controllers, timeout);
                 REQUEST_CONTROLLERS.set(context);
                 long maxTime = timeout > 0 ? System.currentTimeMillis() + timeout : -1;
-                for (FlowController flowController : controllers) {
+                for (FlowController controller : controllers) {
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine(getControllerEnterMessage(controller, requestWithOperation));
+                    }
                     if (timeout > 0) {
                         long maxWait = maxTime - System.currentTimeMillis();
-                        if (LOGGER.isLoggable(Level.FINE)) {
-                            LOGGER.fine(
-                                    "Request ["
-                                            + requestWithOperation
-                                            + "] checking flow controller "
-                                            + flowController);
-                        }
-                        if (!flowController.requestIncoming(requestWithOperation, maxWait)) {
+                        if (!controller.requestIncoming(requestWithOperation, maxWait)) {
                             throw new HttpErrorCodeException(
                                     503,
                                     "Requested timeout out while waiting to be executed, please lower your request rate");
                         }
-                        if (LOGGER.isLoggable(Level.FINE)) {
-                            LOGGER.fine(
-                                    "Request ["
-                                            + requestWithOperation
-                                            + "] passed flow controller "
-                                            + flowController);
-                        }
                     } else {
-                        flowController.requestIncoming(requestWithOperation, -1);
+                        controller.requestIncoming(requestWithOperation, -1);
+                    }
+
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine(getControllerExitMessage(controller, requestWithOperation));
                     }
                 }
             }
@@ -185,11 +172,10 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
 
             if (REQUEST_CONTROLLERS.get() != null) {
                 if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.info(
-                            "Request control-flow performed, running requests: "
-                                    + getRunningRequests()
-                                    + ", blocked requests: "
-                                    + getBlockedRequests());
+                    LOGGER.info("Request control-flow performed, running requests: "
+                            + getRunningRequests()
+                            + ", blocked requests: "
+                            + getBlockedRequests());
                 }
             }
             if (request != null && request.getHttpResponse() != null) {
@@ -201,15 +187,33 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
         return operation;
     }
 
+    private static String getControllerEnterMessage(FlowController controller, Request requestWithOperation) {
+        String message = "Request [" + requestWithOperation + "] enter " + controller;
+        if (controller instanceof SingleQueueFlowController flowController) {
+            int requests = flowController.getRequestsInQueue();
+            message += "/" + requests;
+        }
+        return message;
+    }
+
+    private static String getControllerExitMessage(FlowController controller, Request requestWithOperation) {
+        String message = "Request [" + requestWithOperation + "] exit  " + controller;
+        if (controller instanceof SingleQueueFlowController flowController) {
+            int requests = flowController.getRequestsInQueue();
+            message += "/" + requests;
+        }
+        return message;
+    }
+
     @Override
+    @SuppressWarnings("PMD.CloseResource") // context
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        if (applicationContext instanceof ConfigurableApplicationContext) {
+        if (applicationContext instanceof ConfigurableApplicationContext context) {
             // register default beans if needed
-            registDefaultBeansIfNeeded((ConfigurableApplicationContext) applicationContext);
+            registDefaultBeansIfNeeded(context);
         } else {
             // we cannot regist default beans, there is nothing else we can do about this
-            LOGGER.warning(
-                    "Application context not configurable, control-flow default beans will not be registered.");
+            LOGGER.warning("Application context not configurable, control-flow default beans will not be registered.");
         }
         provider = GeoServerExtensions.bean(FlowControllerProvider.class, applicationContext);
         // default beans may have not been registered
@@ -228,8 +232,7 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
                 applicationContext.getBean(ControlFlowConfigurator.class, applicationContext);
             } catch (NoSuchBeanDefinitionException exception) {
                 // we need to use the default configurator
-                factory.registerSingleton(
-                        "defaultControlFlowConfigurator", new DefaultControlFlowConfigurator());
+                factory.registerSingleton("defaultControlFlowConfigurator", new DefaultControlFlowConfigurator());
                 LOGGER.fine("Default flow configurator bean dynamically registered.");
             }
             // handle the flow controller provider bean
@@ -238,8 +241,7 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
             } catch (NoSuchBeanDefinitionException exception) {
                 // we need to use the default flow controller provider
                 factory.registerSingleton(
-                        "defaultFlowControllerProvider",
-                        new DefaultFlowControllerProvider(applicationContext));
+                        "defaultFlowControllerProvider", new DefaultFlowControllerProvider(applicationContext));
                 LOGGER.fine("Default flow controller provider bean dynamically registered.");
             }
         }
@@ -292,19 +294,16 @@ public class ControlFlowCallback extends AbstractDispatcherCallback
                             // release controllers, it would eventually lead to deadlock
                             LOGGER.log(
                                     Level.SEVERE,
-                                    "Flow controller "
-                                            + flowController
-                                            + " failed to mark the request as complete",
+                                    "Flow controller " + flowController + " failed to mark the request as complete",
                                     t);
                         }
                     }
                     // provide some visibility that control flow is running
                     if (LOGGER.isLoggable(Level.INFO)) {
-                        LOGGER.info(
-                                "Request completed, running requests: "
-                                        + getRunningRequests()
-                                        + ", blocked requests: "
-                                        + getBlockedRequests());
+                        LOGGER.info("Request completed, running requests: "
+                                + getRunningRequests()
+                                + ", blocked requests: "
+                                + getBlockedRequests());
                     }
                 }
             }

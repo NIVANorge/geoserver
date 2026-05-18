@@ -15,25 +15,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.apache.commons.io.FileUtils;
+import org.geotools.api.coverage.grid.GridEnvelope;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.gce.geotiff.GeoTiffReader;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 import org.geotools.referencing.CRS;
 import org.junit.Test;
-import org.opengis.coverage.grid.GridEnvelope;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 
 /** @author Simone Giannecchini, GeoSolutions SAS */
 public class CRSExtentionKVPTest extends WCSKVPTestSupport {
 
-    private static final GeneralEnvelope EXPECTED_ENVELOPE;
+    private static final GeneralBounds EXPECTED_ENVELOPE;
 
     static {
-        EXPECTED_ENVELOPE =
-                new GeneralEnvelope(
-                        new double[] {1.6308305401213994E7, -5543147.203861462},
-                        new double[] {1.6475284637403902E7, -5311971.846945147});
+        EXPECTED_ENVELOPE = new GeneralBounds(
+                new double[] {1.6308305401213994E7, -5543147.203861462},
+                new double[] {1.6475284637403902E7, -5311971.846945147});
         EXPECTED_ENVELOPE.setCoordinateReferenceSystem(EPSG_3857);
     }
 
@@ -56,20 +55,16 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         assertXpathEvaluatesTo("1", "count(//ows:ExceptionReport)", dom);
         assertXpathEvaluatesTo("1", "count(//ows:ExceptionReport//ows:Exception)", dom);
         assertXpathEvaluatesTo(
-                "1",
-                "count(//ows:ExceptionReport//ows:Exception[@exceptionCode='InvalidParameterValue'])",
-                dom);
-        assertXpathEvaluatesTo(
-                "1", "count(//ows:ExceptionReport//ows:Exception[@locator='wCS'])", dom);
+                "1", "count(//ows:ExceptionReport//ows:Exception[@exceptionCode='InvalidParameterValue'])", dom);
+        assertXpathEvaluatesTo("1", "count(//ows:ExceptionReport//ows:Exception[@locator='wCS'])", dom);
     }
 
     @Test
     public void reprojectTo3857() throws Exception {
         // subsample
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857");
+        MockHttpServletResponse response = getAsServletResponse(
+                "wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                        + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -79,22 +74,16 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
+            targetCoverage = readerTarget.read();
 
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    EXPECTED_ENVELOPE,
-                    scale,
-                    (GeneralEnvelope) targetCoverage.getEnvelope(),
-                    scale);
-            assertEquals(gridRange.getSpan(0), 360);
-            assertEquals(gridRange.getSpan(1), 360);
+            assertEnvelopeEquals(EXPECTED_ENVELOPE, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(360, gridRange.getSpan(0));
+            assertEquals(360, gridRange.getSpan(1));
 
         } finally {
             clean(readerTarget, targetCoverage);
@@ -103,11 +92,9 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
 
     @Test
     public void reprojectTo3857AndScaleToFactor() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
-                                + "&SCALEFACTOR=0.5");
+        MockHttpServletResponse response = getAsServletResponse("wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
+                + "&SCALEFACTOR=0.5");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -116,21 +103,15 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            targetCoverage = readerTarget.read();
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    EXPECTED_ENVELOPE,
-                    scale,
-                    (GeneralEnvelope) targetCoverage.getEnvelope(),
-                    scale);
-            assertEquals(gridRange.getSpan(0), 180);
-            assertEquals(gridRange.getSpan(1), 180);
+            assertEnvelopeEquals(EXPECTED_ENVELOPE, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(180, gridRange.getSpan(0));
+            assertEquals(180, gridRange.getSpan(1));
         } finally {
             clean(readerTarget, targetCoverage);
         }
@@ -138,13 +119,11 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
 
     @Test
     public void reprojectTo3857AndScaleToSize() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
-                                + "&SCALESIZE="
-                                + "http://www.opengis.net/def/axis/OGC/1/i(360),"
-                                + "http://www.opengis.net/def/axis/OGC/1/j(180)");
+        MockHttpServletResponse response = getAsServletResponse("wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
+                + "&SCALESIZE="
+                + "http://www.opengis.net/def/axis/OGC/1/i(360),"
+                + "http://www.opengis.net/def/axis/OGC/1/j(180)");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -154,21 +133,15 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            targetCoverage = readerTarget.read();
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    EXPECTED_ENVELOPE,
-                    scale,
-                    (GeneralEnvelope) targetCoverage.getEnvelope(),
-                    scale);
-            assertEquals(gridRange.getSpan(0), 360);
-            assertEquals(gridRange.getSpan(1), 180);
+            assertEnvelopeEquals(EXPECTED_ENVELOPE, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(360, gridRange.getSpan(0));
+            assertEquals(180, gridRange.getSpan(1));
         } finally {
             clean(readerTarget, targetCoverage);
         }
@@ -177,14 +150,12 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
     @Test
     public void subsettingNativeCRSReprojectTo3857() throws Exception {
 
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
-                                + "OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857&"
-                                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/4326"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/Long(146.5,147.0)"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/Lat(-43.5,-43.0)");
+        MockHttpServletResponse response = getAsServletResponse("wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
+                + "OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857&"
+                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/4326"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/Long(146.5,147.0)"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/Lat(-43.5,-43.0)");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -194,24 +165,20 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            targetCoverage = readerTarget.read();
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
-            final GeneralEnvelope expectedEnvelope =
-                    new GeneralEnvelope(
-                            new double[] {1.6308305401213994E7, -5388389.272818998},
-                            new double[] {1.636396514661063E7, -5311971.846945147});
+            final GeneralBounds expectedEnvelope = new GeneralBounds(
+                    new double[] {1.6308305401213994E7, -5388389.272818998},
+                    new double[] {1.636396514661063E7, -5311971.846945147});
             expectedEnvelope.setCoordinateReferenceSystem(EPSG_3857);
 
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    expectedEnvelope, scale, (GeneralEnvelope) targetCoverage.getEnvelope(), scale);
-            assertEquals(gridRange.getSpan(0), 120);
-            assertEquals(gridRange.getSpan(1), 120);
+            assertEnvelopeEquals(expectedEnvelope, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(120, gridRange.getSpan(0));
+            assertEquals(120, gridRange.getSpan(1));
 
         } finally {
             clean(readerTarget, targetCoverage);
@@ -226,12 +193,10 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         try {
             List<Future<Object>> futures = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
-                Future<Object> future =
-                        executor.submit(
-                                () -> {
-                                    subsettingNativeCRSReprojectTo3857();
-                                    return null;
-                                });
+                Future<Object> future = executor.submit(() -> {
+                    subsettingNativeCRSReprojectTo3857();
+                    return null;
+                });
                 futures.add(future);
             }
             // let it throw exceptions in case it fails
@@ -245,13 +210,11 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
 
     @Test
     public void implicitReprojectionTo3857() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
-                                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/X(1.6308305401213994E7,1.6475284637403902E7)"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/Y(-5543147.203861462,-5311971.846945147)");
+        MockHttpServletResponse response = getAsServletResponse("wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
+                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/X(1.6308305401213994E7,1.6475284637403902E7)"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/Y(-5543147.203861462,-5311971.846945147)");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -261,21 +224,15 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            targetCoverage = readerTarget.read();
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    EXPECTED_ENVELOPE,
-                    scale,
-                    (GeneralEnvelope) targetCoverage.getEnvelope(),
-                    scale);
-            assertEquals(gridRange.getSpan(0), 360);
-            assertEquals(gridRange.getSpan(1), 360);
+            assertEnvelopeEquals(EXPECTED_ENVELOPE, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(360, gridRange.getSpan(0));
+            assertEquals(360, gridRange.getSpan(1));
 
         } finally {
             clean(readerTarget, targetCoverage);
@@ -284,14 +241,12 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
 
     @Test
     public void testGetCoverageSubsettingTrimCRS() throws Exception {
-        MockHttpServletResponse response =
-                getAsServletResponse(
-                        "wcs?request=GetCoverage&service=WCS&version=2.0.1"
-                                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
-                                + "OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857&"
-                                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/X(1.6308305401213994E7,1.6475284637403902E7)"
-                                + "&subset=http://www.opengis.net/def/axis/OGC/0/Y(-5543147.203861462,-5311971.846945147)");
+        MockHttpServletResponse response = getAsServletResponse("wcs?request=GetCoverage&service=WCS&version=2.0.1"
+                + "&coverageId=wcs__BlueMarble&&Format=image/tiff&"
+                + "OUTPUTCRS=http://www.opengis.net/def/crs/EPSG/0/3857&"
+                + "SUBSETTINGCRS=http://www.opengis.net/def/crs/EPSG/0/3857"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/X(1.6308305401213994E7,1.6475284637403902E7)"
+                + "&subset=http://www.opengis.net/def/axis/OGC/0/Y(-5543147.203861462,-5311971.846945147)");
 
         assertEquals("image/tiff", response.getContentType());
         byte[] tiffContents = getBinary(response);
@@ -301,21 +256,15 @@ public class CRSExtentionKVPTest extends WCSKVPTestSupport {
         GeoTiffReader readerTarget = new GeoTiffReader(file);
         GridCoverage2D targetCoverage = null;
         try {
-            targetCoverage = readerTarget.read(null);
-            assertTrue(
-                    CRS.equalsIgnoreMetadata(
-                            targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
+            targetCoverage = readerTarget.read();
+            assertTrue(CRS.equalsIgnoreMetadata(targetCoverage.getCoordinateReferenceSystem(), EPSG_3857));
 
             // checks
             final GridEnvelope gridRange = targetCoverage.getGridGeometry().getGridRange();
             final double scale = getScale(targetCoverage);
-            assertEnvelopeEquals(
-                    EXPECTED_ENVELOPE,
-                    scale,
-                    (GeneralEnvelope) targetCoverage.getEnvelope(),
-                    scale);
-            assertEquals(gridRange.getSpan(0), 360);
-            assertEquals(gridRange.getSpan(1), 360);
+            assertEnvelopeEquals(EXPECTED_ENVELOPE, scale, (GeneralBounds) targetCoverage.getEnvelope(), scale);
+            assertEquals(360, gridRange.getSpan(0));
+            assertEquals(360, gridRange.getSpan(1));
 
         } finally {
             clean(readerTarget, targetCoverage);

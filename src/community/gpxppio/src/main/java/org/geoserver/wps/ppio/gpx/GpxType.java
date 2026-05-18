@@ -15,8 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * GPX documents contain a metadata header, followed by waypoints, routes, and tracks. You can add
- * your own elements to the extensions section of the GPX document.
+ * GPX documents contain a metadata header, followed by waypoints, routes, and tracks. You can add your own elements to
+ * the extensions section of the GPX document.
  *
  * <p>Java class for gpxType complex type.
  *
@@ -76,9 +76,9 @@ public class GpxType {
     /**
      * Gets the value of the wpt property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the wpt property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the wpt property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -90,7 +90,7 @@ public class GpxType {
      */
     public List<WptType> getWpt() {
         if (wpt == null) {
-            wpt = new ArrayList<WptType>();
+            wpt = new ArrayList<>();
         }
 
         return this.wpt;
@@ -99,9 +99,9 @@ public class GpxType {
     /**
      * Gets the value of the rte property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the rte property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the rte property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -113,7 +113,7 @@ public class GpxType {
      */
     public List<RteType> getRte() {
         if (rte == null) {
-            rte = new ArrayList<RteType>();
+            rte = new ArrayList<>();
         }
 
         return this.rte;
@@ -122,9 +122,9 @@ public class GpxType {
     /**
      * Gets the value of the trk property.
      *
-     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any
-     * modification you make to the returned list will be present inside the JAXB object. This is
-     * why there is not a <CODE>set</CODE> method for the trk property.
+     * <p>This accessor method returns a reference to the live list, not a snapshot. Therefore any modification you make
+     * to the returned list will be present inside the JAXB object. This is why there is not a <CODE>set</CODE> method
+     * for the trk property.
      *
      * <p>For example, to add a new item, do as follows:
      *
@@ -136,7 +136,7 @@ public class GpxType {
      */
     public List<TrkType> getTrk() {
         if (trk == null) {
-            trk = new ArrayList<TrkType>();
+            trk = new ArrayList<>();
         }
 
         return this.trk;

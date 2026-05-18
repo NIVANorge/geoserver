@@ -4,9 +4,12 @@
  */
 package org.geoserver.geofence;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,8 +18,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.geoserver.catalog.Catalog;
@@ -34,6 +38,8 @@ import org.geoserver.catalog.WorkspaceInfo;
 import org.geoserver.catalog.impl.LocalWorkspaceCatalog;
 import org.geoserver.geofence.config.GeoFenceConfiguration;
 import org.geoserver.geofence.config.GeoFenceConfigurationManager;
+import org.geoserver.geofence.containers.ContainerAccessResolver;
+import org.geoserver.geofence.containers.ContainerLimitResolver;
 import org.geoserver.geofence.core.model.LayerAttribute;
 import org.geoserver.geofence.core.model.enums.AccessType;
 import org.geoserver.geofence.core.model.enums.GrantType;
@@ -72,18 +78,18 @@ import org.geoserver.wms.GetMapRequest;
 import org.geoserver.wms.MapLayerInfo;
 import org.geoserver.wms.WMS;
 import org.geoserver.wms.map.GetMapKvpRequestReader;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.style.Style;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
-import org.geotools.styling.Style;
 import org.geotools.util.Converters;
 import org.geotools.util.logging.Logging;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.MultiPolygon;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -97,15 +103,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * @author Andrea Aime - GeoSolutions
  * @author Emanuele Tajariol- GeoSolutions
  */
-public class GeofenceAccessManager
-        implements ResourceAccessManager, DispatcherCallback, ExtensionPriority {
+public class GeofenceAccessManager implements ResourceAccessManager, DispatcherCallback, ExtensionPriority {
 
     private static final Logger LOGGER = Logging.getLogger(GeofenceAccessManager.class);
 
     /** The role given to the administrators */
     static final String ROOT_ROLE = "ROLE_ADMINISTRATOR";
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2(null);
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory(null);
 
     enum PropertyAccessMode {
         READ,
@@ -119,6 +124,7 @@ public class GeofenceAccessManager
     Catalog catalog;
 
     private final GeoFenceConfigurationManager configurationManager;
+    private ContainerAccessResolver containerAccessResolver;
 
     private LayerGroupContainmentCache groupsCache;
 
@@ -128,12 +134,14 @@ public class GeofenceAccessManager
             RuleReaderService rulesService,
             Catalog catalog,
             GeoFenceConfigurationManager configurationManager,
+            ContainerAccessResolver containerAccessResolver,
             WPSHelper wpsHelper) {
 
         this.rulesService = rulesService;
         this.catalog = new LocalWorkspaceCatalog(catalog);
         this.configurationManager = configurationManager;
         this.groupsCache = new LayerGroupContainmentCache(catalog);
+        this.containerAccessResolver = containerAccessResolver;
         this.wpsHelper = wpsHelper;
     }
 
@@ -168,17 +176,12 @@ public class GeofenceAccessManager
             // shortcut, if the user is the admin, he can do everything
             if (isAdmin(user)) {
                 LOGGER.log(
-                        Level.FINE,
-                        "Admin level access, returning full rights for workspace {0}",
-                        workspace.getName());
+                        Level.FINE, "Admin level access, returning full rights for workspace {0}", workspace.getName());
 
                 return new WorkspaceAccessLimits(DEFAULT_CATALOG_MODE, true, true);
             }
 
-            boolean canWrite =
-                    configurationManager
-                            .getConfiguration()
-                            .isGrantWriteToWorkspacesToAuthenticatedUsers();
+            boolean canWrite = configurationManager.getConfiguration().isGrantWriteToWorkspacesToAuthenticatedUsers();
             boolean canAdmin = isWorkspaceAdmin(user, workspace.getName());
 
             return new WorkspaceAccessLimits(DEFAULT_CATALOG_MODE, true, canWrite, canAdmin);
@@ -213,12 +216,55 @@ public class GeofenceAccessManager
 
         AccessInfo auth = rulesService.getAdminAuthorization(ruleFilter);
 
-        LOGGER.log(
-                Level.FINE,
-                "Admin auth for User:{0} Workspace:{1}: {2}",
-                new Object[] {user.getName(), workspaceName, auth.getAdminRights()});
+        LOGGER.log(Level.FINE, "Admin auth for User:{0} Workspace:{1}: {2}", new Object[] {
+            user.getName(), workspaceName, auth.getAdminRights()
+        });
 
         return auth.getAdminRights();
+    }
+
+    /**
+     * Parse a String holding an IP address and optionally a port.
+     *
+     * <p>Address may be either in IPv4 or IPv6 form. Recognized formats are:
+     *
+     * <ul>
+     *   <li>ipv4
+     *   <li>ipv4:port
+     *   <li>ipv6
+     *   <li>[ipv6]
+     *   <li>[ipv6]:port
+     *   <li>hostname
+     *   <li>hostname:port
+     * </ul>
+     *
+     * This method does not perform any validation check on the format; it only tries and parse any of the above
+     * formats.
+     *
+     * @param a String representing the address, with an optional port
+     * @return a String with the only ip address stripped of the port
+     */
+    static String parseAddress(String a) {
+        // patterns are very lenient, but they help us to discriminate the kind of the provided address
+        final Pattern ipv4pattern = Pattern.compile("^(?<ADDR>\\d{1,3}(\\.\\d{1,3}){3})(:(?<PORT>\\d+))?$");
+        final Pattern ipv6pattern = Pattern.compile("^\\[?(?<ADDR>[0-9a-fA-F\\:]+)\\]?(\\]\\:(?<PORT>\\d+))?$");
+
+        Matcher m = ipv4pattern.matcher(a);
+        if (m.matches()) {
+            return m.group("ADDR");
+        } else {
+            m = ipv6pattern.matcher(a);
+            if (m.matches()) {
+                return m.group("ADDR");
+            } else {
+                if (a.contains(":")) {
+                    int i = a.lastIndexOf(":");
+                    return a.substring(0, i);
+                } else {
+                    return a;
+                }
+            }
+        }
     }
 
     String getSourceAddress(HttpServletRequest http) {
@@ -231,12 +277,10 @@ public class GeofenceAccessManager
             String forwardedFor = http.getHeader("X-Forwarded-For");
             if (forwardedFor != null) {
                 String[] ips = forwardedFor.split(", ");
-
-                return InetAddress.getByName(ips[0]).getHostAddress();
+                String parsed = parseAddress(ips[0]);
+                return InetAddress.getByName(parsed).getHostAddress();
             } else {
-                // Returns an IP address, removes surrounding brackets present in case of IPV6
-                // addresses
-                return http.getRemoteAddr().replaceAll("[\\[\\]]", "");
+                return parseAddress(http.getRemoteAddr());
             }
         } catch (Exception e) {
             LOGGER.log(Level.INFO, "Failed to get remote address", e);
@@ -251,28 +295,28 @@ public class GeofenceAccessManager
         if (owsRequest != null) {
             HttpServletRequest httpReq = owsRequest.getHttpRequest();
             String sourceAddress = getSourceAddress(httpReq);
-            if (sourceAddress == null) {
-                LOGGER.log(Level.WARNING, "Could not retrieve source address from OWSRequest");
+            if (sourceAddress != null) {
+                LOGGER.log(Level.FINE, "IP source address found in OWSRequest");
+                return sourceAddress;
             }
-            return sourceAddress;
+            LOGGER.log(Level.WARNING, "Could not retrieve source address from OWSRequest");
         }
 
         // try Spring
         try {
             HttpServletRequest request =
-                    ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
-                            .getRequest();
+                    ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
             String sourceAddress = getSourceAddress(request);
-            if (sourceAddress == null) {
-                LOGGER.log(Level.WARNING, "Could not retrieve source address with Spring Request");
+            if (sourceAddress != null) {
+                LOGGER.log(Level.FINE, "IP source address found in Spring Request");
+                return sourceAddress;
             }
-            return sourceAddress;
+            LOGGER.log(Level.WARNING, "Could not retrieve source address with Spring Request");
         } catch (IllegalStateException ex) {
-            LOGGER.log(
-                    Level.WARNING,
-                    "Error retrieving source address with Spring Request: " + ex.getMessage());
-            return null;
+            LOGGER.log(Level.WARNING, "Error retrieving source address with Spring Request: " + ex.getMessage());
         }
+
+        return null;
     }
 
     @Override
@@ -285,6 +329,7 @@ public class GeofenceAccessManager
 
     @Override
     public LayerGroupAccessLimits getAccessLimits(Authentication user, LayerGroupInfo layerInfo) {
+        LOGGER.log(Level.FINE, "Getting access limits for LayerGroup {0}", layerInfo.getName());
         return getAccessLimits(user, layerInfo, Collections.emptyList());
     }
 
@@ -300,13 +345,12 @@ public class GeofenceAccessManager
         // extract the user name
         String workspace = resource.getStore().getWorkspace().getName();
         String layer = resource.getName();
-        return (DataAccessLimits)
-                getAccessLimits(user, resource, layer, workspace, Collections.emptyList());
+        return (DataAccessLimits) getAccessLimits(user, resource, layer, workspace, Collections.emptyList());
     }
 
     @Override
-    public DataAccessLimits getAccessLimits(
-            Authentication user, LayerInfo layer, List<LayerGroupInfo> containers) {
+    public DataAccessLimits getAccessLimits(Authentication user, LayerInfo layer, List<LayerGroupInfo> containers) {
+        LOGGER.log(Level.FINE, "Getting access limits for Layer {0} + containers", layer.getName());
         String workspace = layer.getResource().getStore().getWorkspace().getName();
         String layerName = layer.getName();
         return (DataAccessLimits) getAccessLimits(user, layer, layerName, workspace, containers);
@@ -315,83 +359,72 @@ public class GeofenceAccessManager
     @Override
     public LayerGroupAccessLimits getAccessLimits(
             Authentication user, LayerGroupInfo layerGroup, List<LayerGroupInfo> containers) {
+        LOGGER.log(Level.FINE, "Getting access limits for Layer {0} + containers", layerGroup.getName());
         WorkspaceInfo ws = layerGroup.getWorkspace();
         String workspace = ws != null ? ws.getName() : null;
         String layer = layerGroup.getName();
-        return (LayerGroupAccessLimits)
-                getAccessLimits(user, layerGroup, layer, workspace, containers);
+        return (LayerGroupAccessLimits) getAccessLimits(user, layerGroup, layer, workspace, containers);
     }
 
     private AccessLimits getAccessLimits(
-            Authentication user,
-            CatalogInfo info,
-            String layer,
-            String workspace,
-            List<LayerGroupInfo> containers) {
+            Authentication user, CatalogInfo info, String layer, String workspace, List<LayerGroupInfo> containers) {
         if ((user != null) && !(user instanceof AnonymousAuthenticationToken)) {
             // shortcut, if the user is the admin, he can do everything
             if (isAdmin(user)) {
-                LOGGER.log(
-                        Level.FINE,
-                        "Admin level access, returning " + "full rights for layer {0}",
-                        layer);
+                LOGGER.log(Level.FINE, "Admin level access, returning " + "full rights for layer {0}", layer);
                 return buildAdminAccessLimits(info);
             }
         }
 
+        Request req = Dispatcher.REQUEST.get();
+
+        if (req == null) {
+            // We're missing some filtering info, so we can't tell anything about access
+            LOGGER.log(Level.WARNING, "Missing OWS info for request to {0}:{1}", new String[] {workspace, layer});
+            return null;
+        }
+
         String ipAddress = retrieveCallerIpAddress();
-        RuleFilter ruleFilter = buildRuleFilter(workspace, layer, user, ipAddress);
+        String date = DateTimeFormatter.ISO_LOCAL_DATE.format(LocalDate.now());
+        RuleFilter ruleFilter = buildRuleFilter(workspace, layer, user, ipAddress, date);
         AccessInfo accessInfo = rulesService.getAccessInfo(ruleFilter);
 
         if (accessInfo == null) {
             accessInfo = AccessInfo.DENY_ALL;
-            LOGGER.log(
-                    Level.WARNING, "GeoFence returning null AccessInfo for filter {0}", ruleFilter);
+            LOGGER.log(Level.WARNING, "GeoFence returning null AccessInfo for filter {0}", ruleFilter);
         }
 
-        Request req = Dispatcher.REQUEST.get();
-        String service = req != null ? req.getService() : null;
+        String service = req.getService();
         boolean isWms = "WMS".equalsIgnoreCase(service);
         boolean noLayerGroups = CollectionUtils.isEmpty(containers);
 
         ContainerLimitResolver.ProcessingResult processingResult = null;
         if (noLayerGroups && isWms) {
             // is direct access we need to retrieve eventually present groups.
-            Collection<LayerGroupContainmentCache.LayerGroupSummary> summaries =
-                    getGroupSummary(info);
+            Collection<LayerGroupContainmentCache.LayerGroupSummary> summaries = getGroupSummary(info);
             if (summaries != null && !summaries.isEmpty()) {
                 boolean allOpaque = allOpaque(summaries);
                 // all opaque we deny and don't perform any resolution of group limits.
                 if (allOpaque) accessInfo.setGrant(GrantType.DENY);
                 boolean anySingle =
-                        summaries.stream()
-                                .anyMatch(gs -> gs.getMode().equals(LayerGroupInfo.Mode.SINGLE));
+                        summaries.stream().anyMatch(gs -> gs.getMode().equals(LayerGroupInfo.Mode.SINGLE));
                 // if a single group is present we don't apply any limit from containers.
                 if (!anySingle && !allOpaque)
-                    processingResult =
-                            getContainerResolverResult(
-                                    info,
-                                    layer,
-                                    workspace,
-                                    configurationManager.getConfiguration(),
-                                    ipAddress,
-                                    user,
-                                    null,
-                                    summaries);
-            }
-        } else if (!noLayerGroups) {
-            // layer is requested in context of a layer group.
-            // we need to process the containers limits.
-            processingResult =
-                    getContainerResolverResult(
+                    processingResult = this.containerAccessResolver.getContainerResolverResult(
                             info,
                             layer,
                             workspace,
                             configurationManager.getConfiguration(),
                             ipAddress,
                             user,
-                            containers,
-                            null);
+                            null,
+                            summaries);
+            }
+        } else if (!noLayerGroups) {
+            // layer is requested in context of a layer group.
+            // we need to process the containers limits.
+            processingResult = this.containerAccessResolver.getContainerResolverResult(
+                    info, layer, workspace, configurationManager.getConfiguration(), ipAddress, user, containers, null);
         }
 
         if ("WPS".equalsIgnoreCase(service)) {
@@ -404,16 +437,12 @@ public class GeofenceAccessManager
                         wpsHelper.resolveWPSAccess(req, ruleFilter, accessInfo);
                 if (resolvedAccessInfo != null) {
                     accessInfo = resolvedAccessInfo.getAccessInfo();
-                    processingResult =
-                            new ContainerLimitResolver.ProcessingResult(
-                                    resolvedAccessInfo.getArea(),
-                                    resolvedAccessInfo.getClip(),
-                                    accessInfo.getCatalogMode());
+                    processingResult = new ContainerLimitResolver.ProcessingResult(
+                            resolvedAccessInfo.getArea(), resolvedAccessInfo.getClip(), accessInfo.getCatalogMode());
 
-                    LOGGER.log(
-                            Level.FINE,
-                            "Got WPS access {0} for layer {1} and user {2}",
-                            new Object[] {accessInfo, layer, getUserNameFromAuth(user)});
+                    LOGGER.log(Level.FINE, "Got WPS access {0} for layer {1} and user {2}", new Object[] {
+                        accessInfo, layer, getUserNameFromAuth(user)
+                    });
                 }
             }
         }
@@ -421,18 +450,15 @@ public class GeofenceAccessManager
         AccessLimits limits;
         if (info instanceof LayerGroupInfo) {
             limits = buildLayerGroupAccessLimits(accessInfo);
-        } else if (info instanceof ResourceInfo) {
-            limits = buildResourceAccessLimits((ResourceInfo) info, accessInfo, processingResult);
+        } else if (info instanceof ResourceInfo resourceInfo) {
+            limits = buildResourceAccessLimits(resourceInfo, accessInfo, processingResult);
         } else {
-            limits =
-                    buildResourceAccessLimits(
-                            ((LayerInfo) info).getResource(), accessInfo, processingResult);
+            limits = buildResourceAccessLimits(((LayerInfo) info).getResource(), accessInfo, processingResult);
         }
 
-        LOGGER.log(
-                Level.FINE,
-                "Returning {0} for layer {1} and user {2}",
-                new Object[] {limits, layer, getUserNameFromAuth(user)});
+        LOGGER.log(Level.FINE, "Returning {0} for layer {1} and user {2}", new Object[] {
+            limits, layer, getUserNameFromAuth(user)
+        });
 
         return limits;
     }
@@ -445,15 +471,10 @@ public class GeofenceAccessManager
     // build the accessLimits for an admin user
     private AccessLimits buildAdminAccessLimits(CatalogInfo info) {
         AccessLimits accessLimits;
-        if (info instanceof LayerGroupInfo)
-            accessLimits = buildLayerGroupAccessLimits(AccessInfo.ALLOW_ALL);
-        else if (info instanceof ResourceInfo)
-            accessLimits =
-                    buildResourceAccessLimits((ResourceInfo) info, AccessInfo.ALLOW_ALL, null);
-        else
-            accessLimits =
-                    buildResourceAccessLimits(
-                            ((LayerInfo) info).getResource(), AccessInfo.ALLOW_ALL, null);
+        if (info instanceof LayerGroupInfo) accessLimits = buildLayerGroupAccessLimits(AccessInfo.ALLOW_ALL);
+        else if (info instanceof ResourceInfo resourceInfo)
+            accessLimits = buildResourceAccessLimits(resourceInfo, AccessInfo.ALLOW_ALL, null);
+        else accessLimits = buildResourceAccessLimits(((LayerInfo) info).getResource(), AccessInfo.ALLOW_ALL, null);
         return accessLimits;
     }
 
@@ -465,13 +486,10 @@ public class GeofenceAccessManager
         return username;
     }
 
-    private Collection<LayerGroupContainmentCache.LayerGroupSummary> getGroupSummary(
-            Object resource) {
+    private Collection<LayerGroupContainmentCache.LayerGroupSummary> getGroupSummary(Object resource) {
         Collection<LayerGroupContainmentCache.LayerGroupSummary> summaries;
-        if (resource instanceof ResourceInfo)
-            summaries = groupsCache.getContainerGroupsFor((ResourceInfo) resource);
-        else if (resource instanceof LayerInfo)
-            summaries = groupsCache.getContainerGroupsFor(((LayerInfo) resource).getResource());
+        if (resource instanceof ResourceInfo info1) summaries = groupsCache.getContainerGroupsFor(info1);
+        else if (resource instanceof LayerInfo info) summaries = groupsCache.getContainerGroupsFor(info.getResource());
         else summaries = groupsCache.getContainerGroupsFor((LayerGroupInfo) resource);
         return summaries;
     }
@@ -489,36 +507,31 @@ public class GeofenceAccessManager
                 }
 
                 if (LOGGER.isLoggable(Level.FINE)) {
-                    String authList =
-                            user.getAuthorities().stream()
-                                    .map(a -> a.getAuthority())
-                                    .collect(Collectors.joining(",", "[", "]"));
+                    String authList = user.getAuthorities().stream()
+                            .map(a -> a.getAuthority())
+                            .collect(Collectors.joining(",", "[", "]"));
                     LOGGER.log(
-                            Level.FINE,
-                            "Authorizations found for user {0}: {1}",
-                            new Object[] {user.getName(), authList});
+                            Level.FINE, "Authorizations found for user {0}: {1}", new Object[] {user.getName(), authList
+                            });
 
-                    String allowedAuth =
-                            config.getRoles().stream().collect(Collectors.joining(",", "[", "]"));
-                    LOGGER.log(
-                            Level.FINE, "Authorizations allowed: {0}", new Object[] {allowedAuth});
+                    String allowedAuth = config.getRoles().stream().collect(Collectors.joining(",", "[", "]"));
+                    LOGGER.log(Level.FINE, "Authorizations allowed: {0}", new Object[] {allowedAuth});
                 }
             }
 
             if (config.isUseRolesToFilter() && !config.getRoles().isEmpty()) {
 
                 boolean getAllRoles = config.getRoles().contains("*");
-                Set<String> excluded =
-                        config.getRoles().stream()
-                                .filter(r -> r.startsWith("-"))
-                                .map(r -> r.substring(1))
-                                .collect(Collectors.toSet());
+                Set<String> excluded = config.getRoles().stream()
+                        .filter(r -> r.startsWith("-"))
+                        .map(r -> r.substring(1))
+                        .collect(Collectors.toSet());
 
                 List<String> roles = new ArrayList<>();
                 for (GrantedAuthority authority : user.getAuthorities()) {
                     String authRole = authority.getAuthority();
                     boolean addRole = getAllRoles || config.getRoles().contains(authRole);
-                    addRole = addRole && !(excluded.contains(authRole));
+                    addRole = addRole && !excluded.contains(authRole);
 
                     if (addRole) {
                         roles.add(authRole);
@@ -546,7 +559,7 @@ public class GeofenceAccessManager
                 ruleFilter.setUser(username);
             }
         } else {
-            LOGGER.log(Level.WARNING, "No user given");
+            LOGGER.log(Level.INFO, "No user given");
             ruleFilter.setUser(RuleFilter.SpecialFilterType.DEFAULT);
         }
     }
@@ -555,14 +568,12 @@ public class GeofenceAccessManager
      * Build the access info for a Resource, taking into account the containerRule if any exists
      *
      * @param info the ResourceInfo object for which the AccessLimits are requested
-     * @param accessInfo the AccessInfo associated to the resource need to be reprojected due the
-     *     possible difference between container and resource CRS
+     * @param accessInfo the AccessInfo associated to the resource need to be reprojected due the possible difference
+     *     between container and resource CRS
      * @return the AccessLimits of the Resource
      */
     AccessLimits buildResourceAccessLimits(
-            ResourceInfo info,
-            AccessInfo accessInfo,
-            ContainerLimitResolver.ProcessingResult resultLimits) {
+            ResourceInfo info, AccessInfo accessInfo, ContainerLimitResolver.ProcessingResult resultLimits) {
 
         GrantType actualGrant = accessInfo.getGrant();
         boolean includeFilter = actualGrant == GrantType.ALLOW || actualGrant == GrantType.LIMIT;
@@ -580,10 +591,8 @@ public class GeofenceAccessManager
         }
 
         // get the attributes
-        List<PropertyName> readAttributes =
-                toPropertyNames(accessInfo.getAttributes(), PropertyAccessMode.READ);
-        List<PropertyName> writeAttributes =
-                toPropertyNames(accessInfo.getAttributes(), PropertyAccessMode.WRITE);
+        List<PropertyName> readAttributes = toPropertyNames(accessInfo.getAttributes(), PropertyAccessMode.READ);
+        List<PropertyName> writeAttributes = toPropertyNames(accessInfo.getAttributes(), PropertyAccessMode.WRITE);
 
         Geometry intersectsArea;
         Geometry clipArea;
@@ -600,10 +609,7 @@ public class GeofenceAccessManager
             clipArea = GeomHelper.reprojectGeometry(clipArea, crs);
         }
         CatalogMode catalogMode = getCatalogMode(accessInfo, resultLimits);
-        LOGGER.log(
-                Level.FINE,
-                "Returning mode {0} for resource {1}",
-                new Object[] {catalogMode, info});
+        LOGGER.log(Level.FINE, "Returning mode {0} for resource {1}", new Object[] {catalogMode, info});
 
         AccessLimits accessLimits = null;
         if (info instanceof FeatureTypeInfo) {
@@ -619,33 +625,27 @@ public class GeofenceAccessManager
             }
 
             accessLimits =
-                    new VectorAccessLimits(
-                            catalogMode, readAttributes, readFilter, writeAttributes, writeFilter);
+                    new VectorAccessLimits(catalogMode, readAttributes, readFilter, writeAttributes, writeFilter);
 
             if (clipArea != null) {
                 ((VectorAccessLimits) accessLimits).setClipVectorFilter(clipArea);
             }
-            if (intersectsArea != null)
-                ((VectorAccessLimits) accessLimits).setIntersectVectorFilter(intersectsArea);
+            if (intersectsArea != null) ((VectorAccessLimits) accessLimits).setIntersectVectorFilter(intersectsArea);
 
         } else if (info instanceof CoverageInfo) {
 
             Geometry finalArea = null;
-            if (clipArea != null && intersectsArea != null)
-                finalArea = clipArea.union(intersectsArea);
+            if (clipArea != null && intersectsArea != null) finalArea = clipArea.union(intersectsArea);
             else if (intersectsArea != null) finalArea = intersectsArea;
             else if (clipArea != null) finalArea = clipArea;
 
-            accessLimits =
-                    new CoverageAccessLimits(catalogMode, readFilter, toMultiPoly(finalArea), null);
+            accessLimits = new CoverageAccessLimits(catalogMode, readFilter, toMultiPoly(finalArea), null);
 
         } else if (info instanceof WMSLayerInfo) {
-            accessLimits =
-                    new WMSAccessLimits(catalogMode, readFilter, toMultiPoly(intersectsArea), true);
+            accessLimits = new WMSAccessLimits(catalogMode, readFilter, toMultiPoly(intersectsArea), true);
 
         } else if (info instanceof WMTSLayerInfo) {
-            accessLimits =
-                    new WMTSAccessLimits(catalogMode, readFilter, toMultiPoly(intersectsArea));
+            accessLimits = new WMTSAccessLimits(catalogMode, readFilter, toMultiPoly(intersectsArea));
         } else {
             throw new IllegalArgumentException("Don't know how to handle resource " + info);
         }
@@ -665,56 +665,8 @@ public class GeofenceAccessManager
         else return new LayerGroupAccessLimits(convert(accessInfo.getCatalogMode()));
     }
 
-    private ContainerLimitResolver.ProcessingResult getContainerResolverResult(
-            CatalogInfo resourceInfo,
-            String layer,
-            String workspace,
-            GeoFenceConfiguration configuration,
-            String callerIp,
-            Authentication user,
-            List<LayerGroupInfo> containers,
-            Collection<LayerGroupContainmentCache.LayerGroupSummary> summaries) {
-        ContainerLimitResolver resolver;
-        if (summaries != null)
-            resolver =
-                    new ContainerLimitResolver(
-                            summaries,
-                            rulesService,
-                            user,
-                            layer,
-                            workspace,
-                            callerIp,
-                            configuration);
-        else
-            resolver =
-                    new ContainerLimitResolver(
-                            containers,
-                            rulesService,
-                            user,
-                            layer,
-                            workspace,
-                            callerIp,
-                            configuration);
-
-        ContainerLimitResolver.ProcessingResult result = resolver.resolveResourceInGroupLimits();
-        Geometry intersect = result.getIntersectArea();
-        Geometry clip = result.getClipArea();
-        // areas might be in a srid different from the one of the resource
-        // being requested.
-        CoordinateReferenceSystem crs = GeomHelper.getCRSFromInfo(resourceInfo);
-        if (intersect != null) {
-            intersect = GeomHelper.reprojectGeometry(intersect, crs);
-            result.setIntersectArea(intersect);
-        }
-        if (clip != null) {
-            clip = GeomHelper.reprojectGeometry(clip, crs);
-            result.setClipArea(clip);
-        }
-        return result;
-    }
     // get the catalogMode for the resource privileging the container one if passed
-    private CatalogMode getCatalogMode(
-            AccessInfo accessInfo, ContainerLimitResolver.ProcessingResult resultLimits) {
+    private CatalogMode getCatalogMode(AccessInfo accessInfo, ContainerLimitResolver.ProcessingResult resultLimits) {
         CatalogModeDTO ruleCatalogMode;
         if (resultLimits != null) {
             ruleCatalogMode = resultLimits.getCatalogModeDTO();
@@ -758,10 +710,11 @@ public class GeofenceAccessManager
 
     // Builds a rule filter to retrieve the AccessInfo for the resource
     private RuleFilter buildRuleFilter(
-            String workspace, String layer, Authentication user, String ipAddress) {
+            String workspace, String layer, Authentication user, String ipAddress, String date) {
         RuleFilterBuilder builder = new RuleFilterBuilder(configurationManager.getConfiguration());
         return builder.withRequest(Dispatcher.REQUEST.get())
                 .withIpAddress(ipAddress)
+                .withDate(date)
                 .withWorkspace(workspace)
                 .withLayer(layer)
                 .withUser(user)
@@ -773,11 +726,10 @@ public class GeofenceAccessManager
         if (reprojArea != null) {
             rasterFilter = Converters.convert(reprojArea, MultiPolygon.class);
             if (rasterFilter == null) {
-                throw new RuntimeException(
-                        "Error applying security rules, cannot convert "
-                                + "the Geofence area restriction "
-                                + reprojArea.toText()
-                                + " to a multi-polygon");
+                throw new RuntimeException("Error applying security rules, cannot convert "
+                        + "the Geofence area restriction "
+                        + reprojArea.toText()
+                        + " to a multi-polygon");
             }
         }
 
@@ -796,8 +748,7 @@ public class GeofenceAccessManager
     }
 
     /** Builds the equivalent {@link PropertyName} list for the specified access mode */
-    private List<PropertyName> toPropertyNames(
-            Set<LayerAttribute> attributes, PropertyAccessMode mode) {
+    private List<PropertyName> toPropertyNames(Set<LayerAttribute> attributes, PropertyAccessMode mode) {
         // handle simple case
         if (attributes == null || attributes.isEmpty()) {
             return null;
@@ -807,8 +758,7 @@ public class GeofenceAccessManager
         List<PropertyName> result = new ArrayList<>();
         for (LayerAttribute attribute : attributes) {
             if ((attribute.getAccess() == AccessType.READWRITE)
-                    || ((mode == PropertyAccessMode.READ)
-                            && (attribute.getAccess() == AccessType.READONLY))) {
+                    || ((mode == PropertyAccessMode.READ) && (attribute.getAccess() == AccessType.READONLY))) {
                 PropertyName property = FF.property(attribute.getName());
                 result.add(property);
             }
@@ -839,9 +789,7 @@ public class GeofenceAccessManager
         if ((user != null) && !(user instanceof AnonymousAuthenticationToken)) {
             // shortcut, if the user is the admin, he can do everything
             if (isAdmin(user)) {
-                LOGGER.log(
-                        Level.FINE,
-                        "Admin level access, not applying default style for this request");
+                LOGGER.log(Level.FINE, "Admin level access, not applying default style for this request");
 
                 return operation;
             } else {
@@ -854,15 +802,14 @@ public class GeofenceAccessManager
 
         if ((request != null)
                 && "WMS".equalsIgnoreCase(service)
-                && ("GetMap".equalsIgnoreCase(request)
-                        || "GetFeatureInfo".equalsIgnoreCase(request))) {
+                && ("GetMap".equalsIgnoreCase(request) || "GetFeatureInfo".equalsIgnoreCase(request))) {
             // extract the getmap part
             Object ro = operation.getParameters()[0];
             GetMapRequest getMap;
-            if (ro instanceof GetMapRequest) {
-                getMap = (GetMapRequest) ro;
-            } else if (ro instanceof GetFeatureInfoRequest) {
-                getMap = ((GetFeatureInfoRequest) ro).getGetMapRequest();
+            if (ro instanceof GetMapRequest mapRequest) {
+                getMap = mapRequest;
+            } else if (ro instanceof GetFeatureInfoRequest infoRequest) {
+                getMap = infoRequest.getGetMapRequest();
             } else {
                 throw new ServiceException("Unrecognized request object: " + ro);
             }
@@ -878,11 +825,7 @@ public class GeofenceAccessManager
     }
 
     void overrideGetLegendGraphicRequest(
-            Request gsRequest,
-            Operation operation,
-            String service,
-            String request,
-            Authentication user) {
+            Request gsRequest, Operation operation, String service, String request, Authentication user) {
         // get the layer
         String layerName = (String) gsRequest.getKvp().get("LAYER");
         String reqStyle = (String) gsRequest.getKvp().get("STYLE");
@@ -926,17 +869,14 @@ public class GeofenceAccessManager
                     try {
                         StyleInfo si = catalog.getStyleByName(rule.getDefaultStyle());
                         if (si == null) {
-                            throw new ServiceException(
-                                    "Could not find default style suggested "
-                                            + "by GeoRepository: "
-                                            + rule.getDefaultStyle());
+                            throw new ServiceException("Could not find default style suggested "
+                                    + "by GeoRepository: "
+                                    + rule.getDefaultStyle());
                         }
                         getLegend.setStyle(si.getStyle());
                     } catch (IOException e) {
                         throw new ServiceException(
-                                "Unable to load the style suggested by GeoRepository: "
-                                        + rule.getDefaultStyle(),
-                                e);
+                                "Unable to load the style suggested by GeoRepository: " + rule.getDefaultStyle(), e);
                     }
                 }
             } else {
@@ -946,11 +886,7 @@ public class GeofenceAccessManager
     }
 
     void overrideGetMapRequest(
-            Request gsRequest,
-            String service,
-            String request,
-            Authentication user,
-            GetMapRequest getMap) {
+            Request gsRequest, String service, String request, Authentication user, GetMapRequest getMap) {
 
         if (gsRequest.getKvp().get("layers") == null
                 && gsRequest.getKvp().get("sld") == null
@@ -968,8 +904,7 @@ public class GeofenceAccessManager
         for (int i = 0; i < layers.size(); i++) {
             MapLayerInfo layer = layers.get(i);
             ResourceInfo info = null;
-            if (layer.getType() == MapLayerInfo.TYPE_VECTOR
-                    || layer.getType() == MapLayerInfo.TYPE_RASTER) {
+            if (layer.getType() == MapLayerInfo.TYPE_VECTOR || layer.getType() == MapLayerInfo.TYPE_RASTER) {
                 info = layer.getResource();
             } else if (!configurationManager.getConfiguration().isAllowRemoteAndInlineLayers()) {
                 throw new ServiceException("Remote layers are not allowed");
@@ -1000,23 +935,19 @@ public class GeofenceAccessManager
             // if default use geofence default
             if (styleName != null) {
                 checkStyleAllowed(rule, styleName);
-            } else if ((rule.getDefaultStyle() != null)) {
+            } else if (rule.getDefaultStyle() != null) {
                 try {
                     StyleInfo si = catalog.getStyleByName(rule.getDefaultStyle());
                     if (si == null) {
                         throw new ServiceException(
-                                "Could not find default style suggested "
-                                        + "by Geofence: "
-                                        + rule.getDefaultStyle());
+                                "Could not find default style suggested " + "by Geofence: " + rule.getDefaultStyle());
                     }
 
                     Style style = si.getStyle();
                     getMap.getStyles().set(i, style);
                 } catch (IOException e) {
                     throw new ServiceException(
-                            "Unable to load the style suggested by Geofence: "
-                                    + rule.getDefaultStyle(),
-                            e);
+                            "Unable to load the style suggested by Geofence: " + rule.getDefaultStyle(), e);
                 }
             }
         }
@@ -1033,8 +964,7 @@ public class GeofenceAccessManager
         }
 
         if ((!allowedStyles.isEmpty()) && !allowedStyles.contains(styleName)) {
-            throw new ServiceException(
-                    "The '" + styleName + "' style is not available on this layer");
+            throw new ServiceException("The '" + styleName + "' style is not available on this layer");
         }
     }
 
@@ -1049,8 +979,7 @@ public class GeofenceAccessManager
     }
 
     @Override
-    public Response responseDispatched(
-            Request request, Operation operation, Object result, Response response) {
+    public Response responseDispatched(Request request, Operation operation, Object result, Response response) {
         return response;
     }
 
@@ -1059,19 +988,16 @@ public class GeofenceAccessManager
         return service;
     }
 
-    /**
-     * Returns a list that contains the request styles that will correspond to the
-     * GetMap.getLayers().
-     */
+    /** Returns a list that contains the request styles that will correspond to the GetMap.getLayers(). */
     private List<String> getRequestedStyles(Request gsRequest, GetMapRequest getMap) {
         List<String> requestedStyles = new ArrayList<>();
         int styleIndex = 0;
         List<String> parsedStyles = parseStylesParameter(gsRequest);
         for (Object layer : parseLayersParameter(gsRequest, getMap)) {
             boolean outOfBound = styleIndex >= parsedStyles.size();
-            if (layer instanceof LayerGroupInfo) {
+            if (layer instanceof LayerGroupInfo info) {
                 String styleName = outOfBound ? null : parsedStyles.get(styleIndex);
-                addGroupStyles((LayerGroupInfo) layer, requestedStyles, styleName);
+                addGroupStyles(info, requestedStyles, styleName);
             } else {
                 // the layer is a LayerInfo or MapLayerInfo (if it is a remote layer)
                 if (outOfBound) {
@@ -1085,16 +1011,14 @@ public class GeofenceAccessManager
         return requestedStyles;
     }
 
-    private void addGroupStyles(
-            LayerGroupInfo groupInfo, List<String> requestedStyles, String styleName) {
+    private void addGroupStyles(LayerGroupInfo groupInfo, List<String> requestedStyles, String styleName) {
         List<StyleInfo> groupStyles;
         if (styleName != null && !"".equals(styleName)) groupStyles = groupInfo.styles(styleName);
         else groupStyles = groupInfo.styles();
 
-        requestedStyles.addAll(
-                groupStyles.stream()
-                        .map(s -> s != null ? s.prefixedName() : null)
-                        .collect(Collectors.toList()));
+        requestedStyles.addAll(groupStyles.stream()
+                .map(s -> s != null ? s.prefixedName() : null)
+                .collect(Collectors.toList()));
     }
 
     private List<Object> parseLayersParameter(Request gsRequest, GetMapRequest getMap) {
@@ -1130,8 +1054,7 @@ public class GeofenceAccessManager
         }
 
         @Override
-        public List<Object> parseLayers(
-                List<String> requestedLayerNames, URL remoteOwsUrl, String remoteOwsType) {
+        public List<Object> parseLayers(List<String> requestedLayerNames, URL remoteOwsUrl, String remoteOwsType) {
             try {
                 return super.parseLayers(requestedLayerNames, remoteOwsUrl, remoteOwsType);
             } catch (Exception exception) {

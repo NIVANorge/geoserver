@@ -6,16 +6,16 @@
 
 package org.geoserver.platform;
 
+import jakarta.servlet.http.HttpSessionEvent;
+import jakarta.servlet.http.HttpSessionListener;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import javax.servlet.http.HttpSessionEvent;
-import javax.servlet.http.HttpSessionListener;
 
 /**
  * This class has to be registered as a listener in the web.xml file.
  *
- * <p>The class holds a set of {@link HttpSessionListener} objects dispatching session
- * creation/termination events to each registered listeners.
+ * <p>The class holds a set of {@link HttpSessionListener} objects dispatching session creation/termination events to
+ * each registered listeners.
  *
  * <p>Listeners can be injected using the Spring context
  *
@@ -54,9 +54,7 @@ public class GeoServerHttpSessionListenerProxy implements HttpSessionListener {
         if (listeners == null) {
             synchronized (this) {
                 if (listeners == null) {
-                    listeners =
-                            new LinkedHashSet<>(
-                                    GeoServerExtensions.extensions(HttpSessionListener.class));
+                    listeners = new LinkedHashSet<>(GeoServerExtensions.extensions(HttpSessionListener.class));
                 }
             }
         }

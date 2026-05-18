@@ -6,17 +6,17 @@
 
 package org.geoserver.security;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.logging.Level;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
 import org.geoserver.security.filter.AuthenticationCachingFilter;
@@ -24,6 +24,7 @@ import org.geoserver.security.filter.GeoServerAuthenticationFilter;
 import org.geoserver.security.filter.GeoServerSecurityFilter;
 import org.geoserver.security.impl.GeoServerRole;
 import org.geoserver.security.impl.GeoServerUser;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,10 +35,10 @@ import org.springframework.util.StringUtils;
 /**
  * Filter extending {@link GeoServerSecurityFilter}.
  *
- * <p>The encoded user name is passed as an URL parameter named {@link #authKeyParamName}.
+ * <p>The encoded user name is passed as a URL parameter named {@link #authKeyParamName}.
  *
- * <p>The real user name is retrieved by querying an {@link AuthenticationKeyMapper} object stored
- * in {@link #authKeyMapperName}
+ * <p>The real user name is retrieved by querying an {@link AuthenticationKeyMapper} object stored in
+ * {@link #authKeyMapperName}
  *
  * <p>This filter needs a {@link GeoServerUserGroupService} for authentication
  *
@@ -51,6 +52,8 @@ public class GeoServerAuthenticationKeyFilter extends GeoServerSecurityFilter
     private AuthenticationKeyMapper mapper;
 
     private String userGroupServiceName;
+
+    private boolean allowChallengeAnonymousSessions;
 
     protected AuthenticationEntryPoint aep;
 
@@ -68,30 +71,27 @@ public class GeoServerAuthenticationKeyFilter extends GeoServerSecurityFilter
         mapper.setUserGroupServiceName(userGroupServiceName);
         mapper.setSecurityManager(getSecurityManager());
         mapper.configureMapper(authConfig.getMapperParameters());
+        allowChallengeAnonymousSessions = authConfig.isAllowChallengeAnonymousSessions();
     }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
 
-        // String authKey = getAuthKey((HttpServletRequest) request);
-        // if (authKey==null) { // nothing to do
-        // chain.doFilter(request, response);
-        // return;
-        // }
+        String cacheKey = authenticateFromCache(this, (HttpServletRequest) request, allowChallengeAnonymousSessions);
 
-        String cacheKey = authenticateFromCache(this, (HttpServletRequest) request);
-
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (allowChallengeAnonymousSessions
+                || authentication == null
+                || authentication instanceof AnonymousAuthenticationToken) {
             doAuthenticate((HttpServletRequest) request, (HttpServletResponse) response, cacheKey);
-
             Authentication postAuthentication =
                     SecurityContextHolder.getContext().getAuthentication();
-            if (postAuthentication != null && cacheKey != null) {
+            if (postAuthentication != null
+                    && !(postAuthentication instanceof AnonymousAuthenticationToken)
+                    && cacheKey != null) {
                 if (cacheAuthentication(postAuthentication, (HttpServletRequest) request)) {
-                    getSecurityManager()
-                            .getAuthenticationCache()
-                            .put(getName(), cacheKey, postAuthentication);
+                    getSecurityManager().getAuthenticationCache().put(getName(), cacheKey, postAuthentication);
                 }
             }
         }
@@ -128,8 +128,7 @@ public class GeoServerAuthenticationKeyFilter extends GeoServerSecurityFilter
      * Try to authenticate and adds {@link GeoServerRole#AUTHENTICATED_ROLE} Does NOT authenticate
      * {@link GeoServerUser#ROOT_USERNAME}
      */
-    protected void doAuthenticate(
-            HttpServletRequest request, HttpServletResponse response, String authKey)
+    protected void doAuthenticate(HttpServletRequest request, HttpServletResponse response, String authKey)
             throws IOException {
 
         if (authKey == null) return;
@@ -151,18 +150,16 @@ public class GeoServerAuthenticationKeyFilter extends GeoServerSecurityFilter
         for (GrantedAuthority auth : user.getAuthorities()) {
             roles.add((GeoServerRole) auth);
         }
-        if (roles.contains(GeoServerRole.AUTHENTICATED_ROLE) == false)
-            roles.add(GeoServerRole.AUTHENTICATED_ROLE);
+        if (!roles.contains(GeoServerRole.AUTHENTICATED_ROLE)) roles.add(GeoServerRole.AUTHENTICATED_ROLE);
 
-        KeyAuthenticationToken result =
-                new KeyAuthenticationToken(authKey, authKeyParamName, user, roles);
+        KeyAuthenticationToken result = new KeyAuthenticationToken(authKey, authKeyParamName, user, roles);
 
         SecurityContextHolder.getContext().setAuthentication(result);
     }
 
     public String getAuthKey(HttpServletRequest req) {
         String authKey = getAuthKeyParamValue(req);
-        if (StringUtils.hasLength(authKey) == false) return null;
+        if (!StringUtils.hasLength(authKey)) return null;
         return authKey;
     }
 

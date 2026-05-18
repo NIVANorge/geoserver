@@ -20,6 +20,7 @@ import org.geoserver.monitor.ows.wfs.DescribeFeatureTypeHandler;
 import org.geoserver.monitor.ows.wfs.GetFeatureHandler;
 import org.geoserver.monitor.ows.wfs.LockFeatureHandler;
 import org.geoserver.monitor.ows.wfs.TransactionHandler;
+import org.geoserver.monitor.ows.wfs20.GetFeature20Handler;
 import org.geoserver.monitor.ows.wms.GetFeatureInfoHandler;
 import org.geoserver.monitor.ows.wms.GetLegendGraphicHandler;
 import org.geoserver.monitor.ows.wms.GetMapHandler;
@@ -46,6 +47,8 @@ public class MonitorCallback implements DispatcherCallback {
         handlers.add(new LockFeatureHandler(monitor.getConfig(), catalog));
         handlers.add(new TransactionHandler(monitor.getConfig(), catalog));
 
+        handlers.add(new GetFeature20Handler(monitor.getConfig(), catalog));
+
         // wms
         handlers.add(new GetFeatureInfoHandler(monitor.getConfig()));
         handlers.add(new GetMapHandler(monitor.getConfig()));
@@ -55,8 +58,7 @@ public class MonitorCallback implements DispatcherCallback {
         handlers.add(new DescribeCoverageHandler(monitor.getConfig()));
         handlers.add(new GetCoverageHandler(monitor.getConfig()));
 
-        handlers.add(
-                new org.geoserver.monitor.ows.wcs11.DescribeCoverageHandler(monitor.getConfig()));
+        handlers.add(new org.geoserver.monitor.ows.wcs11.DescribeCoverageHandler(monitor.getConfig()));
         handlers.add(new org.geoserver.monitor.ows.wcs11.GetCoverageHandler(monitor.getConfig()));
     }
 
@@ -66,8 +68,7 @@ public class MonitorCallback implements DispatcherCallback {
     }
 
     @Override
-    public Response responseDispatched(
-            Request request, Operation operation, Object result, Response response) {
+    public Response responseDispatched(Request request, Operation operation, Object result, Response response) {
         return null;
     }
 

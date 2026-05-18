@@ -8,17 +8,17 @@ import static org.junit.Assert.assertEquals;
 
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Function;
 import org.geotools.factory.CommonFactoryFinder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Function;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 public class ServiceLinkFunctionTest {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     @BeforeClass
     public static void setDispatcherRequest() {
@@ -45,25 +45,21 @@ public class ServiceLinkFunctionTest {
 
     @Test
     public void testPathParams() {
-        Function f =
-                FF.function(
-                        "serviceLink",
-                        FF.literal("ogc/features/collections/%s/items/%s"),
-                        FF.literal("states"),
-                        FF.literal("states.1"));
+        Function f = FF.function(
+                "serviceLink",
+                FF.literal("ogc/features/collections/%s/items/%s"),
+                FF.literal("states"),
+                FF.literal("states.1"));
         String url = f.evaluate(null, String.class);
-        assertEquals(
-                "http://localhost:8080/geoserver/ogc/features/collections/states/items/states.1",
-                url);
+        assertEquals("http://localhost:8080/geoserver/ogc/features/collections/states/items/states.1", url);
     }
 
     @Test
     public void testKvpParams() {
-        Function f =
-                FF.function(
-                        "serviceLink",
-                        FF.literal("ows?service=WFS&version=1.0.0&request=GetFeature&featureId=%s"),
-                        FF.literal("myType.1"));
+        Function f = FF.function(
+                "serviceLink",
+                FF.literal("ows?service=WFS&version=1.0.0&request=GetFeature&featureId=%s"),
+                FF.literal("myType.1"));
         String url = f.evaluate(null, String.class);
         assertEquals(
                 "http://localhost:8080/geoserver/ows?service=WFS&version=1.0.0&request=GetFeature&featureId=myType.1",

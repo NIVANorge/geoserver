@@ -6,10 +6,10 @@ package org.geotools.process.raster;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
 
 /**
  * Filter function to retrieve a grid coverage property value from the underlying GridCoverage2D
@@ -18,11 +18,8 @@ import org.opengis.filter.capability.FunctionName;
  */
 public class FilterFunction_gridCoverageProperty extends FunctionExpressionImpl {
 
-    public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "gridCoverageProperty",
-                    parameter("value", Number.class),
-                    parameter("property", String.class));
+    public static FunctionName NAME = new FunctionNameImpl(
+            "gridCoverageProperty", parameter("value", Number.class), parameter("property", String.class));
 
     public FilterFunction_gridCoverageProperty() {
         super(NAME);
@@ -34,8 +31,7 @@ public class FilterFunction_gridCoverageProperty extends FunctionExpressionImpl 
 
         try { // attempt to get value and perform conversion
             arg0 = (getExpression(0).evaluate(feature, String.class));
-            if (feature instanceof GridCoverage2D) {
-                GridCoverage2D coverage = (GridCoverage2D) feature;
+            if (feature instanceof GridCoverage2D coverage) {
                 Object prop = coverage.getProperty(arg0);
                 if (prop != null) {
                     Number number = (Number) prop;
@@ -49,8 +45,7 @@ public class FilterFunction_gridCoverageProperty extends FunctionExpressionImpl 
                             + feature.getClass());
         } catch (Exception e) {
             // probably a type error
-            throw new IllegalArgumentException(
-                    "Filter Function problem for function gridCoverageProperty", e);
+            throw new IllegalArgumentException("Filter Function problem for function gridCoverageProperty", e);
         }
     }
 }

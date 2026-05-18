@@ -2,21 +2,18 @@ package org.geoserver.featurestemplating.expressions;
 
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
+import org.geotools.api.filter.capability.FunctionName;
+import org.geotools.api.filter.expression.ExpressionVisitor;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.filter.AttributeExpressionImpl;
 import org.geotools.filter.FunctionExpressionImpl;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
-import org.opengis.filter.expression.ExpressionVisitor;
-import org.opengis.filter.expression.PropertyName;
 import org.xml.sax.helpers.NamespaceSupport;
 
 public class XpathFunction extends FunctionExpressionImpl implements PropertyName {
 
     public static FunctionName NAME =
-            new FunctionNameImpl(
-                    "xpath",
-                    parameter("result", Object.class),
-                    parameter("property", String.class));
+            new FunctionNameImpl("xpath", parameter("result", Object.class), parameter("property", String.class));
 
     protected String propertyName;
 
@@ -34,8 +31,7 @@ public class XpathFunction extends FunctionExpressionImpl implements PropertyNam
     @Override
     public Object evaluate(Object object) {
         String strXpath = (String) getParameters().get(0).evaluate(object);
-        AttributeExpressionImpl attributeExpression =
-                new AttributeExpressionImpl(strXpath, namespaceSupport);
+        AttributeExpressionImpl attributeExpression = new AttributeExpressionImpl(strXpath, namespaceSupport);
         return attributeExpression.evaluate(object);
     }
 

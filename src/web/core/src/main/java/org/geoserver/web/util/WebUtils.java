@@ -14,18 +14,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
-import java.util.Date;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import org.apache.wicket.Component;
 import org.apache.wicket.Localizer;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.StringResourceModel;
+import org.apache.wicket.request.resource.PackageResourceReference;
 import org.apache.wicket.util.lang.Bytes;
 import org.apache.wicket.util.resource.IResourceStream;
 import org.apache.wicket.util.resource.ResourceStreamNotFoundException;
-import org.apache.wicket.util.time.Time;
 import org.geoserver.template.TemplateUtils;
 import org.geoserver.web.GeoServerApplication;
 import org.geotools.util.logging.Logging;
@@ -40,20 +42,88 @@ public class WebUtils {
     static final Logger LOGGER = Logging.getLogger(WebUtils.class);
 
     /**
-     * Utility method for localizing strings using Wicket i18n subsystem. Useful if your model needs
-     * to be localized and you don't have access to a Component instance. Use with care, in most
-     * cases you should be able to localize your messages directly in pages or components.
+     * This is a regex to find simple comments like /* ... *\/ (including multiline). In CSS, this is the only official
+     * comment style
+     */
+    static final Pattern patternSimpleComment = Pattern.compile("/\\*[^*]*\\*+(?:[^/*][^*]*\\*+)*/", Pattern.DOTALL);
+
+    static final Pattern patternWhiteSpace = Pattern.compile("\\s+", Pattern.DOTALL);
+
+    /**
+     * Obtains resource reference, being mindful of {@code $} use by inner classes.
+     *
+     * @param clazz Class to obtain resource reference for
+     * @param extension resource extension (e.g. "css", "js")
+     * @return Resource reference
+     */
+    public static String toResourceName(Class clazz, String extension) {
+        if (clazz.getName().contains("$")) {
+            return clazz.getName().substring(clazz.getPackage().getName().length() + 1) + "." + extension;
+        } else {
+            return clazz.getSimpleName() + "." + extension;
+        }
+    }
+    /**
+     * This looks for the "sidecar" .css file for a Wicket Panel class.
+     *
+     * <p>ie. <br>
+     * LayerAccessDataRulePanel.java <br>
+     * LayerAccessDataRulePanel.html <br>
+     * LayerAccessDataRulePanel.css &lt;--- this one <br>
+     *
+     * <p>1. if file doesn't exist? --&gt; true <br>
+     * 2. if file is just comments --&gt; true <br>
+     * 3. otherwise false <br>
+     *
+     * <p>in almost all cases, if this returns false, do not include the .css file in the header since its "empty".
+     *
+     * @param clazz
+     * @return true if this is an "empty" css file
+     */
+    public static boolean IsWicketCssFileEmpty(Class<?> clazz) {
+        try {
+            PackageResourceReference packageResourceReference =
+                    new PackageResourceReference(clazz, toResourceName(clazz, "css"));
+            try (InputStream stream =
+                    packageResourceReference.getResource().getResourceStream().getInputStream()) {
+                String text = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+                text = patternSimpleComment.matcher(text).replaceAll("");
+                text = patternWhiteSpace.matcher(text).replaceAll("");
+                return text.isEmpty();
+            }
+        } catch (Exception e) {
+            return true; // error -> probably doesn't exist
+        }
+    }
+
+    /**
+     * removes simple comments (/* ... *\/) and white space from text.
+     *
+     * <p>If the string is just white space and comments, then this will return "".
+     *
+     * @param text text (typically with comments)
+     * @return text without comments and white space removed.
+     */
+    protected String removeComments(String text) {
+        text = patternSimpleComment.matcher(text).replaceAll("");
+        text = patternWhiteSpace.matcher(text).replaceAll("");
+        return text;
+    }
+
+    /**
+     * Utility method for localizing strings using Wicket i18n subsystem. Useful if your model needs to be localized and
+     * you don't have access to a Component instance. Use with care, in most cases you should be able to localize your
+     * messages directly in pages or components.
      */
     public static String localize(String key, IModel<?> model, Object... params) {
-        StringResourceModel rm =
-                new StringResourceModel(key, (Component) null) {
-                    private static final long serialVersionUID = 7276431319922312811L;
+        StringResourceModel rm = new StringResourceModel(key, (Component) null) {
+            private static final long serialVersionUID = 7276431319922312811L;
 
-                    @Override
-                    public Localizer getLocalizer() {
-                        return GeoServerApplication.get().getResourceSettings().getLocalizer();
-                    }
-                }.setModel(model).setParameters(params);
+            @Override
+            public Localizer getLocalizer() {
+                return GeoServerApplication.get().getResourceSettings().getLocalizer();
+            }
+        }.setModel(model).setParameters(params);
 
         return rm.getString();
     }
@@ -108,12 +178,10 @@ public class WebUtils {
                 return new ByteArrayInputStream(output.toByteArray());
             } catch (IOException e) {
                 throw (ResourceStreamNotFoundException)
-                        new ResourceStreamNotFoundException("Could not find template for: " + clazz)
-                                .initCause(e);
+                        new ResourceStreamNotFoundException("Could not find template for: " + clazz).initCause(e);
             } catch (TemplateException e) {
                 throw (ResourceStreamNotFoundException)
-                        new ResourceStreamNotFoundException("Error in tempalte for: " + clazz)
-                                .initCause(e);
+                        new ResourceStreamNotFoundException("Error in tempalte for: " + clazz).initCause(e);
             }
         }
 
@@ -133,21 +201,18 @@ public class WebUtils {
         }
 
         @Override
-        public Time lastModifiedTime() {
+        public Instant lastModifiedTime() {
             Object source;
             try {
                 source = cfg.getTemplateLoader().findTemplateSource(templateName);
             } catch (IOException e) {
-                LOGGER.log(
-                        Level.WARNING,
-                        "Error getting last modified time from template \"" + templateName + "\"",
-                        e);
+                LOGGER.log(Level.WARNING, "Error getting last modified time from template \"" + templateName + "\"", e);
                 return null;
             }
 
             if (source != null) {
                 long modified = cfg.getTemplateLoader().getLastModified(source);
-                return Time.valueOf(new Date(modified));
+                return Instant.ofEpochMilli(modified);
             }
 
             return null;

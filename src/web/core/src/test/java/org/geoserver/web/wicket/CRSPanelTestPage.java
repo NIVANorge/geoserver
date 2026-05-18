@@ -12,28 +12,27 @@ import org.apache.wicket.markup.html.WebPage;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.model.CompoundPropertyModel;
 import org.apache.wicket.model.IModel;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 
 public class CRSPanelTestPage extends WebPage {
 
     public CRSPanelTestPage() {
-        Form form = new Form("form");
+        Form form = new Form<>("form");
         add(form);
 
         form.add(new CRSPanel("crs", new CRSModel(null)));
     }
 
     public CRSPanelTestPage(String expectedSRS) {
-        Form form = new Form("form");
+        Form form = new Form<>("form");
         add(form);
 
-        form.add(
-                new CRSPanel("crs", new CRSModel(null)) {
-                    @Override
-                    protected void onSRSUpdated(String srs, AjaxRequestTarget target) {
-                        assertEquals(expectedSRS, srs);
-                    }
-                });
+        form.add(new CRSPanel("crs", new CRSModel(null)) {
+            @Override
+            protected void onSRSUpdated(String srs, AjaxRequestTarget target) {
+                assertEquals(expectedSRS, srs);
+            }
+        });
     }
 
     public CRSPanelTestPage(Object o) {
@@ -51,7 +50,7 @@ public class CRSPanelTestPage extends WebPage {
     }
 
     public CRSPanelTestPage(CoordinateReferenceSystem crs) {
-        Form form = new Form("form");
+        Form form = new Form<>("form");
         add(form);
 
         form.add(new CRSPanel("crs", crs));

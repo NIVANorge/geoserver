@@ -12,6 +12,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -21,20 +22,21 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.io.FileUtils;
+import org.geoserver.catalog.ResourcePool;
 import org.geoserver.catalog.StyleHandler;
 import org.geoserver.catalog.Styles;
 import org.geoserver.importer.job.ProgressMonitor;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.util.IOUtils;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.gml2.SrsSyntax;
 import org.geotools.referencing.CRS;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class SpatialFile extends FileData {
 
+    @Serial
     private static final long serialVersionUID = -280215815681792790L;
-
-    static EPSGCodeLookupCache EPSG_LOOKUP_CACHE = new EPSGCodeLookupCache();
 
     /** .prj file */
     File prjFile;
@@ -92,16 +94,13 @@ public class SpatialFile extends FileData {
         prjFile = null;
         styleFile = null;
 
-        final List<String> styleExtensions =
-                Lists.transform(
-                        Styles.handlers(),
-                        new Function<StyleHandler, String>() {
-                            @Nullable
-                            @Override
-                            public String apply(@Nullable StyleHandler input) {
-                                return input.getFileExtension();
-                            }
-                        });
+        final List<String> styleExtensions = Lists.transform(Styles.handlers(), new Function<>() {
+            @Nullable
+            @Override
+            public String apply(@Nullable StyleHandler input) {
+                return input.getFileExtension();
+            }
+        });
 
         // getBaseName only gets the LAST extension so beware for .shp.aux.xml stuff
         final String baseName = getBaseName(file.getName());
@@ -168,9 +167,9 @@ public class SpatialFile extends FileData {
 
         try {
             CoordinateReferenceSystem epsgCrs = null;
-            Integer epsgCode = EPSG_LOOKUP_CACHE.lookupEPSGCode(crs);
-            if (epsgCode != null) {
-                epsgCrs = CRS.decode("EPSG:" + epsgCode);
+            String identifier = ResourcePool.lookupIdentifier(crs, true);
+            if (identifier != null) {
+                epsgCrs = CRS.decode(SrsSyntax.AUTH_CODE.getSRS(identifier));
             }
             if (epsgCrs != null) {
                 String epsgWKT = epsgCrs.toWKT();

@@ -15,8 +15,7 @@ import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 
 /**
- * A {@link SimpleAjaxLink} that asks a confirmation by using a Javascript confirm dialog before
- * carrying out its job
+ * A {@link SimpleAjaxLink} that asks a confirmation by using a Javascript confirm dialog before carrying out its job
  */
 @SuppressWarnings("serial")
 public abstract class ConfirmationAjaxLink<T> extends SimpleAjaxLink<T> {
@@ -26,30 +25,25 @@ public abstract class ConfirmationAjaxLink<T> extends SimpleAjaxLink<T> {
         this(id, linkModel, new Model<>(label), new Model<>(confirm));
     }
 
-    public ConfirmationAjaxLink(
-            String id, IModel<T> linkModel, IModel<String> labelModel, IModel<String> confirm) {
+    public ConfirmationAjaxLink(String id, IModel<T> linkModel, IModel<String> labelModel, IModel<String> confirm) {
         super(id, linkModel, labelModel);
         this.confirm = confirm;
     }
 
     @Override
     protected AjaxLink<T> buildAjaxLink(IModel<T> linkModel) {
-        return new AjaxLink<T>("link", linkModel) {
+        return new AjaxLink<>("link", linkModel) {
 
             @Override
             protected void updateAjaxAttributes(AjaxRequestAttributes attributes) {
                 super.updateAjaxAttributes(attributes);
-                attributes
-                        .getAjaxCallListeners()
-                        .add(
-                                new AjaxCallListener() {
-                                    @Override
-                                    public CharSequence getPrecondition(Component component) {
-                                        CharSequence message =
-                                                JavaScriptUtils.escapeQuotes(confirm.getObject());
-                                        return "if(!confirm('" + message + "')) return false;";
-                                    }
-                                });
+                attributes.getAjaxCallListeners().add(new AjaxCallListener() {
+                    @Override
+                    public CharSequence getPrecondition(Component component) {
+                        CharSequence message = JavaScriptUtils.escapeQuotes(confirm.getObject());
+                        return "if(!confirm('" + message + "')) return false;";
+                    }
+                });
             }
 
             @Override

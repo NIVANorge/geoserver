@@ -11,8 +11,8 @@ import java.util.Objects;
 import org.geoserver.catalog.PublishedInfo;
 import org.geoserver.catalog.StyleInfo;
 import org.geoserver.util.InternationalStringUtils;
+import org.geotools.api.util.InternationalString;
 import org.geotools.util.GrowableInternationalString;
-import org.opengis.util.InternationalString;
 
 public class LayerGroupStyleImpl implements LayerGroupStyle {
 
@@ -153,14 +153,6 @@ public class LayerGroupStyleImpl implements LayerGroupStyle {
 
     @Override
     public int hashCode() {
-        return Objects.hash(
-                id,
-                name,
-                title,
-                internationalTitle,
-                abstractTxt,
-                internationalAbstract,
-                layers,
-                styles);
+        return Objects.hash(id, name, title, internationalTitle, abstractTxt, internationalAbstract, layers, styles);
     }
 }

@@ -12,17 +12,20 @@ import static org.junit.Assert.assertNotNull;
 import com.jayway.jsonpath.DocumentContext;
 import java.io.IOException;
 import java.util.List;
+import org.geoserver.config.GeoServer;
 import org.geoserver.ogcapi.Link;
 import org.geoserver.ogcapi.OGCAPIMediaTypes;
 import org.geoserver.ogcapi.Queryables;
 import org.geoserver.ogcapi.Sortables;
+import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
 import org.geoserver.platform.Service;
-import org.geotools.data.Query;
+import org.geotools.api.data.Query;
 import org.geotools.util.Version;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matchers;
 import org.junit.Test;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 public class LandingPageTest extends STACTestSupport {
 
@@ -71,16 +74,14 @@ public class LandingPageTest extends STACTestSupport {
 
     @Test
     public void testLandingPageYaml() throws Exception {
-        String yaml = getAsString("ogc/stac/v1?f=application/x-yaml");
+        String yaml = getAsString("ogc/stac/v1?f=application/yaml");
         // System.out.println(yaml);
         DocumentContext json = convertYamlToJsonPath(yaml);
         assertJSONList(
-                json,
-                "links[?(@.type == 'application/x-yaml' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
-                "self");
+                json, "links[?(@.type == 'application/yaml' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel", "self");
         assertJSONList(
                 json,
-                "links[?(@.type != 'application/x-yaml' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type != 'application/yaml' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
                 "alternate",
                 "alternate");
         checkJSONLandingPageShared(json);
@@ -102,8 +103,17 @@ public class LandingPageTest extends STACTestSupport {
         // check landing page links
         assertJSONList(
                 json,
-                "links[?(@.type == 'application/json' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
+                "links[?(@.type == 'application/json' && @.title == 'This document' && @.href =~"
+                        + " /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
                 "self");
+        assertJSONList(
+                json,
+                "links[?(@.type == 'application/json' && @.title == 'Root Catalog as application/json')].rel",
+                "root");
+        List<String> selfRels = json.read(
+                "links[?(@.type == 'application/json' && @.title == 'Root Catalog as application/json')].rel");
+        // Limiting Root links to only JSON MIME type
+        assertEquals(1, selfRels.size());
         assertJSONList(
                 json,
                 "links[?(@.type != 'application/json' && @.href =~ /.*ogc\\/stac\\/v1\\/\\?.*/)].rel",
@@ -129,10 +139,7 @@ public class LandingPageTest extends STACTestSupport {
                 Link.REL_CONFORMANCE);
         // check collection links
         assertJSONList(
-                json,
-                "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/collections\\?.*/)].rel",
-                Link.REL_DATA,
-                Link.REL_DATA);
+                json, "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/collections\\?.*/)].rel", Link.REL_DATA, Link.REL_DATA);
         // check search links
         assertJSONList(
                 json,
@@ -154,15 +161,8 @@ public class LandingPageTest extends STACTestSupport {
                 json.read("links[?(@.method == 'POST' && @.rel == 'search')].type", List.class)
                         .get(0));
         assertJSONList(
-                json,
-                "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/queryables.*/)].rel",
-                Queryables.REL,
-                Queryables.REL);
-        assertJSONList(
-                json,
-                "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/sortables.*/)].rel",
-                Sortables.REL,
-                Sortables.REL);
+                json, "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/queryables.*/)].rel", Queryables.REL, Queryables.REL);
+        assertJSONList(json, "links[?(@.href =~ /.*ogc\\/stac\\/v1\\/sortables.*/)].rel", Sortables.REL, Sortables.REL);
         // check title
         assertEquals(STAC_TITLE, json.read("title"));
         // check description
@@ -182,7 +182,8 @@ public class LandingPageTest extends STACTestSupport {
         OpenSearchAccess osa = getOpenSearchAccess();
         int collectionCount = osa.getCollectionSource().getCount(Query.ALL) - 1;
         assertEquals(
-                collectionCount, json.read("links[?(@.rel == 'child')].href", List.class).size());
+                collectionCount,
+                json.read("links[?(@.rel == 'child')].href", List.class).size());
         assertThat(
                 json.read("links[?(@.rel == 'child')].href"),
                 Matchers.containsInAnyOrder(
@@ -192,5 +193,20 @@ public class LandingPageTest extends STACTestSupport {
                         "http://localhost:8080/geoserver/ogc/stac/v1/collections/GS_TEST",
                         "http://localhost:8080/geoserver/ogc/stac/v1/collections/ATMTEST",
                         "http://localhost:8080/geoserver/ogc/stac/v1/collections/ATMTEST2"));
+    }
+
+    @Test
+    public void testDisabledService() throws Exception {
+        GeoServer gs = getGeoServer();
+        OSEOInfo service = gs.getService(OSEOInfo.class);
+        service.setEnabled(false);
+        gs.save(service);
+        try {
+            MockHttpServletResponse httpServletResponse = getAsMockHttpServletResponse("ogc/stac/v1", 404);
+            assertEquals("Service STAC is disabled", httpServletResponse.getErrorMessage());
+        } finally {
+            service.setEnabled(true);
+            gs.save(service);
+        }
     }
 }

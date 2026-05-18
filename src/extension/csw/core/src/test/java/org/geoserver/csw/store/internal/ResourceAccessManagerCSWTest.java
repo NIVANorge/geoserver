@@ -27,10 +27,10 @@ import org.geoserver.security.ResourceAccessManager;
 import org.geoserver.security.TestResourceAccessManager;
 import org.geoserver.security.impl.AbstractUserGroupService;
 import org.geoserver.security.impl.GeoServerRole;
+import org.geotools.api.filter.Filter;
 import org.geotools.util.logging.Logging;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.filter.Filter;
 import org.w3c.dom.Document;
 
 /**
@@ -53,8 +53,7 @@ public class ResourceAccessManagerCSWTest extends CSWTestSupport {
     @Override
     protected void setUpSpring(List<String> springContextLocations) {
         super.setUpSpring(springContextLocations);
-        springContextLocations.add(
-                "classpath:/org/geoserver/csw/store/internal/ResourceAccessManagerContext.xml");
+        springContextLocations.add("classpath:/org/geoserver/csw/store/internal/ResourceAccessManagerContext.xml");
     }
 
     @Override
@@ -71,16 +70,16 @@ public class ResourceAccessManagerCSWTest extends CSWTestSupport {
                 SystemTestData.class,
                 getCatalog());
 
-        GeoServerUserGroupStore ugStore =
-                getSecurityManager()
-                        .loadUserGroupService(AbstractUserGroupService.DEFAULT_NAME)
-                        .createStore();
+        GeoServerUserGroupStore ugStore = getSecurityManager()
+                .loadUserGroupService(AbstractUserGroupService.DEFAULT_NAME)
+                .createStore();
 
         ugStore.addUser(ugStore.createUserObject("cite", "cite", true));
         ugStore.addUser(ugStore.createUserObject("citeChallenge", "citeChallenge", true));
         ugStore.store();
 
-        GeoServerRoleStore roleStore = getSecurityManager().getActiveRoleService().createStore();
+        GeoServerRoleStore roleStore =
+                getSecurityManager().getActiveRoleService().createStore();
         GeoServerRole role = roleStore.createRoleObject("ROLE_DUMMY");
         roleStore.addRole(role);
         roleStore.associateRoleToUser(role, "cite");
@@ -101,10 +100,7 @@ public class ResourceAccessManagerCSWTest extends CSWTestSupport {
         // setup challenge mode, the metadata should be visible anyways
         for (ResourceInfo ri : catalog.getResources(ResourceInfo.class)) {
             if (!"cite".equals(ri.getStore().getWorkspace().getName())) {
-                tam.putLimits(
-                        "citeChallenge",
-                        ri,
-                        new DataAccessLimits(CatalogMode.CHALLENGE, Filter.EXCLUDE));
+                tam.putLimits("citeChallenge", ri, new DataAccessLimits(CatalogMode.CHALLENGE, Filter.EXCLUDE));
             }
         }
     }
@@ -117,19 +113,15 @@ public class ResourceAccessManagerCSWTest extends CSWTestSupport {
         Document d = getAsDOM(request);
         // print(d);
         // expected number
-        List<ResourceInfo> citeResources =
-                getCatalog().getResourcesByNamespace(MockData.CITE_URI, ResourceInfo.class);
+        List<ResourceInfo> citeResources = getCatalog().getResourcesByNamespace(MockData.CITE_URI, ResourceInfo.class);
         assertEquals(
-                citeResources.size(), xpath.getMatchingNodes("//csw:SummaryRecord", d).getLength());
+                citeResources.size(),
+                xpath.getMatchingNodes("//csw:SummaryRecord", d).getLength());
         // check they indeed all start by cite:
         for (ResourceInfo ri : citeResources) {
             assertEquals(
                     1,
-                    xpath.getMatchingNodes(
-                                    String.format(
-                                            "//csw:SummaryRecord[dc:identifier='%s']",
-                                            ri.prefixedName()),
-                                    d)
+                    xpath.getMatchingNodes("//csw:SummaryRecord[dc:identifier='%s']".formatted(ri.prefixedName()), d)
                             .getLength());
         }
     }
@@ -143,19 +135,16 @@ public class ResourceAccessManagerCSWTest extends CSWTestSupport {
         String request =
                 "csw?service=CSW&version=2.0.2&request=GetRecords&typeNames=csw:Record&resultType=results&maxRecords=100";
         Document d = getAsDOM(request);
-        // print(d);
+        print(d);
         // expected number
         assertEquals(
-                citeResources.size(), xpath.getMatchingNodes("//csw:SummaryRecord", d).getLength());
+                citeResources.size(),
+                xpath.getMatchingNodes("//csw:SummaryRecord", d).getLength());
         // check they indeed all start by cite:
         for (ResourceInfo ri : citeResources) {
             assertEquals(
                     1,
-                    xpath.getMatchingNodes(
-                                    String.format(
-                                            "//csw:SummaryRecord[dc:identifier='%s']",
-                                            ri.prefixedName()),
-                                    d)
+                    xpath.getMatchingNodes("//csw:SummaryRecord[dc:identifier='%s']".formatted(ri.prefixedName()), d)
                             .getLength());
         }
     }

@@ -6,15 +6,15 @@ import static org.junit.Assert.assertTrue;
 
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.Request;
+import org.geotools.api.filter.FilterFactory;
 import org.geotools.factory.CommonFactoryFinder;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.opengis.filter.FilterFactory2;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 public class RequestFunctionsTest {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     @BeforeClass
     public static void setDispatcherRequest() {
@@ -33,19 +33,14 @@ public class RequestFunctionsTest {
 
     @Test
     public void testRequestParamFunction() {
-        String result =
-                (String)
-                        FF.function("requestParam", FF.literal("testParameter"))
-                                .evaluate(Dispatcher.REQUEST.get());
+        String result = (String)
+                FF.function("requestParam", FF.literal("testParameter")).evaluate(Dispatcher.REQUEST.get());
         assertEquals("testParameterValue", result);
     }
 
     @Test
     public void testRequestHeaderFunction() {
-        String result =
-                (String)
-                        FF.function("header", FF.literal("testHeader"))
-                                .evaluate(Dispatcher.REQUEST.get());
+        String result = (String) FF.function("header", FF.literal("testHeader")).evaluate(Dispatcher.REQUEST.get());
         assertEquals("testHeaderValue", result);
     }
 
@@ -57,15 +52,11 @@ public class RequestFunctionsTest {
 
     @Test
     public void testRequestRegexMatch() {
-        Boolean result =
-                (Boolean)
-                        FF.function("requestMatchRegex", FF.literal("^.*wfs.*$"))
-                                .evaluate(Dispatcher.REQUEST.get());
+        Boolean result = (Boolean)
+                FF.function("requestMatchRegex", FF.literal("^.*wfs.*$")).evaluate(Dispatcher.REQUEST.get());
         assertTrue(result.booleanValue());
-        result =
-                (Boolean)
-                        FF.function("requestMatchRegex", FF.literal("^.*wms.*$"))
-                                .evaluate(Dispatcher.REQUEST.get());
+        result = (Boolean)
+                FF.function("requestMatchRegex", FF.literal("^.*wms.*$")).evaluate(Dispatcher.REQUEST.get());
         assertFalse(result.booleanValue());
     }
 }

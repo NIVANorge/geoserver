@@ -5,6 +5,7 @@
  */
 package org.geoserver.wps.ppio;
 
+import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,7 +16,6 @@ import java.util.Collections;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import javax.servlet.ServletContext;
 import org.apache.commons.io.FileUtils;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.config.GeoServer;
@@ -45,11 +45,8 @@ public class ShapeZipPPIO extends BinaryPPIO {
     private final GeoServerResourceLoader resourceLoader;
     WPSResourceManager resources;
 
-    protected ShapeZipPPIO(
-            WPSResourceManager resources,
-            GeoServer gs,
-            Catalog catalog,
-            GeoServerResourceLoader resourceLoader) {
+    public ShapeZipPPIO(
+            WPSResourceManager resources, GeoServer gs, Catalog catalog, GeoServerResourceLoader resourceLoader) {
         super(FeatureCollection.class, FeatureCollection.class, "application/zip");
         this.resources = resources;
         this.gs = gs;
@@ -66,8 +63,7 @@ public class ShapeZipPPIO extends BinaryPPIO {
 
     private Charset getCharset() {
         final String charsetName =
-                GeoServerExtensions.getProperty(
-                        ShapeZipOutputFormat.GS_SHAPEFILE_CHARSET, (ServletContext) null);
+                GeoServerExtensions.getProperty(ShapeZipOutputFormat.GS_SHAPEFILE_CHARSET, (ServletContext) null);
         if (charsetName != null) {
             return Charset.forName(charsetName);
         } else {
@@ -101,8 +97,7 @@ public class ShapeZipPPIO extends BinaryPPIO {
             }
 
             if (shapeFile == null) {
-                throw new IOException(
-                        "Could not find any file with .shp extension in the zip file");
+                throw new IOException("Could not find any file with .shp extension in the zip file");
             }
             ShapefileDataStore store = new ShapefileDataStore(URLs.fileToUrl(shapeFile));
             resource = new ShapefileResource(store, tempDir);
@@ -114,11 +109,10 @@ public class ShapeZipPPIO extends BinaryPPIO {
                 try {
                     FileUtils.deleteDirectory(tempDir);
                 } catch (IOException e) {
-                    LOGGER.warning(
-                            "Could not delete temp directory: "
-                                    + tempDir.getAbsolutePath()
-                                    + " due to: "
-                                    + e.getMessage());
+                    LOGGER.warning("Could not delete temp directory: "
+                            + tempDir.getAbsolutePath()
+                            + " due to: "
+                            + e.getMessage());
                 }
             }
         }

@@ -7,14 +7,13 @@ package org.geoserver.featurestemplating.expressions;
 import static org.geotools.filter.capability.FunctionNameImpl.parameter;
 
 import org.geoserver.ows.Request;
+import org.geotools.api.filter.capability.FunctionName;
 import org.geotools.filter.capability.FunctionNameImpl;
-import org.opengis.filter.capability.FunctionName;
 
 /** Returns the Mime Type of the current {@link Request}. */
 public class MimeTypeFunction extends RequestFunction {
 
-    public static FunctionName NAME =
-            new FunctionNameImpl("mimeType", parameter("result", String.class));
+    public static FunctionName NAME = new FunctionNameImpl("mimeType", parameter("result", String.class));
 
     public MimeTypeFunction() {
         super(NAME);

@@ -5,6 +5,7 @@
  */
 package org.vfny.geoserver.servlets;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -14,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.ows.DispatcherOutputStream;
 import org.geoserver.ows.ServiceStrategy;
 
@@ -37,8 +37,7 @@ public class FileStrategy implements ServiceStrategy {
     static int sequence = 0;
 
     /** Class logger */
-    protected static Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.vfny.geoserver.servlets");
+    protected static Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.vfny.geoserver.servlets");
 
     /** OutputStream provided to writeTo method */
     private OutputStream safe;
@@ -68,8 +67,7 @@ public class FileStrategy implements ServiceStrategy {
             temp = File.createTempFile("wfs" + sequence, "tmp");
 
             if (!temp.canRead() || !temp.canWrite()) {
-                String errorMsg =
-                        "Temporary-file permission problem for location: " + temp.getPath();
+                String errorMsg = "Temporary-file permission problem for location: " + temp.getPath();
                 throw new IOException(errorMsg);
             }
         } catch (IOException e) {
@@ -92,15 +90,14 @@ public class FileStrategy implements ServiceStrategy {
     @Override
     public void flush(HttpServletResponse response) throws IOException {
         if ((temp == null) || (response == null) || (safe == null) || !temp.exists()) {
-            LOGGER.fine(
-                    "temp is "
-                            + temp
-                            + ", response is "
-                            + response
-                            + " safe is "
-                            + safe
-                            + ", temp exists "
-                            + (temp == null ? "false" : temp.exists()));
+            LOGGER.fine("temp is "
+                    + temp
+                    + ", response is "
+                    + response
+                    + " safe is "
+                    + safe
+                    + ", temp exists "
+                    + (temp == null ? "false" : temp.exists()));
             throw new IllegalStateException("flush should only be called after getDestination");
         }
 
@@ -113,7 +110,6 @@ public class FileStrategy implements ServiceStrategy {
             // copy result to the real output stream
             try (InputStream copy = new BufferedInputStream(new FileInputStream(temp))) {
 
-                @SuppressWarnings("PMD.CloseResource") // managed by servlet container
                 OutputStream out = response.getOutputStream();
                 out = new BufferedOutputStream(out, 1024 * 1024);
 

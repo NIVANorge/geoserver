@@ -12,24 +12,22 @@ import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.config.SettingsInfo;
 import org.geoserver.platform.ExtensionPriority;
+import org.geoserver.security.FileAccessManager;
 
 /**
- * Default implementation of the {@link RESTUploadPathMapper} interface. This implementation simply
- * changes the input file root directory with the one defined inside the {@link MetadataMap} of the
- * {@link SettingsInfo} class.
+ * Default implementation of the {@link RESTUploadPathMapper} interface. This implementation simply changes the input
+ * file root directory with the one defined inside the {@link MetadataMap} of the {@link SettingsInfo} class.
  *
  * @author Nicola Lagomarsini Geosolutions S.A.S.
  */
-public class RESTUploadExternalPathMapper extends RESTUploadPathMapperImpl
-        implements ExtensionPriority {
+public class RESTUploadExternalPathMapper extends RESTUploadPathMapperImpl implements ExtensionPriority {
 
     public RESTUploadExternalPathMapper(Catalog catalog) {
         super(catalog);
     }
 
     @Override
-    public void mapStorePath(
-            StringBuilder rootDir, String workspace, String store, Map<String, String> storeParams)
+    public void mapStorePath(StringBuilder rootDir, String workspace, String store, Map<String, String> storeParams)
             throws IOException {
         // Get the external root definition from the settings
         String externalRoot = RESTUtils.getRootDirectory(workspace, store, catalog);
@@ -54,6 +52,13 @@ public class RESTUploadExternalPathMapper extends RESTUploadPathMapperImpl
         if (store != null && !store.isEmpty()) {
             rootDir.append(File.separator);
             rootDir.append(store);
+        }
+
+        // Check if the user has access to the external root directory (should never happen,
+        // but since it's security, better take a belt and suspenders approach)
+        FileAccessManager fam = FileAccessManager.lookupFileAccessManager();
+        if (!fam.checkAccess(new File(rootDir.toString()))) {
+            throw new IOException("Access to the external root directory is not allowed: " + rootDir);
         }
     }
 

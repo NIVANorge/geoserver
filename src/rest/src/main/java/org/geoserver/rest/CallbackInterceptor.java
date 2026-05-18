@@ -4,11 +4,11 @@
  */
 package org.geoserver.rest;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geotools.util.logging.Logging;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -23,8 +23,7 @@ public class CallbackInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(
-            HttpServletRequest request, HttpServletResponse response, Object handler)
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
         List<DispatcherCallback> callbacks = getCallbacks();
         // for semi-backwards compatibility
@@ -39,8 +38,7 @@ public class CallbackInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public void afterCompletion(
-            HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)
             throws Exception {
         List<DispatcherCallback> callbacks = getCallbacks();
 

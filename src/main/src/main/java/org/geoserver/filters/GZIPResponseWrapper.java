@@ -13,19 +13,19 @@
  * This code is licensed under the GPL 2.0 license, available at the root
  * application directory.
  *
- * Modified by David Winslow <dwinslow@openplans.org> on 2007-12-13.
+ * Modified by David Winslow dwinslow@openplans.org on 2007-12-13.
  */
 package org.geoserver.filters;
 
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.logging.Logger;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpServletResponseWrapper;
 
 public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     protected HttpServletResponse origResponse = null;
@@ -34,7 +34,7 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     protected Set formatsToCompress;
     protected String requestedURL;
     protected Logger logger = org.geotools.util.logging.Logging.getLogger("org.geoserver.filters");
-    private int contentLength = -1;
+    private long contentLength = -1;
 
     public GZIPResponseWrapper(HttpServletResponse response, Set toCompress, String url) {
         super(response);
@@ -49,8 +49,8 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     }
 
     /**
-     * The default behavior of this method is to return setHeader(String name, String value) on the
-     * wrapped response object.
+     * The default behavior of this method is to return setHeader(String name, String value) on the wrapped response
+     * object.
      */
     @Override
     public void setHeader(String name, String value) {
@@ -66,8 +66,8 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     }
 
     /**
-     * The default behavior of this method is to return addHeader(String name, String value) on the
-     * wrapped response object.
+     * The default behavior of this method is to return addHeader(String name, String value) on the wrapped response
+     * object.
      */
     @Override
     public void addHeader(String name, String value) {
@@ -83,8 +83,8 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     }
 
     /**
-     * The default behavior of this method is to call setIntHeader(String name, int value) on the
-     * wrapped response object.
+     * The default behavior of this method is to call setIntHeader(String name, int value) on the wrapped response
+     * object.
      */
     @Override
     public void setIntHeader(String name, int value) {
@@ -96,8 +96,8 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
     }
 
     /**
-     * The default behavior of this method is to call addIntHeader(String name, int value) on the
-     * wrapped response object.
+     * The default behavior of this method is to call addIntHeader(String name, int value) on the wrapped response
+     * object.
      */
     @Override
     public void addIntHeader(String name, int value) {
@@ -172,6 +172,11 @@ public class GZIPResponseWrapper extends HttpServletResponseWrapper {
 
     @Override
     public void setContentLength(int length) {
+        this.contentLength = length;
+    }
+
+    @Override
+    public void setContentLengthLong(long length) {
         this.contentLength = length;
     }
 }

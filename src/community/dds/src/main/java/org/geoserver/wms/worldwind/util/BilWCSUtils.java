@@ -6,26 +6,26 @@
 package org.geoserver.wms.worldwind.util;
 
 import java.util.HashMap;
-import javax.media.jai.Interpolation;
+import org.eclipse.imagen.Interpolation;
+import org.geotools.api.coverage.Coverage;
+import org.geotools.api.coverage.grid.GridCoverage;
+import org.geotools.api.coverage.grid.GridEnvelope;
+import org.geotools.api.parameter.ParameterValueGroup;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.coverage.processing.CoverageProcessor;
 import org.geotools.coverage.processing.operation.Crop;
 import org.geotools.coverage.processing.operation.Resample;
-import org.geotools.geometry.GeneralEnvelope;
+import org.geotools.geometry.GeneralBounds;
 import org.geotools.referencing.CRS;
 import org.geotools.util.factory.Hints;
-import org.opengis.coverage.Coverage;
-import org.opengis.coverage.grid.GridCoverage;
-import org.opengis.coverage.grid.GridEnvelope;
-import org.opengis.parameter.ParameterValueGroup;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.vfny.geoserver.util.WCSUtils;
 import org.vfny.geoserver.wcs.WcsException;
 
 /**
- * This class adds the missing data mangling with geotools functions from 2.0.x WCSUtils. They were
- * removed for deprecation reasons, this is a placeholder till more permanent solutions are found
+ * This class adds the missing data mangling with geotools functions from 2.0.x WCSUtils. They were removed for
+ * deprecation reasons, this is a placeholder till more permanent solutions are found
  *
  * @author Tishampati Dhar
  * @since 2.1.x
@@ -49,9 +49,9 @@ public class BilWCSUtils extends WCSUtils {
 
     /**
      * <strong>Reprojecting</strong><br>
-     * The new grid geometry can have a different coordinate reference system than the underlying
-     * grid geometry. For example, a grid coverage can be reprojected from a geodetic coordinate
-     * reference system to Universal Transverse Mercator CRS.
+     * The new grid geometry can have a different coordinate reference system than the underlying grid geometry. For
+     * example, a grid coverage can be reprojected from a geodetic coordinate reference system to Universal Transverse
+     * Mercator CRS.
      *
      * @param coverage GridCoverage2D
      * @param sourceCRS CoordinateReferenceSystem
@@ -82,10 +82,7 @@ public class BilWCSUtils extends WCSUtils {
             param.parameter("GridGeometry").setValue(null);
             param.parameter("InterpolationType").setValue(interpolation);
 
-            coverage =
-                    (GridCoverage2D)
-                            ((Resample) processor.getOperation("Resample"))
-                                    .doOperation(param, hints);
+            coverage = (GridCoverage2D) ((Resample) processor.getOperation("Resample")).doOperation(param, hints);
         }
 
         return coverage;
@@ -93,8 +90,8 @@ public class BilWCSUtils extends WCSUtils {
 
     /**
      * <strong>Scaling</strong><br>
-     * Let user to scale down to the EXACT needed resolution. This step does not prevent from having
-     * loaded an overview of the original image based on the requested scale.
+     * Let user to scale down to the EXACT needed resolution. This step does not prevent from having loaded an overview
+     * of the original image based on the requested scale.
      *
      * @param coverage GridCoverage2D
      * @param newGridRange GridRange
@@ -107,7 +104,7 @@ public class BilWCSUtils extends WCSUtils {
             final GridEnvelope newGridRange,
             final GridCoverage sourceCoverage,
             final CoordinateReferenceSystem sourceCRS,
-            final GeneralEnvelope destinationEnvelopeInSourceCRS) {
+            final GeneralBounds destinationEnvelopeInSourceCRS) {
         // ///////////////////////////////////////////////////////////////////
         //
         // SCALE to the needed resolution
@@ -116,12 +113,11 @@ public class BilWCSUtils extends WCSUtils {
         // based on the requested scale.
         //
         // ///////////////////////////////////////////////////////////////////
-        GridGeometry2D scaledGridGeometry =
-                new GridGeometry2D(
-                        newGridRange,
-                        (destinationEnvelopeInSourceCRS != null)
-                                ? destinationEnvelopeInSourceCRS
-                                : sourceCoverage.getEnvelope());
+        GridGeometry2D scaledGridGeometry = new GridGeometry2D(
+                newGridRange,
+                (destinationEnvelopeInSourceCRS != null)
+                        ? destinationEnvelopeInSourceCRS
+                        : sourceCoverage.getEnvelope());
 
         /*
          * Operations.DEFAULT.resample( coverage, sourceCRS, scaledGridGeometry,
@@ -132,12 +128,10 @@ public class BilWCSUtils extends WCSUtils {
         param.parameter("Source").setValue(coverage);
         param.parameter("CoordinateReferenceSystem").setValue(sourceCRS);
         param.parameter("GridGeometry").setValue(scaledGridGeometry);
-        param.parameter("InterpolationType")
-                .setValue(Interpolation.getInstance(Interpolation.INTERP_NEAREST));
+        param.parameter("InterpolationType").setValue(Interpolation.getInstance(Interpolation.INTERP_NEAREST));
 
         final GridCoverage2D scaledGridCoverage =
-                (GridCoverage2D)
-                        ((Resample) processor.getOperation("Resample")).doOperation(param, hints);
+                (GridCoverage2D) ((Resample) processor.getOperation("Resample")).doOperation(param, hints);
 
         return scaledGridCoverage;
     }
@@ -154,9 +148,9 @@ public class BilWCSUtils extends WCSUtils {
      */
     public static GridCoverage2D crop(
             final Coverage coverage,
-            final GeneralEnvelope sourceEnvelope,
+            final GeneralBounds sourceEnvelope,
             final CoordinateReferenceSystem sourceCRS,
-            final GeneralEnvelope destinationEnvelopeInSourceCRS,
+            final GeneralBounds destinationEnvelopeInSourceCRS,
             final Boolean conserveEnvelope)
             throws WcsException {
         // ///////////////////////////////////////////////////////////////////
@@ -168,17 +162,16 @@ public class BilWCSUtils extends WCSUtils {
         final GridCoverage2D croppedGridCoverage;
 
         // intersect the envelopes
-        final GeneralEnvelope intersectionEnvelope =
-                new GeneralEnvelope(destinationEnvelopeInSourceCRS);
+        final GeneralBounds intersectionEnvelope = new GeneralBounds(destinationEnvelopeInSourceCRS);
         intersectionEnvelope.setCoordinateReferenceSystem(sourceCRS);
-        intersectionEnvelope.intersect((GeneralEnvelope) sourceEnvelope);
+        intersectionEnvelope.intersect((GeneralBounds) sourceEnvelope);
 
         // dow we have something to show?
         if (intersectionEnvelope.isEmpty()) {
             throw new WcsException("The Intersection is null. Check the requested BBOX!");
         }
 
-        if (!intersectionEnvelope.equals((GeneralEnvelope) sourceEnvelope)) {
+        if (!intersectionEnvelope.equals((GeneralBounds) sourceEnvelope)) {
             // get the cropped grid geometry
             // final GridGeometry2D cropGridGeometry = getCroppedGridGeometry(
             // intersectionEnvelope, gridCoverage);
@@ -191,9 +184,7 @@ public class BilWCSUtils extends WCSUtils {
             // param.parameter("ConserveEnvelope").setValue(conserveEnvelope);
 
             croppedGridCoverage =
-                    (GridCoverage2D)
-                            ((Crop) processor.getOperation("CoverageCrop"))
-                                    .doOperation(param, hints);
+                    (GridCoverage2D) ((Crop) processor.getOperation("CoverageCrop")).doOperation(param, hints);
         } else {
             croppedGridCoverage = (GridCoverage2D) coverage;
         }

@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.geoserver.config.impl.GeoServerLifecycleHandler;
 import org.geotools.util.logging.Logging;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
@@ -26,14 +27,14 @@ import org.springframework.security.core.Authentication;
  *
  * @author Mauro Bartolomeoli (mauro.bartolomeoli at geo-solutions.it)
  */
-public class GuavaAuthenticationCacheImpl implements AuthenticationCache, DisposableBean {
+public class GuavaAuthenticationCacheImpl implements AuthenticationCache, GeoServerLifecycleHandler, DisposableBean {
 
     /** Default eviction interval (double of the idle time). */
     public static final int DEFAULT_CLEANUP_TIME = DEFAULT_IDLE_TIME * 2;
 
     /**
-     * Default concurrency level (allows guava cache to optimize internal size to serve the given #
-     * of threads at the same time).
+     * Default concurrency level (allows guava cache to optimize internal size to serve the given # of threads at the
+     * same time).
      */
     public static final int DEFAULT_CONCURRENCY_LEVEL = 3;
 
@@ -46,29 +47,23 @@ public class GuavaAuthenticationCacheImpl implements AuthenticationCache, Dispos
     static Logger LOGGER = Logging.getLogger("org.geoserver.security");
 
     /** Eviction thread code. Delegates to guava Cache cleanUp. */
-    private Runnable evictionTask =
-            new Runnable() {
-                @Override
-                public void run() {
-                    if (LOGGER.isLoggable(Level.FINE)) {
-                        LOGGER.fine("AuthenticationCache Eviction task running");
-                        LOGGER.fine("Cache entries #: " + cache.size());
-                    }
-                    cache.cleanUp();
-                    if (LOGGER.isLoggable(Level.FINE)) {
-                        LOGGER.fine("AuthenticationCache Eviction task completed");
-                        LOGGER.fine("Cache entries #: " + cache.size());
-                    }
-                }
-            };
+    private Runnable evictionTask = new Runnable() {
+        @Override
+        public void run() {
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("AuthenticationCache Eviction task running");
+                LOGGER.fine("Cache entries #: " + cache.size());
+            }
+            cache.cleanUp();
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.fine("AuthenticationCache Eviction task completed");
+                LOGGER.fine("Cache entries #: " + cache.size());
+            }
+        }
+    };
 
     public GuavaAuthenticationCacheImpl(int maxEntries) {
-        this(
-                maxEntries,
-                DEFAULT_IDLE_TIME,
-                DEFAULT_LIVE_TIME,
-                DEFAULT_CLEANUP_TIME,
-                DEFAULT_CONCURRENCY_LEVEL);
+        this(maxEntries, DEFAULT_IDLE_TIME, DEFAULT_LIVE_TIME, DEFAULT_CLEANUP_TIME, DEFAULT_CONCURRENCY_LEVEL);
     }
 
     // Use a counter to ensure a unique prefix for each pool.
@@ -76,51 +71,40 @@ public class GuavaAuthenticationCacheImpl implements AuthenticationCache, Dispos
 
     private ThreadFactory getThreadFactory() {
         CustomizableThreadFactory tFactory =
-                new CustomizableThreadFactory(
-                        String.format("GuavaAuthCache-%d-", poolCounter.getAndIncrement()));
+                new CustomizableThreadFactory("GuavaAuthCache-%d-".formatted(poolCounter.getAndIncrement()));
         tFactory.setDaemon(true);
         return tFactory;
     }
 
     public GuavaAuthenticationCacheImpl(
-            int maxEntries,
-            int timeToIdleSeconds,
-            int timeToLiveSeconds,
-            int cleanUpSeconds,
-            int concurrencyLevel) {
+            int maxEntries, int timeToIdleSeconds, int timeToLiveSeconds, int cleanUpSeconds, int concurrencyLevel) {
         this.timeToIdleSeconds = timeToIdleSeconds;
         this.timeToLiveSeconds = timeToLiveSeconds;
 
         scheduler = Executors.newScheduledThreadPool(1, getThreadFactory());
 
-        cache =
-                CacheBuilder.newBuilder()
-                        .maximumSize(maxEntries)
-                        .expireAfterAccess(timeToIdleSeconds, TimeUnit.SECONDS)
-                        .expireAfterWrite(timeToLiveSeconds, TimeUnit.SECONDS)
-                        .concurrencyLevel(concurrencyLevel)
-                        .build();
+        cache = CacheBuilder.newBuilder()
+                .maximumSize(maxEntries)
+                .expireAfterAccess(timeToIdleSeconds, TimeUnit.SECONDS)
+                .expireAfterWrite(timeToLiveSeconds, TimeUnit.SECONDS)
+                .concurrencyLevel(concurrencyLevel)
+                .build();
         if (LOGGER.isLoggable(Level.CONFIG)) {
-            LOGGER.config(
-                    "AuthenticationCache Initialized with "
-                            + maxEntries
-                            + " Max Entries, "
-                            + timeToIdleSeconds
-                            + " seconds idle time, "
-                            + timeToLiveSeconds
-                            + " seconds time to live and "
-                            + concurrencyLevel
-                            + " concurrency level");
+            LOGGER.config("AuthenticationCache Initialized with "
+                    + maxEntries
+                    + " Max Entries, "
+                    + timeToIdleSeconds
+                    + " seconds idle time, "
+                    + timeToLiveSeconds
+                    + " seconds time to live and "
+                    + concurrencyLevel
+                    + " concurrency level");
         }
 
         // schedule eviction thread
-        scheduler.scheduleAtFixedRate(
-                evictionTask, cleanUpSeconds, cleanUpSeconds, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(evictionTask, cleanUpSeconds, cleanUpSeconds, TimeUnit.SECONDS);
         if (LOGGER.isLoggable(Level.CONFIG)) {
-            LOGGER.config(
-                    "AuthenticationCache Eviction Task created to run every "
-                            + cleanUpSeconds
-                            + " seconds");
+            LOGGER.config("AuthenticationCache Eviction Task created to run every " + cleanUpSeconds + " seconds");
         }
     }
 
@@ -151,11 +135,7 @@ public class GuavaAuthenticationCacheImpl implements AuthenticationCache, Dispos
 
         cache.invalidateAll(toBeRemoved);
         if (LOGGER.isLoggable(Level.FINE)) {
-            LOGGER.fine(
-                    "AuthenticationCache removed "
-                            + toBeRemoved.size()
-                            + " entries for "
-                            + filterName);
+            LOGGER.fine("AuthenticationCache removed " + toBeRemoved.size() + " entries for " + filterName);
             LOGGER.fine("Cache entries #: " + cache.size());
         }
     }
@@ -242,4 +222,18 @@ public class GuavaAuthenticationCacheImpl implements AuthenticationCache, Dispos
     public void destroy() {
         scheduler.shutdown();
     }
+
+    @Override
+    public void onReset() {
+        removeAll();
+    }
+
+    @Override
+    public void onDispose() {}
+
+    @Override
+    public void beforeReload() {}
+
+    @Override
+    public void onReload() {}
 }

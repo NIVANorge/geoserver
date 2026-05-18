@@ -10,7 +10,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -20,19 +19,20 @@ import org.geoserver.catalog.util.CloseableIterator;
 import org.geoserver.catalog.util.CloseableIteratorAdapter;
 import org.geoserver.csw.records.AbstractRecordDescriptor;
 import org.geoserver.csw.records.CSWRecordDescriptor;
+import org.geoserver.csw.records.QueryablesMapping;
 import org.geoserver.csw.records.RecordDescriptor;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.identity.FeatureId;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.filter.identity.FeatureId;
 
 /**
  * @author Andrea Aime - GeoSolutions
@@ -53,37 +53,35 @@ public abstract class AbstractCatalogStore implements CatalogStore {
     }
 
     @Override
-    public CloseableIterator<String> getDomain(Name typeName, final Name attributeName)
-            throws IOException {
+    public CloseableIterator<String> getDomain(Name typeName, final Name attributeName) throws IOException {
         final RecordDescriptor rd = descriptorByType.get(typeName);
 
         if (rd == null) {
             throw new IOException(typeName + " is not a supported type");
         }
+        final List<PropertyName> properties = rd.translateProperty(attributeName);
 
-        // do we have such attribute?
-        final PropertyName property = rd.translateProperty(attributeName);
-        AttributeDescriptor ad = (AttributeDescriptor) property.evaluate(rd.getFeatureType());
-        if (ad == null) {
+        // do we have these properties?
+        if (!hasProperties(rd.getFeatureType(), properties)) {
             return new CloseableIteratorAdapter<>(new ArrayList<String>().iterator());
         }
 
         // build the query against csw:record
         Query q = new Query(typeName.getLocalPart());
 
-        q.setProperties(Arrays.asList(translateProperty(rd, attributeName)));
+        q.setProperties(translateToPropertyNames(rd, attributeName));
 
         // collect the values without duplicates
         final Set<String> values = new HashSet<>();
         getRecords(q, Transaction.AUTO_COMMIT, rd)
                 .accepts(
                         feature -> {
-                            Property prop = (Property) property.evaluate(feature);
-                            if (prop != null) {
-                                values.add(
-                                        new String(
-                                                ((String) prop.getValue()).getBytes(ISO_8859_1),
-                                                UTF_8));
+                            for (PropertyName property : properties) {
+                                Property prop = (Property) property.evaluate(feature);
+                                if (prop != null) {
+                                    values.add(new String(((String) prop.getValue()).getBytes(ISO_8859_1), UTF_8));
+                                    break;
+                                }
                             }
                         },
                         null);
@@ -94,9 +92,32 @@ public abstract class AbstractCatalogStore implements CatalogStore {
         return new CloseableIteratorAdapter<>(result.iterator());
     }
 
+    protected boolean hasProperties(FeatureType featureType, List<PropertyName> properties) {
+        boolean hasProperty = false;
+        for (PropertyName property : properties) {
+            AttributeDescriptor ad = (AttributeDescriptor) property.evaluate(featureType);
+            hasProperty |= ad != null;
+        }
+        return hasProperty;
+    }
+
+    protected Query prepareQuery(Query q, RecordDescriptor rd, QueryablesMapping qm) {
+        if (Boolean.TRUE.equals(q.getHints().get(KEY_UNPREPARED))) {
+            q = qm.adaptQuery(q);
+
+            // the specification demands that we throw an error if a spatial operator
+            // is used against a non spatial property
+            if (q.getFilter() != null) {
+                rd.verifySpatialFilters(q.getFilter());
+            }
+        }
+
+        return q;
+    }
+
     @Override
-    public FeatureCollection<FeatureType, Feature> getRecords(
-            Query q, Transaction t, RecordDescriptor rdOutput) throws IOException {
+    public FeatureCollection<FeatureType, Feature> getRecords(Query q, Transaction t, RecordDescriptor rdOutput)
+            throws IOException {
         Name typeName = null;
         if (q.getTypeName() == null) {
             typeName = CSWRecordDescriptor.RECORD_DESCRIPTOR.getName();
@@ -115,8 +136,7 @@ public abstract class AbstractCatalogStore implements CatalogStore {
     }
 
     public abstract FeatureCollection<FeatureType, Feature> getRecordsInternal(
-            RecordDescriptor rd, RecordDescriptor rdOutput, Query q, Transaction t)
-            throws IOException;
+            RecordDescriptor rd, RecordDescriptor rdOutput, Query q, Transaction t) throws IOException;
 
     @Override
     public RepositoryItem getRepositoryItem(String recordId) throws IOException {
@@ -125,8 +145,7 @@ public abstract class AbstractCatalogStore implements CatalogStore {
     }
 
     @Override
-    public int getRecordsCount(Query q, Transaction t, RecordDescriptor rdOutput)
-            throws IOException {
+    public int getRecordsCount(Query q, Transaction t, RecordDescriptor rdOutput) throws IOException {
         // simply delegate to the feature collection, we have no optimizations
         // available for the time being (even counting the files in case of no filtering
         // would be wrong as we have to
@@ -145,11 +164,7 @@ public abstract class AbstractCatalogStore implements CatalogStore {
 
     @Override
     public void updateRecord(
-            Name typeName,
-            Name[] attributeNames,
-            Object[] attributeValues,
-            Filter filter,
-            Transaction t)
+            Name typeName, Name[] attributeNames, Object[] attributeValues, Filter filter, Transaction t)
             throws IOException {
         throw new UnsupportedOperationException("This store does not support transactions yet");
     }
@@ -160,7 +175,7 @@ public abstract class AbstractCatalogStore implements CatalogStore {
     }
 
     @Override
-    public PropertyName translateProperty(RecordDescriptor rd, Name name) {
-        return AbstractRecordDescriptor.buildPropertyName(rd.getNamespaceSupport(), name);
+    public List<PropertyName> translateToPropertyNames(RecordDescriptor rd, Name name) {
+        return Collections.singletonList(AbstractRecordDescriptor.buildPropertyName(rd.getNamespaceSupport(), name));
     }
 }

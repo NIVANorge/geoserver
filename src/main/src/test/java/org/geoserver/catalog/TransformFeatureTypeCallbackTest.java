@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.geoserver.catalog.impl.FeatureTypeInfoImpl;
 import org.geoserver.test.GeoServerSystemTestSupport;
-import org.geotools.data.simple.SimpleFeatureSource;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.feature.simple.SimpleFeatureType;
 import org.geotools.util.SimpleInternationalString;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeatureType;
 
 public class TransformFeatureTypeCallbackTest extends GeoServerSystemTestSupport {
     private static final String BOOLEAN_PROPERTY = "booleanProperty";
@@ -38,17 +38,13 @@ public class TransformFeatureTypeCallbackTest extends GeoServerSystemTestSupport
     public void testForDescription() throws Exception {
         SimpleFeatureType notWrappedSchema = notWrappedFs.getSchema();
         assertNull(notWrappedSchema.getDescriptor(BOOLEAN_PROPERTY).getType().getDescription());
-        List<AttributeTypeInfo> filteredAttributes =
-                fti.attributes().stream()
-                        .map(
-                                at -> {
-                                    if (BOOLEAN_PROPERTY.equals(at.getName()))
-                                        at.setDescription(
-                                                new SimpleInternationalString(
-                                                        "A boolean property"));
-                                    return at;
-                                })
-                        .collect(Collectors.toList());
+        List<AttributeTypeInfo> filteredAttributes = fti.attributes().stream()
+                .map(at -> {
+                    if (BOOLEAN_PROPERTY.equals(at.getName()))
+                        at.setDescription(new SimpleInternationalString("A boolean property"));
+                    return at;
+                })
+                .collect(Collectors.toList());
         SimpleFeatureType wrappedSchema = getWrappedFeatureType(notWrappedFs, filteredAttributes);
         assertEquals(
                 "A boolean property",
@@ -61,27 +57,22 @@ public class TransformFeatureTypeCallbackTest extends GeoServerSystemTestSupport
 
     @Test
     public void testBlankDescriptionIsNull() throws Exception {
-        List<AttributeTypeInfo> filteredAttributes =
-                fti.attributes().stream()
-                        .map(
-                                at -> {
-                                    if (BOOLEAN_PROPERTY.equals(at.getName()))
-                                        at.setDescription(new SimpleInternationalString(""));
-                                    return at;
-                                })
-                        .collect(Collectors.toList());
+        List<AttributeTypeInfo> filteredAttributes = fti.attributes().stream()
+                .map(at -> {
+                    if (BOOLEAN_PROPERTY.equals(at.getName())) at.setDescription(new SimpleInternationalString(""));
+                    return at;
+                })
+                .collect(Collectors.toList());
         SimpleFeatureType wrappedSchema = getWrappedFeatureType(notWrappedFs, filteredAttributes);
         assertNull(wrappedSchema.getDescriptor(BOOLEAN_PROPERTY).getType().getDescription());
     }
 
     private SimpleFeatureType getWrappedFeatureType(
-            SimpleFeatureSource notWrappedFs, List<AttributeTypeInfo> filteredAttributes)
-            throws IOException {
+            SimpleFeatureSource notWrappedFs, List<AttributeTypeInfo> filteredAttributes) throws IOException {
         FeatureTypeInfoImpl resource = new FeatureTypeInfoImpl(null);
         resource.setName("alias");
         resource.setAttributes(filteredAttributes);
-        SimpleFeatureSource wrappedFs =
-                (SimpleFeatureSource) transformer.wrapFeatureSource(resource, notWrappedFs);
+        SimpleFeatureSource wrappedFs = (SimpleFeatureSource) transformer.wrapFeatureSource(resource, notWrappedFs);
         SimpleFeatureType wrappedSchema = wrappedFs.getSchema();
         return wrappedSchema;
     }

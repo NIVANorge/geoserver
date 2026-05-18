@@ -8,10 +8,10 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -24,34 +24,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
-import org.geoserver.ogcapi.OpenAPIMessageConverter;
+import org.geoserver.ogcapi.SwaggerJSONAPIMessageConverter;
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.dataformat.yaml.YAMLMapper;
 
 public class ApiTest extends ImagesTestSupport {
 
     @Test
     public void testApiJson() throws Exception {
-        MockHttpServletResponse response =
-                getAsMockHttpServletResponse("ogc/images/v1/openapi", 200);
+        MockHttpServletResponse response = getAsMockHttpServletResponse("ogc/images/v1/openapi", 200);
         assertThat(
                 response.getContentType(),
-                CoreMatchers.startsWith(OpenAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE));
+                CoreMatchers.startsWith(SwaggerJSONAPIMessageConverter.OPEN_API_MEDIA_TYPE_VALUE));
         String json = response.getContentAsString();
         LOGGER.log(Level.INFO, json);
 
-        ObjectMapper mapper = Json.mapper();
-        OpenAPI api = mapper.readValue(json, OpenAPI.class);
+        OpenAPI api = Json.mapper().readValue(json, OpenAPI.class);
         validateApi(api);
     }
 
     @Test
     public void testApiHTML() throws Exception {
-        MockHttpServletResponse response =
-                getAsMockHttpServletResponse("ogc/images/v1/openapi?f=text/html", 200);
+        MockHttpServletResponse response = getAsMockHttpServletResponse("ogc/images/v1/openapi?f=text/html", 200);
         assertEquals("text/html", response.getContentType());
         String html = response.getContentAsString();
         LOGGER.info(html);
@@ -67,25 +66,26 @@ public class ApiTest extends ImagesTestSupport {
                         "<link rel=\"icon\" type=\"image/png\" href=\"http://localhost:8080/geoserver/swagger-ui/favicon-16x16.png\" sizes=\"16x16\" />"));
         assertThat(
                 html,
-                containsString(
-                        "<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-bundle.js\">"));
+                containsString("<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-bundle.js\">"));
         assertThat(
                 html,
                 containsString(
                         "<script src=\"http://localhost:8080/geoserver/swagger-ui/swagger-ui-standalone-preset.js\">"));
+        assertThat(html, containsString("<script src=\"http://localhost:8080/geoserver/webresources/ogcapi/api.js\">"));
         assertThat(
                 html,
                 containsString(
-                        "url: \"http://localhost:8080/geoserver/ogc/images/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0\""));
+                        "<input type=\"hidden\" id=\"apiLocation\" value="
+                                + "\"http://localhost:8080/geoserver/ogc/images/v1/openapi?f=application%2Fvnd.oai.openapi%2Bjson%3Bversion%3D3.0\"/>"));
+        assertThat(html, not(containsString("<script>")));
     }
 
     @Test
     public void testApiYaml() throws Exception {
-        String yaml = getAsString("ogc/images/v1/openapi?f=application/x-yaml");
+        String yaml = getAsString("ogc/images/v1/openapi?f=application/yaml");
         LOGGER.log(Level.INFO, yaml);
 
-        ObjectMapper mapper = Yaml.mapper();
-        OpenAPI api = mapper.readValue(yaml, OpenAPI.class);
+        OpenAPI api = Yaml.mapper().readValue(yaml, OpenAPI.class);
         validateApi(api);
     }
 
@@ -94,14 +94,14 @@ public class ApiTest extends ImagesTestSupport {
         MockHttpServletRequest request = createRequest("ogc/images/v1/openapi");
         request.setMethod("GET");
         request.setContent(new byte[] {});
-        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/x-yaml, text/html");
+        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/yaml, text/html");
         MockHttpServletResponse response = dispatch(request);
         assertEquals(200, response.getStatus());
-        assertThat(response.getContentType(), CoreMatchers.startsWith("application/x-yaml"));
-        String yaml = string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
+        assertThat(response.getContentType(), CoreMatchers.startsWith("application/yaml"));
+        String yaml =
+                string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
 
-        ObjectMapper mapper = Yaml.mapper();
-        OpenAPI api = mapper.readValue(yaml, OpenAPI.class);
+        OpenAPI api = Yaml.mapper().readValue(yaml, OpenAPI.class);
         validateApi(api);
     }
 
@@ -109,8 +109,7 @@ public class ApiTest extends ImagesTestSupport {
         // only one server
         List<Server> servers = api.getServers();
         assertThat(servers, hasSize(1));
-        assertThat(
-                servers.get(0).getUrl(), equalTo("http://localhost:8080/geoserver/ogc/images/v1"));
+        assertThat(servers.get(0).getUrl(), equalTo("http://localhost:8080/geoserver/ogc/images/v1"));
 
         // paths
         Paths paths = api.getPaths();
@@ -147,24 +146,24 @@ public class ApiTest extends ImagesTestSupport {
         MockHttpServletRequest request = createRequest("gs/ogc/images/v1/openapi");
         request.setMethod("GET");
         request.setContent(new byte[] {});
-        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/x-yaml, text/html");
+        request.addHeader(HttpHeaders.ACCEPT, "foo/bar, application/yaml, text/html");
         MockHttpServletResponse response = dispatch(request);
         assertEquals(200, response.getStatus());
-        assertEquals("application/x-yaml", response.getContentType());
-        String yaml = string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
+        assertEquals("application/yaml", response.getContentType());
+        String yaml =
+                string(new ByteArrayInputStream(response.getContentAsString().getBytes()));
         // System.out.println(yaml);
 
-        ObjectMapper mapper = Yaml.mapper();
+        ObjectMapper mapper = new YAMLMapper();
         OpenAPI api = mapper.readValue(yaml, OpenAPI.class);
         Map<String, Parameter> params = api.getComponents().getParameters();
         Parameter collectionId = params.get("collectionId");
         @SuppressWarnings("unchecked") // getSchema is not generified
         List<String> collectionIdValues = collectionId.getSchema().getEnum();
-        List<String> expectedCollectionIds =
-                getStructuredCoverages()
-                        .filter(c -> "gs".equals(c.getStore().getWorkspace().getName()))
-                        .map(c -> c.getName())
-                        .collect(Collectors.toList());
+        List<String> expectedCollectionIds = getStructuredCoverages()
+                .filter(c -> "gs".equals(c.getStore().getWorkspace().getName()))
+                .map(c -> c.getName())
+                .collect(Collectors.toList());
 
         assertThat(collectionIdValues, equalTo(expectedCollectionIds));
     }

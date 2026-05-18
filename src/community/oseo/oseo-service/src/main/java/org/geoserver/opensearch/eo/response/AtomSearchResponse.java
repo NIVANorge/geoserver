@@ -37,21 +37,18 @@ public class AtomSearchResponse extends Response {
     }
 
     @Override
-    public void write(Object value, OutputStream output, Operation operation)
-            throws IOException, ServiceException {
+    public void write(Object value, OutputStream output, Operation operation) throws IOException, ServiceException {
         SearchResults results = (SearchResults) value;
 
         TemplatesProcessor processor =
-                new TemplatesProcessor(
-                        freemarkerTemplates, gs.getGlobal(), gs.getService(OSEOInfo.class));
-        String result = null;
+                new TemplatesProcessor(freemarkerTemplates, gs.getGlobal(), gs.getService(OSEOInfo.class));
+        OutputStreamWriter outputStreamWriter = new OutputStreamWriter(output);
         try {
-            result = processor.processTemplate(results);
+            String result = processor.processTemplate(results);
+            outputStreamWriter.write(result);
         } catch (TemplateException e) {
             LOGGER.warning("Error processing template: " + e.getMessage());
         }
-        OutputStreamWriter outputStreamWriter = new OutputStreamWriter(output);
-        outputStreamWriter.write(result);
         outputStreamWriter.flush();
     }
 

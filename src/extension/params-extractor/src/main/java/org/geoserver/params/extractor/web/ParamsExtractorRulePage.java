@@ -4,6 +4,8 @@
  */
 package org.geoserver.params.extractor.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -33,53 +35,49 @@ public class ParamsExtractorRulePage extends GeoServerSecuredPage {
         Form<RuleModel> form = new Form<>("form");
         add(form);
         List<WrappedTab> tabs = new ArrayList<>();
-        if (!optionalRuleModel.isPresent() || optionalRuleModel.get().isEchoOnly()) {
-            tabs.add(
-                    new WrappedTab("Echo Parameter", echoParameterModel) {
-                        @Override
-                        public Panel getPanel(String panelId) {
-                            return new EchoParameterPanel(panelId, echoParameterModel);
-                        }
-                    });
+        if (optionalRuleModel.isEmpty() || optionalRuleModel.get().isEchoOnly()) {
+            tabs.add(new WrappedTab("Echo Parameter", echoParameterModel) {
+                @Override
+                public Panel getPanel(String panelId) {
+                    return new EchoParameterPanel(panelId, echoParameterModel);
+                }
+            });
         }
-        if (!optionalRuleModel.isPresent() || optionalRuleModel.get().getPosition() != null) {
-            tabs.add(
-                    new WrappedTab("Basic Rule", simpleRuleModel) {
-                        @Override
-                        public Panel getPanel(String panelId) {
-                            return new SimpleRulePanel(panelId, simpleRuleModel);
-                        }
-                    });
+        if (optionalRuleModel.isEmpty() || optionalRuleModel.get().getPosition() != null) {
+            tabs.add(new WrappedTab("Basic Rule", simpleRuleModel) {
+                @Override
+                public Panel getPanel(String panelId) {
+                    return new SimpleRulePanel(panelId, simpleRuleModel);
+                }
+            });
         }
-        if (!optionalRuleModel.isPresent() || optionalRuleModel.get().getMatch() != null) {
-            tabs.add(
-                    new WrappedTab("Advanced Rule", complexRuleModel) {
-                        @Override
-                        public Panel getPanel(String panelId) {
-                            return new ComplexRulePanel(panelId, complexRuleModel);
-                        }
-                    });
+        if (optionalRuleModel.isEmpty() || optionalRuleModel.get().getMatch() != null) {
+            tabs.add(new WrappedTab("Advanced Rule", complexRuleModel) {
+                @Override
+                public Panel getPanel(String panelId) {
+                    return new ComplexRulePanel(panelId, complexRuleModel);
+                }
+            });
         }
         AjaxTabbedPanel tabbedPanel = new AjaxTabbedPanel<>("tabs", tabs);
         form.add(tabbedPanel);
-        form.add(
-                new SubmitLink("save") {
-                    @Override
-                    public void onSubmit() {
-                        try {
-                            WrappedTab selectedTab = tabs.get(tabbedPanel.getSelectedTab());
-                            RuleModel ruleModel = selectedTab.getModel().getObject();
-                            RulesModel.saveOrUpdate(ruleModel);
-                            doReturn(ParamsExtractorConfigPage.class);
-                        } catch (Exception exception) {
-                            error(exception);
-                        }
-                    }
-                });
+        form.add(new SubmitLink("save") {
+            @Override
+            public void onSubmit() {
+                try {
+                    WrappedTab selectedTab = tabs.get(tabbedPanel.getSelectedTab());
+                    RuleModel ruleModel = selectedTab.getModel().getObject();
+                    RulesModel.saveOrUpdate(ruleModel);
+                    doReturn(ParamsExtractorConfigPage.class);
+                } catch (Exception exception) {
+                    error(exception);
+                }
+            }
+        });
         form.add(new BookmarkablePageLink<>("cancel", ParamsExtractorConfigPage.class));
     }
 
-    public abstract class WrappedTab extends AbstractTab {
+    public abstract static class WrappedTab extends AbstractTab {
 
         private final IModel<RuleModel> model;
 
@@ -93,7 +91,20 @@ public class ParamsExtractorRulePage extends GeoServerSecuredPage {
         }
     }
 
-    public class SimpleRulePanel extends Panel {
+    public static class SimpleRulePanel extends Panel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(ParamsExtractorRulePage.SimpleRulePanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public SimpleRulePanel(String panelId, IModel<RuleModel> model) {
             super(panelId, model);
@@ -104,22 +115,49 @@ public class ParamsExtractorRulePage extends GeoServerSecuredPage {
         }
     }
 
-    public class ComplexRulePanel extends Panel {
+    public static class ComplexRulePanel extends Panel {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(ParamsExtractorRulePage.ComplexRulePanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public ComplexRulePanel(String panelId, IModel<RuleModel> model) {
             super(panelId, model);
-            add(new TextField<String>("match").setRequired(true));
-            add(new TextField<String>("activation"));
-            add(new TextField<String>("parameter").setRequired(true));
-            add(new TextField<String>("transform").setRequired(true));
+            add(new TextField<>("match").setRequired(true));
+            add(new TextField<>("activation"));
+            add(new TextField<>("parameter").setRequired(true));
+            add(new TextField<>("transform").setRequired(true));
             add(new NumberTextField<Integer>("remove").setMinimum(1));
-            add(new TextField<String>("combine"));
+            add(new TextField<>("combine"));
             add(new CheckBox("repeat"));
             add(new CheckBox("echo"));
         }
     }
 
-    public class EchoParameterPanel extends Panel {
+    public static class EchoParameterPanel extends Panel {
+
+        private static final boolean isCssEmpty =
+                IsWicketCssFileEmpty(ParamsExtractorRulePage.EchoParameterPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public EchoParameterPanel(String panelId, IModel<RuleModel> model) {
             super(panelId, model);

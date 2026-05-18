@@ -7,17 +7,17 @@ package org.geoserver.config.util;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONException;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.LayerIdentifierInfo;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.impl.LayerIdentifier;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONException;
+import org.kordamp.json.JSONObject;
 
 /**
- * Utility class to serialize and deserialize a list of {@link LayerIdentifierInfo} objects to and
- * from String using a JSON array representation as serialized form so that {@link XStreamPersister}
- * stores it under a single key in a catalog info's {@link MetadataMap}.
+ * Utility class to serialize and deserialize a list of {@link LayerIdentifierInfo} objects to and from String using a
+ * JSON array representation as serialized form so that {@link XStreamPersister} stores it under a single key in a
+ * catalog info's {@link MetadataMap}.
  *
  * @author groldan
  */
@@ -54,8 +54,8 @@ public class LayerIdentifierInfoListConverter {
 
     /**
      * @param list the list of auth urls to serialize
-     * @return {@code null} if {@code list} is null, empty, or contains only null objects; the JSON
-     *     array representation of {@code list} otherwise, with any null element stripped off.
+     * @return {@code null} if {@code list} is null, empty, or contains only null objects; the JSON array representation
+     *     of {@code list} otherwise, with any null element stripped off.
      */
     public static String toString(List<LayerIdentifierInfo> list) {
         if (list == null || list.isEmpty()) {
@@ -73,7 +73,7 @@ public class LayerIdentifierInfoListConverter {
             array.add(jsonId);
         }
 
-        if (array.size() == 0) {
+        if (array.isEmpty()) {
             // list was made of only null objects?
             return null;
         }

@@ -7,13 +7,13 @@ package org.geoserver.wps.ppio;
 
 import java.io.InputStream;
 import java.io.StringReader;
+import org.geotools.api.style.NamedLayer;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyleFactory;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.sld.SLDConfiguration;
 import org.geotools.sld.bindings.SLD;
-import org.geotools.styling.NamedLayer;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyleFactory;
-import org.geotools.styling.StyledLayerDescriptor;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.Encoder;
 import org.geotools.xsd.Parser;
@@ -28,7 +28,7 @@ public class SLDStylePPIO extends XMLPPIO {
 
     Configuration sldConfiguration;
 
-    protected SLDStylePPIO() {
+    public SLDStylePPIO() {
         super(Style.class, Style.class, "text/xml; subtype=sld/1.0.0", SLD.STYLEDLAYERDESCRIPTOR);
         sldConfiguration = new SLDConfiguration();
     }
@@ -61,8 +61,7 @@ public class SLDStylePPIO extends XMLPPIO {
         Parser p = getParser(sldConfiguration);
 
         // extract the first style in the first sld
-        StyledLayerDescriptor sld =
-                (StyledLayerDescriptor) p.parse(new StringReader((String) input));
+        StyledLayerDescriptor sld = (StyledLayerDescriptor) p.parse(new StringReader((String) input));
         NamedLayer styledLayer = (NamedLayer) sld.getStyledLayers()[0];
         return styledLayer.getStyles()[0];
     }

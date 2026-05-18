@@ -15,15 +15,15 @@ package org.geoserver.wps.process;
 import java.awt.RenderingHints.Key;
 import java.util.Map;
 import java.util.Set;
-import org.geotools.data.Parameter;
+import org.geotools.api.data.Parameter;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.util.InternationalString;
 import org.geotools.process.Process;
 import org.geotools.process.ProcessFactory;
-import org.opengis.feature.type.Name;
-import org.opengis.util.InternationalString;
 
 /**
- * A simple process factory delegating to another factory. Meant to be a base class for process
- * factory wrappers that need to modify some of the wrapped process factory behavior.
+ * A simple process factory delegating to another factory. Meant to be a base class for process factory wrappers that
+ * need to modify some of the wrapped process factory behavior.
  */
 public abstract class DelegatingProcessFactory implements ProcessFactory {
 
@@ -94,10 +94,7 @@ public abstract class DelegatingProcessFactory implements ProcessFactory {
         return delegate;
     }
 
-    /**
-     * Returns the innermost delegate, this method can be used to check what the original factory
-     * was
-     */
+    /** Returns the innermost delegate, this method can be used to check what the original factory was */
     public ProcessFactory getInnermostDelegate() {
         ProcessFactory pf = delegate;
         while (pf instanceof DelegatingProcessFactory) {

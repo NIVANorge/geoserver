@@ -10,11 +10,11 @@ import org.geoserver.catalog.Info;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.wps.security.SecurityProcessFactory;
 import org.geoserver.wps.validator.WPSInputValidator;
-import org.opengis.feature.type.Name;
+import org.geotools.api.feature.type.Name;
 
 /**
- * Configuration for a specific process to configure enable/disable and roles informations (backed
- * by a {@link SecurityProcessFactory})
+ * Configuration for a specific process to configure enable/disable and roles informations (backed by a
+ * {@link SecurityProcessFactory})
  *
  * @used {@link ProcessGroupInfo#getFilteredProcesses()}
  */
@@ -36,15 +36,14 @@ public interface ProcessInfo extends Info, Cloneable {
     List<String> getRoles();
 
     /**
-     * The input validators. GeoServer will recognize, advertise and give special treatment to well
-     * known ones, but the implementor is free to add extra ones that will simply fail the execute
-     * call in case they don't match.
+     * The input validators. GeoServer will recognize, advertise and give special treatment to well known ones, but the
+     * implementor is free to add extra ones that will simply fail the execute call in case they don't match.
      */
     Multimap<String, WPSInputValidator> getValidators();
 
     /**
-     * The metadata map, can contain any sort of information that non core plugins might use to
-     * handle information related to this factory
+     * The metadata map, can contain any sort of information that non core plugins might use to handle information
+     * related to this factory
      */
     MetadataMap getMetadata();
 }

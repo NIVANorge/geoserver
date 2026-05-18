@@ -5,6 +5,8 @@
  */
 package org.geoserver.security.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.io.ByteArrayOutputStream;
@@ -34,13 +36,11 @@ import org.geoserver.web.GeoServerApplication;
 /**
  * Edit page for specific class of named security service.
  *
- * <p>Most of the work is delegated to {@link SecurityNamedServicePanelInfo} and {@link
- * SecurityNamedServicePanel}.
+ * <p>Most of the work is delegated to {@link SecurityNamedServicePanelInfo} and {@link SecurityNamedServicePanel}.
  *
  * @author Justin Deoliveira, OpenGeo
  */
-public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
-        extends SecurityNamedServicePage<T> {
+public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig> extends SecurityNamedServicePage<T> {
 
     SecurityNamedServicePanelInfo panelInfo;
 
@@ -65,8 +65,21 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
 
     class ContentPanel extends Panel {
 
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(SecurityNamedServiceEditPage.ContentPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
+
         public ContentPanel(String id, IModel<T> config) {
-            super(id, new Model());
+            super(id, new Model<>());
 
             Form<T> form = new Form<>("form", new CompoundPropertyModel<>(config));
             add(form);
@@ -79,13 +92,12 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
                             handleSubmit(getForm());
                         }
                     }.setVisible(getSecurityManager().checkAuthenticationForAdminRole()));
-            form.add(
-                    new Link("cancel") {
-                        @Override
-                        public void onClick() {
-                            doReturn();
-                        }
-                    });
+            form.add(new Link<>("cancel") {
+                @Override
+                public void onClick() {
+                    doReturn();
+                }
+            });
         }
     }
 
@@ -94,8 +106,22 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
      */
     class BasicLayoutPanel extends Panel {
 
+        private static final boolean isCssEmpty =
+                IsWicketCssFileEmpty(SecurityNamedServiceEditPage.BasicLayoutPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
+
         public BasicLayoutPanel(String id, IModel<T> config) {
-            super(id, new Model());
+            super(id, new Model<>());
 
             add(new ContentPanel("panel", config));
         }
@@ -107,19 +133,32 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
      */
     class TabbedLayoutPanel extends Panel {
 
+        private static final boolean isCssEmpty =
+                IsWicketCssFileEmpty(SecurityNamedServiceEditPage.TabbedLayoutPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
+
         public TabbedLayoutPanel(String id, final IModel<T> config) {
-            super(id, new Model());
+            super(id, new Model<>());
 
             List<ITab> tabs = new ArrayList<>();
 
             // add the primary panel to the first tab
-            tabs.add(
-                    new AbstractTab(new StringResourceModel("settings", (IModel<?>) null)) {
-                        @Override
-                        public Panel getPanel(String panelId) {
-                            return new ContentPanel(panelId, config);
-                        }
-                    });
+            tabs.add(new AbstractTab(new StringResourceModel("settings", (IModel<?>) null)) {
+                @Override
+                public Panel getPanel(String panelId) {
+                    return new ContentPanel(panelId, config);
+                }
+            });
 
             // add tabs contributed by the server
             @SuppressWarnings("unchecked")
@@ -132,13 +171,12 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
                 SecurityNamedServiceEditPage.this.panel.doLoad(config.getObject());
             } catch (final Exception e) {
                 // add the error tab
-                tabs.add(
-                        new AbstractTab(new StringResourceModel("error", (IModel<?>) null)) {
-                            @Override
-                            public Panel getPanel(String panelId) {
-                                return new ErrorPanel(panelId, e);
-                            }
-                        });
+                tabs.add(new AbstractTab(new StringResourceModel("error", (IModel<?>) null)) {
+                    @Override
+                    public Panel getPanel(String panelId) {
+                        return new ErrorPanel(panelId, e);
+                    }
+                });
             }
             add(new TabbedPanel<>("panel", tabs));
         }
@@ -146,23 +184,35 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
 
     class ErrorPanel extends Panel {
 
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(SecurityNamedServiceEditPage.ErrorPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
+
         public ErrorPanel(String id, final Exception error) {
-            super(id, new Model());
+            super(id, new Model<>());
 
             add(new Label("message", new PropertyModel<>(error, "message")));
             add(new TextArea<>("stackTrace", new Model<>(handleStackTrace(error))));
-            add(
-                    new AjaxLink("copy") {
-                        @Override
-                        public void onClick(AjaxRequestTarget target) {
-                            copyToClipBoard(handleStackTrace(error));
-                        }
-                    });
+            add(new AjaxLink<>("copy") {
+                @Override
+                public void onClick(AjaxRequestTarget target) {
+                    copyToClipBoard(handleStackTrace(error));
+                }
+            });
         }
 
         public String getLabelKey() {
             return "error";
-        };
+        }
 
         String handleStackTrace(Exception error) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -199,10 +249,7 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
 
         if (panelInfos.isEmpty()) {
             throw new RuntimeException(
-                    "Unable to find panel info for service config: "
-                            + config
-                            + ", service class: "
-                            + serviceClass);
+                    "Unable to find panel info for service config: " + config + ", service class: " + serviceClass);
         }
         if (panelInfos.size() > 1) {
             // filter by strict equals
@@ -220,10 +267,7 @@ public class SecurityNamedServiceEditPage<T extends SecurityNamedServiceConfig>
                 return l.get(0);
             }
             throw new RuntimeException(
-                    "Found multiple panel infos for service config: "
-                            + config
-                            + ", service class: "
-                            + serviceClass);
+                    "Found multiple panel infos for service config: " + config + ", service class: " + serviceClass);
         }
 
         // found just one

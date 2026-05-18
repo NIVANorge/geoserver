@@ -4,7 +4,7 @@
  */
 package org.geoserver.wms.vector;
 
-import static org.geotools.renderer.lite.VectorMapRenderUtils.buildTransform;
+import static org.geoserver.wms.map.StyleQueryUtil.buildTransform;
 
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.MathTransform;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.data.util.ScreenMap;
 import org.geotools.geometry.jts.Decimator;
 import org.geotools.geometry.jts.GeometryClipper;
@@ -35,10 +39,6 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.simplify.DouglasPeuckerSimplifier;
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.MathTransform;
-import org.opengis.referencing.operation.TransformException;
 
 public class PipelineBuilder {
 
@@ -47,7 +47,8 @@ public class PipelineBuilder {
 
     static class Context {
 
-        @Nullable ProjectionHandler projectionHandler;
+        @Nullable
+        ProjectionHandler projectionHandler;
 
         MathTransform sourceToTargetCrs;
 
@@ -55,8 +56,7 @@ public class PipelineBuilder {
 
         MathTransform sourceToScreen;
 
-        ReferencedEnvelope
-                renderingArea; // WMS request; bounding box - in final map (target) CRS (BBOX from
+        ReferencedEnvelope renderingArea; // WMS request; bounding box - in final map (target) CRS (BBOX from
         // WMS)
 
         Rectangle paintArea; // WMS request; rectangle of the image (width and height from WMS)
@@ -106,8 +106,7 @@ public class PipelineBuilder {
             int queryBuffer)
             throws FactoryException {
 
-        Context context =
-                createContext(renderingArea, paintArea, sourceCrs, overSampleFactor, queryBuffer);
+        Context context = createContext(renderingArea, paintArea, sourceCrs, overSampleFactor, queryBuffer);
         return new PipelineBuilder(context);
     }
 
@@ -133,8 +132,7 @@ public class PipelineBuilder {
         CoordinateReferenceSystem mapCrs = context.renderingArea.getCoordinateReferenceSystem();
         context.sourceToTargetCrs = buildTransform(sourceCrs, mapCrs);
         context.targetToScreen = ProjectiveTransform.create(context.worldToScreen);
-        context.sourceToScreen =
-                ConcatenatedTransform.create(context.sourceToTargetCrs, context.targetToScreen);
+        context.sourceToScreen = ConcatenatedTransform.create(context.sourceToTargetCrs, context.targetToScreen);
 
         double[] spans_sourceCRS;
         double[] spans_targetCRS;
@@ -143,12 +141,10 @@ public class PipelineBuilder {
             // 0.8px is used to make sure the generalization isn't too much (doesn't make visible
             // changes)
             spans_sourceCRS =
-                    Decimator.computeGeneralizationDistances(
-                            context.sourceToScreen.inverse(), context.paintArea, 0.8);
+                    Decimator.computeGeneralizationDistances(context.sourceToScreen.inverse(), context.paintArea, 0.8);
 
             spans_targetCRS =
-                    Decimator.computeGeneralizationDistances(
-                            context.targetToScreen.inverse(), context.paintArea, 1.0);
+                    Decimator.computeGeneralizationDistances(context.targetToScreen.inverse(), context.paintArea, 1.0);
             // this is used for clipping the data to A pixels around request BBOX, so we want this
             // to be the larger of the two spans
             // so we are getting at least A pixels around.
@@ -164,12 +160,10 @@ public class PipelineBuilder {
         context.sourceCRSSimplificationDistance = Math.min(spans_sourceCRS[0], spans_sourceCRS[1]);
 
         // use min so generalize "less" (if pixel is different size in X and Y)
-        context.targetCRSSimplificationDistance =
-                Math.min(spans_targetCRS[0], spans_targetCRS[1]) / overSampleFactor;
+        context.targetCRSSimplificationDistance = Math.min(spans_targetCRS[0], spans_targetCRS[1]) / overSampleFactor;
 
         context.screenMap = new ScreenMap(0, 0, paintArea.width, paintArea.height);
-        context.screenMap.setSpans(
-                spans_sourceCRS[0] / overSampleFactor, spans_sourceCRS[1] / overSampleFactor);
+        context.screenMap.setSpans(spans_sourceCRS[0] / overSampleFactor, spans_sourceCRS[1] / overSampleFactor);
         context.screenMap.setTransform(context.sourceToScreen);
 
         return context;
@@ -243,14 +237,13 @@ public class PipelineBuilder {
                     if (screenMap.checkAndSet(env)) {
                         return EMPTY;
                     } else {
-                        preProcessed =
-                                screenMap.getSimplifiedShape(
-                                        env.getMinX(),
-                                        env.getMinY(),
-                                        env.getMaxX(),
-                                        env.getMaxY(),
-                                        preProcessed.getFactory(),
-                                        preProcessed.getClass());
+                        preProcessed = screenMap.getSimplifiedShape(
+                                env.getMinX(),
+                                env.getMinY(),
+                                env.getMaxX(),
+                                env.getMaxY(),
+                                preProcessed.getFactory(),
+                                preProcessed.getClass());
                     }
             }
             return preProcessed;
@@ -260,8 +253,7 @@ public class PipelineBuilder {
     /**
      * Transform from source CRS to target.
      *
-     * @param transformToScreenCoordinates If true, further transfrorm from target to screen
-     *     coordinates
+     * @param transformToScreenCoordinates If true, further transfrorm from target to screen coordinates
      */
     public PipelineBuilder transform(final boolean transformToScreenCoordinates) {
         final MathTransform sourceToScreen = context.sourceToScreen;
@@ -279,9 +271,7 @@ public class PipelineBuilder {
      * @param isTransformToScreenCoordinates Use screen coordinate space simplification tolerance
      */
     public PipelineBuilder simplify(
-            boolean isTransformToScreenCoordinates,
-            final Set<RenderingHints.Key> fsHints,
-            final Hints qHints) {
+            boolean isTransformToScreenCoordinates, final Set<RenderingHints.Key> fsHints, final Hints qHints) {
 
         if (fsHints != null && qHints != null) {
             // if possible we let the datastore do the generalizations
@@ -299,8 +289,7 @@ public class PipelineBuilder {
         double pixelDistance = context.screenSimplificationDistance;
         double simplificationDistance = context.targetCRSSimplificationDistance;
 
-        double distanceTolerance =
-                isTransformToScreenCoordinates ? pixelDistance : simplificationDistance;
+        double distanceTolerance = isTransformToScreenCoordinates ? pixelDistance : simplificationDistance;
 
         addLast(new Simplify(distanceTolerance));
         return this;
@@ -327,8 +316,7 @@ public class PipelineBuilder {
             } else {
                 ReferencedEnvelope renderingArea = context.renderingArea;
                 renderingArea.expandBy(
-                        (clipBBOXSizeIncreasePixels + context.queryBuffer)
-                                * context.pixelSizeInTargetCRS);
+                        (clipBBOXSizeIncreasePixels + context.queryBuffer) * context.pixelSizeInTargetCRS);
                 clippingEnvelope = renderingArea;
             }
 
@@ -393,16 +381,15 @@ public class PipelineBuilder {
     }
 
     /**
-     * Does the normal clipping, but removes degenerative geometries. For example, a polygon-polygon
-     * intersection can result in polygons (normal), but also points and line (degenerative).
+     * Does the normal clipping, but removes degenerative geometries. For example, a polygon-polygon intersection can
+     * result in polygons (normal), but also points and line (degenerative).
      *
-     * <p>This will remove the degenerative geometries from the result. ie. input is polygon(s),
-     * only polygons are returned input is line(s), only lines are returned input is point(s), only
-     * points returned
+     * <p>This will remove the degenerative geometries from the result. ie. input is polygon(s), only polygons are
+     * returned input is line(s), only lines are returned input is point(s), only points returned
      *
-     * <p>For mixed input (GeometryCollection), we do the above for each component in the
-     * GeometryCollection. i.e. for GeometryCollection( POLYGON(...), LINESTRING(...) ) it would
-     * ensure that the POLYGON(...) only adds Polygons and that the LINESTRING() only adds Lines
+     * <p>For mixed input (GeometryCollection), we do the above for each component in the GeometryCollection. i.e. for
+     * GeometryCollection( POLYGON(...), LINESTRING(...) ) it would ensure that the POLYGON(...) only adds Polygons and
+     * that the LINESTRING() only adds Lines
      */
     public static final class ClipRemoveDegenerateGeometries extends Clip {
 
@@ -463,8 +450,7 @@ public class PipelineBuilder {
             if (result.isEmpty()) {
                 return null;
             }
-            return new GeometryCollection(
-                    result.toArray(new Geometry[result.size()]), geom.getFactory());
+            return new GeometryCollection(result.toArray(new Geometry[result.size()]), geom.getFactory());
         }
 
         /*
@@ -472,12 +458,34 @@ public class PipelineBuilder {
          * be return - the others are removed.
          */
         private Geometry onlyPolygon(Geometry result) {
-            if ((result instanceof Polygon) || (result instanceof MultiPolygon)) {
-                return result;
+            if (result instanceof Polygon p) {
+                return (p.isEmpty()) ? null : p;
             }
+
+            if (result instanceof MultiPolygon mp) {
+                int n = mp.getNumGeometries();
+                boolean hasEmpty = false;
+                for (int i = 0; i < n; i++) {
+                    if (mp.getGeometryN(i).isEmpty()) {
+                        hasEmpty = true;
+                        break;
+                    }
+                }
+                if (!hasEmpty) return mp;
+
+                // If it's a multipolygon, rebuild it without empty parts
+                Polygon[] kept = java.util.stream.IntStream.range(0, n)
+                        .mapToObj(i -> (Polygon) mp.getGeometryN(i))
+                        .filter(p -> !p.isEmpty())
+                        .toArray(Polygon[]::new);
+
+                if (kept.length == 0) return null;
+                if (kept.length == 1) return kept[0];
+                return result.getFactory().createMultiPolygon(kept);
+            }
+
             @SuppressWarnings("unchecked")
-            List<Polygon> polys =
-                    org.locationtech.jts.geom.util.PolygonExtracter.getPolygons(result);
+            List<Polygon> polys = org.locationtech.jts.geom.util.PolygonExtracter.getPolygons(result);
             if (polys.isEmpty()) {
                 return null;
             }
@@ -490,7 +498,12 @@ public class PipelineBuilder {
             // systems will not correctly
             // deal with a GeometryCollection with multiple polygons in them.
             // The best strategy is to just create a (potentially) invalid multipolygon.
-            return new MultiPolygon(polys.toArray(new Polygon[polys.size()]), result.getFactory());
+            Polygon[] kept =
+                    polys.stream().filter(p -> p != null && !p.isEmpty()).toArray(Polygon[]::new);
+
+            if (kept.length == 0) return null;
+            if (kept.length == 1) return kept[0];
+            return result.getFactory().createMultiPolygon(kept);
         }
 
         private Geometry onlyLines(Geometry result) {
@@ -498,16 +511,14 @@ public class PipelineBuilder {
                 return result;
             }
             @SuppressWarnings("unchecked")
-            List<LineString> lines =
-                    org.locationtech.jts.geom.util.LineStringExtracter.getLines(result);
+            List<LineString> lines = org.locationtech.jts.geom.util.LineStringExtracter.getLines(result);
             if (lines.isEmpty()) {
                 return null;
             }
             if (lines.size() == 1) {
                 return lines.get(0);
             }
-            return new MultiLineString(
-                    lines.toArray(new LineString[lines.size()]), result.getFactory());
+            return new MultiLineString(lines.toArray(new LineString[lines.size()]), result.getFactory());
         }
 
         private Geometry onlyPoints(Geometry result) {

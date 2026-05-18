@@ -5,22 +5,24 @@
 package org.geoserver.taskmanager.data.impl;
 
 import com.thoughtworks.xstream.annotations.XStreamOmitField;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
-import javax.persistence.CascadeType;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.OneToOne;
-import javax.persistence.OrderBy;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 import org.geoserver.taskmanager.data.Batch;
 import org.geoserver.taskmanager.data.BatchElement;
 import org.geoserver.taskmanager.data.BatchRun;
@@ -35,10 +37,12 @@ import org.hibernate.annotations.FilterDef;
         uniqueConstraints = {
             @UniqueConstraint(columnNames = {"name", "configuration", "removeStamp"}),
             @UniqueConstraint(columnNames = {"nameNoConfig", "removeStamp"})
-        })
+        },
+        indexes = {@Index(name = "idx_batchimpl_configuration", columnList = "configuration", unique = false)})
 @FilterDef(name = "activeElementFilter", defaultCondition = "removeStamp = 0")
 public class BatchImpl extends BaseImpl implements Batch {
 
+    @Serial
     private static final long serialVersionUID = 3321130631692899821L;
 
     @Id
@@ -56,20 +60,24 @@ public class BatchImpl extends BaseImpl implements Batch {
     @Filter(name = "activeElementFilter")
     private List<BatchElement> elements = new ArrayList<BatchElement>();
 
-    @Column private String workspace;
+    @Column
+    private String workspace;
 
     @Column(nullable = false)
     private String name;
 
     // stupid work-around
     // duplicate of name only set if configuration == null, just for unique constraint
-    @Column @XStreamOmitField private String nameNoConfig;
+    @Column
+    @XStreamOmitField
+    private String nameNoConfig;
 
     @ManyToOne
     @JoinColumn(name = "configuration", nullable = true)
     private ConfigurationImpl configuration;
 
-    @Column private String description;
+    @Column
+    private String description;
 
     @Column(nullable = true)
     private String frequency;
@@ -81,11 +89,7 @@ public class BatchImpl extends BaseImpl implements Batch {
     @XStreamOmitField
     private Long removeStamp = 0L;
 
-    @OneToMany(
-            fetch = FetchType.LAZY,
-            targetEntity = BatchRunImpl.class,
-            mappedBy = "batch",
-            cascade = CascadeType.ALL)
+    @OneToMany(fetch = FetchType.LAZY, targetEntity = BatchRunImpl.class, mappedBy = "batch", cascade = CascadeType.ALL)
     @OrderBy("id")
     @XStreamOmitField
     private List<BatchRun> batchRuns = new ArrayList<BatchRun>();
@@ -197,5 +201,13 @@ public class BatchImpl extends BaseImpl implements Batch {
 
     public void setLatestBatchRun(LatestBatchRun latestBatchRun) {
         this.latestBatchRun = latestBatchRun;
+    }
+
+    public void setBatchRuns(ArrayList<BatchRun> batchRuns) {
+        this.batchRuns = batchRuns;
+    }
+
+    public void setElements(List<BatchElement> batchElements) {
+        this.elements = batchElements;
     }
 }

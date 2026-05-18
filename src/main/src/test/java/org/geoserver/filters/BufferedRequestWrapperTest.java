@@ -7,11 +7,11 @@ package org.geoserver.filters;
 
 import static org.junit.Assert.assertEquals;
 
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Map;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpServletRequest;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.util.WebUtils;
@@ -32,17 +32,16 @@ public class BufferedRequestWrapperTest extends RequestWrapperTestSupport {
         }
     }
 
-    @SuppressWarnings("PMD.EmptyWhileStmt")
     public void doInputStreamTest(String testString) throws Exception {
         HttpServletRequest req = makeRequest(testString, null);
 
         BufferedRequestWrapper wrapper =
-                new BufferedRequestWrapper(
-                        req, WebUtils.DEFAULT_CHARACTER_ENCODING, testString.getBytes());
+                new BufferedRequestWrapper(req, WebUtils.DEFAULT_CHARACTER_ENCODING, testString.getBytes());
         byte[] b = new byte[32];
         try (ServletInputStream sis = req.getInputStream()) {
-            /* clear out the request body */
-            while ((sis.readLine(b, 0, 32)) > 0) ;
+            while ((sis.readLine(b, 0, 32)) > 0) { // NOPMD
+                // clear out the request body
+            }
         }
 
         try (ServletInputStream sis = wrapper.getInputStream()) {
@@ -62,8 +61,7 @@ public class BufferedRequestWrapperTest extends RequestWrapperTestSupport {
         clearOutBody(req);
 
         BufferedRequestWrapper wrapper =
-                new BufferedRequestWrapper(
-                        req, WebUtils.DEFAULT_CHARACTER_ENCODING, testString.getBytes());
+                new BufferedRequestWrapper(req, WebUtils.DEFAULT_CHARACTER_ENCODING, testString.getBytes());
         StringBuffer buff = new StringBuffer();
         int c;
         try (BufferedReader br = wrapper.getReader()) {
@@ -92,11 +90,11 @@ public class BufferedRequestWrapperTest extends RequestWrapperTestSupport {
         assertEquals("4", ((String[]) params.get("d"))[0]);
     }
 
-    @SuppressWarnings("PMD.EmptyWhileStmt")
     private void clearOutBody(HttpServletRequest req) throws IOException {
         try (BufferedReader br = req.getReader()) {
-            /* clear out the body */
-            while ((br.readLine()) != null) ;
+            while ((br.readLine()) != null) { // NOPMD
+                // clear out the request body
+            }
         }
     }
 

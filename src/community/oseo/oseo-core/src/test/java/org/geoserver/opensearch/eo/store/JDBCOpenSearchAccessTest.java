@@ -4,10 +4,15 @@
  */
 package org.geoserver.opensearch.eo.store;
 
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
 import static org.geoserver.opensearch.eo.ProductClass.GENERIC;
 import static org.geoserver.opensearch.eo.ProductClass.OPTICAL;
 import static org.geoserver.opensearch.eo.ProductClass.RADAR;
 import static org.geoserver.opensearch.eo.store.OpenSearchAccess.EO_NAMESPACE;
+import static org.geoserver.opensearch.eo.store.OpenSearchAccess.LAYERS;
+import static org.hamcrest.CoreMatchers.allOf;
+import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -29,7 +34,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -38,96 +42,107 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
-import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.time.FastDateFormat;
 import org.easymock.EasyMock;
+import org.geoserver.catalog.Catalog;
+import org.geoserver.catalog.CoverageInfo;
+import org.geoserver.catalog.LayerInfo;
+import org.geoserver.catalog.StyleInfo;
 import org.geoserver.config.GeoServer;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.OSEOInfoImpl;
 import org.geoserver.opensearch.eo.ProductClass;
 import org.geoserver.opensearch.eo.store.Indexable.FieldType;
+import org.geoserver.ows.Dispatcher;
+import org.geoserver.ows.Request;
 import org.geoserver.platform.GeoServerExtensionsHelper;
-import org.geotools.data.DataAccessFinder;
-import org.geotools.data.DataStoreFinder;
+import org.geoserver.security.decorators.DecoratingSimpleFeatureSource;
+import org.geotools.api.data.DataAccessFinder;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.Transaction;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.feature.type.PropertyDescriptor;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.PropertyIsEqualTo;
+import org.geotools.api.style.Style;
 import org.geotools.data.DataUtilities;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.Query;
-import org.geotools.data.Transaction;
 import org.geotools.data.collection.ListFeatureCollection;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.AttributeImpl;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.feature.visitor.MaxVisitor;
 import org.geotools.filter.text.cql2.CQL;
 import org.geotools.jdbc.JDBCDataStore;
+import org.geotools.styling.StyleBuilder;
+import org.geotools.util.factory.GeoTools;
+import org.geotools.util.logging.DefaultLoggerFactory;
 import org.hamcrest.Matchers;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 import org.locationtech.jts.geom.Polygon;
-import org.opengis.feature.Feature;
-import org.opengis.feature.Property;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.PropertyIsEqualTo;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 public class JDBCOpenSearchAccessTest {
 
     public static final String TEST_NAMESPACE = "http://www.test.com/os/eo";
-    private static final Name LAYERS_NAME = OpenSearchAccess.LAYERS_PROPERTY_NAME;
 
     private static JDBCDataStore store;
 
     private static OpenSearchAccess osAccess;
 
-    private static FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    private static FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     public static final ProductClass GS_PRODUCT =
             new ProductClass("geoServer", "gs", "http://www.geoserver.org/eo/test");
 
-    /**
-     * Returns the test fixture to run tests against a PostGIS database
-     *
-     * @return
-     */
-    public static Properties getFixture() {
-        Properties properties = GSFixtureUtilitiesDelegate.loadFixture("oseo-postgis");
-        if (properties != null) {
-            properties.put("Expose primary keys", "true");
-            properties.put("dbtype", "postgis");
-        }
-        return properties;
+    @ClassRule
+    public static final OSEOPostGISResource postgis = new OSEOPostGISResource(true);
+
+    // make sure Java logging is used
+    @BeforeClass
+    public static void setupLogging() throws IOException, SQLException {
+        GeoTools.setLoggerFactory(DefaultLoggerFactory.getInstance());
     }
 
     @BeforeClass
     public static void setupStore() throws IOException, SQLException {
-        osAccess = setupAndReturnStore();
+        osAccess = setupAndReturnStore(postgis);
     }
 
-    public static OpenSearchAccess setupAndReturnStore() throws IOException, SQLException {
-        Assume.assumeNotNull(getFixture());
-
-        Map params = new HashMap<>();
-        params.putAll(getFixture());
-        store = (JDBCDataStore) DataStoreFinder.getDataStore(params);
-        JDBCOpenSearchAccessTest.populateTestDatabase(store, true);
+    @SuppressWarnings("unchecked")
+    public static OpenSearchAccess setupAndReturnStore(OSEOPostGISResource postgis) throws IOException, SQLException {
+        store = postgis.createPostGISDataStore();
 
         Name name = new NameImpl("test", "jdbcStore");
         SerializableDefaultRepository repository = new SerializableDefaultRepository();
@@ -138,11 +153,42 @@ public class JDBCOpenSearchAccessTest {
         GeoServerExtensionsHelper.singleton("geoServer", geoServer, GeoServer.class);
         OSEOInfoImpl impl = new OSEOInfoImpl();
         impl.getProductClasses().add(GS_PRODUCT);
-        EasyMock.expect(geoServer.getService(OSEOInfo.class)).andReturn(impl).anyTimes();
-        EasyMock.replay(geoServer);
+        expect(geoServer.getService(OSEOInfo.class)).andReturn(impl).anyTimes();
+
+        // prepare the catalog as well
+        Catalog catalog = EasyMock.createNiceMock(Catalog.class);
+        expect(geoServer.getCatalog()).andReturn(catalog).anyTimes();
+        CoverageInfo ci = EasyMock.createNiceMock(CoverageInfo.class);
+        expect(ci.getTitle()).andReturn("The title").anyTimes();
+        expect(ci.getDescription()).andReturn("The description").anyTimes();
+        expect(ci.getDisabledServices()).andReturn(List.of("WCS")).anyTimes();
+        replay(ci);
+        StyleBuilder sb = new StyleBuilder();
+        Style rasterStyle = sb.createStyle(sb.createRasterSymbolizer());
+        rasterStyle.getDescription().setTitle("The raster style");
+        StyleInfo siRaster = EasyMock.createNiceMock(StyleInfo.class);
+        expect(siRaster.getName()).andReturn("raster").anyTimes();
+        expect(siRaster.getStyle()).andReturn(rasterStyle).anyTimes();
+        replay(siRaster);
+        Style polyStyle = sb.createStyle(sb.createPolygonSymbolizer());
+        polyStyle.setName("The polygon style");
+        StyleInfo siPoly = EasyMock.createNiceMock(StyleInfo.class);
+        expect(siPoly.getName()).andReturn("polygon").anyTimes();
+        expect(siPoly.getStyle()).andReturn(polyStyle).anyTimes();
+        replay(siPoly);
+        LayerInfo li = EasyMock.createNiceMock(LayerInfo.class);
+        expect(li.getResource()).andReturn(ci).anyTimes();
+        expect(li.getStyles()).andReturn(Set.of(siPoly)).anyTimes();
+        expect(li.getDefaultStyle()).andReturn(siRaster).anyTimes();
+        replay(li);
+        expect(catalog.getLayerByName("gs:sentinel2")).andReturn(li).anyTimes();
+        replay(catalog);
+
+        expect(geoServer.getServices()).andReturn(Collections.emptyList()).anyTimes();
+        replay(geoServer);
 
         // create the OpenSeach wrapper store
-        params = new HashMap<>();
+        Map params = new HashMap<>();
         params.put("dbtype", "opensearch-eo-jdbc");
         params.put("store", "test:jdbcStore");
         params.put("namespace", TEST_NAMESPACE);
@@ -154,17 +200,22 @@ public class JDBCOpenSearchAccessTest {
     public void resetCollectionLayer() throws IOException, SQLException {
         String s1 = "DELETE from \"collection_layer\"";
         String s2 =
-                "INSERT into \"collection_layer\"\n"
-                        + "(\"cid\", \"workspace\", \"layer\", \"separateBands\", \"bands\", \"browseBands\", \"heterogeneousCRS\", \"mosaicCRS\", \"defaultLayer\")\n"
-                        + "VALUES(17, 'gs', 'sentinel2', 'true', 'B01,B02,B03,B04,B05,B06,B07,B08,B09,B10,B11,B12', 'B04,B03,B02', 'true', 'EPSG:4326', 'true')";
+                """
+                INSERT into "collection_layer"
+                ("cid", "workspace", "layer", "separateBands", "bands", "browseBands", "heterogeneousCRS", "mosaicCRS", "defaultLayer")
+                VALUES(17, 'gs', 'sentinel2', 'true', 'B01,B02,B03,B04,B05,B06,B07,B08,B09,B10,B11,B12', 'B04,B03,B02', 'true', 'EPSG:4326', 'true')""";
         String s3 =
-                "INSERT into collection_layer\n"
-                        + "(\"cid\", \"workspace\", \"layer\", \"separateBands\", \"bands\", \"browseBands\", \"heterogeneousCRS\", \"mosaicCRS\", \"defaultLayer\")\n"
-                        + "VALUES(31, 'gs', 'landsat8-SINGLE', 'false', null, null, 'true', 'EPSG:4326', 'true');\n";
+                """
+                INSERT into collection_layer
+                ("cid", "workspace", "layer", "separateBands", "bands", "browseBands", "heterogeneousCRS", "mosaicCRS", "defaultLayer")
+                VALUES(31, 'gs', 'landsat8-SINGLE', 'false', null, null, 'true', 'EPSG:4326', 'true');
+                """;
         String s4 =
-                "INSERT into collection_layer\n"
-                        + "(\"cid\", \"workspace\", \"layer\", \"separateBands\", \"bands\", \"browseBands\", \"heterogeneousCRS\", \"mosaicCRS\", \"defaultLayer\")\n"
-                        + "VALUES(31, 'gs', 'landsat8-SEPARATE', 'true', 'B01,B02,B03,B04,B05,B06,B07,B08,B09', 'B04,B03,B02', 'true', 'EPSG:4326', 'false');";
+                """
+                INSERT into collection_layer
+                ("cid", "workspace", "layer", "separateBands", "bands", "browseBands", "heterogeneousCRS", "mosaicCRS", "defaultLayer")
+                VALUES(31, 'gs', 'landsat8-SEPARATE', 'true', 'B01,B02,B03,B04,B05,B06,B07,B08,B09', 'B04,B03,B02', 'true', 'EPSG:4326', 'false');\
+                """;
         try (Connection conn = store.getConnection(Transaction.AUTO_COMMIT);
                 Statement st = conn.createStatement()) {
             st.execute(s1);
@@ -174,134 +225,10 @@ public class JDBCOpenSearchAccessTest {
         }
     }
 
-    public static void populateTestDatabase(JDBCDataStore h2, boolean addGranuleTable)
-            throws SQLException, IOException {
-        try (Connection conn = h2.getConnection(Transaction.AUTO_COMMIT);
-                Statement st = conn.createStatement()) {
-            // setup for fast import
-
-            // SET CACHE_SIZE (a large cache is faster)
-            //            st.execute("SET LOG 0");
-            //            st.execute("SET LOCK_MODE 0 ");
-            //            st.execute("SET UNDO_LOG 0");
-            //            st.execute("SET CACHE_SIZE 512000");
-            createTables(conn);
-            populateCollections(conn);
-            populateProducts(conn);
-            if (addGranuleTable) {
-                populateGranules(conn);
-            }
-            addCustomProductClass(conn);
-
-            //            // add spatial indexes
-            //            st.execute(
-            //                    "CALL AddGeometryColumn(SCHEMA(), 'COLLECTION', 'footprint', 4326,
-            // 'POLYGON', 2)");
-            //            st.execute("CALL CreateSpatialIndex(SCHEMA(), 'COLLECTION', 'footprint',
-            // 4326)");
-            //            st.execute(
-            //                    "CALL AddGeometryColumn(SCHEMA(), 'PRODUCT', 'footprint', 4326,
-            // 'POLYGON', 2)");
-            //            st.execute("CALL CreateSpatialIndex(SCHEMA(), 'PRODUCT', 'footprint',
-            // 4326)");
-            //            st.execute(
-            //                    "CALL AddGeometryColumn(SCHEMA(), 'GRANULE', 'the_geom', 4326,
-            // 'POLYGON', 2)");
-            //            st.execute("CALL CreateSpatialIndex(SCHEMA(), 'GRANULE', 'the_geom',
-            // 4326)");
-        }
-    }
-
     @AfterClass
     public static void tearDownStore() {
         osAccess.dispose();
         store.dispose();
-    }
-
-    private static List<String> loadScriptCommands(String scriptLocation) throws IOException {
-        // grab all non comment, non empty lines
-        try (InputStream is = JDBCOpenSearchAccess.class.getResourceAsStream(scriptLocation)) {
-            List<String> lines =
-                    IOUtils.readLines(is).stream()
-                            .map(l -> l.trim())
-                            .filter(l -> !l.startsWith("--") && !l.isEmpty())
-                            .collect(Collectors.toList());
-            // regroup them into statements
-            List<String> statements = new ArrayList<String>();
-            String buffer = null;
-            for (String line : lines) {
-                if (buffer == null) {
-                    buffer = line;
-                } else {
-                    buffer = buffer + "\n" + line;
-                }
-                if (line.trim().endsWith(";")) {
-                    statements.add(buffer);
-                    buffer = null;
-                }
-            }
-            return statements;
-        }
-    }
-
-    /** Takes the postgis.sql creation script, adapts it and runs it on H2 */
-    static void createTables(Connection conn) throws SQLException, IOException {
-        List<String> statements = loadScriptCommands("/postgis.sql");
-        try (Statement st = conn.createStatement(); ) {
-            for (String statement : statements) {
-                //                /* Skip statements H2 does not support */
-                //                if (statement.contains("GIST") || statement.contains("create
-                // extension")) {
-                //                    continue;
-                //                }
-                //                if (statement.contains("geography(Polygon, 4326)")) {
-                //                    statement = statement.replace("geography(Polygon, 4326)",
-                // "POLYGON");
-                //                } else if (statement.contains("geometry(Polygon, 4326)")) {
-                //                    statement = statement.replace("geometry(Polygon, 4326)",
-                // "POLYGON");
-                //                }
-                //                if (statement.contains("float[]")) {
-                //                    statement = statement.replace("float[]", "ARRAY");
-                //                }
-                //                if (statement.contains("varchar[]")) {
-                //                    statement = statement.replace("varchar[]", "ARRAY");
-                //                }
-                st.execute(statement);
-            }
-        }
-    }
-
-    /** Adds the collection data into the H2 database */
-    static void populateCollections(Connection conn) throws SQLException, IOException {
-        runScript("/collection_test_data.sql", conn);
-    }
-
-    /** Adds the product data into the H2 database */
-    static void populateProducts(Connection conn) throws SQLException, IOException {
-        runScript("/product_test_data.sql", conn);
-    }
-
-    /** Adds the granules table */
-    static void populateGranules(Connection conn) throws SQLException, IOException {
-        runScript("/granule_test_data.sql", conn);
-    }
-
-    static void addCustomProductClass(Connection conn) throws SQLException, IOException {
-        runScript("/custom_product_class.sql", conn);
-    }
-
-    static void runScript(String script, Connection conn) throws IOException, SQLException {
-        List<String> statements = loadScriptCommands(script);
-        try (Statement st = conn.createStatement(); ) {
-            for (String statement : statements) {
-                try {
-                    st.execute(statement);
-                } catch (SQLException e) {
-                    throw new IOException("Failed to run " + statement, e);
-                }
-            }
-        }
     }
 
     @Test
@@ -309,7 +236,7 @@ public class JDBCOpenSearchAccessTest {
         // check expected name
         FeatureType schema = osAccess.getCollectionSource().getSchema();
         Name name = schema.getName();
-        Assert.assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
+        assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
         assertThat(name.getLocalPart(), equalToIgnoringCase("collection"));
 
         // test the schema
@@ -322,7 +249,7 @@ public class JDBCOpenSearchAccessTest {
         FeatureType schema = osAccess.getProductSource().getSchema();
         Name name = schema.getName();
 
-        Assert.assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
+        assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
         assertThat(name.getLocalPart(), equalToIgnoringCase("product"));
 
         // get the schema
@@ -340,10 +267,7 @@ public class JDBCOpenSearchAccessTest {
     public void testProductReadingNoJoins() throws Exception {
         Query q = new Query();
         String id = "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TVG_N02.01";
-        q.setFilter(
-                FF.equals(
-                        FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")),
-                        FF.literal(id)));
+        q.setFilter(FF.equals(FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")), FF.literal(id)));
         Feature feature = DataUtilities.first(osAccess.getProductSource().getFeatures(q));
         assertEquals("DATA_DRIVEN", feature.getProperty("processingMode").getValue());
         assertEquals(id, feature.getProperty("identifier").getValue());
@@ -353,19 +277,15 @@ public class JDBCOpenSearchAccessTest {
     @Test
     public void testProductReadingJoins() throws Exception {
         Query q = new Query();
-        q.setProperties(
-                Arrays.asList(
-                        FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")),
-                        FF.property(new NameImpl(GENERIC.getNamespace(), "processingMode")),
-                        FF.property(new NameImpl(GENERIC.getNamespace(), "parentIdentifier")),
-                        FF.property(OpenSearchAccess.OGC_LINKS_PROPERTY_NAME),
-                        FF.property(OpenSearchAccess.QUICKLOOK_PROPERTY_NAME),
-                        FF.property(OpenSearchAccess.COLLECTION_PROPERTY_NAME)));
+        q.setProperties(Arrays.asList(
+                FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")),
+                FF.property(new NameImpl(GENERIC.getNamespace(), "processingMode")),
+                FF.property(new NameImpl(GENERIC.getNamespace(), "parentIdentifier")),
+                FF.property(OpenSearchAccess.OGC_LINKS_PROPERTY_NAME),
+                FF.property(OpenSearchAccess.QUICKLOOK_PROPERTY_NAME),
+                FF.property(OpenSearchAccess.COLLECTION_PROPERTY_NAME)));
         String id = "S2A_OPER_MSI_L1C_TL_SGS__20160117T141030_A002979_T33TVG_N02.01";
-        q.setFilter(
-                FF.equals(
-                        FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")),
-                        FF.literal(id)));
+        q.setFilter(FF.equals(FF.property(new NameImpl(GENERIC.getNamespace(), "identifier")), FF.literal(id)));
         Feature feature = DataUtilities.first(osAccess.getProductSource().getFeatures(q));
         assertEquals("DATA_DRIVEN", feature.getProperty("processingMode").getValue());
         assertEquals(id, feature.getProperty("identifier").getValue());
@@ -383,7 +303,7 @@ public class JDBCOpenSearchAccessTest {
         assertThat(names, hasSize(29));
         Set<String> localNames = new HashSet<>();
         for (Name name : names) {
-            Assert.assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
+            assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
             localNames.add(name.getLocalPart());
         }
         assertThat(
@@ -448,12 +368,10 @@ public class JDBCOpenSearchAccessTest {
     public void testSentinel1Granules() throws Exception {
         FeatureSource<FeatureType, Feature> featureSource =
                 osAccess.getFeatureSource(new NameImpl(TEST_NAMESPACE, "SENTINEL1"));
-        Assert.assertEquals(0, featureSource.getCount(Query.ALL));
+        assertEquals(0, featureSource.getCount(Query.ALL));
         FeatureCollection<FeatureType, Feature> fc = featureSource.getFeatures();
-        Assert.assertEquals(0, fc.size());
-        fc.accepts(
-                f -> {},
-                null); // just check trying to scroll over the feature does not make it blow
+        assertEquals(0, fc.size());
+        fc.accepts(f -> {}, null); // just check trying to scroll over the feature does not make it blow
     }
 
     @Test
@@ -479,17 +397,14 @@ public class JDBCOpenSearchAccessTest {
         // System.out.println(osAccess.getNames());
         FeatureSource<FeatureType, Feature> featureSource =
                 osAccess.getFeatureSource(new NameImpl(TEST_NAMESPACE, "GS_TEST"));
-        Assert.assertEquals(0, featureSource.getCount(Query.ALL));
+        assertEquals(0, featureSource.getCount(Query.ALL));
         FeatureCollection<FeatureType, Feature> fc = featureSource.getFeatures();
         assertGranulesViewSchema(fc.getSchema(), GS_PRODUCT);
-        Assert.assertEquals(0, fc.size());
-        fc.accepts(
-                f -> {},
-                null); // just check trying to scroll over the feature does not make it blow
+        assertEquals(0, fc.size());
+        fc.accepts(f -> {}, null); // just check trying to scroll over the feature does not make it blow
     }
 
-    private void assertGranulesViewSchema(FeatureType schema, ProductClass expectedClass)
-            throws IOException {
+    private void assertGranulesViewSchema(FeatureType schema, ProductClass expectedClass) throws IOException {
         assertThat(schema, instanceOf(SimpleFeatureType.class));
         SimpleFeatureType ft = (SimpleFeatureType) schema;
         // check there are no foreign attributes
@@ -522,123 +437,112 @@ public class JDBCOpenSearchAccessTest {
         assertThat(mappings, hasEntry(equalTo("crs"), equalTo(String.class)));
         // check for columns that have an instance in both product and collection
         assertThat(mappings, hasEntry(equalTo("collectionEoIdentifier"), equalTo(String.class)));
-        assertThat(
-                mappings,
-                hasEntry(equalTo("collectionEoAcquisitionStation"), equalTo(String.class)));
+        assertThat(mappings, hasEntry(equalTo("collectionEoAcquisitionStation"), equalTo(String.class)));
     }
 
     private void assertPropertyNamespace(FeatureType schema, String name, String namespaceURI) {
         PropertyDescriptor wl = schema.getDescriptor(name);
         Assert.assertNotNull(wl);
-        Assert.assertEquals(namespaceURI, wl.getName().getNamespaceURI());
+        assertEquals(namespaceURI, wl.getName().getNamespaceURI());
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testCollectionLayerInformation() throws Exception {
         // check expected property is there
         FeatureType schema = osAccess.getCollectionSource().getSchema();
         Name name = schema.getName();
-        Assert.assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
-        final PropertyDescriptor layerDescriptor = schema.getDescriptor(LAYERS_NAME);
+        Name layersName = osAccess.getName(LAYERS);
+        assertEquals(TEST_NAMESPACE, name.getNamespaceURI());
+        final PropertyDescriptor layerDescriptor = schema.getDescriptor(layersName);
         Assert.assertNotNull(layerDescriptor);
 
         // read it
         FeatureSource<FeatureType, Feature> source = osAccess.getCollectionSource();
         Query q = new Query();
-        q.setProperties(Arrays.asList(FF.property(LAYERS_NAME)));
-        q.setFilter(
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("SENTINEL2"),
-                        false));
+        q.setProperties(Arrays.asList(FF.property(layersName)));
+        q.setFilter(FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
+                FF.literal("SENTINEL2"),
+                false));
         FeatureCollection<FeatureType, Feature> features = source.getFeatures(q);
 
         // get the collection and check it
         Feature collection = DataUtilities.first(features);
         Assert.assertNotNull(collection);
-        Property layerProperty = collection.getProperty(LAYERS_NAME);
+        Property layerProperty = collection.getProperty(layersName);
         final Feature layerValue = (Feature) layerProperty;
         assertThat(layerValue, notNullValue());
 
-        Assert.assertEquals("gs", getAttribute(layerValue, "workspace"));
-        Assert.assertEquals("sentinel2", getAttribute(layerValue, "layer"));
-        Assert.assertEquals(Boolean.TRUE, getAttribute(layerValue, "separateBands"));
-        assertThat(
-                getAttribute(layerValue, "bands"),
-                equalTo(
-                        new String[] {
-                            "B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B09", "B10",
-                            "B11", "B12"
-                        }));
-        assertThat(
-                getAttribute(layerValue, "browseBands"),
-                equalTo(new String[] {"B04", "B03", "B02"}));
-        Assert.assertEquals(Boolean.TRUE, getAttribute(layerValue, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:4326", getAttribute(layerValue, "mosaicCRS"));
+        assertEquals("gs", getAttribute(layerValue, "workspace"));
+        assertEquals("sentinel2", getAttribute(layerValue, "layer"));
+        assertEquals(Boolean.TRUE, getAttribute(layerValue, "separateBands"));
+        assertThat(getAttribute(layerValue, "bands"), equalTo(new String[] {
+            "B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B09", "B10", "B11", "B12"
+        }));
+        assertThat(getAttribute(layerValue, "browseBands"), equalTo(new String[] {"B04", "B03", "B02"}));
+        assertEquals(Boolean.TRUE, getAttribute(layerValue, "heterogeneousCRS"));
+        assertEquals("EPSG:4326", getAttribute(layerValue, "mosaicCRS"));
+        assertEquals("The title", getAttribute(layerValue, "title"));
+        assertEquals("The description", getAttribute(layerValue, "description"));
+        List<Attribute> styles = (List<Attribute>) getAttribute(layerValue, "styles");
+        SimpleFeature raster = (SimpleFeature) styles.get(0);
+        assertEquals("raster", getAttribute(raster, "name"));
+        assertEquals("The raster style", getAttribute(raster, "title"));
+        SimpleFeature polygon = (SimpleFeature) styles.get(1);
+        assertEquals("polygon", getAttribute(polygon, "name"));
+        assertEquals("The polygon style", getAttribute(polygon, "title"));
     }
 
     @Test
     public void testTwoCollectionLayers() throws Exception {
         // read it
-        FeatureStore<FeatureType, Feature> store =
-                (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
+        FeatureStore<FeatureType, Feature> store = (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
         Query q = new Query();
-        q.setProperties(Arrays.asList(FF.property(LAYERS_NAME)));
-        final PropertyIsEqualTo filter =
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("LANDSAT8"),
-                        false);
+        Name layersName = osAccess.getName(LAYERS);
+        q.setProperties(Arrays.asList(FF.property(layersName)));
+        final PropertyIsEqualTo filter = FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")), FF.literal("LANDSAT8"), false);
         q.setFilter(filter);
         FeatureCollection<FeatureType, Feature> features = store.getFeatures(q);
 
-        Map<String, SimpleFeature> layerFeatures = getLayerPropertiesFromCollection(features);
-        assertThat(
-                layerFeatures.keySet(), Matchers.hasItems("landsat8-SINGLE", "landsat8-SEPARATE"));
+        Map<String, Feature> layerFeatures = getLayerPropertiesFromCollection(features);
+        assertThat(layerFeatures.keySet(), Matchers.hasItems("landsat8-SINGLE", "landsat8-SEPARATE"));
 
         // first layer
-        SimpleFeature single = layerFeatures.get("landsat8-SINGLE");
-        Assert.assertEquals("gs", getAttribute(single, "workspace"));
-        Assert.assertEquals("landsat8-SINGLE", getAttribute(single, "layer"));
-        Assert.assertEquals(Boolean.FALSE, getAttribute(single, "separateBands"));
+        Feature single = layerFeatures.get("landsat8-SINGLE");
+        assertEquals("gs", getAttribute(single, "workspace"));
+        assertEquals("landsat8-SINGLE", getAttribute(single, "layer"));
+        assertEquals(Boolean.FALSE, getAttribute(single, "separateBands"));
         Assert.assertNull(getAttribute(single, "bands"));
         Assert.assertNull(getAttribute(single, "browseBands"));
-        Assert.assertEquals(Boolean.TRUE, getAttribute(single, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:4326", getAttribute(single, "mosaicCRS"));
+        assertEquals(Boolean.TRUE, getAttribute(single, "heterogeneousCRS"));
+        assertEquals("EPSG:4326", getAttribute(single, "mosaicCRS"));
 
         // second layer
-        SimpleFeature separate = layerFeatures.get("landsat8-SEPARATE");
-        Assert.assertEquals("gs", getAttribute(separate, "workspace"));
-        Assert.assertEquals("landsat8-SEPARATE", getAttribute(separate, "layer"));
-        Assert.assertEquals(Boolean.TRUE, getAttribute(separate, "separateBands"));
+        Feature separate = layerFeatures.get("landsat8-SEPARATE");
+        assertEquals("gs", getAttribute(separate, "workspace"));
+        assertEquals("landsat8-SEPARATE", getAttribute(separate, "layer"));
+        assertEquals(Boolean.TRUE, getAttribute(separate, "separateBands"));
         assertThat(
                 getAttribute(separate, "bands"),
-                equalTo(
-                        new String[] {
-                            "B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B09"
-                        }));
-        assertThat(
-                getAttribute(separate, "browseBands"), equalTo(new String[] {"B04", "B03", "B02"}));
-        Assert.assertEquals(Boolean.TRUE, getAttribute(separate, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:4326", getAttribute(separate, "mosaicCRS"));
+                equalTo(new String[] {"B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B09"}));
+        assertThat(getAttribute(separate, "browseBands"), equalTo(new String[] {"B04", "B03", "B02"}));
+        assertEquals(Boolean.TRUE, getAttribute(separate, "heterogeneousCRS"));
+        assertEquals("EPSG:4326", getAttribute(separate, "mosaicCRS"));
     }
 
     @Test
     public void testCollectionLayerUpdate() throws Exception {
         // read it
-        FeatureStore<FeatureType, Feature> store =
-                (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
+        FeatureStore<FeatureType, Feature> store = (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
         Query q = new Query();
-        q.setProperties(Arrays.asList(FF.property(LAYERS_NAME)));
-        final PropertyIsEqualTo filter =
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("SENTINEL2"),
-                        false);
+        final PropertyIsEqualTo filter = FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")), FF.literal("SENTINEL2"), false);
         q.setFilter(filter);
         FeatureCollection<FeatureType, Feature> features = store.getFeatures(q);
 
-        final SimpleFeature layerValue = getLayerPropertyFromCollection(features);
+        final Feature layerValue = getLayerPropertyFromCollection(features);
 
         // modify it
         setAttribute(layerValue, "workspace", "gs2");
@@ -648,44 +552,37 @@ public class JDBCOpenSearchAccessTest {
         setAttribute(layerValue, "browseBands", null);
         setAttribute(layerValue, "heterogeneousCRS", false);
         setAttribute(layerValue, "mosaicCRS", "EPSG:3857");
-        ListFeatureCollection layers =
-                new ListFeatureCollection(osAccess.getCollectionLayerSchema());
-        layers.add(layerValue);
+        ListFeatureCollection layers = new ListFeatureCollection(osAccess.getCollectionLayerSchema());
+        layers.add(toLayerSimpleFeature(layerValue));
 
         // update the feature
-        store.modifyFeatures(new Name[] {LAYERS_NAME}, new Object[] {layers}, filter);
+        Name layersName = osAccess.getName(LAYERS);
+        store.modifyFeatures(new Name[] {layersName}, new Object[] {layers}, filter);
 
         // read it back and check
         final Feature layerValue2 = getLayerPropertyFromCollection(store.getFeatures(q));
-        Assert.assertEquals("gs2", getAttribute(layerValue2, "workspace"));
-        Assert.assertEquals("sentinel12345", getAttribute(layerValue2, "layer"));
-        Assert.assertEquals(Boolean.FALSE, getAttribute(layerValue2, "separateBands"));
-        Assert.assertArrayEquals(
-                new String[] {"B01", "B04", "B06"}, (String[]) getAttribute(layerValue2, "bands"));
+        assertEquals("gs2", getAttribute(layerValue2, "workspace"));
+        assertEquals("sentinel12345", getAttribute(layerValue2, "layer"));
+        assertEquals(Boolean.FALSE, getAttribute(layerValue2, "separateBands"));
+        Assert.assertArrayEquals(new String[] {"B01", "B04", "B06"}, (String[]) getAttribute(layerValue2, "bands"));
         assertThat(getAttribute(layerValue2, "browseBands"), nullValue());
-        Assert.assertEquals(Boolean.FALSE, getAttribute(layerValue2, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:3857", getAttribute(layerValue2, "mosaicCRS"));
+        assertEquals(Boolean.FALSE, getAttribute(layerValue2, "heterogeneousCRS"));
+        assertEquals("EPSG:3857", getAttribute(layerValue2, "mosaicCRS"));
     }
 
     @Test
     public void testCollectionLayerUpdateMulti() throws Exception {
         // read it
-        FeatureStore<FeatureType, Feature> store =
-                (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
+        FeatureStore<FeatureType, Feature> store = (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
         Query q = new Query();
-        q.setProperties(Arrays.asList(FF.property(LAYERS_NAME)));
-        final PropertyIsEqualTo filter =
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("LANDSAT8"),
-                        false);
+        final PropertyIsEqualTo filter = FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")), FF.literal("LANDSAT8"), false);
         q.setFilter(filter);
         FeatureCollection<FeatureType, Feature> features = store.getFeatures(q);
 
-        Map<String, SimpleFeature> layerFeatures = getLayerPropertiesFromCollection(features);
-        assertThat(
-                layerFeatures.keySet(), Matchers.hasItems("landsat8-SINGLE", "landsat8-SEPARATE"));
-        SimpleFeature layerSingle = layerFeatures.get("landsat8-SINGLE");
+        Map<String, Feature> layerFeatures = getLayerPropertiesFromCollection(features);
+        assertThat(layerFeatures.keySet(), Matchers.hasItems("landsat8-SINGLE", "landsat8-SEPARATE"));
+        Feature layerSingle = layerFeatures.get("landsat8-SINGLE");
 
         // modify the single layer one
         setAttribute(layerSingle, "workspace", "gs2");
@@ -707,41 +604,57 @@ public class JDBCOpenSearchAccessTest {
         SimpleFeature newLayer = fb.buildFeature(null);
 
         // new list of layers, some will be gone
-        ListFeatureCollection layers =
-                new ListFeatureCollection(osAccess.getCollectionLayerSchema());
-        layers.add(layerSingle);
+        ListFeatureCollection layers = new ListFeatureCollection(osAccess.getCollectionLayerSchema());
+        layers.add(toLayerSimpleFeature(layerSingle));
         layers.add(newLayer);
 
         // update the feature
-        store.modifyFeatures(new Name[] {LAYERS_NAME}, new Object[] {layers}, filter);
+        Name layersName = osAccess.getName(LAYERS);
+        store.modifyFeatures(new Name[] {layersName}, new Object[] {layers}, filter);
 
         // read it back and check
         layerFeatures = getLayerPropertiesFromCollection(features);
         assertThat(layerFeatures.keySet(), Matchers.hasItems("landsat-foobar", "landsat-third"));
         final Feature layerFooBar = layerFeatures.get("landsat-foobar");
-        Assert.assertEquals("gs2", getAttribute(layerFooBar, "workspace"));
-        Assert.assertEquals("landsat-foobar", getAttribute(layerFooBar, "layer"));
-        Assert.assertEquals(Boolean.FALSE, getAttribute(layerFooBar, "separateBands"));
-        Assert.assertArrayEquals(
-                new String[] {"B01", "B04", "B06"}, (String[]) getAttribute(layerFooBar, "bands"));
+        assertEquals("gs2", getAttribute(layerFooBar, "workspace"));
+        assertEquals("landsat-foobar", getAttribute(layerFooBar, "layer"));
+        assertEquals(Boolean.FALSE, getAttribute(layerFooBar, "separateBands"));
+        Assert.assertArrayEquals(new String[] {"B01", "B04", "B06"}, (String[]) getAttribute(layerFooBar, "bands"));
         assertThat(getAttribute(layerFooBar, "browseBands"), nullValue());
-        Assert.assertEquals(Boolean.FALSE, getAttribute(layerFooBar, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:3857", getAttribute(layerFooBar, "mosaicCRS"));
+        assertEquals(Boolean.FALSE, getAttribute(layerFooBar, "heterogeneousCRS"));
+        assertEquals("EPSG:3857", getAttribute(layerFooBar, "mosaicCRS"));
 
         final Feature layerThird = layerFeatures.get("landsat-third");
-        Assert.assertEquals("gs2", getAttribute(layerThird, "workspace"));
-        Assert.assertEquals("landsat-third", getAttribute(layerThird, "layer"));
-        Assert.assertEquals(Boolean.FALSE, getAttribute(layerThird, "separateBands"));
+        assertEquals("gs2", getAttribute(layerThird, "workspace"));
+        assertEquals("landsat-third", getAttribute(layerThird, "layer"));
+        assertEquals(Boolean.FALSE, getAttribute(layerThird, "separateBands"));
         assertThat(getAttribute(layerThird, "bands"), nullValue());
         assertThat(getAttribute(layerThird, "browseBands"), nullValue());
-        Assert.assertEquals(Boolean.TRUE, getAttribute(layerThird, "heterogeneousCRS"));
-        Assert.assertEquals("EPSG:32632", getAttribute(layerThird, "mosaicCRS"));
+        assertEquals(Boolean.TRUE, getAttribute(layerThird, "heterogeneousCRS"));
+        assertEquals("EPSG:32632", getAttribute(layerThird, "mosaicCRS"));
     }
 
-    private Object getAttribute(Feature sf, String name) {
-        Property p = sf.getProperty(name);
-        if (p != null) {
-            return p.getValue();
+    private SimpleFeature toLayerSimpleFeature(Feature layerSingle) throws IOException {
+        SimpleFeatureType schema = osAccess.getCollectionLayerSchema();
+        SimpleFeatureBuilder fb = new SimpleFeatureBuilder(schema);
+        for (AttributeDescriptor ad : schema.getAttributeDescriptors()) {
+            final String adName = ad.getLocalName();
+            final Object value = getAttribute(layerSingle, adName);
+            fb.set(adName, value);
+        }
+        return fb.buildFeature(layerSingle.getIdentifier().getID());
+    }
+
+    static Object getAttribute(Feature f, String name) {
+        Collection<Property> properties = f.getProperties(name);
+        if (properties != null && !properties.isEmpty()) {
+            PropertyDescriptor descriptor = f.getType().getDescriptor(name);
+            if (descriptor.getMaxOccurs() > 1) {
+                return properties; // already a collection
+            } else {
+                Property p = properties.iterator().next();
+                return p.getValue();
+            }
         } else {
             return null;
         }
@@ -758,69 +671,55 @@ public class JDBCOpenSearchAccessTest {
         }
     }
 
-    private SimpleFeature getLayerPropertyFromCollection(
-            FeatureCollection<FeatureType, Feature> features) {
-        Map<String, SimpleFeature> layerProperty = getLayerPropertiesFromCollection(features);
+    private Feature getLayerPropertyFromCollection(FeatureCollection<FeatureType, Feature> features) {
+        Map<String, Feature> layerProperty = getLayerPropertiesFromCollection(features);
         return layerProperty.values().iterator().next();
     }
 
-    private Map<String, SimpleFeature> getLayerPropertiesFromCollection(
-            FeatureCollection<FeatureType, Feature> features) {
+    private Map<String, Feature> getLayerPropertiesFromCollection(FeatureCollection<FeatureType, Feature> features) {
         // get the simple feature representing the layer publishing info
         Feature collection = DataUtilities.first(features);
         Assert.assertNotNull(collection);
-        Collection<Property> layerProperty = collection.getProperties(LAYERS_NAME);
+        Collection<Property> layerProperty = collection.getProperties(osAccess.getName(LAYERS));
         assertThat(layerProperty, notNullValue());
         assertThat(layerProperty, not(empty()));
 
         return layerProperty.stream()
-                .map(p -> (SimpleFeature) p)
-                .collect(
-                        Collectors.toMap(
-                                sf -> (String) sf.getAttribute("layer"),
-                                sf -> sf,
-                                (u, v) -> u,
-                                LinkedHashMap::new));
+                .map(p -> (Feature) p)
+                .collect(Collectors.toMap(
+                        sf -> (String) sf.getProperty("layer").getValue(), sf -> sf, (u, v) -> u, LinkedHashMap::new));
     }
 
     @Test
     public void testCollectionLayerRemoval() throws Exception {
         // read it
-        FeatureStore<FeatureType, Feature> store =
-                (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
+        FeatureStore<FeatureType, Feature> store = (FeatureStore<FeatureType, Feature>) osAccess.getCollectionSource();
         Query q = new Query();
-        q.setProperties(Arrays.asList(FF.property(LAYERS_NAME)));
-        final PropertyIsEqualTo filter =
-                FF.equal(
-                        FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")),
-                        FF.literal("SENTINEL2"),
-                        false);
+        final PropertyIsEqualTo filter = FF.equal(
+                FF.property(new NameImpl(OpenSearchAccess.EO_NAMESPACE, "identifier")), FF.literal("SENTINEL2"), false);
         q.setFilter(filter);
 
         // update the feature to remove the layer information
-        store.modifyFeatures(
-                new Name[] {OpenSearchAccess.LAYERS_PROPERTY_NAME}, new Object[] {null}, filter);
+        Name layersName = osAccess.getName(LAYERS);
+        store.modifyFeatures(new Name[] {layersName}, new Object[] {null}, filter);
 
         // read it back and check it's not set
         Feature collection = DataUtilities.first(store.getFeatures(q));
         Assert.assertNotNull(collection);
-        Property layerProperty = collection.getProperty(LAYERS_NAME);
+        Property layerProperty = collection.getProperty(layersName);
         Assert.assertNull(layerProperty);
     }
 
     @Test
+    @SuppressWarnings("PMD.CheckResultSet")
     public void testIndexCreationRemoval() throws Exception {
-        Indexable simple =
-                new Indexable(
-                        "eo:cloud_cover", CQL.toExpression("opt:cloudCover"), FieldType.Other);
-        Indexable geom =
-                new Indexable("geometry", CQL.toExpression("footprint"), FieldType.Geometry);
+        Indexable simple = new Indexable("eo:cloud_cover", CQL.toExpression("opt:cloudCover"), FieldType.Other);
+        Indexable geom = new Indexable("geometry", CQL.toExpression("footprint"), FieldType.Geometry);
         Indexable array = new Indexable("keywords", CQL.toExpression("keywords"), FieldType.Array);
-        Indexable json =
-                new Indexable(
-                        "jsontest2",
-                        CQL.toExpression("jsonPointer(extraProperties, '/sar:looks_range')"),
-                        FieldType.JsonInteger);
+        Indexable json = new Indexable(
+                "jsontest2",
+                CQL.toExpression("jsonPointer(extraProperties, '/sar:looks_range')"),
+                FieldType.JsonInteger);
         osAccess.updateIndexes("SENTINEL2", Arrays.asList(simple, geom, array, json));
 
         // check the index names
@@ -836,15 +735,15 @@ public class JDBCOpenSearchAccessTest {
         // check the type of indexes that got created
         Map<String, String> expectations = new HashMap<>();
         expectations.put(
-                "sentinel2_jsontest2_idx",
-                "USING btree (((\"extraProperties\" ->> 'sar:looks_range'::text)))");
+                "sentinel2_jsontest2_idx", "USING btree (((\"extraProperties\" ->> 'sar:looks_range'::text)))");
         expectations.put("sentinel2_eo_cloud_cover_idx", "USING btree (\"optCloudCover\")");
         expectations.put("sentinel2_geometry_idx", "USING gist (footprint)");
         expectations.put("sentinel2_keywords_idx", "USING gin (keywords)");
         String sql =
-                "SELECT indexname,indexdef\n"
-                        + "FROM pg_indexes\n"
-                        + "WHERE schemaname = 'public' and tablename = 'product' and indexname like 'sentinel2_%'";
+                """
+                SELECT indexname,indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public' and tablename = 'product' and indexname like 'sentinel2_%'""";
         try (Connection cx = store.getConnection(Transaction.AUTO_COMMIT);
                 Statement st = cx.createStatement();
                 ResultSet rs = st.executeQuery(sql)) {
@@ -864,5 +763,103 @@ public class JDBCOpenSearchAccessTest {
                 ResultSet rs = st.executeQuery(sql)) {
             assertFalse(rs.next());
         }
+    }
+
+    @Test
+    public void testJDBCProducteFeatureStoreSortJSONB() throws Exception {
+        JDBCProductFeatureStore jdbcProductFeatureStore = (JDBCProductFeatureStore) osAccess.getProductSource();
+        jdbcProductFeatureStore.jsonBProperties = new HashSet<>(Arrays.asList(new NameImpl("string")));
+        SimpleFeatureType featureType = DataUtilities.createType("testType", "string:String,int:Integer,double:Double");
+        ComplexFeatureBuilder complexFeatureBuilder = new ComplexFeatureBuilder(featureType);
+        SimpleFeature f = SimpleFeatureBuilder.build(
+                featureType,
+                new Object[] {
+                    "{\"g\":1,\"m\":2,\"f\":3,\"h\":4,\"c\":5,\"a\":{\"hello\":6,\"archive\":7,\"meh\":{\"working\":8,\"aver\":9}},\"opt:cloudCover\":34}",
+                    Integer.valueOf(3),
+                    Double.valueOf(3.3)
+                },
+                "fid.3");
+        jdbcProductFeatureStore.mapPropertiesToComplex(complexFeatureBuilder, f, new HashMap<>());
+        assertEquals(
+                "{\"a\":{\"archive\":7,\"hello\":6,\"meh\":{\"aver\":9,\"working\":8}},\"c\":5,\"f\":3,\"g\":1,\"h\":4,\"m\":2,\"opt:cloudCover\":34}",
+                f.getAttribute("string").toString());
+    }
+
+    @Test
+    public void testJDBCVisitQuery() throws Exception {
+        JDBCProductFeatureStore testSource =
+                new JDBCProductFeatureStore(
+                        (JDBCOpenSearchAccess) osAccess,
+                        osAccess.getProductSource().getSchema()) {
+                    @Override
+                    public SimpleFeatureSource getDelegateSource() throws IOException {
+                        SimpleFeatureSource delegate = super.getDelegateSource();
+                        return new DecoratingSimpleFeatureSource(delegate) {
+                            @Override
+                            public SimpleFeatureCollection getFeatures(Query query) throws IOException {
+                                // query filter did not turn into a list of id matches
+                                assertEquals(Filter.INCLUDE, query.getFilter());
+                                return super.getFeatures(query);
+                            }
+                        };
+                    }
+                };
+
+        // max visitor, no paging, will use joining, should avoid loading all ids in advance
+        MaxVisitor visitor = new MaxVisitor("timeStart");
+        testSource.getFeatures().accepts(visitor, null);
+        Date maxDate = (Date) visitor.getMax();
+        FastDateFormat format = FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ssZZ", TimeZone.getTimeZone("UTC"));
+        // when running interactively please set -Duser.timezone=UTC
+        assertEquals("2018-02-27 10:20:21Z", format.format(maxDate));
+    }
+
+    @Test
+    public void testCollectionCaching() throws Exception {
+        // setup environment to cache stuff in
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        ServletRequestAttributes attrs = new ServletRequestAttributes(request);
+        RequestContextHolder.setRequestAttributes(attrs);
+        // simulate the presence of a OGC request
+        Dispatcher.REQUEST.set(new Request());
+
+        try {
+
+            // grab the collections, check two well known entries
+            FeatureSource<FeatureType, Feature> collections = osAccess.getCollectionSource();
+            Set<String> collectionIdentifiers = getCollectionIdentifiers(collections);
+            assertThat(collectionIdentifiers, hasItems("SENTINEL2", "LANDSAT8"));
+
+            // check it has been cached too
+            @SuppressWarnings("unchecked")
+            Set<String> cachedCollections = (Set<String>)
+                    attrs.getAttribute(WorkspaceFeatureSource.WS_COLLECTION_CACHE_KEY, RequestAttributes.SCOPE_REQUEST);
+            assertThat(cachedCollections, hasItems("SENTINEL2", "LANDSAT8"));
+
+            // now corrupt the cache, remove one of the two entries
+            cachedCollections.remove("SENTINEL2");
+
+            // the query should now miss SENTINEL2 too, since it's using the cached results
+            collectionIdentifiers = getCollectionIdentifiers(collections);
+            assertThat(collectionIdentifiers, allOf(hasItems("LANDSAT8"), not(hasItems("SENTINEL2"))));
+        } finally {
+            // clean up
+            Dispatcher.REQUEST.remove();
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    private static Set<String> getCollectionIdentifiers(FeatureSource<FeatureType, Feature> collections)
+            throws IOException {
+        Set<String> collectionIdentifiers = new LinkedHashSet<>();
+        collections
+                .getFeatures(Query.ALL)
+                .accepts(
+                        f -> {
+                            String id = (String) f.getProperty("identifier").getValue();
+                            collectionIdentifiers.add(id);
+                        },
+                        null);
+        return collectionIdentifiers;
     }
 }

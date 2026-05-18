@@ -37,11 +37,8 @@ public class UserGroupServiceChoice extends DropDownChoice<String> {
 
         UserGroupServiceNamesModel() {
             try {
-                this.serviceNames =
-                        new ArrayList<>(
-                                GeoServerApplication.get()
-                                        .getSecurityManager()
-                                        .listUserGroupServices());
+                this.serviceNames = new ArrayList<>(
+                        GeoServerApplication.get().getSecurityManager().listUserGroupServices());
             } catch (IOException e) {
                 throw new WicketRuntimeException(e);
             }
@@ -54,11 +51,6 @@ public class UserGroupServiceChoice extends DropDownChoice<String> {
         @Override
         public List<String> getObject() {
             return serviceNames;
-        }
-
-        @Override
-        public void detach() {
-            // do nothing
         }
 
         @Override

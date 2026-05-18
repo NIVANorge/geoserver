@@ -12,12 +12,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
@@ -27,6 +21,12 @@ import org.geoserver.platform.resource.Resource;
 import org.junit.Before;
 import org.junit.Test;
 import org.xml.sax.helpers.NamespaceSupport;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.ObjectNode;
 
 public class JSONMergesTest {
 
@@ -41,9 +41,7 @@ public class JSONMergesTest {
     public void testRecursionLimited() {
         RuntimeException ex = checkThrowingTemplate("recurse.json");
         assertThat(
-                ex.getMessage(),
-                containsString(
-                        "Went beyond maximum expansion depth (51), chain is: [recurse.json"));
+                ex.getMessage(), containsString("Went beyond maximum expansion depth (51), chain is: [recurse.json"));
     }
 
     @Test
@@ -56,15 +54,12 @@ public class JSONMergesTest {
     public void testRecursionPingPong() {
         // ping and pong import each other in an infinite recursion
         RuntimeException ex = checkThrowingTemplate("ping.json");
-        assertThat(
-                ex.getMessage(),
-                containsString("Went beyond maximum expansion depth (51), chain is: [ping.json"));
+        assertThat(ex.getMessage(), containsString("Went beyond maximum expansion depth (51), chain is: [ping.json"));
         assertThat(ex.getMessage(), containsString("pong.json"));
     }
 
     private RuntimeException checkThrowingTemplate(String s) {
-        return assertThrows(
-                RuntimeException.class, () -> new RecursiveJSONParser(store.get(s)).parse());
+        return assertThrows(RuntimeException.class, () -> new RecursiveJSONParser(store.get(s)).parse());
     }
 
     @Test
@@ -83,11 +78,11 @@ public class JSONMergesTest {
 
         // c left has is
         assertEquals(JsonNodeType.STRING, parsed.get("c").getNodeType());
-        assertEquals("theCValue", parsed.get("c").textValue());
+        assertEquals("theCValue", parsed.get("c").asString());
 
         // array is no longer an array
         assertEquals(JsonNodeType.STRING, parsed.get("array").getNodeType());
-        assertEquals("notAnArray", parsed.get("array").textValue());
+        assertEquals("notAnArray", parsed.get("array").asString());
     }
 
     /**
@@ -104,24 +99,22 @@ public class JSONMergesTest {
         ObjectNode feature = (ObjectNode) array.get(0);
 
         // check some non overridden properties have been preserved
-        assertEquals("Feature", feature.get("type").textValue());
-        assertEquals("${eop:identifier}", feature.get("id").textValue());
+        assertEquals("Feature", feature.get("type").asString());
+        assertEquals("${eop:identifier}", feature.get("id").asString());
 
         // check the overridden ones
         ObjectNode properties = (ObjectNode) feature.get("properties");
-        assertEquals("Maja", properties.get("constellation").textValue());
+        assertEquals("Maja", properties.get("constellation").asString());
         ArrayNode instruments = (ArrayNode) properties.get("instruments");
-        assertEquals("myMajaInstrument1", instruments.get(0).textValue());
-        assertEquals("myMajaInstrument2", instruments.get(1).textValue());
+        assertEquals("myMajaInstrument1", instruments.get(0).asString());
+        assertEquals("myMajaInstrument2", instruments.get(1).asString());
     }
 
     @Test
     public void testMergeModificationsAreDetected() throws IOException, InterruptedException {
         RecursiveJSONParser parser = new RecursiveJSONParser(store.get("simpleOverride.json"));
-        TemplateReaderConfiguration configuration =
-                new TemplateReaderConfiguration(new NamespaceSupport());
-        JSONTemplateReader reader =
-                new JSONTemplateReader(parser.parse(), configuration, parser.getWatchers());
+        TemplateReaderConfiguration configuration = new TemplateReaderConfiguration(new NamespaceSupport());
+        JSONTemplateReader reader = new JSONTemplateReader(parser.parse(), configuration, parser.getWatchers());
         RootBuilder rootBuilder = reader.getRootBuilder();
         assertFalse(rootBuilder.needsReload());
         Resource mergeBase = store.get("simpleBase.json");
@@ -146,7 +139,7 @@ public class JSONMergesTest {
     }
 
     @Test
-    public void testEncodeDynamicMergeKeys() throws JsonProcessingException {
+    public void testEncodeDynamicMergeKeys() throws JacksonException {
         String base =
                 "{\"metadata\":{\"metadata_iso_19139\":{\"title\":\"basetext\",\"href\":\"basehref\",\"type\":\"basetype\"}}}";
         ObjectMapper mapper = new ObjectMapper();

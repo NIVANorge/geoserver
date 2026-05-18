@@ -5,6 +5,8 @@
  */
 package org.geoserver.web.wicket;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.image.Image;
 import org.apache.wicket.markup.html.link.ExternalLink;
@@ -20,6 +22,19 @@ import org.apache.wicket.request.resource.PackageResourceReference;
 @SuppressWarnings("serial")
 public class ImageExternalLink extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(ImageExternalLink.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
     protected Label label;
 
     protected Image image;
@@ -28,10 +43,7 @@ public class ImageExternalLink extends Panel {
 
     /** Constructs the panel with a link containing an image and a label. */
     public ImageExternalLink(
-            final String id,
-            final String href,
-            final PackageResourceReference imageRef,
-            final IModel<String> label) {
+            final String id, final String href, final PackageResourceReference imageRef, final IModel<String> label) {
         super(id);
         add(this.link = new ExternalLink("link", href));
         link.add(this.image = new Image("image", imageRef));
@@ -44,8 +56,8 @@ public class ImageExternalLink extends Panel {
     }
 
     /**
-     * Returns the link wrapped by the {@link ImageExternalLink} panel (allows playing with its
-     * attributes and enable/disable the link)
+     * Returns the link wrapped by the {@link ImageExternalLink} panel (allows playing with its attributes and
+     * enable/disable the link)
      */
     public ExternalLink getLink() {
         return link;

@@ -12,7 +12,7 @@ import org.geotools.coverage.GridSampleDimension;
 @JsonPropertyOrder({"type", "description", "unit"})
 public class Parameter extends CoverageJson {
 
-    class ObservedProperty {
+    static class ObservedProperty {
 
         @JsonProperty(required = true)
         private Map<String, String> label;
@@ -22,11 +22,13 @@ public class Parameter extends CoverageJson {
         }
     }
 
-    class Unit {
+    static class Unit {
 
-        @JsonProperty private Map<String, String> label;
+        @JsonProperty
+        private Map<String, String> label;
 
-        @JsonProperty private String symbol;
+        @JsonProperty
+        private String symbol;
 
         public Unit(javax.measure.Unit<?> dim) {
             symbol = dim.getSymbol();
@@ -36,7 +38,8 @@ public class Parameter extends CoverageJson {
 
     static final String TYPE = "Parameter";
 
-    @JsonProperty private Map<String, String> description;
+    @JsonProperty
+    private Map<String, String> description;
 
     private Unit unit;
 
@@ -46,7 +49,8 @@ public class Parameter extends CoverageJson {
     public Parameter(GridSampleDimension dim) {
         super(TYPE);
 
-        Map<String, String> i18field = CoverageJson.asI18nMap(dim.getDescription().toString());
+        Map<String, String> i18field =
+                CoverageJson.asI18nMap(dim.getDescription().toString());
         description = i18field;
         unit = buildUnit(dim.getUnits());
         observedProperty = new ObservedProperty(i18field);

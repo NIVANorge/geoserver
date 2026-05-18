@@ -4,6 +4,7 @@
  */
 package org.geoserver.gwc.wmts.dimensions;
 
+import static org.geoserver.gwc.wmts.MultiDimensionalExtension.SIDECAR_STORE;
 import static org.geoserver.gwc.wmts.MultiDimensionalExtension.SIDECAR_TYPE;
 
 import java.io.IOException;
@@ -31,10 +32,21 @@ import org.geoserver.gwc.wmts.MultiDimensionalExtension;
 import org.geoserver.gwc.wmts.Tuple;
 import org.geoserver.util.ISO8601Formatter;
 import org.geoserver.wms.WMS;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
+import org.geotools.api.filter.sort.SortBy;
+import org.geotools.api.filter.sort.SortOrder;
+import org.geotools.api.referencing.FactoryException;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.operation.TransformException;
 import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.coverage.util.FeatureUtilities;
-import org.geotools.data.DataAccess;
-import org.geotools.data.FeatureSource;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -52,24 +64,11 @@ import org.geotools.util.Range;
 import org.geotools.util.factory.GeoTools;
 import org.geotools.util.logging.Logging;
 import org.geowebcache.service.OWSException;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.Name;
-import org.opengis.filter.Filter;
-import org.opengis.filter.FilterFactory;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
-import org.opengis.filter.sort.SortBy;
-import org.opengis.filter.sort.SortOrder;
-import org.opengis.referencing.FactoryException;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.operation.TransformException;
-import org.springframework.util.comparator.ComparableComparator;
 
 /** Some utils methods useful to interact with dimensions. */
 public final class DimensionsUtils {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     /** No expansion limit provided */
     public static final int NO_LIMIT = Integer.MIN_VALUE;
@@ -77,15 +76,15 @@ public final class DimensionsUtils {
     public static final Logger LOGGER = Logging.getLogger(DimensionsUtils.class);
 
     /** Helper method that will extract a layer dimensions. */
-    public static List<Dimension> extractDimensions(
-            WMS wms, LayerInfo layerInfo, Set<String> requestedDimensions) throws OWSException {
+    public static List<Dimension> extractDimensions(WMS wms, LayerInfo layerInfo, Set<String> requestedDimensions)
+            throws OWSException {
         ResourceInfo resourceInfo = layerInfo.getResource();
         List<Dimension> result = new ArrayList<>();
-        if (resourceInfo instanceof FeatureTypeInfo) {
-            result = extractDimensions(wms, layerInfo, (FeatureTypeInfo) resourceInfo);
+        if (resourceInfo instanceof FeatureTypeInfo info) {
+            result = extractDimensions(wms, layerInfo, info);
         }
-        if (resourceInfo instanceof CoverageInfo) {
-            result = extractDimensions(wms, layerInfo, (CoverageInfo) resourceInfo);
+        if (resourceInfo instanceof CoverageInfo info) {
+            result = extractDimensions(wms, layerInfo, info);
         }
         if (requestedDimensions != MultiDimensionalExtension.ALL_DOMAINS) {
             Set<String> availableDimensions =
@@ -95,19 +94,13 @@ public final class DimensionsUtils {
             unknownDimensions.remove(MultiDimensionalExtension.SPACE_DIMENSION);
             if (!unknownDimensions.isEmpty()) {
                 String dimensionList =
-                        unknownDimensions.stream()
-                                .map(s -> "'" + s + "'")
-                                .collect(Collectors.joining(", "));
+                        unknownDimensions.stream().map(s -> "'" + s + "'").collect(Collectors.joining(", "));
                 throw new OWSException(
-                        400,
-                        "InvalidParameterValue",
-                        "Domains",
-                        "Unknown dimensions requested " + dimensionList);
+                        400, "InvalidParameterValue", "Domains", "Unknown dimensions requested " + dimensionList);
             } else {
-                result =
-                        result.stream()
-                                .filter(d -> requestedDimensions.contains(d.getDimensionName()))
-                                .collect(Collectors.toList());
+                result = result.stream()
+                        .filter(d -> requestedDimensions.contains(d.getDimensionName()))
+                        .collect(Collectors.toList());
             }
         }
 
@@ -115,45 +108,36 @@ public final class DimensionsUtils {
     }
 
     /** Helper method that will extract the dimensions from a feature type info. */
-    private static List<Dimension> extractDimensions(
-            WMS wms, LayerInfo layerInfo, FeatureTypeInfo typeInfo) {
+    private static List<Dimension> extractDimensions(WMS wms, LayerInfo layerInfo, FeatureTypeInfo typeInfo) {
         List<Dimension> dimensions = new ArrayList<>();
-        DimensionInfo timeDimension =
-                typeInfo.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
+        DimensionInfo timeDimension = typeInfo.getMetadata().get(ResourceInfo.TIME, DimensionInfo.class);
         if (timeDimension != null) {
-            checkAndAddDimension(
-                    dimensions, new VectorTimeDimension(wms, layerInfo, timeDimension));
+            checkAndAddDimension(dimensions, new VectorTimeDimension(wms, layerInfo, timeDimension));
         }
-        DimensionInfo elevationDimension =
-                typeInfo.getMetadata().get(ResourceInfo.ELEVATION, DimensionInfo.class);
+        DimensionInfo elevationDimension = typeInfo.getMetadata().get(ResourceInfo.ELEVATION, DimensionInfo.class);
         if (elevationDimension != null) {
-            checkAndAddDimension(
-                    dimensions, new VectorElevationDimension(wms, layerInfo, elevationDimension));
+            checkAndAddDimension(dimensions, new VectorElevationDimension(wms, layerInfo, elevationDimension));
         }
         return dimensions;
     }
 
     /** Helper method that will extract the dimensions from a coverage type info. */
-    private static List<Dimension> extractDimensions(
-            WMS wms, LayerInfo layerInfo, CoverageInfo typeInfo) {
+    private static List<Dimension> extractDimensions(WMS wms, LayerInfo layerInfo, CoverageInfo typeInfo) {
         List<Dimension> dimensions = new ArrayList<>();
         for (Map.Entry<String, Serializable> entry : typeInfo.getMetadata().entrySet()) {
             String key = entry.getKey();
             Serializable value = entry.getValue();
             if (key.equals(ResourceInfo.TIME)) {
                 DimensionInfo dimensionInfo = Converters.convert(value, DimensionInfo.class);
-                checkAndAddDimension(
-                        dimensions, new RasterTimeDimension(wms, layerInfo, dimensionInfo));
+                checkAndAddDimension(dimensions, new RasterTimeDimension(wms, layerInfo, dimensionInfo));
             } else if (key.equals(ResourceInfo.ELEVATION)) {
                 DimensionInfo dimensionInfo = Converters.convert(value, DimensionInfo.class);
-                checkAndAddDimension(
-                        dimensions, new RasterElevationDimension(wms, layerInfo, dimensionInfo));
+                checkAndAddDimension(dimensions, new RasterElevationDimension(wms, layerInfo, dimensionInfo));
             } else if (key.startsWith(ResourceInfo.CUSTOM_DIMENSION_PREFIX)) {
                 DimensionInfo dimensionInfo = Converters.convert(value, DimensionInfo.class);
                 String dimensionName = key.substring(ResourceInfo.CUSTOM_DIMENSION_PREFIX.length());
                 checkAndAddDimension(
-                        dimensions,
-                        new RasterCustomDimension(wms, layerInfo, dimensionName, dimensionInfo));
+                        dimensions, new RasterCustomDimension(wms, layerInfo, dimensionName, dimensionInfo));
             }
         }
         return dimensions;
@@ -168,13 +152,13 @@ public final class DimensionsUtils {
     }
 
     /**
-     * Helper method that simply returns a string representation of the values of a dimension. Dates
-     * and ranges will have a special handling. This method will take in account the dimension
-     * required presentation.
+     * Helper method that simply returns a string representation of the values of a dimension. Dates and ranges will
+     * have a special handling. This method will take in account the dimension required presentation.
      */
     static List<String> getDomainValuesAsStrings(DomainSummary summary) {
         if (summary.getMin() == null
-                && (summary.getUniqueValues() == null || summary.getUniqueValues().isEmpty())) {
+                && (summary.getUniqueValues() == null
+                        || summary.getUniqueValues().isEmpty())) {
             // no domain values so he just return an empty collection
             return Collections.emptyList();
         }
@@ -189,27 +173,23 @@ public final class DimensionsUtils {
             // the dimension representation for this values require a compact representation
             Object minValue = summary.getMin();
             Object maxValue = summary.getMax();
-            stringValues.add(
-                    formatDomainSimpleValue(minValue) + "--" + formatDomainSimpleValue(maxValue));
+            stringValues.add(formatDomainSimpleValue(minValue) + "--" + formatDomainSimpleValue(maxValue));
         }
         return stringValues;
     }
 
     /** Helper method that converts a domain value to string, range will be correctly handled. */
     public static String formatDomainValue(Object value) {
-        if (value instanceof Range) {
+        if (value instanceof Range range) {
             // this domain value is a range, we use the min and max value
-            Object minValue = ((Range) value).getMinValue();
-            Object maxValue = ((Range) value).getMaxValue();
+            Object minValue = range.getMinValue();
+            Object maxValue = range.getMaxValue();
             return formatDomainSimpleValue(minValue) + "/" + formatDomainSimpleValue(maxValue);
         }
         return formatDomainSimpleValue(value);
     }
 
-    /**
-     * Helper method that converts a domain value to string. Date values are formatted using the
-     * ISO8601 format.
-     */
+    /** Helper method that converts a domain value to string. Date values are formatted using the ISO8601 format. */
     public static String formatDomainSimpleValue(Object value) {
         if (value instanceof Date) {
             // FIXME: is the ISO formatter thread safe or can he be reused multiple times ?
@@ -220,30 +200,27 @@ public final class DimensionsUtils {
     }
 
     /**
-     * Helper method that return the minimum value. If the first value of the tree set is a range
-     * the minimum value of the range is returned.
+     * Helper method that return the minimum value. If the first value of the tree set is a range the minimum value of
+     * the range is returned.
      */
     private static Object getMinValue(List<Comparable> values) {
         Object minValue = values.get(0);
-        if (minValue instanceof Range) {
-            return ((Range) minValue).getMinValue();
+        if (minValue instanceof Range range) {
+            return range.getMinValue();
         }
         return minValue;
     }
 
     /**
-     * Helper method that return the maximum value. If the first value of the tree set is a range
-     * the maximum value of the range is returned.
+     * Helper method that return the maximum value. If the first value of the tree set is a range the maximum value of
+     * the range is returned.
      */
     private static Object getMaxValue(List<Comparable> values) {
         int last = values.size() - 1;
         Object maxValue = values.get(last);
         if (maxValue instanceof Range) {
             values =
-                    values.stream()
-                            .map(c -> ((Range) c).getMaxValue())
-                            .sorted()
-                            .collect(Collectors.toList());
+                    values.stream().map(c -> ((Range) c).getMaxValue()).sorted().collect(Collectors.toList());
             maxValue = values.get(last);
         }
         return maxValue;
@@ -257,13 +234,12 @@ public final class DimensionsUtils {
     }
 
     /**
-     * Helper method that simply extract from a feature collection the values of a specific
-     * attribute removing duplicate values.
+     * Helper method that simply extract from a feature collection the values of a specific attribute removing duplicate
+     * values.
      */
     static Set<Comparable> getValuesWithoutDuplicates(
             String attributeName, String endAttribute, FeatureCollection featureCollection) {
-        Set<Comparable> uniques =
-                getUniqueValues(featureCollection, attributeName, endAttribute, NO_LIMIT);
+        Set<Comparable> uniques = getUniqueValues(featureCollection, attributeName, endAttribute, NO_LIMIT);
 
         // dimension values are dates/numbers/strings, all comparable, native sorting is fine
         Set<Comparable> values = new TreeSet<>(uniques);
@@ -271,10 +247,7 @@ public final class DimensionsUtils {
     }
 
     static Set<Comparable> getUniqueValues(
-            FeatureCollection featureCollection,
-            String attributeName,
-            String endAttributeName,
-            int limit) {
+            FeatureCollection featureCollection, String attributeName, String endAttributeName, int limit) {
         return getUniqueValues(featureCollection, attributeName, endAttributeName, limit, null);
     }
 
@@ -286,10 +259,9 @@ public final class DimensionsUtils {
             int limit,
             SortBy sortBy) {
         // using the unique visitor to remove duplicate values
-        UniqueVisitor uniqueVisitor =
-                endAttributeName != null
-                        ? new UniqueVisitor(attributeName, endAttributeName)
-                        : new UniqueVisitor(attributeName);
+        UniqueVisitor uniqueVisitor = endAttributeName != null
+                ? new UniqueVisitor(attributeName, endAttributeName)
+                : new UniqueVisitor(attributeName);
         uniqueVisitor.setPreserveOrder(true);
         if (limit > 0 && limit < Integer.MAX_VALUE) {
             uniqueVisitor.setMaxFeatures(limit);
@@ -305,8 +277,7 @@ public final class DimensionsUtils {
         return uniqueVisitor.getUnique();
     }
 
-    private static Set<Comparable> resultToComparableSet(
-            CalcResult result, String endAttributeName, SortBy sortBy) {
+    private static Set<Comparable> resultToComparableSet(CalcResult result, String endAttributeName, SortBy sortBy) {
         if (result == CalcResult.NULL_RESULT) return new HashSet<>();
         @SuppressWarnings("unchecked")
         Set<Object> values = result.toSet();
@@ -314,8 +285,7 @@ public final class DimensionsUtils {
         else return toComparableSet(values, endAttributeName, sortBy);
     }
 
-    private static Set<Comparable> toComparableSet(
-            Set<Object> set, String endAttribute, SortBy sortBy) {
+    private static Set<Comparable> toComparableSet(Set<Object> set, String endAttribute, SortBy sortBy) {
         Set<Comparable> resultSet = getTreeSet(sortBy, endAttribute);
         Iterator<Object> objects = set.iterator();
 
@@ -339,8 +309,7 @@ public final class DimensionsUtils {
             if (isSortByEnd(endAttribute, sortBy)) comparator = new SortByEndComparator();
             else comparator = new SortByStartComparator();
 
-            if (sortBy.getSortOrder().equals(SortOrder.DESCENDING))
-                comparator = comparator.reversed();
+            if (sortBy.getSortOrder().equals(SortOrder.DESCENDING)) comparator = comparator.reversed();
 
             resultSet = new TreeSet<>(comparator);
         } else {
@@ -361,9 +330,8 @@ public final class DimensionsUtils {
         // we set the other right?
         if (start == null) start = end;
         else if (end == null) end = start;
-        @SuppressWarnings("unchecked")
-        ComparableRange result =
-                new ComparableRange(Comparable.class, (Comparable) start, (Comparable) end);
+        @SuppressWarnings({"unchecked", "PMD.UseDiamondOperator"})
+        ComparableRange result = new ComparableRange(Comparable.class, (Comparable) start, (Comparable) end);
         return result;
     }
 
@@ -371,8 +339,7 @@ public final class DimensionsUtils {
             String attributeName, String endAttribute, FeatureCollection featureCollection) {
         Map<Aggregate, Comparable> result = new HashMap<>();
         PropertyName minProp = FF.property(attributeName);
-        PropertyName maxProp =
-                endAttribute != null ? FF.property(endAttribute) : FF.property(attributeName);
+        PropertyName maxProp = endAttribute != null ? FF.property(endAttribute) : FF.property(attributeName);
         Aggregate min = Aggregate.MIN;
         Aggregate max = Aggregate.MAX;
         FeatureCalc minCalc = min.create(minProp);
@@ -385,16 +352,12 @@ public final class DimensionsUtils {
             result.put(min, minVal);
             result.put(max, maxVal);
         } catch (IOException e) {
-            throw new RuntimeException(
-                    "Failed to collect summary aggregates on attribute " + attributeName, e);
+            throw new RuntimeException("Failed to collect summary aggregates on attribute " + attributeName, e);
         }
         return result;
     }
 
-    /**
-     * Helper method that extracts a set of aggregates on the given collection and attribute and
-     * returns the results
-     */
+    /** Helper method that extracts a set of aggregates on the given collection and attribute and returns the results */
     static Map<Aggregate, Comparable> getAggregates(
             String attributeName, FeatureCollection featureCollection, Aggregate... aggregates) {
         Map<Aggregate, Comparable> result = new HashMap<>();
@@ -406,24 +369,21 @@ public final class DimensionsUtils {
                 Comparable value = (Comparable) featureCalc.getResult().getValue();
                 result.put(aggregate, value);
             } catch (IOException e) {
-                throw new RuntimeException(
-                        "Failed to collect summary aggregates on attribute " + attributeName, e);
+                throw new RuntimeException("Failed to collect summary aggregates on attribute " + attributeName, e);
             }
         }
         return result;
     }
 
     /**
-     * Helper method that simply extract from a feature collection the values of a specific
-     * attribute keeping duplicate values.
+     * Helper method that simply extract from a feature collection the values of a specific attribute keeping duplicate
+     * values.
      */
-    @SuppressWarnings("unchecked")
-    static List<Comparable> getValuesWithDuplicates(
-            String attributeName, FeatureCollection featureCollection) {
+    static List<Comparable> getValuesWithDuplicates(String attributeName, FeatureCollection featureCollection) {
         return getValuesWithDuplicates(attributeName, null, featureCollection);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked"})
     static List<Comparable> getValuesWithDuplicates(
             String attributeName, String endAttributeName, FeatureCollection featureCollection) {
         // full data values are returned including duplicate values
@@ -441,43 +401,63 @@ public final class DimensionsUtils {
                     values.add((Comparable) attr);
                 }
             }
-            Collections.sort(values, new ComparableComparator());
+            values.sort(Comparator.naturalOrder());
             return values;
         }
     }
 
     /**
-     * Returns the first qualified name matching the given simple name, or throws an exception in
-     * case it's not found
+     * Returns the first qualified name matching the given simple name, or throws an exception in case it's not found
      */
     public static Name getFullName(String name, DataStoreInfo dsi) throws IOException {
         DataAccess<?, ?> da = dsi.getDataStore(null);
         return da.getNames().stream()
                 .filter(n -> name.equals(n.getLocalPart()))
                 .findFirst()
-                .orElseThrow(
-                        () ->
-                                new IllegalArgumentException(
-                                        "Could not find type "
-                                                + name
-                                                + " inside store "
-                                                + dsi.getName()));
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Could not find type " + name + " inside store " + dsi.getName()));
     }
 
     /**
-     * Returns the features for the given resource info, taking into account the eventual sidecar
-     * feature type for fast dimensional queries
+     * Returns the features for the given resource info, taking into account the eventual sidecar feature type for fast
+     * dimensional queries
      */
     public static FeatureSource getFeatures(ResourceInfo resource) throws IOException {
-        String sidecar = resource.getMetadata().get(SIDECAR_TYPE, String.class);
+        String sidecarType = resource.getMetadata().get(SIDECAR_TYPE, String.class);
         // sidecar table available?
-        if (sidecar != null) {
-            DataStoreInfo dsi = (DataStoreInfo) resource.getStore();
-            Name name = getFullName(sidecar, dsi);
+        if (sidecarType != null) {
+            DataStoreInfo dsi = getSidecarStore(resource);
+            Name name = getFullName(sidecarType, dsi);
             return dsi.getDataStore(null).getFeatureSource(name);
         }
         // simple case
         return ((FeatureTypeInfo) resource).getFeatureSource(null, GeoTools.getDefaultHints());
+    }
+
+    /** Returns the data store configured in SIDECAR_STORE, or the resource store if no sidecar is configured */
+    private static DataStoreInfo getSidecarStore(ResourceInfo resource) {
+        String sidecarStore = resource.getMetadata().get(SIDECAR_STORE, String.class);
+        if (sidecarStore != null) {
+            return getStoreByName(resource, sidecarStore);
+        }
+        return (DataStoreInfo) resource.getStore();
+    }
+
+    /**
+     * Returns the data store with the given name, taking into account the workspace prefix if present, otherwise
+     * assuming the same workspace as the resource
+     */
+    public static DataStoreInfo getStoreByName(ResourceInfo resource, String fullStoreName) {
+        String workspace, storeName;
+        int separatorIdx = fullStoreName.indexOf(":");
+        if (separatorIdx != -1) {
+            storeName = fullStoreName.substring(separatorIdx + 1);
+            workspace = fullStoreName.substring(0, separatorIdx);
+        } else {
+            storeName = fullStoreName;
+            workspace = resource.getStore().getWorkspace().getName();
+        }
+        return resource.getCatalog().getDataStoreByName(workspace, storeName);
     }
 
     /** Compute the resource bounds based on the provided filter */
@@ -485,9 +465,8 @@ public final class DimensionsUtils {
         try {
             if (resource instanceof FeatureTypeInfo) {
                 return getFeatures(resource).getFeatures(filter).getBounds();
-            } else if (resource instanceof CoverageInfo) {
-                CoverageDimensionsReader reader =
-                        CoverageDimensionsReader.instantiateFrom((CoverageInfo) resource);
+            } else if (resource instanceof CoverageInfo info) {
+                CoverageDimensionsReader reader = CoverageDimensionsReader.instantiateFrom(info);
                 return reader.getBounds(filter);
             } else {
                 // for all other resource types (WMS/WMTS cascading) we cannot do anything
@@ -499,9 +478,7 @@ public final class DimensionsUtils {
         }
     }
 
-    /**
-     * Builds a bounding box filter, or returns {@link Filter#INCLUDE} if the bounding box is null
-     */
+    /** Builds a bounding box filter, or returns {@link Filter#INCLUDE} if the bounding box is null */
     public static Filter getBoundingBoxFilter(
             ResourceInfo resource, ReferencedEnvelope boundingBox, FilterFactory filterFactory)
             throws TransformException, IOException, SchemaException, FactoryException {
@@ -511,20 +488,16 @@ public final class DimensionsUtils {
         }
 
         // do we need to query multiple areas?
-        ProjectionHandler handler =
-                ProjectionHandlerFinder.getHandler(
-                        boundingBox,
-                        getSchemaForResource(resource).getCoordinateReferenceSystem(),
-                        true);
+        ProjectionHandler handler = ProjectionHandlerFinder.getHandler(
+                boundingBox, getSchemaForResource(resource).getCoordinateReferenceSystem(), true);
         if (handler == null) {
             return toBoundingBoxFilter(boundingBox, filterFactory, geometryName);
         }
 
         List<ReferencedEnvelope> boxes = handler.getQueryEnvelopes();
-        List<Filter> filters =
-                boxes.stream()
-                        .map(re -> toBoundingBoxFilter(re, filterFactory, geometryName))
-                        .collect(Collectors.toList());
+        List<Filter> filters = boxes.stream()
+                .map(re -> toBoundingBoxFilter(re, filterFactory, geometryName))
+                .collect(Collectors.toList());
         if (filters.size() == 1) {
             return filters.get(0);
         } else if (filters.size() > 1) {
@@ -541,17 +514,14 @@ public final class DimensionsUtils {
     private static FeatureType getSchemaForResource(ResourceInfo resource)
             throws IOException, TransformException, SchemaException {
         FeatureType schema;
-        if (resource instanceof FeatureTypeInfo) {
-            schema = ((FeatureTypeInfo) resource).getFeatureType();
-        } else if (resource instanceof CoverageInfo) {
-            GridCoverage2DReader reader =
-                    (GridCoverage2DReader)
-                            ((CoverageInfo) resource).getGridCoverageReader(null, null);
+        if (resource instanceof FeatureTypeInfo info1) {
+            schema = info1.getFeatureType();
+        } else if (resource instanceof CoverageInfo info) {
+            GridCoverage2DReader reader = (GridCoverage2DReader) info.getGridCoverageReader(null, null);
             schema = FeatureUtilities.wrapGridCoverageReader(reader, null).getSchema();
         } else {
             throw new IllegalArgumentException(
-                    "Did not expect this resource, only vector and raster layers are supported: "
-                            + resource);
+                    "Did not expect this resource, only vector and raster layers are supported: " + resource);
         }
 
         return schema;
@@ -572,21 +542,15 @@ public final class DimensionsUtils {
 
     private static String getGeometryPropertyName(ResourceInfo resource) {
         try {
-            String geometryName =
-                    ""; // the default geometry, unfortunately does not work in some cases
-            if (resource instanceof FeatureTypeInfo) {
-                geometryName =
-                        ((FeatureTypeInfo) resource)
-                                .getFeatureType()
-                                .getGeometryDescriptor()
-                                .getLocalName();
+            String geometryName = ""; // the default geometry, unfortunately does not work in some cases
+            if (resource instanceof FeatureTypeInfo info) {
+                geometryName = info.getFeatureType().getGeometryDescriptor().getLocalName();
             } else if (resource instanceof CoverageInfo) {
                 return "";
             }
             return geometryName;
         } catch (IOException e) {
-            throw new RuntimeException(
-                    "Failed to gather feature type information for " + resource, e);
+            throw new RuntimeException("Failed to gather feature type information for " + resource, e);
         }
     }
 
@@ -594,21 +558,17 @@ public final class DimensionsUtils {
         if (resource instanceof FeatureTypeInfo) {
             DimensionInfo di = dimension.getDimensionInfo();
             return Tuple.tuple(di.getAttribute(), di.getEndAttribute());
-        } else if (resource instanceof CoverageInfo) {
-            CoverageDimensionsReader reader =
-                    CoverageDimensionsReader.instantiateFrom((CoverageInfo) resource);
+        } else if (resource instanceof CoverageInfo info) {
+            CoverageDimensionsReader reader = CoverageDimensionsReader.instantiateFrom(info);
             String dimensionName = dimension.getDimensionName();
             Tuple<String, String> attributes = reader.getDimensionAttributesNames(dimensionName);
             if (attributes.first == null) {
-                throw new RuntimeException(
-                        String.format(
-                                "Could not found start attribute name for dimension '%s' in raster '%s'.",
-                                dimensionName, resource.prefixedName()));
+                throw new RuntimeException("Could not found start attribute name for dimension '%s' in raster '%s'."
+                        .formatted(dimensionName, resource.prefixedName()));
             }
             return attributes;
         } else {
-            throw new RuntimeException(
-                    "Cannot get restriction attributes on this resource: " + resource);
+            throw new RuntimeException("Cannot get restriction attributes on this resource: " + resource);
         }
     }
 
@@ -617,9 +577,7 @@ public final class DimensionsUtils {
         @Override
         @SuppressWarnings("unchecked")
         public int compare(Comparable o1, Comparable o2) {
-            if (o1 instanceof ComparableRange && o2 instanceof ComparableRange) {
-                ComparableRange comp1 = (ComparableRange) o1;
-                ComparableRange comp2 = (ComparableRange) o2;
+            if (o1 instanceof ComparableRange comp1 && o2 instanceof ComparableRange comp2) {
                 int result = comp1.getMaxValue().compareTo(comp2.getMaxValue());
                 if (result == 0) result = comp1.getMinValue().compareTo(comp2.getMinValue());
                 return result;
@@ -633,9 +591,7 @@ public final class DimensionsUtils {
         @Override
         @SuppressWarnings("unchecked")
         public int compare(Comparable o1, Comparable o2) {
-            if (o1 instanceof ComparableRange && o2 instanceof ComparableRange) {
-                ComparableRange comp1 = (ComparableRange) o1;
-                ComparableRange comp2 = (ComparableRange) o2;
+            if (o1 instanceof ComparableRange comp1 && o2 instanceof ComparableRange comp2) {
                 int result = comp1.getMinValue().compareTo(comp2.getMinValue());
                 if (result == 0) result = comp1.getMaxValue().compareTo(comp2.getMaxValue());
                 return result;

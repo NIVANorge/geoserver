@@ -5,6 +5,7 @@
 package org.geoserver.backuprestore;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -18,13 +19,12 @@ import org.geoserver.platform.resource.Paths;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.platform.resource.Resources;
 import org.geotools.util.factory.Hints;
-import org.junit.Before;
 import org.junit.Test;
 import org.springframework.batch.core.BatchStatus;
 
 public class GwcBackupTest extends BackupRestoreTestSupport {
 
-    @Before
+    @Override
     public void beforeTest() throws InterruptedException {
         ensureCleanedQueues();
 
@@ -39,32 +39,25 @@ public class GwcBackupTest extends BackupRestoreTestSupport {
         BackupUtils.dir(dd.get(Paths.BASE), "foo/folder");
         assertTrue(Resources.exists(dd.get("foo/folder")));
 
-        Hints hints = new Hints(new HashMap(3));
-        hints.add(
-                new Hints(
-                        new Hints.OptionKey(Backup.PARAM_BEST_EFFORT_MODE),
-                        Backup.PARAM_BEST_EFFORT_MODE));
+        Hints hints = new Hints(new HashMap<>(3));
+        hints.add(new Hints(new Hints.OptionKey(Backup.PARAM_BEST_EFFORT_MODE), Backup.PARAM_BEST_EFFORT_MODE));
         hints.add(new Hints(new Hints.OptionKey(Backup.PARAM_SKIP_GWC), Backup.PARAM_SKIP_GWC));
 
-        Resource backupFile =
-                Files.asResource(File.createTempFile("testRunSpringBatchBackupGWC", ".zip"));
+        Resource backupFile = Files.asResource(File.createTempFile("testRunSpringBatchBackupGWC", ".zip"));
         if (Resources.exists(backupFile)) {
             assertTrue(backupFile.delete());
         }
-        BackupExecutionAdapter backupExecution =
-                backupFacade.runBackupAsync(backupFile, true, null, null, null, hints);
+        BackupExecutionAdapter backupExecution = backupFacade.runBackupAsync(backupFile, true, null, null, null, hints);
 
         // Wait a bit
         Thread.sleep(100);
 
         assertNotNull(backupFacade.getBackupExecutions());
-        assertTrue(!backupFacade.getBackupExecutions().isEmpty());
+        assertFalse(backupFacade.getBackupExecutions().isEmpty());
         assertNotNull(backupExecution);
 
         int cnt = 0;
-        while (cnt < 100
-                && (backupExecution.getStatus() != BatchStatus.COMPLETED
-                        || backupExecution.isRunning())) {
+        while (cnt < 100 && (backupExecution.getStatus() != BatchStatus.COMPLETED || backupExecution.isRunning())) {
             Thread.sleep(100);
             cnt++;
 
@@ -80,7 +73,7 @@ public class GwcBackupTest extends BackupRestoreTestSupport {
             }
         }
 
-        assertEquals(backupExecution.getStatus(), BatchStatus.COMPLETED);
+        assertEquals(BatchStatus.COMPLETED, backupExecution.getStatus());
 
         assertTrue(Resources.exists(backupFile));
         Resource srcDir = BackupUtils.dir(dd.get(Paths.BASE), "WEB-INF");

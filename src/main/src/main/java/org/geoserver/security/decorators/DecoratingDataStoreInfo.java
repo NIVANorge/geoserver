@@ -14,21 +14,20 @@ import org.geoserver.catalog.CatalogVisitor;
 import org.geoserver.catalog.DataStoreInfo;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.WorkspaceInfo;
-import org.geotools.data.DataAccess;
+import org.geotools.api.data.DataAccess;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.util.decorate.AbstractDecorator;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.util.ProgressListener;
 
 /**
- * Delegates every method to the wrapped {@link DataStoreInfo}. Subclasses will override selected
- * methods to perform their "decoration" job
+ * Delegates every method to the wrapped {@link DataStoreInfo}. Subclasses will override selected methods to perform
+ * their "decoration" job
  *
  * @author Andrea Aime
  */
 @SuppressWarnings("serial")
-public class DecoratingDataStoreInfo extends AbstractDecorator<DataStoreInfo>
-        implements DataStoreInfo {
+public class DecoratingDataStoreInfo extends AbstractDecorator<DataStoreInfo> implements DataStoreInfo {
 
     public DecoratingDataStoreInfo(DataStoreInfo delegate) {
         super(delegate);
@@ -45,8 +44,8 @@ public class DecoratingDataStoreInfo extends AbstractDecorator<DataStoreInfo>
     }
 
     @Override
-    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(
-            ProgressListener listener) throws IOException {
+    public DataAccess<? extends FeatureType, ? extends Feature> getDataStore(ProgressListener listener)
+            throws IOException {
         return delegate.getDataStore(listener);
     }
 
@@ -158,5 +157,15 @@ public class DecoratingDataStoreInfo extends AbstractDecorator<DataStoreInfo>
     @Override
     public void setDisableOnConnFailure(boolean disableOnConnFailure) {
         delegate.setDisableOnConnFailure(disableOnConnFailure);
+    }
+
+    @Override
+    public void setModifiedBy(String userName) {
+        delegate.setModifiedBy(userName);
+    }
+
+    @Override
+    public String getModifiedBy() {
+        return delegate.getModifiedBy();
     }
 }

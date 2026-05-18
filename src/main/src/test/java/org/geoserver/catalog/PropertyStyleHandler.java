@@ -11,23 +11,23 @@ import java.io.Reader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.style.FeatureTypeStyle;
+import org.geotools.api.style.LineSymbolizer;
+import org.geotools.api.style.Mark;
+import org.geotools.api.style.PointSymbolizer;
+import org.geotools.api.style.PolygonSymbolizer;
+import org.geotools.api.style.RasterSymbolizer;
+import org.geotools.api.style.ResourceLocator;
+import org.geotools.api.style.Rule;
+import org.geotools.api.style.Style;
+import org.geotools.api.style.StyleFactory;
+import org.geotools.api.style.StyledLayerDescriptor;
+import org.geotools.api.style.Symbolizer;
+import org.geotools.api.style.UserLayer;
 import org.geotools.factory.CommonFactoryFinder;
-import org.geotools.styling.FeatureTypeStyle;
-import org.geotools.styling.LineSymbolizer;
-import org.geotools.styling.Mark;
-import org.geotools.styling.PointSymbolizer;
-import org.geotools.styling.PolygonSymbolizer;
-import org.geotools.styling.RasterSymbolizer;
-import org.geotools.styling.ResourceLocator;
-import org.geotools.styling.Rule;
 import org.geotools.styling.SLD;
-import org.geotools.styling.Style;
-import org.geotools.styling.StyleFactory;
-import org.geotools.styling.StyledLayerDescriptor;
-import org.geotools.styling.Symbolizer;
-import org.geotools.styling.UserLayer;
 import org.geotools.util.Version;
-import org.opengis.filter.FilterFactory;
 import org.xml.sax.EntityResolver;
 
 /** Test style handler based on properties format. */
@@ -57,10 +57,7 @@ public class PropertyStyleHandler extends StyleHandler {
 
     @Override
     public StyledLayerDescriptor parse(
-            Object input,
-            Version version,
-            ResourceLocator resourceLocator,
-            EntityResolver enityResolver)
+            Object input, Version version, ResourceLocator resourceLocator, EntityResolver enityResolver)
             throws IOException {
         Properties p = new Properties();
         try (Reader reader = toReader(input)) {
@@ -73,9 +70,7 @@ public class PropertyStyleHandler extends StyleHandler {
         String type = p.getProperty("type");
         if ("line".equalsIgnoreCase(type)) {
             LineSymbolizer ls = styleFactory.createLineSymbolizer();
-            ls.setStroke(
-                    styleFactory.createStroke(
-                            filterFactory.literal(color), filterFactory.literal(2)));
+            ls.setStroke(styleFactory.createStroke(filterFactory.literal(color), filterFactory.literal(2)));
 
             sym = ls;
         } else if ("polygon".equalsIgnoreCase(type)) {
@@ -126,8 +121,7 @@ public class PropertyStyleHandler extends StyleHandler {
     }
 
     @Override
-    public void encode(
-            StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
+    public void encode(StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
             throws IOException {
         Properties props = new Properties();
         for (Symbolizer sym : SLD.symbolizers(Styles.style(sld))) {
@@ -146,8 +140,7 @@ public class PropertyStyleHandler extends StyleHandler {
     }
 
     @Override
-    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver)
-            throws IOException {
+    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver) throws IOException {
         return Collections.emptyList();
     }
 

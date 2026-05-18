@@ -24,10 +24,10 @@ import org.geoserver.ows.URLMangler.URLType;
 import org.geoserver.ows.util.OwsUtils;
 import org.geoserver.ows.util.ResponseUtils;
 import org.geoserver.platform.ServiceException;
+import org.geotools.api.feature.type.Name;
+import org.geotools.api.util.InternationalString;
 import org.geotools.feature.NameImpl;
 import org.geotools.xsd.EMFUtils;
-import org.opengis.feature.type.Name;
-import org.opengis.util.InternationalString;
 
 public class Ows11Util {
 
@@ -105,8 +105,7 @@ public class Ows11Util {
         return type;
     }
 
-    public static ExceptionReportType exceptionReport(
-            ServiceException exception, boolean verboseExceptions) {
+    public static ExceptionReportType exceptionReport(ServiceException exception, boolean verboseExceptions) {
         return exceptionReport(exception, verboseExceptions, null);
     }
 
@@ -153,8 +152,7 @@ public class Ows11Util {
     public static DCPType dcp(String service, EObject request) {
         String baseUrl = (String) EMFUtils.get(request, "baseUrl");
         if (baseUrl == null) {
-            throw new IllegalArgumentException(
-                    "Request object" + request + " has no 'baseUrl' property.");
+            throw new IllegalArgumentException("Request object" + request + " has no 'baseUrl' property.");
         }
         String href = ResponseUtils.buildURL(baseUrl, service, new HashMap<>(), URLType.SERVICE);
 

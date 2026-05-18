@@ -1,21 +1,14 @@
+<?xml version="1.0"?>
 <html xmlns:wicket="http://wicket.apache.org/">
-<wicket:head>
- <style>
- .refresh-link {
-      padding: 2px 0px 2px 20px;
-      background: transparent no-repeat left center;
-      background-image: url(resources/org.geoserver.importer.web.JobQueuePanel/arrow_refresh.png);
-    }
- 
- </style>
-</wicket:head>
-<body>
-<wicket:panel>
-  <a href="#" wicket:id="refresh" class="refresh-link float-end">
-    <wicket:message key="refresh"></wicket:message>
-  </a>
-  <div wicket:id="table">
+  <body>
+    <wicket:panel>
+      <div class="gs-panel-JobQueuePanel">
+        <a href="#" wicket:id="refresh" class="refresh-link float-end">
+          <wicket:message key="refresh"/>
+        </a>
+        <div wicket:id="table">
   </div>
-</wicket:panel>
-</body>
+      </div>
+    </wicket:panel>
+  </body>
 </html>

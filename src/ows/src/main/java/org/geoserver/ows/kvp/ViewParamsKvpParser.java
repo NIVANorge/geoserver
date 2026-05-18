@@ -5,11 +5,11 @@
  */
 package org.geoserver.ows.kvp;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.geoserver.ows.Dispatcher;
 import org.geoserver.ows.KvpParser;
@@ -62,31 +62,27 @@ public class ViewParamsKvpParser extends KvpParser implements ApplicationContext
         return formatParsers.stream()
                 .filter(fp -> fp.getIdentifier().equals(formatParserParameterValue))
                 .findFirst()
-                .orElseThrow(
-                        () ->
-                                new ServiceException(
-                                        "Selected viewParamsFormat is not available as implementation on GeoServer. "
-                                                + "viewParamsFormat value is '"
-                                                + getRequestFormatParserParameterValue()
-                                                + "'",
-                                        ServiceException.INVALID_PARAMETER_VALUE,
-                                        "viewParamsFormat"));
+                .orElseThrow(() -> new ServiceException(
+                        "Selected viewParamsFormat is not available as implementation on GeoServer. "
+                                + "viewParamsFormat value is '"
+                                + getRequestFormatParserParameterValue()
+                                + "'",
+                        ServiceException.INVALID_PARAMETER_VALUE,
+                        "viewParamsFormat"));
     }
 
     private String getFormatParserParameterValue() {
         String formatParserParameterValue = getRequestFormatParserParameterValue();
         // set the default if not other implementation found
         if (StringUtils.isBlank(formatParserParameterValue)) {
-            formatParserParameterValue =
-                    CharSeparatedViewParamsFormatParser.CHAR_SEPARATED_IDENTIFIER;
+            formatParserParameterValue = CharSeparatedViewParamsFormatParser.CHAR_SEPARATED_IDENTIFIER;
         }
         return formatParserParameterValue;
     }
 
     private String getRequestFormatParserParameterValue() {
         Request request = Dispatcher.REQUEST.get();
-        if (request == null || request.getRawKvp() == null)
-            return getSerlvetRequestFormatParserParameterValue();
+        if (request == null || request.getRawKvp() == null) return getSerlvetRequestFormatParserParameterValue();
         Map<String, Object> rawKvp = request.getRawKvp();
         if (mapContainsKey(VIEW_PARAMS_FORMAT_PARAMETER_NAME, rawKvp)) {
             return (String) mapGet(VIEW_PARAMS_FORMAT_PARAMETER_NAME, rawKvp);

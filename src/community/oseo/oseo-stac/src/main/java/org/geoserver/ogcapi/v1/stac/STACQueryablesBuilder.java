@@ -25,13 +25,13 @@ import org.geoserver.ogcapi.AttributeType;
 import org.geoserver.ogcapi.Queryables;
 import org.geoserver.ogcapi.QueryablesBuilder;
 import org.geoserver.opensearch.eo.OSEOInfo;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.PropertyDescriptor;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.Expression;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.filter.visitor.ExpressionTypeVisitor;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.PropertyDescriptor;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.Expression;
 
 public class STACQueryablesBuilder {
 
@@ -47,7 +47,7 @@ public class STACQueryablesBuilder {
     static final String DEFINED_QUERYABLES_PROPERTY = "queryables";
     private static Set<String> SKIP_PROPERTIES = new HashSet<>();
 
-    private static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    private static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
     public static final String ID = "ID";
     public static final String COLLECTION = "Collection";
     public static final String GEOMETRY = "Geometry";
@@ -104,27 +104,22 @@ public class STACQueryablesBuilder {
         Map<String, Schema> properties = this.queryables.getProperties();
         if (features != null) {
             Set<String> preconfiguredQueryables = getPreconfiguredQueryables();
-            BiConsumer<String, DynamicValueBuilder> collector =
-                    (path, vb) -> {
-                        if (SKIP_PROPERTIES.contains(path)) return;
-                        // skip property if not among the preconfigured ones
-                        if (preconfiguredQueryables != null
-                                && !preconfiguredQueryables.contains(path)) return;
-                        properties.put(path, getSchema(vb));
-                    };
+            BiConsumer<String, DynamicValueBuilder> collector = (path, vb) -> {
+                if (SKIP_PROPERTIES.contains(path)) return;
+                // skip property if not among the preconfigured ones
+                if (preconfiguredQueryables != null && !preconfiguredQueryables.contains(path)) return;
+                properties.put(path, getSchema(vb));
+            };
 
             // lookup the queryables among the properties
             AbstractTemplateBuilder builder = lookupBuilder(features, "properties");
             if (builder != null) {
-                TemplatePropertyVisitor visitor =
-                        new TemplatePropertyVisitor(builder, sampleFeature, collector);
+                TemplatePropertyVisitor visitor = new TemplatePropertyVisitor(builder, sampleFeature, collector);
                 visitor.visit();
             }
             // if any pre-configured queryable was missed, look at the top level propeties too
-            if (preconfiguredQueryables != null
-                    && properties.size() < preconfiguredQueryables.size()) {
-                TemplatePropertyVisitor visitor =
-                        new TemplatePropertyVisitor(features, sampleFeature, collector);
+            if (preconfiguredQueryables != null && properties.size() < preconfiguredQueryables.size()) {
+                TemplatePropertyVisitor visitor = new TemplatePropertyVisitor(features, sampleFeature, collector);
                 visitor.visit();
             }
         }
@@ -148,9 +143,9 @@ public class STACQueryablesBuilder {
         // if there is a collection, then we use the pre-configured ones only if
         // there is a setting for them, otherwise return all of them, skipping the global ones too
         if (collection != null) {
-            Optional<String[]> collectionQueryables =
-                    Optional.ofNullable(collection.getProperty(DEFINED_QUERYABLES_PROPERTY))
-                            .map(p -> (String[]) p.getValue());
+            Optional<String[]> collectionQueryables = Optional.ofNullable(
+                            collection.getProperty(DEFINED_QUERYABLES_PROPERTY))
+                    .map(p -> (String[]) p.getValue());
             if (collectionQueryables.isPresent()) {
                 if (result == null) result = new LinkedHashSet<>();
                 result.addAll(Arrays.asList(collectionQueryables.get()));
@@ -163,8 +158,7 @@ public class STACQueryablesBuilder {
     }
 
     /**
-     * Returns a map between the path names used for queryables, and the expression backing them in
-     * the database
+     * Returns a map between the path names used for queryables, and the expression backing them in the database
      *
      * @return
      * @throws IOException
@@ -174,23 +168,20 @@ public class STACQueryablesBuilder {
         Map<String, Expression> expressions = new HashMap<>();
         if (features != null) {
             Set<String> preconfigured = getPreconfiguredQueryables();
-            BiConsumer<String, DynamicValueBuilder> collector =
-                    (path, vb) -> {
-                        if (SKIP_PROPERTIES.contains(path)) return;
-                        if (preconfigured != null && !preconfigured.contains(path)) return;
-                        expressions.put(path, vb.getXpath() == null ? vb.getCql() : vb.getXpath());
-                    };
+            BiConsumer<String, DynamicValueBuilder> collector = (path, vb) -> {
+                if (SKIP_PROPERTIES.contains(path)) return;
+                if (preconfigured != null && !preconfigured.contains(path)) return;
+                expressions.put(path, vb.getXpath() == null ? vb.getCql() : vb.getXpath());
+            };
 
             AbstractTemplateBuilder properties = lookupBuilder(features, "properties");
             if (properties != null) {
-                TemplatePropertyVisitor visitor =
-                        new TemplatePropertyVisitor(properties, sampleFeature, collector);
+                TemplatePropertyVisitor visitor = new TemplatePropertyVisitor(properties, sampleFeature, collector);
                 visitor.visit();
             }
             // if missing queryables, look up the top level as well
             if (preconfigured != null && preconfigured.size() > expressions.size()) {
-                TemplatePropertyVisitor visitor =
-                        new TemplatePropertyVisitor(features, sampleFeature, collector);
+                TemplatePropertyVisitor visitor = new TemplatePropertyVisitor(features, sampleFeature, collector);
                 visitor.visit();
             }
         }
@@ -200,17 +191,17 @@ public class STACQueryablesBuilder {
         return expressions;
     }
 
-    private Schema<?> getSchema(String description, String ref) {
-        Schema schema = new Schema();
+    private Schema<?> getSchema(String title, String ref) {
+        Schema<?> schema = new Schema<>();
         schema.set$ref(ref);
-        schema.setDescription(description);
+        schema.setTitle(title);
+        schema.setDescription(title);
         return schema;
     }
 
     private AbstractTemplateBuilder lookupBuilder(TemplateBuilder parent, String key) {
         for (TemplateBuilder child : parent.getChildren()) {
-            if (child instanceof AbstractTemplateBuilder) {
-                AbstractTemplateBuilder atb = (AbstractTemplateBuilder) child;
+            if (child instanceof AbstractTemplateBuilder atb) {
                 if (key.equals(atb.getKey(null))) {
                     return atb;
                 } else if (atb instanceof CompositeBuilder && atb.getKey(null) == null) {
@@ -227,8 +218,7 @@ public class STACQueryablesBuilder {
             binding = (Class<?>) db.getEncodingHints().get(JSON_PROPERTY_TYPE);
         } else if (db.getXpath() != null) {
             Object result = db.getXpath().evaluate(itemsSchema);
-            if (result instanceof PropertyDescriptor) {
-                PropertyDescriptor pd = (PropertyDescriptor) result;
+            if (result instanceof PropertyDescriptor pd) {
                 binding = pd.getType().getBinding();
             }
         } else if (db.getCql() != null) {
@@ -244,7 +234,7 @@ public class STACQueryablesBuilder {
     }
 
     private Schema getGenericSchema() {
-        Schema schema = new Schema();
+        Schema<?> schema = new Schema<>();
         schema.setType(AttributeType.STRING.getType());
         schema.setDescription(AttributeType.STRING.getType());
         return schema;

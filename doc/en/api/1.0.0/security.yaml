@@ -6,8 +6,8 @@ info:
   description: The Security area shows access rules and other configuration for the security subsystem
   contact:
     name: GeoServer
-    email: 'geoserver-users@sourceforge.net'
-    url: 'http://geoserver.org/comm/'
+    email: 'geoserver-users@osgeo.org'
+    url: 'https://geoserver.org/comm/'
 host: localhost:8080
 basePath: /geoserver/rest
 
@@ -198,6 +198,41 @@ paths:
         405:
           description: Method Not Allowed
 
+  /rest/security/acl/catalog/reload:
+    get:
+      operationId: getReload
+      tags:
+       - "Reload"
+      description: Invalid. Use PUT or POST to reload the catalog and configuation.
+      responses:
+        405:
+          description: Method Not Allowed
+    put:
+      operationId: putReload
+      tags:
+       - "Reload"
+      summary: Reload the configuration from disk, and reset all caches.
+      description: Reloads the GeoServer Security Manager catalog and configuration from disk. This operation is used in cases where an external tool has modified the on-disk configuration.
+      responses:
+        200:
+          description: OK
+    post:
+      operationId: postReload
+      tags:
+       - "Reload"
+      summary: Reload the configuration from disk, and reset all caches.
+      description: Reloads the GeoServer Security Manager catalog and configuration from disk. This operation is used in cases where an external tool has modified the on-disk configuration.
+      responses:
+        200:
+          description: OK
+    delete:
+      operationId: deleteReload
+      tags:
+       - "Reload"
+      description: Invalid. Use PUT or POST to reload the catalog and configuation.
+      responses:
+        405:
+          description: Method Not Allowed
 
   /rest/security/acl/layers:
 

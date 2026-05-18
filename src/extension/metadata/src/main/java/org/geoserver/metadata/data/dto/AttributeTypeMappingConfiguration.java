@@ -4,16 +4,16 @@
  */
 package org.geoserver.metadata.data.dto;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.io.Serializable;
 import java.util.List;
 import org.geoserver.metadata.data.dto.impl.AttributeTypeMappingConfigurationImpl;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * Object that matches yaml structure.
  *
- * <p>The part describes one mapping for an object. The object mapping is made from a list of
- * mappings for each attribute.
+ * <p>The part describes one mapping for an object. The object mapping is made from a list of mappings for each
+ * attribute.
  *
  * @author Timothy De Bock - timothy.debock.github@gmail.com
  */

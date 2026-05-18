@@ -14,8 +14,8 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
-import org.geotools.styling.ResourceLocator;
-import org.geotools.styling.StyledLayerDescriptor;
+import org.geotools.api.style.ResourceLocator;
+import org.geotools.api.style.StyledLayerDescriptor;
 import org.geotools.util.Version;
 import org.geotools.util.logging.Logging;
 import org.xml.sax.EntityResolver;
@@ -34,7 +34,7 @@ public class SLDPackageHandler extends StyleHandler {
 
     private SLDHandler sldHandler;
 
-    protected SLDPackageHandler(SLDHandler sldHandler) {
+    public SLDPackageHandler(SLDHandler sldHandler) {
         super("ZIP", FORMAT);
         this.sldHandler = sldHandler;
     }
@@ -46,10 +46,7 @@ public class SLDPackageHandler extends StyleHandler {
 
     @Override
     public StyledLayerDescriptor parse(
-            Object input,
-            Version version,
-            ResourceLocator resourceLocator,
-            EntityResolver entityResolver)
+            Object input, Version version, ResourceLocator resourceLocator, EntityResolver entityResolver)
             throws IOException {
         File sldFile = null;
         try {
@@ -61,15 +58,13 @@ public class SLDPackageHandler extends StyleHandler {
     }
 
     @Override
-    public void encode(
-            StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
+    public void encode(StyledLayerDescriptor sld, Version version, boolean pretty, OutputStream output)
             throws IOException {
         sldHandler.encode(sld, version, pretty, output);
     }
 
     @Override
-    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver)
-            throws IOException {
+    public List<Exception> validate(Object input, Version version, EntityResolver entityResolver) throws IOException {
         File sldFile = null;
         try {
             sldFile = unzipSldPackage(input);

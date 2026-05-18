@@ -7,8 +7,8 @@ package org.geoserver.params.extractor;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
 import org.geoserver.config.GeoServerDataDirectory;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,14 +20,13 @@ public class FilterTest extends TestSupport {
     @Before
     public void setUp() {
         filterConfig = new MockFilterConfig();
-        Rule ruleA =
-                new RuleBuilder()
-                        .withId("0")
-                        .withActivated(true)
-                        .withPosition(3)
-                        .withParameter("cql_filter")
-                        .withTransform("CFCC='$2'")
-                        .build();
+        Rule ruleA = new RuleBuilder()
+                .withId("0")
+                .withActivated(true)
+                .withPosition(3)
+                .withParameter("cql_filter")
+                .withTransform("CFCC='$2'")
+                .build();
         RulesDao.saveOrUpdateRule(ruleA);
 
         Filter.USE_AS_SERVLET_FILTER = false;
@@ -42,8 +41,7 @@ public class FilterTest extends TestSupport {
 
     @Test
     public void testAsSpringFilter() throws Exception {
-        GeoServerDataDirectory dataDirectory =
-                APPLICATION_CONTEXT.getBean(GeoServerDataDirectory.class);
+        GeoServerDataDirectory dataDirectory = APPLICATION_CONTEXT.getBean(GeoServerDataDirectory.class);
         Filter filter = new Filter(dataDirectory);
         assertTrue(filter.isEnabled());
     }
@@ -53,8 +51,7 @@ public class FilterTest extends TestSupport {
         Filter servletFilter = new Filter();
         servletFilter.init(filterConfig);
 
-        GeoServerDataDirectory dataDirectory =
-                APPLICATION_CONTEXT.getBean(GeoServerDataDirectory.class);
+        GeoServerDataDirectory dataDirectory = APPLICATION_CONTEXT.getBean(GeoServerDataDirectory.class);
         Filter springFilter = new Filter(dataDirectory);
 
         assertTrue(servletFilter.isEnabled());

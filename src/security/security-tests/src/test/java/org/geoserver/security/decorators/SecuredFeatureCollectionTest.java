@@ -14,8 +14,12 @@ import static org.junit.Assert.fail;
 
 import org.geoserver.security.WrapperPolicy;
 import org.geoserver.security.impl.SecureObjectsTest;
-import org.geotools.data.Query;
-import org.geotools.data.simple.SimpleFeatureStore;
+import org.geotools.api.data.Query;
+import org.geotools.api.data.SimpleFeatureStore;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.sort.SortBy;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -23,10 +27,6 @@ import org.geotools.feature.NameImpl;
 import org.geotools.filter.text.ecql.ECQL;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.filter.Filter;
-import org.opengis.filter.sort.SortBy;
 
 public class SecuredFeatureCollectionTest extends SecureObjectsTest {
 
@@ -102,8 +102,7 @@ public class SecuredFeatureCollectionTest extends SecureObjectsTest {
 
             // check derived collections are still read only and share the same
             // challenge policy
-            SecuredFeatureCollection sorted =
-                    (SecuredFeatureCollection) rofc.sort(SortBy.NATURAL_ORDER);
+            SecuredFeatureCollection sorted = (SecuredFeatureCollection) rofc.sort(SortBy.NATURAL_ORDER);
             assertEquals(ro.policy, sorted.policy);
             rofc.subCollection(Filter.INCLUDE);
             assertEquals(ro.policy, sorted.policy);
@@ -159,8 +158,7 @@ public class SecuredFeatureCollectionTest extends SecureObjectsTest {
 
             // check derived collections are still read only and share the same
             // challenge policy
-            SecuredFeatureCollection sorted =
-                    (SecuredFeatureCollection) rofc.sort(SortBy.NATURAL_ORDER);
+            SecuredFeatureCollection sorted = (SecuredFeatureCollection) rofc.sort(SortBy.NATURAL_ORDER);
             assertEquals(ro.policy, sorted.policy);
             rofc.subCollection(Filter.INCLUDE);
             assertEquals(ro.policy, sorted.policy);

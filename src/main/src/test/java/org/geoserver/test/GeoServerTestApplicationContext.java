@@ -5,9 +5,9 @@
  */
 package org.geoserver.test;
 
+import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
-import javax.servlet.ServletContext;
 import org.apache.commons.io.FileUtils;
 import org.geoserver.util.IOUtils;
 import org.springframework.beans.BeansException;
@@ -18,7 +18,6 @@ import org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.beans.factory.xml.XmlReaderContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.ui.context.Theme;
 import org.springframework.web.context.ServletConfigAware;
 import org.springframework.web.context.ServletContextAware;
 import org.springframework.web.context.WebApplicationContext;
@@ -31,8 +30,8 @@ import org.w3c.dom.Element;
  *
  * @author Justin Deoliveira, The Open Planning Project, jdeolive@openplans.org
  */
-public class GeoServerTestApplicationContext extends ClassPathXmlApplicationContext
-        implements WebApplicationContext {
+@SuppressWarnings({"deprecation", "removal"})
+public class GeoServerTestApplicationContext extends ClassPathXmlApplicationContext implements WebApplicationContext {
     ServletContext servletContext;
 
     boolean useLegacyGeoServerLoader = true;
@@ -56,10 +55,6 @@ public class GeoServerTestApplicationContext extends ClassPathXmlApplicationCont
         return servletContext;
     }
 
-    public Theme getTheme(String themeName) {
-        return null;
-    }
-
     public void setUseLegacyGeoServerLoader(boolean useLegacyGeoServerLoader) {
         this.useLegacyGeoServerLoader = useLegacyGeoServerLoader;
     }
@@ -70,8 +65,7 @@ public class GeoServerTestApplicationContext extends ClassPathXmlApplicationCont
      * directory, so we need to force the legacy data directory loader to engage.
      */
     @Override
-    protected void loadBeanDefinitions(XmlBeanDefinitionReader reader)
-            throws BeansException, IOException {
+    protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) throws BeansException, IOException {
         super.loadBeanDefinitions(reader);
 
         if (useLegacyGeoServerLoader) {
@@ -107,12 +101,9 @@ public class GeoServerTestApplicationContext extends ClassPathXmlApplicationCont
 
         @Override
         protected BeanDefinitionParserDelegate createDelegate(
-                XmlReaderContext readerContext,
-                Element root,
-                BeanDefinitionParserDelegate parentDelegate) {
+                XmlReaderContext readerContext, Element root, BeanDefinitionParserDelegate parentDelegate) {
             root.setAttribute("default-lazy-init", "true");
-            BeanDefinitionParserDelegate delegate =
-                    super.createDelegate(readerContext, root, parentDelegate);
+            BeanDefinitionParserDelegate delegate = super.createDelegate(readerContext, root, parentDelegate);
             return delegate;
         }
     }

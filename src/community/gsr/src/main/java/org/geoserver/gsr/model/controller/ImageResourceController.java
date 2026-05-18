@@ -9,6 +9,9 @@
  */
 package org.geoserver.gsr.model.controller;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -16,9 +19,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.TreeMap;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.IOUtils;
 import org.geoserver.config.GeoServer;
 import org.springframework.web.servlet.ModelAndView;
@@ -34,8 +34,7 @@ public class ImageResourceController extends AbstractController {
     private static final String HTTP_HEADER_ETAG = "ETag";
     private static final String HTTP_HEADER_CACHE_CONTROL = "Cache-Control";
 
-    private static final Map<String, String> defaultMimeTypes =
-            new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private static final Map<String, String> defaultMimeTypes = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
     static {
         defaultMimeTypes.put(".gif", "image/gif");
@@ -51,8 +50,8 @@ public class ImageResourceController extends AbstractController {
     }
 
     @Override
-    public ModelAndView handleRequestInternal(
-            final HttpServletRequest request, final HttpServletResponse response) throws Exception {
+    public ModelAndView handleRequestInternal(final HttpServletRequest request, final HttpServletResponse response)
+            throws Exception {
 
         final String path = request.getRequestURI();
 
@@ -134,26 +133,20 @@ public class ImageResourceController extends AbstractController {
         if (propertyPath != null) {
             candidate = new File(propertyPath);
             if (candidate.isDirectory()) {
-                logger.info(
-                        "Using "
-                                + propertyPath
-                                + " for GeoServices REST API image controller directory");
+                logger.info("Using " + propertyPath + " for GeoServices REST API image controller directory");
                 return candidate;
             } else {
-                logger.warn(
-                        "Property "
-                                + PROPERTY_IMAGE_RESOURCE_DIR
-                                + " is set to "
-                                + propertyPath
-                                + " but it does not appear to be a directory");
+                logger.warn("Property "
+                        + PROPERTY_IMAGE_RESOURCE_DIR
+                        + " is set to "
+                        + propertyPath
+                        + " but it does not appear to be a directory");
             }
         }
-        candidate =
-                new File(geoserver.getCatalog().getResourceLoader().getBaseDirectory(), "images");
-        logger.info(
-                "Using default location of  "
-                        + candidate.getPath()
-                        + " for GeoServices REST API image controller directory");
+        candidate = new File(geoserver.getCatalog().getResourceLoader().getBaseDirectory(), "images");
+        logger.info("Using default location of  "
+                + candidate.getPath()
+                + " for GeoServices REST API image controller directory");
         return candidate;
     }
 }

@@ -19,11 +19,12 @@ import org.geoserver.web.GeoServerBasePage;
  *   <li>automatically adds the {@link GeoServerBasePage} feedback panel in the ajax target
  * </ul>
  *
- * When using it remember that you have to invoke {@link FormComponent#processInput()} on each
- * component you need input from as the standard form processing has been skipped
+ * When using it remember that you have to invoke {@link FormComponent#processInput()} on each component you need input
+ * from as the standard form processing has been skipped
  *
  * @author Andrea Aime
  */
+// TODO WICKET8 - Verify this page works OK
 @SuppressWarnings("serial")
 public abstract class GeoServerAjaxFormLink extends AjaxSubmitLink {
 
@@ -41,8 +42,8 @@ public abstract class GeoServerAjaxFormLink extends AjaxSubmitLink {
     }
 
     @Override
-    protected final void onSubmit(AjaxRequestTarget target, Form<?> form) {
-        onClick(target, form);
+    protected final void onSubmit(AjaxRequestTarget target) {
+        onClick(target, getForm());
         if (getPage() instanceof GeoServerBasePage) {
             ((GeoServerBasePage) getPage()).addFeedbackPanels(target);
         }

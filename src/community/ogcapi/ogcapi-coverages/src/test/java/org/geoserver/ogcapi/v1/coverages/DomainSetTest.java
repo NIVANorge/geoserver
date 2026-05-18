@@ -23,15 +23,14 @@ public class DomainSetTest extends CoveragesTestSupport {
 
     @Test
     public void testDemDomainSet() throws Exception {
-        DocumentContext domain =
-                getAsJSONPath("ogc/coverages/v1/collections/rs:DEM/coverage/domainset", 200);
+        DocumentContext domain = getAsJSONPath("ogc/coverages/v1/collections/rs:DEM/coverage/domainset", 200);
 
         // root properties
         assertEquals("DomainSetType", domain.read("type"));
 
         // model domain description
         DocumentContext generalGrid = readContext(domain, "generalGrid");
-        assertEquals("http://www.opengis.net/def/crs/EPSG/0/4326", generalGrid.read("srsName"));
+        assertEquals(CoveragesService.DEFAULT_CRS, generalGrid.read("srsName"));
         assertEquals(Arrays.asList("Long", "Lat"), generalGrid.read("axisLabels"));
 
         DocumentContext longAxis = readContext(generalGrid, "axis[0]");
@@ -72,15 +71,14 @@ public class DomainSetTest extends CoveragesTestSupport {
     public void testTimeListPresentation() throws Exception {
         setupRasterDimension(TIMESERIES, TIME, DimensionPresentation.LIST, null, null, null);
 
-        DocumentContext domain =
-                getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
+        DocumentContext domain = getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
 
         // root properties
         assertEquals("DomainSetType", domain.read("type"));
 
         // model domain description
         DocumentContext generalGrid = readContext(domain, "generalGrid");
-        assertEquals("http://www.opengis.net/def/crs/EPSG/0/4326", generalGrid.read("srsName"));
+        assertEquals(CoveragesService.DEFAULT_CRS, generalGrid.read("srsName"));
         assertEquals(Arrays.asList("Long", "Lat", "Time"), generalGrid.read("axisLabels"));
 
         // focus on the time axis
@@ -88,10 +86,9 @@ public class DomainSetTest extends CoveragesTestSupport {
         assertEquals("IrregularAxisType", timeAxis.read("type"));
         assertEquals("Time", timeAxis.read("axisLabel"));
         assertEquals("s", timeAxis.read("uomLabel"));
-        List<String> expectedTimes =
-                IntStream.range(2014, 2020)
-                        .mapToObj(y -> y + "-01-01T00:00:00.000Z")
-                        .collect(Collectors.toList());
+        List<String> expectedTimes = IntStream.range(2014, 2020)
+                .mapToObj(y -> y + "-01-01T00:00:00.000Z")
+                .collect(Collectors.toList());
         assertEquals(expectedTimes, timeAxis.read("coordinate"));
 
         // check the grid representation
@@ -111,15 +108,14 @@ public class DomainSetTest extends CoveragesTestSupport {
         double oneYear = 1000d * 60 * 60 * 24 * 365;
         setupRasterDimension(TIMESERIES, TIME, DISCRETE_INTERVAL, oneYear, null, "s");
 
-        DocumentContext domain =
-                getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
+        DocumentContext domain = getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
 
         // root properties
         assertEquals("DomainSetType", domain.read("type"));
 
         // model domain description
         DocumentContext generalGrid = readContext(domain, "generalGrid");
-        assertEquals("http://www.opengis.net/def/crs/EPSG/0/4326", generalGrid.read("srsName"));
+        assertEquals(CoveragesService.DEFAULT_CRS, generalGrid.read("srsName"));
         assertEquals(Arrays.asList("Long", "Lat", "Time"), generalGrid.read("axisLabels"));
 
         // focus on the time axis
@@ -147,15 +143,14 @@ public class DomainSetTest extends CoveragesTestSupport {
     public void testTimeContinuousIntervalPresentation() throws Exception {
         setupRasterDimension(TIMESERIES, TIME, CONTINUOUS_INTERVAL, null, null, "s");
 
-        DocumentContext domain =
-                getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
+        DocumentContext domain = getAsJSONPath("ogc/coverages/v1/collections/sf:timeseries/coverage/domainset", 200);
 
         // root properties
         assertEquals("DomainSetType", domain.read("type"));
 
         // model domain description
         DocumentContext generalGrid = readContext(domain, "generalGrid");
-        assertEquals("http://www.opengis.net/def/crs/EPSG/0/4326", generalGrid.read("srsName"));
+        assertEquals(CoveragesService.DEFAULT_CRS, generalGrid.read("srsName"));
         assertEquals(Arrays.asList("Long", "Lat", "Time"), generalGrid.read("axisLabels"));
 
         // focus on the time axis

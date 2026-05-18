@@ -5,9 +5,10 @@
  */
 package org.geoserver.security.web;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import org.apache.wicket.ajax.AjaxRequestTarget;
 import org.apache.wicket.ajax.markup.html.AjaxLink;
-import org.apache.wicket.behavior.AttributeAppender;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.Form;
@@ -42,30 +43,40 @@ public class SecuritySettingsPage extends AbstractSecurityPage {
 
         form.add(new EncryptionPanel("encryption"));
         form.add(new HelpLink("encryptionHelp").setDialog(dialog));
-        form.add(
-                new SubmitLink("save", form) {
-                    @Override
-                    public void onSubmit() {
-                        SecurityManagerConfig config =
-                                (SecurityManagerConfig) getForm().getModelObject();
-                        try {
-                            getSecurityManager().saveSecurityConfig(config);
-                            doReturn();
-                        } catch (Exception e) {
-                            error(e);
-                        }
-                    }
-                });
-        form.add(
-                new AjaxLink("cancel") {
-                    @Override
-                    public void onClick(AjaxRequestTarget target) {
-                        doReturn();
-                    }
-                });
+        form.add(new SubmitLink("save", form) {
+            @Override
+            public void onSubmit() {
+                SecurityManagerConfig config = (SecurityManagerConfig) getForm().getModelObject();
+                try {
+                    getSecurityManager().saveSecurityConfig(config);
+                    doReturn();
+                } catch (Exception e) {
+                    error(e);
+                }
+            }
+        });
+        form.add(new AjaxLink<>("cancel") {
+            @Override
+            public void onClick(AjaxRequestTarget target) {
+                doReturn();
+            }
+        });
     }
 
     class EncryptionPanel extends FormComponentPanel<String> {
+
+        private static final boolean isCssEmpty = IsWicketCssFileEmpty(SecuritySettingsPage.EncryptionPanel.class);
+
+        @Override
+        public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+            super.renderHead(response);
+            // if the panel-specific CSS file contains actual css then have the browser load the css
+            if (!isCssEmpty) {
+                response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                        new org.apache.wicket.request.resource.PackageResourceReference(
+                                getClass(), getClass().getSimpleName() + ".css")));
+            }
+        }
 
         public EncryptionPanel(String id) {
             super(id, new Model<>());
@@ -73,30 +84,16 @@ public class SecuritySettingsPage extends AbstractSecurityPage {
             GeoServerSecurityManager secMgr = getSecurityManager();
             if (secMgr.isStrongEncryptionAvailable()) {
 
-                add(
-                        new Label(
-                                        "strongEncryptionMsg",
-                                        new StringResourceModel("strongEncryption", this, null))
-                                .add(
-                                        new AttributeAppender(
-                                                "class", new Model<>("info-link"), " ")));
+                add(new Label("strongEncryptionMsg", new StringResourceModel("strongEncryption", this, null)));
             } else {
-                add(
-                        new Label(
-                                        "strongEncryptionMsg",
-                                        new StringResourceModel("noStrongEncryption", this, null))
-                                .add(
-                                        new AttributeAppender(
-                                                "class", new Model<>("warning-link"), " ")));
+                add(new Label("strongEncryptionMsg", new StringResourceModel("noStrongEncryption", this, null)));
             }
 
             add(new CheckBox("encryptingUrlParams"));
 
             // load only reversible encoders
-            add(
-                    new PasswordEncoderChoice(
-                            "configPasswordEncrypterName",
-                            getSecurityManager().loadPasswordEncoders(null, true, null)));
+            add(new PasswordEncoderChoice(
+                    "configPasswordEncrypterName", getSecurityManager().loadPasswordEncoders(null, true, null)));
         }
     }
 }

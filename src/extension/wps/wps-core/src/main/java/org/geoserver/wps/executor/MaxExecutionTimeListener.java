@@ -7,10 +7,10 @@ package org.geoserver.wps.executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.geoserver.wps.ProcessDismissedException;
+import org.geotools.api.util.InternationalString;
+import org.geotools.api.util.ProgressListener;
 import org.geotools.data.util.DelegateProgressListener;
 import org.geotools.util.logging.Logging;
-import org.opengis.util.InternationalString;
-import org.opengis.util.ProgressListener;
 
 /**
  * A listener wrapper that will forcefully fail a process once the max time expired
@@ -26,8 +26,7 @@ public class MaxExecutionTimeListener extends DelegateProgressListener {
     long queuedTime;
     long startTime;
 
-    public MaxExecutionTimeListener(
-            ProgressListener progress, long maxExecutionTime, long maxTotalTime) {
+    public MaxExecutionTimeListener(ProgressListener progress, long maxExecutionTime, long maxTotalTime) {
         super(progress);
 
         if (maxTotalTime > 0 && maxTotalTime < maxExecutionTime) {
@@ -61,11 +60,8 @@ public class MaxExecutionTimeListener extends DelegateProgressListener {
     /** Returns true if the execution went beyond the allowed max time */
     public boolean isExpired() {
         boolean maxExecutionTimeExceeded =
-                maxExecutionTime > 0
-                        && startTime > 0
-                        && (System.currentTimeMillis() - startTime) > maxExecutionTime;
-        boolean maxTotalTimeExceeded =
-                maxTotalTime > 0 && (System.currentTimeMillis() - queuedTime) > maxTotalTime;
+                maxExecutionTime > 0 && startTime > 0 && (System.currentTimeMillis() - startTime) > maxExecutionTime;
+        boolean maxTotalTimeExceeded = maxTotalTime > 0 && (System.currentTimeMillis() - queuedTime) > maxTotalTime;
         return maxExecutionTimeExceeded || maxTotalTimeExceeded;
     }
 

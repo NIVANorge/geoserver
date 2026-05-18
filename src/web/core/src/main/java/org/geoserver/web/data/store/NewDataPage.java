@@ -12,30 +12,27 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.apache.wicket.AttributeModifier;
-import org.apache.wicket.Page;
+import java.util.function.Function;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.Form;
 import org.apache.wicket.markup.html.form.SubmitLink;
-import org.apache.wicket.markup.html.image.Image;
 import org.apache.wicket.markup.html.list.ListItem;
 import org.apache.wicket.markup.html.list.ListView;
-import org.apache.wicket.model.Model;
 import org.apache.wicket.model.ResourceModel;
-import org.apache.wicket.request.resource.PackageResourceReference;
+import org.apache.wicket.request.mapper.parameter.PageParameters;
 import org.geoserver.web.CatalogIconFactory;
 import org.geoserver.web.ComponentAuthorizer;
-import org.geoserver.web.GeoServerApplication;
 import org.geoserver.web.GeoServerSecuredPage;
+import org.geoserver.web.wicket.GsIcon;
 import org.geoserver.web.wicket.ParamResourceModel;
+import org.geotools.api.coverage.grid.Format;
+import org.geotools.api.data.DataAccessFactory;
 import org.geotools.coverage.grid.io.GridFormatFinder;
-import org.geotools.data.DataAccessFactory;
-import org.opengis.coverage.grid.Format;
 import org.vfny.geoserver.util.DataStoreUtils;
 
 /**
- * Page that presents a list of vector and raster store types available in the classpath in order to
- * choose what kind of data source to create, as well as which workspace to create the store in.
+ * Page that presents a list of vector and raster store types available in the classpath in order to choose what kind of
+ * data source to create, as well as which workspace to create the store in.
  *
  * <p>Meant to be called by {@link StorePage} when about to add a new datastore or coverage.
  *
@@ -50,10 +47,7 @@ public class NewDataPage extends GeoServerSecuredPage {
     // do not access directly, it is transient and the instance can be the de-serialized version
     private transient Map<String, Format> coverages = getAvailableCoverageStores();
 
-    /**
-     * Creates the page components to present the list of available vector and raster data source
-     * types
-     */
+    /** Creates the page components to present the list of available vector and raster data source types */
     public NewDataPage() {
 
         final boolean thereAreWorkspaces = !getCatalog().getWorkspaces().isEmpty();
@@ -62,109 +56,102 @@ public class NewDataPage extends GeoServerSecuredPage {
             super.error(new ResourceModel("NewDataPage.noWorkspacesErrorMessage").getObject());
         }
 
-        final Form storeForm = new Form("storeForm");
+        final Form storeForm = new Form<>("storeForm");
         add(storeForm);
 
-        final ArrayList<String> sortedDsNames = new ArrayList<>(getAvailableDataStores().keySet());
+        final ArrayList<String> sortedDsNames =
+                new ArrayList<>(getAvailableDataStores().keySet());
         Collections.sort(sortedDsNames);
 
         final CatalogIconFactory icons = CatalogIconFactory.get();
-        final ListView<String> dataStoreLinks =
-                new ListView<String>("vectorResources", sortedDsNames) {
+        final ListView<String> dataStoreLinks = new ListView<>("vectorResources", sortedDsNames) {
+            @Override
+            protected void populateItem(ListItem item) {
+                final String dataStoreFactoryName = item.getDefaultModelObjectAsString();
+                final DataAccessFactory factory = getAvailableDataStores().get(dataStoreFactoryName);
+                final String description = factory.getDescription();
+                SubmitLink link = new SubmitLink("resourcelink") {
                     @Override
-                    protected void populateItem(ListItem item) {
-                        final String dataStoreFactoryName = item.getDefaultModelObjectAsString();
-                        final DataAccessFactory factory =
-                                getAvailableDataStores().get(dataStoreFactoryName);
-                        final String description = factory.getDescription();
-                        SubmitLink link =
-                                new SubmitLink("resourcelink") {
-                                    @Override
-                                    public void onSubmit() {
-                                        setResponsePage(
-                                                new DataAccessNewPage(dataStoreFactoryName));
-                                    }
-                                };
-                        link.setEnabled(thereAreWorkspaces);
-                        link.add(new Label("resourcelabel", dataStoreFactoryName));
-                        item.add(link);
-                        item.add(new Label("resourceDescription", description));
-                        Image icon = new Image("storeIcon", icons.getStoreIcon(factory.getClass()));
-                        // TODO: icons could provide a description too to be used in alt=...
-                        icon.add(new AttributeModifier("alt", new Model<>("")));
-                        item.add(icon);
+                    public void onSubmit() {
+                        String wsName = getPageParameters().get("workspace").toOptionalString();
+                        DataAccessNewPage page = new DataAccessNewPage(dataStoreFactoryName, wsName);
+                        PageParameters wsParams = NewDataPage.this.workspaceParams();
+                        if (wsParams != null) page.setReturnPage(StorePage.class, wsParams);
+                        setResponsePage(page);
                     }
                 };
+                link.setEnabled(thereAreWorkspaces);
+                link.add(new Label("resourcelabel", dataStoreFactoryName));
+                item.add(link);
+                item.add(new Label("resourceDescription", description));
+                item.add(icons.getStoreIconComponent("storeIcon", factory.getClass()));
+            }
+        };
 
         final List<String> sortedCoverageNames = new ArrayList<>();
         sortedCoverageNames.addAll(getAvailableCoverageStores().keySet());
         Collections.sort(sortedCoverageNames);
 
-        final ListView<String> coverageLinks =
-                new ListView<String>("rasterResources", sortedCoverageNames) {
+        final ListView<String> coverageLinks = new ListView<>("rasterResources", sortedCoverageNames) {
+            @Override
+            protected void populateItem(ListItem item) {
+                final String coverageFactoryName = item.getDefaultModelObjectAsString();
+                final Map<String, Format> coverages = getAvailableCoverageStores();
+                Format format = coverages.get(coverageFactoryName);
+                final String description = format.getDescription();
+                SubmitLink link = new SubmitLink("resourcelink") {
                     @Override
-                    protected void populateItem(ListItem item) {
-                        final String coverageFactoryName = item.getDefaultModelObjectAsString();
-                        final Map<String, Format> coverages = getAvailableCoverageStores();
-                        Format format = coverages.get(coverageFactoryName);
-                        final String description = format.getDescription();
-                        SubmitLink link =
-                                new SubmitLink("resourcelink") {
-                                    @Override
-                                    public void onSubmit() {
-                                        setResponsePage(
-                                                new CoverageStoreNewPage(coverageFactoryName));
-                                    }
-                                };
-                        link.setEnabled(thereAreWorkspaces);
-                        link.add(new Label("resourcelabel", coverageFactoryName));
-                        item.add(link);
-                        item.add(new Label("resourceDescription", description));
-                        Image icon = new Image("storeIcon", icons.getStoreIcon(format.getClass()));
-                        // TODO: icons could provide a description too to be used in alt=...
-                        icon.add(new AttributeModifier("alt", new Model<>("")));
-                        item.add(icon);
+                    public void onSubmit() {
+                        String wsName = getPageParameters().get("workspace").toOptionalString();
+                        CoverageStoreNewPage page = new CoverageStoreNewPage(coverageFactoryName, wsName);
+                        PageParameters wsParams = NewDataPage.this.workspaceParams();
+                        if (wsParams != null) page.setReturnPage(StorePage.class, wsParams);
+                        setResponsePage(page);
                     }
                 };
+                link.setEnabled(thereAreWorkspaces);
+                link.add(new Label("resourcelabel", coverageFactoryName));
+                item.add(link);
+                item.add(new Label("resourceDescription", description));
+                item.add(icons.getStoreIconComponent("storeIcon", format.getClass()));
+            }
+        };
 
         final List<OtherStoreDescription> otherStores = getOtherStores();
 
-        final ListView<OtherStoreDescription> otherStoresLinks =
-                new ListView<OtherStoreDescription>("otherStores", otherStores) {
+        final ListView<OtherStoreDescription> otherStoresLinks = new ListView<>("otherStores", otherStores) {
+            @Override
+            protected void populateItem(ListItem item) {
+                final OtherStoreDescription store = (OtherStoreDescription) item.getModelObject();
+                SubmitLink link = new SubmitLink("resourcelink") {
                     @Override
-                    protected void populateItem(ListItem item) {
-                        final OtherStoreDescription store =
-                                (OtherStoreDescription) item.getModelObject();
-                        SubmitLink link =
-                                new SubmitLink("resourcelink") {
-                                    @Override
-                                    public void onSubmit() {
-                                        setResponsePage(store.configurationPage);
-                                    }
-                                };
-                        link.setEnabled(thereAreWorkspaces);
-                        link.add(
-                                new Label(
-                                        "resourcelabel",
-                                        new ParamResourceModel(
-                                                "other." + store.key, NewDataPage.this)));
-                        item.add(link);
-                        item.add(
-                                new Label(
-                                        "resourceDescription",
-                                        new ParamResourceModel(
-                                                "other." + store.key + ".description",
-                                                NewDataPage.this)));
-                        Image icon = new Image("storeIcon", store.icon);
-                        // TODO: icons could provide a description too to be used in alt=...
-                        icon.add(new AttributeModifier("alt", new Model<>("")));
-                        item.add(icon);
+                    public void onSubmit() {
+                        String wsName = getPageParameters().get("workspace").toOptionalString();
+                        GeoServerSecuredPage page = store.pageFactory.apply(wsName);
+                        PageParameters wsParams = NewDataPage.this.workspaceParams();
+                        if (wsParams != null) page.setReturnPage(StorePage.class, wsParams);
+                        setResponsePage(page);
                     }
                 };
+                link.setEnabled(thereAreWorkspaces);
+                link.add(new Label("resourcelabel", new ParamResourceModel("other." + store.key, NewDataPage.this)));
+                item.add(link);
+                item.add(new Label(
+                        "resourceDescription",
+                        new ParamResourceModel("other." + store.key + ".description", NewDataPage.this)));
+                GsIcon icon = new GsIcon("storeIcon", store.icon);
+                item.add(icon);
+            }
+        };
 
         storeForm.add(dataStoreLinks);
         storeForm.add(coverageLinks);
         storeForm.add(otherStoresLinks);
+    }
+
+    private PageParameters workspaceParams() {
+        String ws = getPageParameters().get("workspace").toOptionalString();
+        return (ws != null && !ws.isEmpty()) ? new PageParameters().add("workspace", ws) : null;
     }
 
     /** @return the name/description set of available datastore factories */
@@ -203,11 +190,11 @@ public class NewDataPage extends GeoServerSecuredPage {
 
     private List<OtherStoreDescription> getOtherStores() {
         List<OtherStoreDescription> stores = new ArrayList<>();
-        PackageResourceReference wmsIcon =
-                new PackageResourceReference(
-                        GeoServerApplication.class, "img/icons/geosilk/server_map.png");
-        stores.add(new OtherStoreDescription("wms", wmsIcon, WMSStoreNewPage.class));
-        stores.add(new OtherStoreDescription("wmts", wmsIcon, WMTSStoreNewPage.class));
+        String wmsIcon = "gs-icon-server-map";
+        stores.add(new OtherStoreDescription(
+                "wms", wmsIcon, (Function<String, GeoServerSecuredPage> & Serializable) ws -> new WMSStoreNewPage(ws)));
+        stores.add(new OtherStoreDescription("wmts", wmsIcon, (Function<String, GeoServerSecuredPage> & Serializable)
+                ws -> new WMTSStoreNewPage(ws)));
 
         return stores;
     }
@@ -221,18 +208,15 @@ public class NewDataPage extends GeoServerSecuredPage {
     static class OtherStoreDescription implements Serializable {
         String key;
 
-        PackageResourceReference icon;
+        String icon;
 
-        Class<? extends Page> configurationPage;
+        Function<String, GeoServerSecuredPage> pageFactory;
 
-        public OtherStoreDescription(
-                String key,
-                PackageResourceReference icon,
-                Class<? extends Page> configurationPage) {
+        public OtherStoreDescription(String key, String icon, Function<String, GeoServerSecuredPage> pageFactory) {
             super();
             this.key = key;
             this.icon = icon;
-            this.configurationPage = configurationPage;
+            this.pageFactory = pageFactory;
         }
     }
 }

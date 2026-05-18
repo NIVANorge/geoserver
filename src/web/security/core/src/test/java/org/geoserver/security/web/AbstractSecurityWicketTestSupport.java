@@ -12,9 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import org.apache.wicket.Page;
 import org.apache.wicket.ajax.AbstractDefaultAjaxBehavior;
-import org.apache.wicket.behavior.AbstractAjaxBehavior;
 import org.apache.wicket.behavior.Behavior;
-import org.apache.wicket.extensions.ajax.markup.html.modal.ModalWindow;
 import org.apache.wicket.feedback.FeedbackMessage;
 import org.apache.wicket.markup.repeater.Item;
 import org.apache.wicket.markup.repeater.data.DataView;
@@ -57,6 +55,7 @@ import org.geoserver.security.xml.XMLRoleServiceTest;
 import org.geoserver.security.xml.XMLUserGroupServiceTest;
 import org.geoserver.web.GeoServerApplication;
 import org.geoserver.web.GeoServerWicketTestSupport;
+import org.geoserver.web.wicket.GSModalWindow;
 import org.junit.Before;
 
 public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketTestSupport {
@@ -124,8 +123,7 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
         getSecurityManager().saveSecurityConfig(config);
     }
 
-    protected void initialize(AbstractUserGroupServiceTest ugTest, AbstractRoleServiceTest gaTest)
-            throws Exception {
+    protected void initialize(AbstractUserGroupServiceTest ugTest, AbstractRoleServiceTest gaTest) throws Exception {
 
         this.ugTest = ugTest;
         this.gaTest = gaTest;
@@ -214,8 +212,7 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
     protected void deactivateRORoleService() throws Exception {
         GeoServerSecurityManager secMgr = getSecurityManager();
         if (secMgr.listRoleServices().contains(getRORoleServiceName())) {
-            SecurityRoleServiceConfig config =
-                    secMgr.loadRoleServiceConfig((getRORoleServiceName()));
+            SecurityRoleServiceConfig config = secMgr.loadRoleServiceConfig((getRORoleServiceName()));
             secMgr.removeRoleService(config);
         }
     }
@@ -227,8 +224,7 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
 
     @Override
     protected GeoServerPBEPasswordEncoder getPBEPasswordEncoder() {
-        return getSecurityManager()
-                .loadPasswordEncoder(GeoServerPBEPasswordEncoder.class, null, false);
+        return getSecurityManager().loadPasswordEncoder(GeoServerPBEPasswordEncoder.class, null, false);
     }
 
     @Override
@@ -257,30 +253,29 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
     protected void deactivateROUGService() throws Exception {
         GeoServerSecurityManager secMgr = getSecurityManager();
         if (secMgr.listUserGroupServices().contains(getROUserGroupServiceName())) {
-            SecurityUserGroupServiceConfig config =
-                    secMgr.loadUserGroupServiceConfig(getROUserGroupServiceName());
+            SecurityUserGroupServiceConfig config = secMgr.loadUserGroupServiceConfig(getROUserGroupServiceName());
             secMgr.removeUserGroupService(config);
         }
     }
 
-    public void executeModalWindowClosedCallback(ModalWindow modalWindow) {
+    public void executeModalWindowClosedCallback(GSModalWindow modalWindow) {
         for (Behavior behavior : modalWindow.getBehaviors()) {
-            if (behavior instanceof AbstractDefaultAjaxBehavior) {
+            if (behavior instanceof AbstractDefaultAjaxBehavior ajaxBehavior) {
                 String name = behavior.getClass().getSimpleName();
                 if (name.startsWith("WindowClosedBehavior")) {
-                    tester.executeBehavior((AbstractAjaxBehavior) behavior);
+                    tester.executeBehavior(ajaxBehavior);
                 }
             }
         }
     }
 
-    public void executeModalWindowCloseButtonCallback(ModalWindow modalWindow) {
+    public void executeModalWindowCloseButtonCallback(GSModalWindow modalWindow) {
         for (Behavior behavior : modalWindow.getBehaviors()) {
-            if (behavior instanceof AbstractDefaultAjaxBehavior) {
+            if (behavior instanceof AbstractDefaultAjaxBehavior ajaxBehavior) {
                 String name = behavior.getClass().getSimpleName();
 
                 if (name.startsWith("CloseButtonBehavior")) {
-                    tester.executeBehavior((AbstractAjaxBehavior) behavior);
+                    tester.executeBehavior(ajaxBehavior);
                 }
             }
         }
@@ -340,24 +335,12 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
 
         DataAccessRuleDAO dao = DataAccessRuleDAO.get();
         dao.getRules();
-        dao.addRule(
-                new DataAccessRule(
-                        "*", "*", AccessMode.WRITE, GeoServerRole.ADMIN_ROLE.getAuthority()));
-        dao.addRule(
-                new DataAccessRule(
-                        MockData.CITE_PREFIX, "*", AccessMode.READ, "ROLE_AUTENTICATED"));
-        dao.addRule(
-                new DataAccessRule(
-                        MockData.CITE_PREFIX,
-                        MockData.LAKES.getLocalPart(),
-                        AccessMode.WRITE,
-                        "ROLE_WMS,ROLE_WFS"));
-        dao.addRule(
-                new DataAccessRule(
-                        MockData.CITE_PREFIX,
-                        MockData.BRIDGES.getLocalPart(),
-                        AccessMode.WRITE,
-                        "ROLE_WMS,ROLE_WFS"));
+        dao.addRule(new DataAccessRule("*", "*", AccessMode.WRITE, GeoServerRole.ADMIN_ROLE.getAuthority()));
+        dao.addRule(new DataAccessRule(MockData.CITE_PREFIX, "*", AccessMode.READ, "ROLE_AUTENTICATED"));
+        dao.addRule(new DataAccessRule(
+                MockData.CITE_PREFIX, MockData.LAKES.getLocalPart(), AccessMode.WRITE, "ROLE_WMS,ROLE_WFS"));
+        dao.addRule(new DataAccessRule(
+                MockData.CITE_PREFIX, MockData.BRIDGES.getLocalPart(), AccessMode.WRITE, "ROLE_WMS,ROLE_WFS"));
         dao.storeRules();
     }
 
@@ -370,8 +353,7 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
     }
 
     protected void createUserPasswordAuthProvider(String name, String ugName) throws Exception {
-        UsernamePasswordAuthenticationProviderConfig config =
-                new UsernamePasswordAuthenticationProviderConfig();
+        UsernamePasswordAuthenticationProviderConfig config = new UsernamePasswordAuthenticationProviderConfig();
         config.setName(name);
         config.setClassName(UsernamePasswordAuthenticationProvider.class.getName());
         config.setUserGroupServiceName(ugName);
@@ -395,8 +377,7 @@ public abstract class AbstractSecurityWicketTestSupport extends GeoServerWicketT
         tester.startPage(page);
         tester.assertRenderedPage(page.getPageClass());
 
-        SecurityNamedServicesPanel panel =
-                (SecurityNamedServicesPanel) page.get("panel:panel:" + panelName);
+        SecurityNamedServicesPanel panel = (SecurityNamedServicesPanel) page.get("panel:panel:" + panelName);
 
         //          AjaxTabbedPanel tabbedPanel=  (AjaxTabbedPanel)
         // page.get(AbstractSecurityPage.TabbedPanelId);

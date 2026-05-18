@@ -21,24 +21,23 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat;
 import org.geoserver.wfs.WFSInfo;
 import org.geoserver.wfs.request.FeatureCollectionResponse;
 import org.geoserver.wfs.response.ComplexFeatureAwareFormat;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.FeatureType;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.NameImpl;
 import org.geotools.util.logging.Logging;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.FeatureType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
- * GeoServer dispatcher callback implementation for complex to simple features transformation. Will
- * work only on simple features output marked formats.
+ * GeoServer dispatcher callback implementation for complex to simple features transformation. Will work only on simple
+ * features output marked formats.
  */
 @Service
 public class ComplexToSimpleOutputDispatcherCallback extends AbstractDispatcherCallback {
 
-    private static final Logger LOGGER =
-            Logging.getLogger(ComplexToSimpleOutputDispatcherCallback.class);
+    private static final Logger LOGGER = Logging.getLogger(ComplexToSimpleOutputDispatcherCallback.class);
 
     private static final String GET_FEATURE = "GetFeature";
     private static final String WFS = "WFS";
@@ -64,8 +63,7 @@ public class ComplexToSimpleOutputDispatcherCallback extends AbstractDispatcherC
             Catalog catalog = geoServer.getCatalog();
 
             ComplexToSimpleOutputHandler handler =
-                    new ComplexToSimpleOutputHandler(
-                            request, (FeatureCollectionResponse) result, catalog);
+                    new ComplexToSimpleOutputHandler(request, (FeatureCollectionResponse) result, catalog);
             return handler.execute();
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Error executing the dispatcher callback", ex);
@@ -76,13 +74,12 @@ public class ComplexToSimpleOutputDispatcherCallback extends AbstractDispatcherC
     private void logRequest(Request request, Operation operation, Object result) {
         LOGGER.log(
                 Level.FINE,
-                () ->
-                        "Checking support for request: "
-                                + request
-                                + " | operation: "
-                                + operation
-                                + " | result: "
-                                + result);
+                () -> "Checking support for request: "
+                        + request
+                        + " | operation: "
+                        + operation
+                        + " | result: "
+                        + result);
     }
 
     private boolean isConvertActivated(Request request) {
@@ -122,8 +119,7 @@ public class ComplexToSimpleOutputDispatcherCallback extends AbstractDispatcherC
                         && isOutputFormatSupported(request.getOutputFormat(), operation, result));
     }
 
-    private boolean isOutputFormatSupported(
-            String outputFormat, Operation operation, Object result) {
+    private boolean isOutputFormatSupported(String outputFormat, Operation operation, Object result) {
         if (StringUtils.isBlank(outputFormat)) return false;
         return isSupported(outputFormat, result, operation);
     }
@@ -149,14 +145,12 @@ public class ComplexToSimpleOutputDispatcherCallback extends AbstractDispatcherC
         // check if format is on the resulting list
         for (WFSGetFeatureOutputFormat outputFormat : formats) {
             if (format.equalsIgnoreCase(outputFormat.getCapabilitiesElementName())
-                    || format.equalsIgnoreCase(outputFormat.getMimeType(value, operation)))
-                return true;
+                    || format.equalsIgnoreCase(outputFormat.getMimeType(value, operation))) return true;
         }
         return false;
     }
 
-    private boolean supportsComplexFeatures(
-            WFSGetFeatureOutputFormat outputFormat, Object value, Operation operation) {
+    private boolean supportsComplexFeatures(WFSGetFeatureOutputFormat outputFormat, Object value, Operation operation) {
         if (!(outputFormat instanceof ComplexFeatureAwareFormat)) return false;
         return ((ComplexFeatureAwareFormat) outputFormat).supportsComplexFeatures(value, operation);
     }

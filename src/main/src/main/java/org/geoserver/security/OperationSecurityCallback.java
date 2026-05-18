@@ -22,8 +22,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
- * This callback performs security access checks at the service/method level based on rules provided
- * by the {@link ServiceAccessRuleDAO}
+ * This callback performs security access checks at the service/method level based on rules provided by the
+ * {@link ServiceAccessRuleDAO}
  */
 public class OperationSecurityCallback implements DispatcherCallback {
 
@@ -71,7 +71,7 @@ public class OperationSecurityCallback implements DispatcherCallback {
             if (!allowedRoles.contains(ServiceAccessRule.ANY) && !allowedRoles.isEmpty()) {
                 Authentication user = SecurityContextHolder.getContext().getAuthentication();
 
-                if (user == null || user.getAuthorities().size() == 0)
+                if (user == null || user.getAuthorities().isEmpty())
                     throw new InsufficientAuthenticationException(
                             "Cannot access " + service + "." + method + " as anonymous");
 
@@ -85,11 +85,7 @@ public class OperationSecurityCallback implements DispatcherCallback {
 
                 if (!roleFound) {
                     throw new AccessDeniedException(
-                            "Cannot access "
-                                    + service
-                                    + "."
-                                    + method
-                                    + " with the current privileges");
+                            "Cannot access " + service + "." + method + " with the current privileges");
                 }
             }
         }
@@ -104,8 +100,7 @@ public class OperationSecurityCallback implements DispatcherCallback {
     }
 
     @Override
-    public Response responseDispatched(
-            Request request, Operation operation, Object result, Response response) {
+    public Response responseDispatched(Request request, Operation operation, Object result, Response response) {
         return response;
     }
 

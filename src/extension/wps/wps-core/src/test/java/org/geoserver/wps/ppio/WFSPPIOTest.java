@@ -26,11 +26,11 @@ import org.geoserver.data.test.SystemTestData;
 import org.geoserver.platform.GeoServerExtensions;
 import org.geoserver.wps.WPSTestSupport;
 import org.geoserver.wps.resource.WPSResourceManager;
+import org.geotools.api.feature.type.AttributeDescriptor;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.opengis.feature.type.AttributeDescriptor;
 
 /** @author ian */
 public class WFSPPIOTest extends WPSTestSupport {
@@ -59,8 +59,7 @@ public class WFSPPIOTest extends WPSTestSupport {
     /** Test method for {@link org.geoserver.wps.ppio.WFSPPIO#decode(java.io.InputStream)}. */
     @Test
     public void testDecodeInputStream() throws Exception {
-        SimpleFeatureCollection rawTarget =
-                (SimpleFeatureCollection) new WFSPPIO.WFS11().decode(is);
+        SimpleFeatureCollection rawTarget = (SimpleFeatureCollection) new WFSPPIO.WFS11().decode(is);
 
         for (AttributeDescriptor ad : rawTarget.getSchema().getAttributeDescriptors()) {
             final String name = ad.getLocalName();

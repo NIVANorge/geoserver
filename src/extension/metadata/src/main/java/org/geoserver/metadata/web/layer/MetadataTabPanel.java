@@ -4,7 +4,10 @@
  */
 package org.geoserver.metadata.web.layer;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
@@ -41,6 +44,20 @@ import org.geotools.util.logging.Logging;
  */
 public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(MetadataTabPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -552158739086379566L;
 
     private static final Logger LOGGER = Logging.getLogger(MetadataTabPanel.class);
@@ -52,8 +69,7 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
     private IModel<ComplexMetadataMap> metadataModel;
 
     @SuppressWarnings("unchecked")
-    public MetadataTabPanel(
-            String id, IModel<LayerInfo> model, IModel<List<MetadataTemplate>> templatesModel) {
+    public MetadataTabPanel(String id, IModel<LayerInfo> model, IModel<List<MetadataTemplate>> templatesModel) {
         super(id, model);
         this.selectedTemplatesModel = templatesModel;
 
@@ -64,9 +80,7 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
             custom = (Map<String, Serializable>) oldCustom;
         } else {
             resource.getMetadata()
-                    .put(
-                            MetadataConstants.CUSTOM_METADATA_KEY,
-                            (Serializable) (custom = new HashMap<>()));
+                    .put(MetadataConstants.CUSTOM_METADATA_KEY, (Serializable) (custom = new HashMap<>()));
         }
         metadataModel = new Model<>(new ComplexMetadataMapImpl(custom));
 
@@ -74,10 +88,7 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
         if (oldDerivedAtts instanceof HashMap<?, ?>) {
             derivedAtts = (Map<String, List<Integer>>) oldDerivedAtts;
         } else {
-            resource.getMetadata()
-                    .put(
-                            MetadataConstants.DERIVED_KEY,
-                            (Serializable) (derivedAtts = new HashMap<>()));
+            resource.getMetadata().put(MetadataConstants.DERIVED_KEY, (Serializable) (derivedAtts = new HashMap<>()));
         }
     }
 
@@ -88,119 +99,94 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
         ResourceInfo resource = ((LayerInfo) getDefaultModelObject()).getResource();
 
         ComplexMetadataService service =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(ComplexMetadataService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(ComplexMetadataService.class);
         service.clean(metadataModel.getObject());
         service.init(metadataModel.getObject());
 
         // Link with templates panel
-        this.add(
-                new ImportTemplatePanel("importTemplatePanel", selectedTemplatesModel) {
-                    private static final long serialVersionUID = -8056914656580115202L;
+        this.add(new ImportTemplatePanel("importTemplatePanel", selectedTemplatesModel) {
+            @Serial
+            private static final long serialVersionUID = -8056914656580115202L;
 
-                    @Override
-                    protected void handleUpdate(AjaxRequestTarget target) {
-                        updateAndRefresh(target, resource);
-                    }
-                });
+            @Override
+            protected void handleUpdate(AjaxRequestTarget target) {
+                updateAndRefresh(target, resource);
+            }
+        });
 
-        add(
-                new MetadataPanel("metadataPanel", metadataModel, derivedAtts, resource)
-                        .setOutputMarkupId(true));
+        add(MetadataPanel.buildPanel("metadataPanel", metadataModel, derivedAtts, resource));
 
         // Geonetwork import panel
-        ImportGeonetworkPanel geonetworkPanel =
-                new ImportGeonetworkPanel("geonetworkPanel") {
-                    private static final long serialVersionUID = -4620394948554985874L;
+        ImportGeonetworkPanel geonetworkPanel = new ImportGeonetworkPanel("geonetworkPanel") {
+            @Serial
+            private static final long serialVersionUID = -4620394948554985874L;
 
-                    @Override
-                    public void handleImport(
-                            String geoNetwork,
-                            String uuid,
-                            AjaxRequestTarget target,
-                            FeedbackPanel feedbackPanel) {
-                        try {
-                            // First unlink all templates
-                            importTemplatePanel()
-                                    .unlinkTemplate(
-                                            target, importTemplatePanel().getLinkedTemplates());
-                            // Read the file
-                            GeonetworkImportService importService =
-                                    GeoServerApplication.get()
-                                            .getApplicationContext()
-                                            .getBean(GeonetworkImportService.class);
-                            // import metadata
-                            importService.importLayer(
-                                    resource, metadataModel.getObject(), geoNetwork, uuid);
+            @Override
+            public void handleImport(
+                    String geoNetwork, String uuid, AjaxRequestTarget target, FeedbackPanel feedbackPanel) {
+                try {
+                    // First unlink all templates
+                    importTemplatePanel()
+                            .unlinkTemplate(target, importTemplatePanel().getLinkedTemplates());
+                    // Read the file
+                    GeonetworkImportService importService =
+                            GeoServerApplication.get().getApplicationContext().getBean(GeonetworkImportService.class);
+                    // import metadata
+                    importService.importLayer(resource, metadataModel.getObject(), geoNetwork, uuid);
 
-                            updateAndRefresh(target, resource);
-                        } catch (IOException e) {
-                            LOGGER.severe(e.getMessage());
-                            feedbackPanel.error(e.getMessage());
-                            target.add(feedbackPanel);
-                        }
-                        target.add(
-                                metadataPanel()
-                                        .replaceWith(
-                                                new MetadataPanel(
-                                                        "metadataPanel",
-                                                        metadataModel,
-                                                        derivedAtts,
-                                                        resource)));
-                    }
-                };
+                    updateAndRefresh(target, resource);
+                } catch (IOException e) {
+                    LOGGER.severe(e.getMessage());
+                    feedbackPanel.error(e.getMessage());
+                    target.add(feedbackPanel);
+                }
+                target.add(metadataPanel()
+                        .replaceWith(MetadataPanel.buildPanel("metadataPanel", metadataModel, derivedAtts, resource)));
+            }
+        };
         add(geonetworkPanel);
 
-        add(
-                new CopyFromLayerPanel("copyFromLayerPanel", resource.getId()) {
-                    private static final long serialVersionUID = -4105294542603002567L;
+        add(new CopyFromLayerPanel("copyFromLayerPanel", resource.getId()) {
+            @Serial
+            private static final long serialVersionUID = -4105294542603002567L;
 
-                    @Override
-                    public void handleCopy(ResourceInfo res, AjaxRequestTarget target) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Serializable> rawMetadata =
-                                (Map<String, Serializable>)
-                                        res.getMetadata()
-                                                .get(MetadataConstants.CUSTOM_METADATA_KEY);
-                        ComplexMetadataMap source = new ComplexMetadataMapImpl(rawMetadata);
-                        if (source != null) {
-                            // First unlink all templates
-                            importTemplatePanel()
-                                    .unlinkTemplate(
-                                            target, importTemplatePanel().getLinkedTemplates());
-                            GeoServerApplication.get()
-                                    .getApplicationContext()
-                                    .getBean(ComplexMetadataService.class)
-                                    .copy(source, metadataModel.getObject(), null, true);
+            @Override
+            public void handleCopy(ResourceInfo res, AjaxRequestTarget target) {
+                @SuppressWarnings("unchecked")
+                Map<String, Serializable> rawMetadata =
+                        (Map<String, Serializable>) res.getMetadata().get(MetadataConstants.CUSTOM_METADATA_KEY);
+                ComplexMetadataMap source = new ComplexMetadataMapImpl(rawMetadata);
+                if (source != null) {
+                    // First unlink all templates
+                    importTemplatePanel()
+                            .unlinkTemplate(target, importTemplatePanel().getLinkedTemplates());
+                    GeoServerApplication.get()
+                            .getApplicationContext()
+                            .getBean(ComplexMetadataService.class)
+                            .copy(source, metadataModel.getObject(), null, true);
 
-                            MetadataTemplateService templateService =
-                                    GeoServerApplication.get()
-                                            .getApplicationContext()
-                                            .getBean(MetadataTemplateService.class);
-                            for (MetadataTemplate template : templateService.list()) {
-                                if (template.getLinkedLayers().contains(res.getId())) {
-                                    importTemplatePanel().linkTemplate(target, template);
-                                }
-                            }
-
-                            ResourceInfo resource = getPublishedInfo().getResource();
-                            resource.setAbstract(res.getAbstract());
-                            resource.setTitle(res.getTitle());
-
-                            updateAndRefresh(target, resource);
+                    MetadataTemplateService templateService =
+                            GeoServerApplication.get().getApplicationContext().getBean(MetadataTemplateService.class);
+                    for (MetadataTemplate template : templateService.list()) {
+                        if (template.getLinkedLayers().contains(res.getId())) {
+                            importTemplatePanel().linkTemplate(target, template);
                         }
                     }
-                });
+
+                    ResourceInfo resource = getPublishedInfo().getResource();
+                    resource.setAbstract(res.getAbstract());
+                    resource.setTitle(res.getTitle());
+
+                    updateAndRefresh(target, resource);
+                }
+            }
+        });
     }
 
     protected void updateAndRefresh(AjaxRequestTarget target, ResourceInfo resource) {
         updateModel();
-        target.add(
-                metadataPanel()
-                        .replaceWith(
-                                new MetadataPanel(
-                                        "metadataPanel", metadataModel, derivedAtts, resource)));
+        target.add(metadataPanel()
+                .replaceWith(MetadataPanel.buildPanel("metadataPanel", metadataModel, derivedAtts, resource)));
     }
 
     protected MetadataPanel metadataPanel() {
@@ -214,13 +200,9 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
     /** Merge the model and the linked templates. */
     private void updateModel() {
         MetadataTemplateService templateService =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(MetadataTemplateService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(MetadataTemplateService.class);
         ComplexMetadataService service =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(ComplexMetadataService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(ComplexMetadataService.class);
         ArrayList<ComplexMetadataMap> maps = new ArrayList<>();
         for (MetadataTemplate template : selectedTemplatesModel.getObject()) {
             // get latest version
@@ -239,16 +221,12 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
 
         // calculate attributes of type DERIVED
         ComplexMetadataService service =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(ComplexMetadataService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(ComplexMetadataService.class);
         service.derive(metadataModel.getObject());
 
         // map to native attributes
         CustomNativeMappingService cnmService =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(CustomNativeMappingService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(CustomNativeMappingService.class);
         cnmService.mapCustomToNative((LayerInfo) getDefaultModelObject());
 
         // save timestamp
@@ -261,9 +239,7 @@ public class MetadataTabPanel extends PublishedEditTabPanel<LayerInfo> {
     @Override
     public void save() throws IOException {
         MetadataTemplateService service =
-                GeoServerApplication.get()
-                        .getApplicationContext()
-                        .getBean(MetadataTemplateService.class);
+                GeoServerApplication.get().getApplicationContext().getBean(MetadataTemplateService.class);
         ResourceInfo resource = ((LayerInfo) getDefaultModelObject()).getResource();
         for (MetadataTemplate template : service.list()) {
             if (selectedTemplatesModel.getObject().contains(template)

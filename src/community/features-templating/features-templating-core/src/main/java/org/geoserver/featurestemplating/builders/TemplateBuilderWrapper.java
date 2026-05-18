@@ -9,8 +9,8 @@ import java.util.List;
 import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
 import org.geoserver.featurestemplating.builders.visitors.TemplateVisitor;
 import org.geoserver.featurestemplating.writers.TemplateOutputWriter;
-import org.opengis.filter.Filter;
-import org.opengis.filter.expression.Expression;
+import org.geotools.api.filter.Filter;
+import org.geotools.api.filter.expression.Expression;
 import org.xml.sax.helpers.NamespaceSupport;
 
 /** A generic TemplateBuilder Wrapper. */
@@ -37,8 +37,7 @@ public class TemplateBuilderWrapper extends AbstractTemplateBuilder {
     }
 
     @Override
-    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context)
-            throws IOException {
+    public void evaluate(TemplateOutputWriter writer, TemplateBuilderContext context) throws IOException {
         delegate.evaluate(writer, context);
     }
 
@@ -118,14 +117,12 @@ public class TemplateBuilderWrapper extends AbstractTemplateBuilder {
     }
 
     @Override
-    protected void addChildrenEvaluationToEncodingHints(
-            TemplateOutputWriter writer, TemplateBuilderContext context) {
+    protected void addChildrenEvaluationToEncodingHints(TemplateOutputWriter writer, TemplateBuilderContext context) {
         delegate.addChildrenEvaluationToEncodingHints(writer, context);
     }
 
     @Override
-    protected ChildrenEvaluation getChildrenEvaluation(
-            TemplateOutputWriter writer, TemplateBuilderContext context) {
+    protected ChildrenEvaluation getChildrenEvaluation(TemplateOutputWriter writer, TemplateBuilderContext context) {
         return delegate.getChildrenEvaluation(writer, context);
     }
 

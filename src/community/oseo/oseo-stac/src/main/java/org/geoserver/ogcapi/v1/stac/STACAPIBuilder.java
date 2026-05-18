@@ -18,21 +18,21 @@ import org.geoserver.ogcapi.ConformanceDocument;
 import org.geoserver.opensearch.eo.OSEOInfo;
 import org.geoserver.opensearch.eo.OpenSearchAccessProvider;
 import org.geoserver.opensearch.eo.store.OpenSearchAccess;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.Query;
+import org.geotools.api.data.FeatureSource;
+import org.geotools.api.data.Query;
+import org.geotools.api.feature.Attribute;
+import org.geotools.api.feature.Feature;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.filter.FilterFactory;
+import org.geotools.api.filter.expression.PropertyName;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.visitor.UniqueVisitor;
-import org.opengis.feature.Attribute;
-import org.opengis.feature.Feature;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.filter.FilterFactory2;
-import org.opengis.filter.expression.PropertyName;
 
 /** Builds the OGC Features OpenAPI document */
 public class STACAPIBuilder extends org.geoserver.ogcapi.OpenAPIBuilder<OSEOInfo> {
 
-    static final FilterFactory2 FF = CommonFactoryFinder.getFilterFactory2();
+    static final FilterFactory FF = CommonFactoryFinder.getFilterFactory();
 
     private final OpenSearchAccessProvider accessProvider;
 
@@ -42,8 +42,7 @@ public class STACAPIBuilder extends org.geoserver.ogcapi.OpenAPIBuilder<OSEOInfo
     }
 
     /**
-     * Build the document based on request, current WFS configuration, and list of available
-     * extensions
+     * Build the document based on request, current WFS configuration, and list of available extensions
      *
      * @param service The Opensearch for EO configuration
      */
@@ -53,10 +52,9 @@ public class STACAPIBuilder extends org.geoserver.ogcapi.OpenAPIBuilder<OSEOInfo
         OpenAPI api = super.build(service);
 
         // the external documentation
-        api.externalDocs(
-                new ExternalDocumentation()
-                        .description("STAC API specification")
-                        .url("https://github.com/radiantearth/stac-api-spec"));
+        api.externalDocs(new ExternalDocumentation()
+                .description("STAC API specification")
+                .url("https://github.com/radiantearth/stac-api-spec"));
 
         // adjust path output formats
         declareGetResponseFormats(api, "/", OpenAPI.class);
@@ -64,10 +62,8 @@ public class STACAPIBuilder extends org.geoserver.ogcapi.OpenAPIBuilder<OSEOInfo
         // TODO: these needs to be adjusted once we have
         declareGetResponseFormats(api, "/collections", CollectionsResponse.class);
         declareGetResponseFormats(api, "/collections/{collectionId}", CollectionResponse.class);
-        declareGetResponseFormats(
-                api, "/collections/{collectionId}/items", FeatureCollectionType.class);
-        declareGetResponseFormats(
-                api, "/collections/{collectionId}/items/{featureId}", FeatureCollectionType.class);
+        declareGetResponseFormats(api, "/collections/{collectionId}/items", FeatureCollectionType.class);
+        declareGetResponseFormats(api, "/collections/{collectionId}/items/{featureId}", FeatureCollectionType.class);
 
         // provide a list of valid values for collectionId
         Map<String, Parameter> parameters = api.getComponents().getParameters();
@@ -95,17 +91,22 @@ public class STACAPIBuilder extends org.geoserver.ogcapi.OpenAPIBuilder<OSEOInfo
     private List<String> getCollectionIds() throws IOException {
         FeatureSource<FeatureType, Feature> fs =
                 accessProvider.getOpenSearchAccess().getCollectionSource();
-        PropertyName name =
-                CommonFactoryFinder.getFilterFactory2()
-                        .property(new NameImpl(fs.getSchema().getName().getNamespaceURI(), "name"));
+        PropertyName name = CommonFactoryFinder.getFilterFactory()
+                .property(new NameImpl(fs.getSchema().getName().getNamespaceURI(), "name"));
         // remove disabled collections
         Query q = new Query();
         q.setFilter(FF.equals(FF.property(OpenSearchAccess.ENABLED), FF.literal(true)));
         UniqueVisitor visitor = new UniqueVisitor(name);
         fs.getFeatures(q).accepts(visitor, null);
-        Set<Attribute> uniqueValues = visitor.getUnique();
-        return uniqueValues.stream()
-                .map(o -> (String) o.getValue())
+        Set uniqueValues = visitor.getUnique();
+        return (List<String>) uniqueValues.stream()
+                .map(a -> {
+                    if (a instanceof Attribute attribute) {
+                        return attribute.getValue();
+                    } else {
+                        return a.toString();
+                    }
+                })
                 .sorted()
                 .collect(Collectors.toList());
     }

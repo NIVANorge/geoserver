@@ -12,14 +12,14 @@ import java.util.logging.Logger;
 import org.geoserver.platform.resource.Resource;
 import org.geoserver.util.IOUtils;
 import org.geoserver.wps.resource.WPSResourceManager;
-import org.geotools.data.DataStoreFinder;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.Transaction;
+import org.geotools.api.data.DataStoreFinder;
+import org.geotools.api.data.FeatureStore;
+import org.geotools.api.data.SimpleFeatureSource;
+import org.geotools.api.data.Transaction;
 import org.geotools.data.csv.CSVDataStore;
 import org.geotools.data.csv.CSVDataStoreFactory;
 import org.geotools.data.csv.CSVFeatureStore;
 import org.geotools.data.simple.SimpleFeatureCollection;
-import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.util.logging.Logging;
 import org.geotools.xsd.Text;
 
@@ -28,7 +28,7 @@ public class CSVPPIO extends CDataPPIO {
     WPSResourceManager resourceManager;
     private static final Logger LOGGER = Logging.getLogger("org.geoserver.wps.ppio.CSVPPIO");
 
-    protected CSVPPIO(WPSResourceManager resourceManager) {
+    public CSVPPIO(WPSResourceManager resourceManager) {
         super(SimpleFeatureCollection.class, SimpleFeatureCollection.class, "text/csv");
         this.resourceManager = resourceManager;
     }
@@ -78,7 +78,7 @@ public class CSVPPIO extends CDataPPIO {
         SimpleFeatureCollection collection = (SimpleFeatureCollection) value;
         HashMap<String, Object> params = new HashMap<>();
         params.put(CSVDataStoreFactory.FILE_PARAM.key, tmp.file().getAbsoluteFile());
-        params.put(CSVDataStoreFactory.STRATEGYP.key, CSVDataStoreFactory.ATTRIBUTES_ONLY_STRATEGY);
+        params.put(CSVDataStoreFactory.STRATEGYP.key, CSVDataStoreFactory.WKT_STRATEGY);
         CSVDataStore store = (CSVDataStore) DataStoreFinder.getDataStore(params);
         store.createSchema(collection.getSchema());
         String name = store.getTypeName().getLocalPart();

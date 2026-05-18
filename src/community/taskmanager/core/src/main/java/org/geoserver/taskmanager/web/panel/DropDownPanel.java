@@ -4,6 +4,9 @@
  */
 package org.geoserver.taskmanager.web.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.wicket.ajax.AjaxRequestTarget;
@@ -18,13 +21,24 @@ import org.geoserver.web.wicket.ParamResourceModel;
 
 public class DropDownPanel extends Panel {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(DropDownPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -1829729746678003578L;
 
     public DropDownPanel(
-            String id,
-            IModel<String> model,
-            IModel<? extends List<? extends String>> choiceModel,
-            boolean nullValid) {
+            String id, IModel<String> model, IModel<? extends List<? extends String>> choiceModel, boolean nullValid) {
         this(id, model, choiceModel, null, nullValid);
     }
 
@@ -55,46 +69,39 @@ public class DropDownPanel extends Panel {
             newChoiceModel = new Model<ArrayList<? extends String>>(list);
         }
         add(new Label("message", labelModel));
-        add(
-                new DropDownChoice<String>(
-                                "dropdown",
-                                useDropDown ? model : new Model<String>(""),
-                                newChoiceModel)
-                        .setNullValid(nullValid && !custom));
+        add(new DropDownChoice<String>("dropdown", useDropDown ? model : new Model<String>(""), newChoiceModel)
+                .setNullValid(nullValid && !custom));
         add(new TextField<String>("custom", model).setVisible(!useDropDown));
 
         if (custom) {
             setOutputMarkupId(true);
-            getDropDownChoice()
-                    .add(
-                            new OnChangeAjaxBehavior() {
-                                private static final long serialVersionUID = 7823984472638368286L;
+            getDropDownChoice().add(new OnChangeAjaxBehavior() {
+                @Serial
+                private static final long serialVersionUID = 7823984472638368286L;
 
-                                @Override
-                                protected void onUpdate(AjaxRequestTarget target) {
-                                    boolean useDropDown =
-                                            !getDropDownChoice().getModelObject().equals("");
-                                    if (useDropDown) {
-                                        model.setObject(getDropDownChoice().getModelObject());
-                                        getDropDownChoice().setModel(model);
-                                    } else {
-                                        getDropDownChoice().setModel(new Model<String>(""));
-                                    }
-                                    getTextField().setVisible(!useDropDown);
-                                    target.add(DropDownPanel.this);
-                                }
-                            });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    boolean useDropDown = !getDropDownChoice().getModelObject().equals("");
+                    if (useDropDown) {
+                        model.setObject(getDropDownChoice().getModelObject());
+                        getDropDownChoice().setModel(model);
+                    } else {
+                        getDropDownChoice().setModel(new Model<String>(""));
+                    }
+                    getTextField().setVisible(!useDropDown);
+                    target.add(DropDownPanel.this);
+                }
+            });
         } else if (!inList) {
-            getDropDownChoice()
-                    .add(
-                            new OnChangeAjaxBehavior() {
-                                private static final long serialVersionUID = -7816987770470912413L;
+            getDropDownChoice().add(new OnChangeAjaxBehavior() {
+                @Serial
+                private static final long serialVersionUID = -7816987770470912413L;
 
-                                @Override
-                                protected void onUpdate(AjaxRequestTarget target) {
-                                    getDropDownChoice().setChoices(choiceModel);
-                                }
-                            });
+                @Override
+                protected void onUpdate(AjaxRequestTarget target) {
+                    getDropDownChoice().setChoices(choiceModel);
+                }
+            });
         }
     }
 

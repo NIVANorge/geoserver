@@ -23,7 +23,7 @@ public class GdalPPIOFactory implements PPIOFactory {
 
     @Override
     public List<ProcessParameterIO> getProcessParameterIO() {
-        List<ProcessParameterIO> gdalParams = new ArrayList<ProcessParameterIO>();
+        List<ProcessParameterIO> gdalParams = new ArrayList<>();
         for (Format of : this.delegate.getFormats()) {
             ProcessParameterIO ppio = null;
             String computedMimeType = delegate.getMimeType(of.getGeoserverFormat());
@@ -36,14 +36,10 @@ public class GdalPPIOFactory implements PPIOFactory {
             } else {
                 switch (of.getType()) {
                     case BINARY:
-                        ppio =
-                                new GdalBinaryPPIO(
-                                        of.getGeoserverFormat(), delegate, computedMimeType);
+                        ppio = new GdalBinaryPPIO(of.getGeoserverFormat(), delegate, computedMimeType);
                         break;
                     case TEXT:
-                        ppio =
-                                new GdalCDataPPIO(
-                                        of.getGeoserverFormat(), delegate, computedMimeType);
+                        ppio = new GdalCDataPPIO(of.getGeoserverFormat(), delegate, computedMimeType);
                         break;
                     case XML:
                         ppio = new GdalXMLPPIO(of.getGeoserverFormat(), delegate);

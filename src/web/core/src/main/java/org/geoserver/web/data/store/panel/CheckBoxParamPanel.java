@@ -5,6 +5,9 @@
  */
 package org.geoserver.web.data.store.panel;
 
+import static org.geoserver.web.util.WebUtils.IsWicketCssFileEmpty;
+
+import java.io.Serial;
 import org.apache.wicket.markup.html.basic.Label;
 import org.apache.wicket.markup.html.form.CheckBox;
 import org.apache.wicket.markup.html.form.FormComponent;
@@ -20,12 +23,25 @@ import org.apache.wicket.model.IModel;
  */
 public class CheckBoxParamPanel extends Panel implements ParamPanel<Boolean> {
 
+    private static final boolean isCssEmpty = IsWicketCssFileEmpty(CheckBoxParamPanel.class);
+
+    @Override
+    public void renderHead(org.apache.wicket.markup.head.IHeaderResponse response) {
+        super.renderHead(response);
+        // if the panel-specific CSS file contains actual css then have the browser load the css
+        if (!isCssEmpty) {
+            response.render(org.apache.wicket.markup.head.CssHeaderItem.forReference(
+                    new org.apache.wicket.request.resource.PackageResourceReference(
+                            getClass(), getClass().getSimpleName() + ".css")));
+        }
+    }
+
+    @Serial
     private static final long serialVersionUID = -8587266542399491587L;
 
     private CheckBox checkBox;
 
-    public CheckBoxParamPanel(
-            final String id, final IModel<Boolean> model, final IModel paramLabelModel) {
+    public CheckBoxParamPanel(final String id, final IModel<Boolean> model, final IModel paramLabelModel) {
         super(id, model);
         Label label = new Label("paramName", paramLabelModel);
         checkBox = new CheckBox("paramValue", model);

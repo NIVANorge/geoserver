@@ -4,6 +4,7 @@
  */
 package org.geoserver.metadata.web.panel.attribute;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,8 +16,9 @@ import org.geoserver.metadata.data.model.ComplexMetadataMap;
 import org.geoserver.web.wicket.GeoServerDataProvider;
 
 public class RepeatableAttributeDataProvider<T extends Serializable>
-        extends GeoServerDataProvider<ComplexMetadataAttribute<T>> implements IModel<List<T>> {
+        extends GeoServerDataProvider<ComplexMetadataAttribute<T>> {
 
+    @Serial
     private static final long serialVersionUID = -255037580716257623L;
 
     public static String KEY_VALUE = "value";
@@ -25,14 +27,11 @@ public class RepeatableAttributeDataProvider<T extends Serializable>
 
     public static String KEY_UPDOWN_ROW = "updown";
 
-    private final Property<ComplexMetadataAttribute<T>> VALUE =
-            new BeanProperty<>(KEY_VALUE, "value");
+    private final Property<ComplexMetadataAttribute<T>> VALUE = new BeanProperty<>(KEY_VALUE, "value");
 
-    private final Property<ComplexMetadataAttribute<T>> REMOVE_ROW =
-            new BeanProperty<>(KEY_REMOVE_ROW, "");
+    private final Property<ComplexMetadataAttribute<T>> REMOVE_ROW = new BeanProperty<>(KEY_REMOVE_ROW, "");
 
-    private final Property<ComplexMetadataAttribute<T>> UPDOWN_ROW =
-            new BeanProperty<>(KEY_UPDOWN_ROW, "");
+    private final Property<ComplexMetadataAttribute<T>> UPDOWN_ROW = new BeanProperty<>(KEY_UPDOWN_ROW, "");
 
     private final AttributeConfiguration attributeConfiguration;
 
@@ -41,8 +40,7 @@ public class RepeatableAttributeDataProvider<T extends Serializable>
     private List<ComplexMetadataAttribute<T>> items = new ArrayList<>();
 
     public RepeatableAttributeDataProvider(
-            AttributeConfiguration attributeConfiguration,
-            IModel<ComplexMetadataMap> metadataModel) {
+            AttributeConfiguration attributeConfiguration, IModel<ComplexMetadataMap> metadataModel) {
 
         this.metadataModel = metadataModel;
 
@@ -68,9 +66,7 @@ public class RepeatableAttributeDataProvider<T extends Serializable>
     public void addField() {
         Class<T> itemClass = EditorFactory.getInstance().getItemClass(attributeConfiguration);
         ComplexMetadataAttribute<T> item =
-                metadataModel
-                        .getObject()
-                        .get(itemClass, attributeConfiguration.getKey(), items.size());
+                metadataModel.getObject().get(itemClass, attributeConfiguration.getKey(), items.size());
         item.init();
         items.add(item);
     }
@@ -87,17 +83,13 @@ public class RepeatableAttributeDataProvider<T extends Serializable>
         return attributeConfiguration;
     }
 
-    @Override
-    public List<T> getObject() {
-        List<T> list = new ArrayList<>();
-        for (ComplexMetadataAttribute<T> item : items) {
-            list.add(item.getValue());
-        }
-        return list;
-    }
-
-    @Override
-    public void setObject(List<T> object) {
-        throw new UnsupportedOperationException();
+    public IModel<List<T>> getModel() {
+        return () -> {
+            List<T> list = new ArrayList<>();
+            for (ComplexMetadataAttribute<T> item : items) {
+                list.add(item.getValue());
+            }
+            return list;
+        };
     }
 }

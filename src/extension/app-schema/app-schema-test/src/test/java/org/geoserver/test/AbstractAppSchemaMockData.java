@@ -5,6 +5,8 @@
  */
 package org.geoserver.test;
 
+import static java.util.Map.entry;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,7 +25,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
 import org.geoserver.data.CatalogWriter;
 import org.geoserver.data.test.MockData;
 import org.geoserver.data.test.SystemTestData;
@@ -41,8 +42,7 @@ import org.locationtech.jts.geom.Envelope;
  *
  * @author Ben Caradoc-Davies, CSIRO Exploration and Mining
  */
-public abstract class AbstractAppSchemaMockData extends SystemTestData
-        implements NamespaceTestData {
+public abstract class AbstractAppSchemaMockData extends SystemTestData implements NamespaceTestData {
 
     /** Folder for for test data. */
     private static final String TEST_DATA = "/test-data/";
@@ -53,48 +53,35 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     /** URI for gsml namespace. */
     public static final String GSML_URI = "urn:cgi:xmlns:CGI:GeoSciML:2.0";
 
-    /** Schema location URL for the the top-level gsml XSD. */
-    public static final String GSML_SCHEMA_LOCATION_URL =
-            "http://www.geosciml.org/geosciml/2.0/xsd/geosciml.xsd";
+    /** Schema location URL for the top-level gsml XSD. */
+    public static final String GSML_SCHEMA_LOCATION_URL = "http://www.geosciml.org/geosciml/2.0/xsd/geosciml.xsd";
 
     /** PRefix for spec namespace. */
     public static final String SPEC_PREFIX = "spec";
 
     /** Map of namespace prefix to namespace URI for GML 32 schema. */
-    @SuppressWarnings("serial")
-    protected static final Map<String, String> GML32_NAMESPACES =
-            Collections.unmodifiableMap(
-                    new TreeMap<String, String>() {
-                        {
-                            put("cgu", "urn:cgi:xmlns:CGI:Utilities:3.0.0");
-                            put("gco", "http://www.isotc211.org/2005/gco");
-                            put("gmd", "http://www.isotc211.org/2005/gmd");
-                            put("gml", "http://www.opengis.net/gml/3.2");
-                            put("gsml", "urn:cgi:xmlns:CGI:GeoSciML-Core:3.0.0");
-                            put("sa", "http://www.opengis.net/sampling/2.0");
-                            put("spec", "http://www.opengis.net/samplingSpecimen/2.0");
-                            put("swe", "http://www.opengis.net/swe/1.0/gml32");
-                            put("wfs", "http://www.opengis.net/wfs/2.0");
-                            put("xlink", "http://www.w3.org/1999/xlink");
-                        }
-                    });
+    protected static final Map<String, String> GML32_NAMESPACES = Map.ofEntries(
+            entry("cgu", "urn:cgi:xmlns:CGI:Utilities:3.0.0"),
+            entry("gco", "http://www.isotc211.org/2005/gco"),
+            entry("gmd", "http://www.isotc211.org/2005/gmd"),
+            entry("gml", "http://www.opengis.net/gml/3.2"),
+            entry("gsml", "urn:cgi:xmlns:CGI:GeoSciML-Core:3.0.0"),
+            entry("sa", "http://www.opengis.net/sampling/2.0"),
+            entry("spec", "http://www.opengis.net/samplingSpecimen/2.0"),
+            entry("swe", "http://www.opengis.net/swe/1.0/gml32"),
+            entry("wfs", "http://www.opengis.net/wfs/2.0"),
+            entry("xlink", "http://www.w3.org/1999/xlink"));
 
     /** Map of namespace prefix to namespace URI. */
-    @SuppressWarnings("serial")
-    private static final Map<String, String> NAMESPACES =
-            Collections.unmodifiableMap(
-                    new LinkedHashMap<String, String>() {
-                        {
-                            put(GSML_PREFIX, GSML_URI);
-                            put("gml", "http://www.opengis.net/gml");
-                            put("xlink", "http://www.w3.org/1999/xlink");
-                            put("sa", "http://www.opengis.net/sampling/1.0");
-                            put("om", "http://www.opengis.net/om/1.0");
-                            put("cv", "http://www.opengis.net/cv/0.2.1");
-                            put("swe", "http://www.opengis.net/swe/1.0.1");
-                            put("sml", "http://www.opengis.net/sensorML/1.0.1");
-                        }
-                    });
+    private static final Map<String, String> NAMESPACES = Map.ofEntries(
+            entry(GSML_PREFIX, GSML_URI),
+            entry("gml", "http://www.opengis.net/gml"),
+            entry("xlink", "http://www.w3.org/1999/xlink"),
+            entry("sa", "http://www.opengis.net/sampling/1.0"),
+            entry("om", "http://www.opengis.net/om/1.0"),
+            entry("cv", "http://www.opengis.net/cv/0.2.1"),
+            entry("swe", "http://www.opengis.net/swe/1.0.1"),
+            entry("sml", "http://www.opengis.net/sensorML/1.0.1"));
 
     /** Use FeatureTypeInfo constants for srs handling as values */
     static final String KEY_SRS_HANDLINGS = "srsHandling";
@@ -139,9 +126,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     /** the 'featureTypes' directory, under 'data' */
     protected File featureTypesBaseDir;
 
-    /**
-     * Pair of property file name and feature type directory to create db tables for online tests
-     */
+    /** Pair of property file name and feature type directory to create db tables for online tests */
     private Map<String, File> propertiesFiles;
 
     /** Indicates fixture id (postgis or oracle) if running in online mode */
@@ -150,10 +135,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     /** SchemaCatalog to work with AppSchemaValidator for test requests validation. */
     private SchemaCatalog catalog;
 
-    /**
-     * True if running 3D online test. Only matters for Oracle, since a special wkt parser is
-     * needed.
-     */
+    /** True if running 3D online test. Only matters for Oracle, since a special wkt parser is needed. */
     private boolean is3D = false;
     /** Constructor with the default namespaces, schema directory, and catalog file. */
     public AbstractAppSchemaMockData() {
@@ -224,8 +206,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
         if (catalogLocation != null) {
             URL resolvedCatalogLocation = getClass().getResource(TEST_DATA + catalogLocation);
             if (resolvedCatalogLocation == null) {
-                throw new RuntimeException(
-                        "Test catalog location must be relative to test-data directory!");
+                throw new RuntimeException("Test catalog location must be relative to test-data directory!");
             }
             this.catalog = SchemaCatalog.build(resolvedCatalogLocation);
         }
@@ -246,14 +227,14 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /**
-     * Subclasses must override this method to add namespaces with {@link #putNamespace(String,
-     * String)} and feature types with {@link #addFeatureType(String, String, String, String...)}.
+     * Subclasses must override this method to add namespaces with {@link #putNamespace(String, String)} and feature
+     * types with {@link #addFeatureType(String, String, String, String...)}.
      */
     protected abstract void addContent();
 
     /**
-     * Helper method the will first try to resolve the resource as an existing file and open it
-     * otherwise the resource will be open as an app-schema test data resource.
+     * Helper method the will first try to resolve the resource as an existing file and open it otherwise the resource
+     * will be open as an app-schema test data resource.
      */
     private InputStream openResource(String resource) {
         File resourceFile = new File(resource);
@@ -263,8 +244,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                 return new FileInputStream(resourceFile);
             } catch (Exception exception) {
                 throw new RuntimeException(
-                        String.format("Error reading file '%s'.", resourceFile.getAbsolutePath()),
-                        exception);
+                        "Error reading file '%s'.".formatted(resourceFile.getAbsolutePath()), exception);
             }
         } else {
             // considering the resource to be an app-schema test data resource
@@ -273,17 +253,15 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /**
-     * Copy a file from the test-data directory to a feature type directory. if fileName contains
-     * directory path eg, dir1/dir2/file.xml, the full path will be used to locate the resource.
-     * After which the directory will be ignored.
+     * Copy a file from the test-data directory to a feature type directory. if fileName contains directory path eg,
+     * dir1/dir2/file.xml, the full path will be used to locate the resource. After which the directory will be ignored.
      *
      * @param namespacePrefix namespace prefix of the WFS feature type
      * @param typeName local name of the WFS feature type
      * @param fileName short name of the file in test-data to copy
      * @param data mock data root directory
      */
-    private void copyFileToFeatureTypeDir(String namespacePrefix, String typeName, String fileName)
-            throws IOException {
+    private void copyFileToFeatureTypeDir(String namespacePrefix, String typeName, String fileName) throws IOException {
         try (InputStream input = openResource(fileName)) {
             copy(
                     input,
@@ -329,7 +307,6 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @see org.geoserver.data.test.TestData#setUp()
      */
     @Override
-    @SuppressWarnings("PMD.JUnit4TestShouldUseBeforeAnnotation")
     public void setUp() throws IOException {
         setUpCatalog();
         setUpSecurity();
@@ -347,7 +324,6 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @see org.geoserver.data.test.TestData#tearDown()
      */
     @Override
-    @SuppressWarnings("PMD.JUnit4TestShouldUseAfterAnnotation")
     public void tearDown() {
         try {
             IOUtils.delete(data);
@@ -360,12 +336,8 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     /** Writes catalog.xml to the data directory. */
     private void setUpCatalog() {
         CatalogWriter writer = new CatalogWriter();
-        writer.dataStores(
-                datastoreParams, datastoreNamespacePrefixes, Collections.<String>emptySet());
-        writer.coverageStores(
-                new HashMap<String, Map<String, String>>(),
-                new HashMap<String, String>(),
-                Collections.<String>emptySet());
+        writer.dataStores(datastoreParams, datastoreNamespacePrefixes, Collections.emptySet());
+        writer.coverageStores(new HashMap<>(), new HashMap<>(), Collections.emptySet());
         writer.namespaces(namespaces, isolatedNamespaces);
         writer.styles(layerStyles);
         try {
@@ -432,8 +404,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                 writer.write("<featureType datastore=\"" + dataStoreName + "\">");
                 writer.write("<name>" + typeName + "</name>");
                 writer.write("<nativeName>" + typeName + "</nativeName>");
-                if (params.get(KEY_ALIAS) != null)
-                    writer.write("<alias>" + params.get(KEY_ALIAS) + "</alias>");
+                if (params.get(KEY_ALIAS) != null) writer.write("<alias>" + params.get(KEY_ALIAS) + "</alias>");
                 writer.write("<SRS>" + params.get(KEY_SRS_NUMBER) + "</SRS>");
                 // this mock type may have wrong SRS compared to the actual one in the property
                 // files...
@@ -447,28 +418,26 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                 writer.write("<keywords>" + typeName + "</keywords>");
                 Envelope llEnvelope = (Envelope) params.get(KEY_LL_ENVELOPE);
                 if (llEnvelope == null) llEnvelope = DEFAULT_ENVELOPE;
-                writer.write(
-                        "<latLonBoundingBox dynamic=\"false\" minx=\""
-                                + llEnvelope.getMinX()
-                                + "\" miny=\""
-                                + llEnvelope.getMinY()
-                                + "\" maxx=\""
-                                + llEnvelope.getMaxX()
-                                + "\" maxy=\""
-                                + llEnvelope.getMaxY()
-                                + "\"/>");
+                writer.write("<latLonBoundingBox dynamic=\"false\" minx=\""
+                        + llEnvelope.getMinX()
+                        + "\" miny=\""
+                        + llEnvelope.getMinY()
+                        + "\" maxx=\""
+                        + llEnvelope.getMaxX()
+                        + "\" maxy=\""
+                        + llEnvelope.getMaxY()
+                        + "\"/>");
                 Envelope nativeEnvelope = (Envelope) params.get(KEY_NATIVE_ENVELOPE);
                 if (nativeEnvelope != null)
-                    writer.write(
-                            "<nativeBBox dynamic=\"false\" minx=\""
-                                    + nativeEnvelope.getMinX()
-                                    + "\" miny=\""
-                                    + nativeEnvelope.getMinY()
-                                    + "\" maxx=\""
-                                    + nativeEnvelope.getMaxX()
-                                    + "\" maxy=\""
-                                    + nativeEnvelope.getMaxY()
-                                    + "\"/>");
+                    writer.write("<nativeBBox dynamic=\"false\" minx=\""
+                            + nativeEnvelope.getMinX()
+                            + "\" miny=\""
+                            + nativeEnvelope.getMinY()
+                            + "\" maxx=\""
+                            + nativeEnvelope.getMaxX()
+                            + "\" maxy=\""
+                            + nativeEnvelope.getMaxY()
+                            + "\"/>");
                 String style = (String) params.get(KEY_STYLE);
                 if (style == null) style = "Default";
                 writer.write("<styles default=\"" + style + "\"/>");
@@ -489,7 +458,6 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @param featureTypesBaseDir feature types base directory
      * @param dataStoreName data store name
      */
-    @SuppressWarnings("serial")
     protected static Map<String, Serializable> buildAppSchemaDatastoreParams(
             final String namespacePrefix,
             final String typeName,
@@ -497,24 +465,21 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
             final File featureTypesBaseDir,
             final String dataStoreName) {
         try {
-            return new LinkedHashMap<String, Serializable>() {
-                {
-                    put("dbtype", "app-schema");
-                    put(
+            return Map.ofEntries(
+                    entry("dbtype", "app-schema"),
+                    entry(
                             "url",
                             new File(new File(featureTypesBaseDir, dataStoreName), mappingFileName)
                                     .toURI()
-                                    .toURL());
-                }
-            };
+                                    .toURL()));
+
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
     }
 
     /**
-     * Add one feature type, copying its resources and registering, creating its info.xml, and
-     * adding it to catalog.xml.
+     * Add one feature type, copying its resources and registering, creating its info.xml, and adding it to catalog.xml.
      *
      * @param namespacePrefix namespace prefix of the WFS feature type
      * @param typeName local name of the WFS feature type
@@ -522,16 +487,12 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @param supportFileNames names of other files to be copied into the feature type directory
      */
     public void addFeatureType(
-            String namespacePrefix,
-            String typeName,
-            String mappingFileName,
-            String... supportFileNames) {
+            String namespacePrefix, String typeName, String mappingFileName, String... supportFileNames) {
         File featureTypeDir = getFeatureTypeDir(featureTypesBaseDir, namespacePrefix, typeName);
         String dataStoreName = getDataStoreName(namespacePrefix, typeName);
         try {
             writeInfoFile(namespacePrefix, typeName, featureTypeDir, dataStoreName);
-            copyMappingAndSupportFiles(
-                    namespacePrefix, typeName, mappingFileName, supportFileNames);
+            copyMappingAndSupportFiles(namespacePrefix, typeName, mappingFileName, supportFileNames);
             // if mappingFileName contains directory, eg, dir1/dir2/file.xml, we will ignore the
             // directory from here on
             addDataStore(
@@ -549,8 +510,8 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /**
-     * The same as {@link #addFeatureType(String, String, String, String...)} except this to enable
-     * 3D WKT parser for Oracle. Use this one for tests with 3D data that needs to be run online.
+     * The same as {@link #addFeatureType(String, String, String, String...)} except this to enable 3D WKT parser for
+     * Oracle. Use this one for tests with 3D data that needs to be run online.
      *
      * @param namespacePrefix namespace prefix of the WFS feature type
      * @param typeName local name of the WFS feature type
@@ -558,10 +519,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @param supportFileNames names of other files to be copied into the feature type directory
      */
     public void add3DFeatureType(
-            String namespacePrefix,
-            String typeName,
-            String mappingFileName,
-            String... supportFileNames) {
+            String namespacePrefix, String typeName, String mappingFileName, String... supportFileNames) {
         addFeatureType(namespacePrefix, typeName, mappingFileName, supportFileNames);
         this.is3D = true;
     }
@@ -608,8 +566,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /** Add a datastore and record its prefix in the lookup table. */
-    protected void addDataStore(
-            String dataStoreName, String namespacePrefix, Map<String, Serializable> params) {
+    protected void addDataStore(String dataStoreName, String namespacePrefix, Map<String, Serializable> params) {
         datastoreParams.put(dataStoreName, params);
         datastoreNamespacePrefixes.put(dataStoreName, namespacePrefix);
     }
@@ -646,8 +603,8 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /**
-     * Get the name of the data store for a feature type. This is used to construct the name of the
-     * feature type directory as well as the name of the data store.
+     * Get the name of the data store for a feature type. This is used to construct the name of the feature type
+     * directory as well as the name of the data store.
      *
      * @param namespacePrefix namespace prefix of the WFS feature type
      * @param typeName local name of the WFS feature type
@@ -673,8 +630,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @param typeName local name of the WFS feature type
      * @return directory that contains the mapping and property files
      */
-    protected File getFeatureTypeDir(
-            File featureTypesBaseDir, String namespacePrefix, String typeName) {
+    protected File getFeatureTypeDir(File featureTypesBaseDir, String namespacePrefix, String typeName) {
         return new File(featureTypesBaseDir, getDataStoreName(namespacePrefix, typeName));
     }
 
@@ -684,14 +640,10 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
      * @param namespacePrefix namespace prefix of the WFS feature type
      * @param typeName local name of the WFS feature type
      * @param mappingFileName name of the mapping file for this feature type
-     * @param supportFileNames names of the support files, such as properties files, for this
-     *     feature type
+     * @param supportFileNames names of the support files, such as properties files, for this feature type
      */
     protected void copyMappingAndSupportFiles(
-            String namespacePrefix,
-            String typeName,
-            String mappingFileName,
-            String... supportFileNames)
+            String namespacePrefix, String typeName, String mappingFileName, String... supportFileNames)
             throws IOException {
         onlineTestId = System.getProperty("testDatabase");
         if (onlineTestId != null) {
@@ -728,8 +680,7 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                             }
                             propertiesFiles.put(
                                     propertyFileName,
-                                    getFeatureTypeDir(
-                                            featureTypesBaseDir, namespacePrefix, typeName));
+                                    getFeatureTypeDir(featureTypesBaseDir, namespacePrefix, typeName));
                         }
                     }
                 }
@@ -745,8 +696,8 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
     }
 
     /**
-     * Modify the mapping file stream that is to be copied to the target directory. This is so the
-     * mapping file copy has the right datastore parameters to use the test database.
+     * Modify the mapping file stream that is to be copied to the target directory. This is so the mapping file copy has
+     * the right datastore parameters to use the test database.
      *
      * @param mappingFileName Mapping file to be copied
      * @return Modified content string
@@ -774,22 +725,18 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                                 content.append(AppSchemaTestPostgisSetup.DB_PARAMS);
                             } else if (isGeoPkg) {
                                 copy(
-                                        getClass()
-                                                .getClassLoader()
-                                                .getResourceAsStream("appschema/stations.gpkg"),
+                                        getClass().getClassLoader().getResourceAsStream("appschema/stations.gpkg"),
                                         "appschema/stations.gpkg");
-                                File[] stations =
-                                        Objects.requireNonNull(data.listFiles(getAppschema()))[0]
-                                                .listFiles(getGpkgFile());
+                                File[] stations = Objects.requireNonNull(data.listFiles(getAppschema()))[0].listFiles(
+                                        getGpkgFile());
                                 File resourceFile = null;
                                 if (stations.length > 0) {
                                     resourceFile = stations[0];
                                 }
 
                                 geopkgDir = resourceFile.toURI().toString();
-                                String DB_PARAMS =
-                                        AppSchemaTestGeopackageSetup.DB_PARAMS.replace(
-                                                "PATH_TO_BE_REPLACED", geopkgDir);
+                                String DB_PARAMS = AppSchemaTestGeopackageSetup.DB_PARAMS.replace(
+                                        "PATH_TO_BE_REPLACED", geopkgDir);
                                 content.append(DB_PARAMS);
                             }
                         } else {
@@ -802,10 +749,8 @@ public abstract class AbstractAppSchemaMockData extends SystemTestData
                         line = line.trim();
                         String sourceTypeTag = "<sourceType>";
                         content.append(sourceTypeTag);
-                        String tableName =
-                                line.substring(
-                                        line.indexOf(sourceTypeTag) + sourceTypeTag.length(),
-                                        line.indexOf("</sourceType>"));
+                        String tableName = line.substring(
+                                line.indexOf(sourceTypeTag) + sourceTypeTag.length(), line.indexOf("</sourceType>"));
                         content.append(tableName.toUpperCase());
                         content.append("</sourceType>");
                         content.append("\n");

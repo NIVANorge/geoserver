@@ -17,44 +17,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.FeatureTypeInfo;
 import org.geoserver.gsr.model.feature.*;
 import org.geoserver.gsr.model.geometry.*;
 import org.geoserver.gsr.translate.geometry.AbstractGeometryEncoder;
 import org.geoserver.gsr.translate.geometry.GeometryEncoder;
+import org.geotools.api.feature.GeometryAttribute;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.FeatureType;
+import org.geotools.api.feature.type.PropertyDescriptor;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.FeatureTypes;
-import org.opengis.feature.GeometryAttribute;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.PropertyDescriptor;
+import org.kordamp.json.JSONObject;
 
 public class FeatureEncoder {
 
     public static final String OBJECTID_FIELD_NAME = "objectid";
 
     private FeatureEncoder() {
-        throw new RuntimeException(
-                "Feature encoder has only static methods, no need to instantiate it.");
+        throw new RuntimeException("Feature encoder has only static methods, no need to instantiate it.");
     }
 
     /**
-     * Get an {@link AttributeList} from a {@link org.opengis.feature.Feature}
+     * Get an {@link AttributeList} from a {@link org.geotools.api.feature.Feature}
      *
      * @param feature
      * @param objectIdFieldName
      * @return the list of feature attributes
      */
     public static Map<String, Object> attributeList(
-            org.opengis.feature.Feature feature, String objectIdFieldName) {
+            org.geotools.api.feature.Feature feature, String objectIdFieldName) {
         GeometryAttribute geometryAttribute = feature.getDefaultGeometryProperty();
         Map<String, Object> attributes = new HashMap<>();
         for (Property prop : feature.getProperties()) {
             if (prop.getValue() != null
-                    && (geometryAttribute == null
-                            || !prop.getName().equals(geometryAttribute.getName()))) {
+                    && (geometryAttribute == null || !prop.getName().equals(geometryAttribute.getName()))) {
                 final Object value;
                 if (prop.getValue() instanceof java.util.Date) {
                     value = ((java.util.Date) prop.getValue()).getTime();
@@ -78,7 +76,8 @@ public class FeatureEncoder {
         }
 
         if (objectIdFieldName != null) {
-            attributes.put(objectIdFieldName, toGSRObjectId(feature.getIdentifier().getID()));
+            attributes.put(
+                    objectIdFieldName, toGSRObjectId(feature.getIdentifier().getID()));
         }
 
         return attributes;
@@ -97,28 +96,20 @@ public class FeatureEncoder {
     }
 
     public static Feature feature(
-            org.opengis.feature.Feature feature,
-            boolean returnGeometry,
-            SpatialReference spatialReference) {
-        return feature(
-                feature, returnGeometry, spatialReference, FeatureEncoder.OBJECTID_FIELD_NAME);
+            org.geotools.api.feature.Feature feature, boolean returnGeometry, SpatialReference spatialReference) {
+        return feature(feature, returnGeometry, spatialReference, FeatureEncoder.OBJECTID_FIELD_NAME);
     }
 
     public static Feature feature(
-            org.opengis.feature.Feature feature,
+            org.geotools.api.feature.Feature feature,
             boolean returnGeometry,
             SpatialReference spatialReference,
             String objectIdFieldName) {
-        return feature(
-                feature,
-                returnGeometry,
-                spatialReference,
-                objectIdFieldName,
-                new GeometryEncoder());
+        return feature(feature, returnGeometry, spatialReference, objectIdFieldName, new GeometryEncoder());
     }
 
     public static Feature feature(
-            org.opengis.feature.Feature feature,
+            org.geotools.api.feature.Feature feature,
             boolean returnGeometry,
             SpatialReference spatialReference,
             String objectIdFieldName,
@@ -128,8 +119,7 @@ public class FeatureEncoder {
         if (returnGeometry) {
             return new Feature(
                     geometryEncoder.toRepresentation(
-                            (org.locationtech.jts.geom.Geometry) geometryAttribute.getValue(),
-                            spatialReference),
+                            (org.locationtech.jts.geom.Geometry) geometryAttribute.getValue(), spatialReference),
                     attributes,
                     feature.getIdentifier().getID());
         } else {
@@ -173,8 +163,8 @@ public class FeatureEncoder {
                 field.isNillable());
     }
 
-    public static <T extends FeatureType, F extends org.opengis.feature.Feature>
-            FeatureIdSet objectIds(FeatureCollection<T, F> features) {
+    public static <T extends FeatureType, F extends org.geotools.api.feature.Feature> FeatureIdSet objectIds(
+            FeatureCollection<T, F> features) {
 
         // TODO: Advertise "real" identifier property
 
@@ -192,8 +182,8 @@ public class FeatureEncoder {
     public static final Pattern FEATURE_ID_PATTERN = Pattern.compile("(^(?:.*\\.)?)(\\p{Digit}+)$");
 
     /**
-     * Converts a GeoTools FeatureId of the form $NAME.$ID to a ESRI-compatible long value by
-     * removing the $NAME prefix using {@link FeatureEncoder#FEATURE_ID_PATTERN}
+     * Converts a GeoTools FeatureId of the form $NAME.$ID to a ESRI-compatible long value by removing the $NAME prefix
+     * using {@link FeatureEncoder#FEATURE_ID_PATTERN}
      *
      * @param featureId
      * @return
@@ -208,8 +198,7 @@ public class FeatureEncoder {
     }
 
     /**
-     * Converts a long id generated using {@link #toGSRObjectId(String)} back to a GeoTools
-     * FeatureId.
+     * Converts a long id generated using {@link #toGSRObjectId(String)} back to a GeoTools FeatureId.
      *
      * @param objectId the generated id
      * @param idPrefix the prefix to prepend
@@ -220,16 +209,14 @@ public class FeatureEncoder {
     }
 
     /**
-     * Converts a long id generated using {@link #toGSRObjectId(String)} back to a GeoTools
-     * FeatureId.
+     * Converts a long id generated using {@link #toGSRObjectId(String)} back to a GeoTools FeatureId.
      *
      * @param objectId the generated id
      * @param targetFeature The target featuretype of the id, used to calculate the prefix
      * @return
      * @throws IOException
      */
-    public static String toGeotoolsFeatureId(Long objectId, FeatureTypeInfo targetFeature)
-            throws IOException {
+    public static String toGeotoolsFeatureId(Long objectId, FeatureTypeInfo targetFeature) throws IOException {
         return toGeotoolsFeatureId(objectId, calculateFeatureIdPrefix(targetFeature));
     }
 
@@ -240,9 +227,8 @@ public class FeatureEncoder {
      * @return
      * @throws IOException
      */
-    public static String calculateFeatureIdPrefix(FeatureTypeInfo targetFeature)
-            throws IOException {
-        org.opengis.feature.Feature sampleFeature = null;
+    public static String calculateFeatureIdPrefix(FeatureTypeInfo targetFeature) throws IOException {
+        org.geotools.api.feature.Feature sampleFeature = null;
         String featureIdPrefix = "";
         try (FeatureIterator i =
                 targetFeature.getFeatureSource(null, null).getFeatures().features()) {
@@ -260,8 +246,7 @@ public class FeatureEncoder {
     }
 
     /**
-     * ESRI JS relies heavily on the object ID field, whereas in GeoServer this concept is a little
-     * vaguer.
+     * ESRI JS relies heavily on the object ID field, whereas in GeoServer this concept is a little vaguer.
      *
      * @param objectIdFieldName
      * @return

@@ -9,15 +9,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.geoserver.security.config.SecurityFilterConfig;
 import org.geoserver.security.config.SecurityManagerConfig;
 import org.geoserver.security.config.SecurityNamedServiceConfig;
@@ -39,21 +39,22 @@ public class GeoServerCustomFilterTest extends GeoServerSystemTestSupport {
         FIRST,
         LAST,
         BEFORE,
-        AFTER;
-    };
+        AFTER
+    }
 
     @Override
     protected void setUpSpring(List<String> springContextLocations) {
         super.setUpSpring(springContextLocations);
-        springContextLocations.add(
-                getClass().getResource(getClass().getSimpleName() + "-context.xml").toString());
+        springContextLocations.add(getClass()
+                .getResource(getClass().getSimpleName() + "-context.xml")
+                .toString());
     }
 
     @After
     public void removeCustomFilterConfig() throws Exception {
         GeoServerSecurityManager secMgr = getSecurityManager();
         if (secMgr.listFilters().contains("custom")) {
-            secMgr.removeFilter(secMgr.loadFilterConfig("custom"));
+            secMgr.removeFilter(secMgr.loadFilterConfig("custom", true));
         }
         secMgr.getSecurityConfig().getFilterChain().remove("custom");
 
@@ -69,8 +70,7 @@ public class GeoServerCustomFilterTest extends GeoServerSystemTestSupport {
         assertNull(response.getHeader("foo"));
     }
 
-    void setupFilterEntry(Pos pos, String relativeTo, boolean assertSecurityContext)
-            throws Exception {
+    void setupFilterEntry(Pos pos, String relativeTo, boolean assertSecurityContext) throws Exception {
 
         GeoServerSecurityManager secMgr = getSecurityManager();
 
@@ -133,7 +133,7 @@ public class GeoServerCustomFilterTest extends GeoServerSystemTestSupport {
     }
 
     @Override
-    protected List<javax.servlet.Filter> getFilters() {
+    protected List<jakarta.servlet.Filter> getFilters() {
         return Arrays.asList(applicationContext.getBean(GeoServerSecurityFilterChainProxy.class));
     }
 

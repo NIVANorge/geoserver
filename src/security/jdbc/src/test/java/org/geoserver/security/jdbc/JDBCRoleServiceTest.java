@@ -24,8 +24,7 @@ import org.junit.Test;
 
 public abstract class JDBCRoleServiceTest extends AbstractRoleServiceTest {
 
-    static Logger LOGGER =
-            org.geotools.util.logging.Logging.getLogger("org.geoserver.security.jdbc");
+    static Logger LOGGER = org.geotools.util.logging.Logging.getLogger("org.geoserver.security.jdbc");
 
     protected abstract String getFixtureId();
 
@@ -86,7 +85,7 @@ public abstract class JDBCRoleServiceTest extends AbstractRoleServiceTest {
 
     @Override
     protected SystemTestData createTestData() throws Exception {
-        if ("h2".equalsIgnoreCase(getFixtureId())) return super.createTestData();
+        if ("hsql".equalsIgnoreCase(getFixtureId())) return super.createTestData();
         return new LiveDbmsDataSecurity(getFixtureId());
     }
 

@@ -11,12 +11,12 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import org.geoserver.security.Response;
 import org.geoserver.security.SecureCatalogImpl;
+import org.geotools.api.feature.simple.SimpleFeature;
+import org.geotools.api.feature.simple.SimpleFeatureType;
+import org.geotools.api.feature.type.AttributeDescriptor;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureIterator;
 import org.geotools.feature.collection.DecoratingSimpleFeatureCollection;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.AttributeDescriptor;
 
 /**
  * Makes sure all the non writable attributes have null value
@@ -30,9 +30,7 @@ class CheckAttributesFeatureCollection extends DecoratingSimpleFeatureCollection
     Response response;
 
     protected CheckAttributesFeatureCollection(
-            SimpleFeatureCollection delegate,
-            Collection<String> writableAttributes,
-            Response response) {
+            SimpleFeatureCollection delegate, Collection<String> writableAttributes, Response response) {
         super(delegate);
         this.writableAttributes = new HashSet<>(writableAttributes);
         this.response = response;
@@ -47,8 +45,7 @@ class CheckAttributesFeatureCollection extends DecoratingSimpleFeatureCollection
 
         SimpleFeatureIterator delegate;
 
-        public CheckAttributesFeatureIterator(
-                SimpleFeatureIterator delegate, Set<String> writableAttributes) {
+        public CheckAttributesFeatureIterator(SimpleFeatureIterator delegate, Set<String> writableAttributes) {
             this.delegate = delegate;
         }
 

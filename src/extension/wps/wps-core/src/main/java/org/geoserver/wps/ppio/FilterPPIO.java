@@ -8,12 +8,12 @@ package org.geoserver.wps.ppio;
 import java.io.InputStream;
 import javax.xml.namespace.QName;
 import org.apache.commons.io.IOUtils;
+import org.geotools.api.filter.Filter;
 import org.geotools.filter.v1_0.OGC;
 import org.geotools.filter.v1_0.OGCConfiguration;
 import org.geotools.xsd.Configuration;
 import org.geotools.xsd.Encoder;
 import org.geotools.xsd.Parser;
-import org.opengis.filter.Filter;
 import org.xml.sax.ContentHandler;
 
 /**
@@ -34,8 +34,8 @@ public class FilterPPIO extends XMLPPIO {
             return null;
         } else if (input instanceof Filter) {
             return input;
-        } else if (input instanceof String) {
-            return decode(IOUtils.toInputStream((String) input, "UTF-8"));
+        } else if (input instanceof String string) {
+            return decode(IOUtils.toInputStream(string, "UTF-8"));
         } else {
             throw new IllegalArgumentException("Cannot convert " + input + " into a Filter object");
         }
@@ -64,10 +64,7 @@ public class FilterPPIO extends XMLPPIO {
     public static class Filter11 extends FilterPPIO {
 
         public Filter11() {
-            super(
-                    Filter.class,
-                    "text/xml; subtype=filter/1.1",
-                    org.geotools.filter.v1_1.OGC.Filter);
+            super(Filter.class, "text/xml; subtype=filter/1.1", org.geotools.filter.v1_1.OGC.Filter);
             xml = new org.geotools.filter.v1_1.OGCConfiguration();
         }
     }

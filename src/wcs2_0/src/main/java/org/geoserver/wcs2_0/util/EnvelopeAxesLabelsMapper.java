@@ -7,25 +7,27 @@ package org.geoserver.wcs2_0.util;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.geotools.api.geometry.Bounds;
+import org.geotools.api.referencing.crs.CoordinateReferenceSystem;
+import org.geotools.api.referencing.crs.GeographicCRS;
+import org.geotools.api.referencing.cs.CoordinateSystem;
+import org.geotools.api.referencing.cs.CoordinateSystemAxis;
 import org.geotools.referencing.cs.DefaultCoordinateSystemAxis;
 import org.geotools.util.Utilities;
-import org.opengis.geometry.Envelope;
-import org.opengis.referencing.crs.CoordinateReferenceSystem;
-import org.opengis.referencing.crs.GeographicCRS;
-import org.opengis.referencing.cs.CoordinateSystem;
-import org.opengis.referencing.cs.CoordinateSystemAxis;
 
 /**
- * Retain a unique mapping between {@link Envelope} axes and their names.
+ * Retain a unique mapping between {@link Bounds} axes and their names.
  *
- * @author Simone Giannecchini, GeoSolutions TODO caching depending on CRS? TODO handle composite
- *     CRS
+ * @author Simone Giannecchini, GeoSolutions TODO caching depending on CRS? TODO handle composite CRS
  */
 public class EnvelopeAxesLabelsMapper {
 
-    public List<String> getAxesNames(Envelope envelope, boolean swapAxes) {
+    public List<String> getAxesNames(Bounds envelope, boolean swapAxes) {
         Utilities.ensureNonNull("envelope", envelope);
         final CoordinateReferenceSystem crs = envelope.getCoordinateReferenceSystem();
+        if (crs == null) {
+            throw new IllegalStateException("Unable to determine axes names as envelope does not include srs");
+        }
 
         // handle axes switch for geographic crs
         final boolean axesSwitch = crs instanceof GeographicCRS && swapAxes;
@@ -45,16 +47,12 @@ public class EnvelopeAxesLabelsMapper {
             int northing = -1, easting = -1;
             for (int i = 0; i < dimension; i++) {
                 final CoordinateSystemAxis axis = cs.getAxis(i);
-                if (Math.abs(
-                                DefaultCoordinateSystemAxis.getAngle(
-                                        axis.getDirection(),
-                                        DefaultCoordinateSystemAxis.LONGITUDE.getDirection()))
+                if (Math.abs(DefaultCoordinateSystemAxis.getAngle(
+                                axis.getDirection(), DefaultCoordinateSystemAxis.LONGITUDE.getDirection()))
                         < 1E-6) {
                     easting = i;
-                } else if (Math.abs(
-                                DefaultCoordinateSystemAxis.getAngle(
-                                        axis.getDirection(),
-                                        DefaultCoordinateSystemAxis.LATITUDE.getDirection()))
+                } else if (Math.abs(DefaultCoordinateSystemAxis.getAngle(
+                                axis.getDirection(), DefaultCoordinateSystemAxis.LATITUDE.getDirection()))
                         < 1E-6) {
                     northing = i;
                 }
@@ -76,8 +74,7 @@ public class EnvelopeAxesLabelsMapper {
                 || label.equals("Lon")
                 || label.equals("Long")) {
             return "Long";
-        } else if (label.equals(DefaultCoordinateSystemAxis.LATITUDE.getAbbreviation())
-                || label.equals("Lat")) {
+        } else if (label.equals(DefaultCoordinateSystemAxis.LATITUDE.getAbbreviation()) || label.equals("Lat")) {
             return "Lat";
         } else {
 
@@ -85,12 +82,12 @@ public class EnvelopeAxesLabelsMapper {
         }
     }
 
-    public int getAxisIndex(final Envelope envelope, final String axisAbbreviation) {
+    public int getAxisIndex(final Bounds envelope, final String axisAbbreviation) {
         final int[] val = getAxesIndexes(envelope, Arrays.asList(axisAbbreviation));
         return (val == null ? -1 : val[0]);
     }
 
-    public int[] getAxesIndexes(final Envelope envelope, final List<String> axesAbbreviations) {
+    public int[] getAxesIndexes(final Bounds envelope, final List<String> axesAbbreviations) {
         Utilities.ensureNonNull("envelope", envelope);
         Utilities.ensureNonNull("dimensionNames", axesAbbreviations);
 

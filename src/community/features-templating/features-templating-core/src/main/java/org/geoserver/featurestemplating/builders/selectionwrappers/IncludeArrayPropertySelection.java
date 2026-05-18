@@ -4,8 +4,6 @@
  */
 package org.geoserver.featurestemplating.builders.selectionwrappers;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.geoserver.featurestemplating.builders.AbstractTemplateBuilder;
 import org.geoserver.featurestemplating.builders.TemplateBuilder;
 import org.geoserver.featurestemplating.builders.impl.ArrayIncludeFlatBuilder;
@@ -13,15 +11,16 @@ import org.geoserver.featurestemplating.builders.impl.TemplateBuilderContext;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionContext;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionHandler;
 import org.geoserver.featurestemplating.builders.visitors.PropertySelectionVisitor;
-import org.opengis.feature.Property;
-import org.opengis.feature.type.PropertyType;
+import org.geotools.api.feature.Property;
+import org.geotools.api.feature.type.PropertyType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
 
 /** A PropertySelectionWrapper meant to wrap an {@link ArrayIncludeFlatBuilder}. */
 public class IncludeArrayPropertySelection extends PropertySelectionWrapper {
 
     public IncludeArrayPropertySelection(
-            ArrayIncludeFlatBuilder templateBuilder,
-            PropertySelectionHandler propertySelectionHandler) {
+            ArrayIncludeFlatBuilder templateBuilder, PropertySelectionHandler propertySelectionHandler) {
         super(templateBuilder, propertySelectionHandler);
     }
 
@@ -41,20 +40,17 @@ public class IncludeArrayPropertySelection extends PropertySelectionWrapper {
                 if (object != null) {
                     Property prop = (Property) object;
                     PropertyType type = prop.getType();
-                    PropertySelectionVisitor propertySelectionVisitor =
-                            new PropertySelectionVisitor(strategy, type);
+                    PropertySelectionVisitor propertySelectionVisitor = new PropertySelectionVisitor(strategy, type);
                     PropertySelectionContext selContext =
                             new PropertySelectionContext(getFullKey(context), false, false);
-                    builder =
-                            (TemplateBuilder) builder.accept(propertySelectionVisitor, selContext);
+                    builder = (TemplateBuilder) builder.accept(propertySelectionVisitor, selContext);
                 }
                 return builder;
             }
 
             @Override
             public boolean canWrite(TemplateBuilderContext context) {
-                return IncludeArrayPropertySelection.this.canWrite(context)
-                        && super.canWrite(context);
+                return IncludeArrayPropertySelection.this.canWrite(context) && super.canWrite(context);
             }
         };
     }

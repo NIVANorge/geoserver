@@ -11,7 +11,7 @@
   <parent>
     <groupId>org.geoserver</groupId>
     <artifactId>community</artifactId>
-    <version>2.24-SNAPSHOT</version>
+    <version>3.0.0-SNAPSHOT</version>
   </parent>
 
   <groupId>org.geoserver.community</groupId>
@@ -26,7 +26,13 @@
     <module>oseo-rest</module>
     <module>web-oseo</module>
     <module>oseo-integration-tests</module>
+    <module>oseo-assembly</module>
   </modules>
+
+  <!-- For reliable tests -->
+  <properties>
+    <user.timezone>UTC</user.timezone>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -35,5 +41,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
 </project>

@@ -9,6 +9,7 @@
  */
 package org.geoserver.gsr.controller.relationship;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -16,9 +17,6 @@ import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
-import net.sf.json.JSON;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 import org.geoserver.catalog.Catalog;
 import org.geoserver.catalog.MetadataMap;
 import org.geoserver.catalog.WorkspaceInfo;
@@ -30,6 +28,9 @@ import org.geoserver.gsr.model.relationship.RelationshipType;
 import org.geoserver.gsr.translate.relationship.RelationshipDAO;
 import org.junit.Before;
 import org.junit.Test;
+import org.kordamp.json.JSON;
+import org.kordamp.json.JSONArray;
+import org.kordamp.json.JSONObject;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -42,13 +43,12 @@ public class RelationshipControllerTest extends ControllerTest {
     /**
      * Executes an ows request using the DELETE method, with xml as body content.
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @param contentType
      * @return the servlet response
      */
-    protected MockHttpServletResponse deleteAsServletResponse(
-            String path, String body, String contentType) throws Exception {
+    protected MockHttpServletResponse deleteAsServletResponse(String path, String body, String contentType)
+            throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("DELETE");
         request.setContentType(contentType);
@@ -60,14 +60,13 @@ public class RelationshipControllerTest extends ControllerTest {
     /**
      * Executes an ows request using the PUT method, with xml as body content.
      *
-     * @param path The porition of the request after the context ( no query string ), example:
-     *     'wms'.
+     * @param path The porition of the request after the context ( no query string ), example: 'wms'.
      * @param contentType
      * @return the servlet response
      */
     @Override
-    protected MockHttpServletResponse putAsServletResponse(
-            String path, String body, String contentType) throws Exception {
+    protected MockHttpServletResponse putAsServletResponse(String path, String body, String contentType)
+            throws Exception {
         MockHttpServletRequest request = createRequest(path);
         request.setMethod("PUT");
         request.setContentType(contentType);
@@ -118,30 +117,28 @@ public class RelationshipControllerTest extends ControllerTest {
     @Test
     public void createRelationship() throws Exception {
         String q = query("cgf", "");
-        String addsBody =
-                "{"
-                        + "   \"workspaceName\":\"cgf\","
-                        + "   \"originTable\":\"Lines\","
-                        + "   \"destinationTable\":\"Points\","
-                        + "   \"relationshipType\":\"SIMPLE\","
-                        + "   \"forwardLabel\":\"r\","
-                        + "   \"backwardLabel\":\"r\","
-                        + "   \"messageDirection\":\"NONE\","
-                        + "   \"cardinality\":\"ONE_TO_ONE\","
-                        + "   \"attributed\":false,"
-                        + "   \"originPrimaryKey\":\"id\","
-                        + "   \"originForeignKey\":\"id\","
-                        + "   \"destinationPrimaryKey\":\"r\","
-                        + "   \"destinationForeignKey\":\"r\""
-                        + "}";
+        String addsBody = "{"
+                + "   \"workspaceName\":\"cgf\","
+                + "   \"originTable\":\"Lines\","
+                + "   \"destinationTable\":\"Points\","
+                + "   \"relationshipType\":\"SIMPLE\","
+                + "   \"forwardLabel\":\"r\","
+                + "   \"backwardLabel\":\"r\","
+                + "   \"messageDirection\":\"NONE\","
+                + "   \"cardinality\":\"ONE_TO_ONE\","
+                + "   \"attributed\":false,"
+                + "   \"originPrimaryKey\":\"id\","
+                + "   \"originForeignKey\":\"id\","
+                + "   \"destinationPrimaryKey\":\"r\","
+                + "   \"destinationForeignKey\":\"r\""
+                + "}";
         JSON result = postAsJSON(q, addsBody, "application/json");
         assertTrue(String.valueOf(result) + " is a JSON object", result instanceof JSONObject);
 
         Catalog catalog = getCatalog();
         WorkspaceInfo workspaceInfo = catalog.getWorkspaceByName("cgf");
         MetadataMap metadataMap = workspaceInfo.getMetadata();
-        HashSet relationshipClassSet =
-                (HashSet) metadataMap.get(RelationshipDAO.RELATIONSHIP_CLASS_KEY);
+        HashSet relationshipClassSet = (HashSet) metadataMap.get(RelationshipDAO.RELATIONSHIP_CLASS_KEY);
         RelationshipClass relationshipClassCheck = new RelationshipClass();
         relationshipClassCheck.setWorkspaceName("cgf");
         relationshipClassCheck.setOriginTable("Lines");
@@ -153,8 +150,8 @@ public class RelationshipControllerTest extends ControllerTest {
 
     /**
      * Tests retrieving RelationshipClasses by the relationshipID, the full composite
-     * id(OriginTable,DestinationTable,OriginPrimaryKey,OriginForeignKey), a list by originTable,
-     * and a list by DestinationTable
+     * id(OriginTable,DestinationTable,OriginPrimaryKey,OriginForeignKey), a list by originTable, and a list by
+     * DestinationTable
      *
      * @throws Exception
      */
@@ -167,26 +164,22 @@ public class RelationshipControllerTest extends ControllerTest {
         String strJson = String.valueOf(result);
         assertTrue(strJson + " is a JSON object", result instanceof JSONObject);
         RelationshipClass bean3 = gson.fromJson(strJson, RelationshipClass.class);
-        assertTrue(bean3.getOriginPrimaryKey().equals("id"));
+        assertEquals("id", bean3.getOriginPrimaryKey());
 
-        q =
-                query(
-                        "cgf",
-                        "/originTable/Lines/destinationTable/Points/originPrimaryKey/id/originForeignKey/id");
+        q = query("cgf", "/originTable/Lines/destinationTable/Points/originPrimaryKey/id/originForeignKey/id");
         JSON result3 = getAsJSON(q);
         String strJson3 = String.valueOf(result);
         assertTrue(strJson3 + " is a JSON object", result3 instanceof JSONObject);
         RelationshipClass bean = gson.fromJson(strJson3, RelationshipClass.class);
 
-        assertTrue(bean.getOriginPrimaryKey().equals("id"));
+        assertEquals("id", bean.getOriginPrimaryKey());
 
         q = query("cgf", "/originTable/Lines");
         JSON result2 = getAsJSON(q);
         assertTrue(String.valueOf(result) + " is a JSON array", result2 instanceof JSONArray);
         JSONArray jsonarray1 = (JSONArray) result2;
-        RelationshipClass bean2 =
-                gson.fromJson(jsonarray1.get(0).toString(), RelationshipClass.class);
-        assertTrue(bean2.getOriginPrimaryKey().equals("id"));
+        RelationshipClass bean2 = gson.fromJson(jsonarray1.get(0).toString(), RelationshipClass.class);
+        assertEquals("id", bean2.getOriginPrimaryKey());
 
         q = query("cgf", "/destinationTable/Points");
         deleteAsServletResponse(q);
@@ -194,8 +187,7 @@ public class RelationshipControllerTest extends ControllerTest {
 
     /**
      * Tests deleting a RelationshipClass in the cgf workspace using the full composite
-     * id(OriginTable,DestinationTable,OriginPrimaryKey,OriginForeignKey) and the
-     * RelationshipClassId
+     * id(OriginTable,DestinationTable,OriginPrimaryKey,OriginForeignKey) and the RelationshipClassId
      *
      * @throws Exception
      */
@@ -203,31 +195,30 @@ public class RelationshipControllerTest extends ControllerTest {
     public void deleteRelationship() throws Exception {
         createTestRelationship();
         String q = query("cgf", "");
-        String body =
-                "{"
-                        + "   \"workspaceName\":\"cgf\","
-                        + "   \"originTable\":\"Lines\","
-                        + "   \"destinationTable\":\"Points\","
-                        + "   \"relationshipType\":\"SIMPLE\","
-                        + "   \"forwardLabel\":\"r\","
-                        + "   \"backwardLabel\":\"r\","
-                        + "   \"messageDirection\":\"NONE\","
-                        + "   \"cardinality\":\"ONE_TO_ONE\","
-                        + "   \"attributed\":false,"
-                        + "   \"originPrimaryKey\":\"id\","
-                        + "   \"originForeignKey\":\"id\","
-                        + "   \"destinationPrimaryKey\":\"r\","
-                        + "   \"destinationForeignKey\":\"r\""
-                        + "}";
+        String body = "{"
+                + "   \"workspaceName\":\"cgf\","
+                + "   \"originTable\":\"Lines\","
+                + "   \"destinationTable\":\"Points\","
+                + "   \"relationshipType\":\"SIMPLE\","
+                + "   \"forwardLabel\":\"r\","
+                + "   \"backwardLabel\":\"r\","
+                + "   \"messageDirection\":\"NONE\","
+                + "   \"cardinality\":\"ONE_TO_ONE\","
+                + "   \"attributed\":false,"
+                + "   \"originPrimaryKey\":\"id\","
+                + "   \"originForeignKey\":\"id\","
+                + "   \"destinationPrimaryKey\":\"r\","
+                + "   \"destinationForeignKey\":\"r\""
+                + "}";
         MockHttpServletResponse response = deleteAsServletResponse(q, body, "application/json");
-        assertTrue(response.getContentAsString().equals("true"));
+        assertEquals("true", response.getContentAsString());
         RelationshipClass checkRelationshipClass = getRelationshipClass();
         assertNull(checkRelationshipClass);
 
         createTestRelationship();
         q = query("cgf", "/delete/1");
         MockHttpServletResponse response2 = getAsServletResponse(q);
-        assertTrue(response.getContentAsString().equals("true"));
+        assertEquals("true", response.getContentAsString());
         RelationshipClass checkRelationshipClass2 = getRelationshipClass();
         assertNull(checkRelationshipClass2);
     }
@@ -242,28 +233,26 @@ public class RelationshipControllerTest extends ControllerTest {
     public void updateRelationship() throws Exception {
         createTestRelationship();
         RelationshipClass checkRelationshipClass = getRelationshipClass();
-        assertTrue(checkRelationshipClass.getDestinationPrimaryKey().equals("r"));
+        assertEquals("r", checkRelationshipClass.getDestinationPrimaryKey());
 
         String q = query("cgf", "");
-        String body =
-                "{"
-                        + "   \"workspaceName\":\"cgf\","
-                        + "   \"originTable\":\"Lines\","
-                        + "   \"destinationTable\":\"Points\","
-                        + "   \"relationshipType\":\"SIMPLE\","
-                        + "   \"forwardLabel\":\"r\","
-                        + "   \"backwardLabel\":\"r\","
-                        + "   \"messageDirection\":\"NONE\","
-                        + "   \"cardinality\":\"ONE_TO_ONE\","
-                        + "   \"attributed\":false,"
-                        + "   \"originPrimaryKey\":\"id\","
-                        + "   \"originForeignKey\":\"id\","
-                        + "   \"destinationPrimaryKey\":\"s\","
-                        + "   \"destinationForeignKey\":\"r\""
-                        + "}";
+        String body = "{"
+                + "   \"workspaceName\":\"cgf\","
+                + "   \"originTable\":\"Lines\","
+                + "   \"destinationTable\":\"Points\","
+                + "   \"relationshipType\":\"SIMPLE\","
+                + "   \"forwardLabel\":\"r\","
+                + "   \"backwardLabel\":\"r\","
+                + "   \"messageDirection\":\"NONE\","
+                + "   \"cardinality\":\"ONE_TO_ONE\","
+                + "   \"attributed\":false,"
+                + "   \"originPrimaryKey\":\"id\","
+                + "   \"originForeignKey\":\"id\","
+                + "   \"destinationPrimaryKey\":\"s\","
+                + "   \"destinationForeignKey\":\"r\""
+                + "}";
         MockHttpServletResponse response = putAsServletResponse(q, body, "application/json");
-        List<RelationshipClass> relationshipClassList =
-                relationshipDAO.getAllRelationshipClassesByWorkspace("cgf");
-        assertTrue(relationshipClassList.get(0).getDestinationPrimaryKey().equals("s"));
+        List<RelationshipClass> relationshipClassList = relationshipDAO.getAllRelationshipClassesByWorkspace("cgf");
+        assertEquals("s", relationshipClassList.get(0).getDestinationPrimaryKey());
     }
 }

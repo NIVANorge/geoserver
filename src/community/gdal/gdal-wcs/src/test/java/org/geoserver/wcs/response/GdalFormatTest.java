@@ -35,8 +35,7 @@ public class GdalFormatTest {
         Assume.assumeTrue(GdalTestUtil.isGdalAvailable());
 
         // the coverage response delegate
-        gdalCovRespDelegate =
-                new GdalCoverageResponseDelegate(new GeoServerImpl(), new GdalWrapperFactory());
+        gdalCovRespDelegate = new GdalCoverageResponseDelegate(new GeoServerImpl(), new GdalWrapperFactory());
         // add default formats
         for (Format format : GdalConfigurator.DEFAULT.getFormats()) {
             gdalCovRespDelegate.addFormat(format);
@@ -84,7 +83,7 @@ public class GdalFormatTest {
         File tempFile = prepareInput();
         try {
             GridCoverage2DReader covReader = new GeoTiffReader(tempFile);
-            GridCoverage2D cov = covReader.read(null);
+            GridCoverage2D cov = covReader.read();
 
             try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
                 // write out
@@ -108,7 +107,7 @@ public class GdalFormatTest {
         File tempFile = prepareInput();
         try {
             GridCoverage2DReader covReader = new GeoTiffReader(tempFile);
-            GridCoverage2D cov = covReader.read(null);
+            GridCoverage2D cov = covReader.read();
 
             try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
                 // write out
