@@ -204,6 +204,9 @@
     <property name="service" value="WFS"/>
   </bean>
   
+  <bean id="wfsFormatOptionsKvpParser" class="org.geoserver.ows.kvp.FormatOptionsKvpParser">
+  </bean>
+  
   <bean id="propertyName20KvpParser" class="org.geoserver.wfs.kvp.QNameNestedKvpParser">
     <constructor-arg value="propertyName"/>
     <constructor-arg ref="catalog"/>
@@ -314,6 +317,16 @@
         <property name="arguments">
             <list>
                 <ref bean="wfsSqlViewKvpParser"/>
+            </list>
+       </property>
+    </bean>
+    
+    <!-- inject the static method with the FormatOptions KVP parser -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="staticMethod" value="org.geoserver.wfs.xml.FormatOptionsExtractor.setWfsFormatOptionsKvpParser"/>
+        <property name="arguments">
+            <list>
+                <ref bean="wfsFormatOptionsKvpParser"/>
             </list>
        </property>
     </bean>

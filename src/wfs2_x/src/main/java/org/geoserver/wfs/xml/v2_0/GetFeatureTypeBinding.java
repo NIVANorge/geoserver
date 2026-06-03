@@ -8,13 +8,14 @@ package org.geoserver.wfs.xml.v2_0;
 import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import net.opengis.wfs20.Wfs20Factory;
+import org.geoserver.wfs.xml.FormatOptionsExtractor;
 import org.geoserver.wfs.xml.SqlViewParamsExtractor;
 import org.geotools.wfs.v2_0.WFS;
 import org.geotools.xsd.ComplexEMFBinding;
 import org.geotools.xsd.ElementInstance;
 import org.geotools.xsd.Node;
 
-/** Custom binding class to support viewParams attribute in GetFeatureType requests */
+/** Custom binding class to support viewParams and formatOptions attributes in GetFeatureType requests */
 public class GetFeatureTypeBinding extends ComplexEMFBinding {
 
     NamespaceContext namespaceContext;
@@ -32,6 +33,7 @@ public class GetFeatureTypeBinding extends ComplexEMFBinding {
     @Override
     public Object parse(ElementInstance instance, Node node, Object value) throws Exception {
         SqlViewParamsExtractor.fixNodeObject(node);
+        FormatOptionsExtractor.fixNodeObject(node);
         return super.parse(instance, node, value);
     }
 }
