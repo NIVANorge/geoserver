@@ -32,8 +32,9 @@ import org.geoserver.security.GeoServerSecurityFilterChainProxy;
 import org.geoserver.security.GeoServerSecurityManager;
 import org.geoserver.security.RequestFilterChain;
 import org.geoserver.security.config.SecurityManagerConfig;
+import org.geoserver.security.oauth2.config.GeoServerOAuth2LoginFilterConfig;
+import org.geoserver.security.oauth2.config.OpenIdRoleSource;
 import org.geoserver.security.oauth2.login.GeoServerOAuth2LoginAuthenticationFilter;
-import org.geoserver.security.oauth2.login.GeoServerOAuth2LoginFilterConfig;
 import org.geoserver.web.GeoServerHomePage;
 import org.geotools.util.logging.Logging;
 import org.junit.BeforeClass;
@@ -44,7 +45,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.context.request.RequestContextListener;
 
 /**
@@ -89,7 +90,7 @@ public class KeyCloakIntegrationTest extends KeyCloakIntegrationTestSupport {
     String oidcLogin_client_id = "gs-client";
     String oidcLogin_scope = "openid profile email phone address";
     // Scoped to the filter name "openidconnect" — each filter's callback URL carries its own scoped registration ID
-    // so Spring can map the callback back to the right ClientRegistration. See GeoServerOAuth2ClientRegistrationId.
+    // so Spring can map the callback back to the right ClientRegistration. See OAuth2ClientRegistrationId.
     String oidcLogin_redirect_uri = "http://localhost:8080/geoserver/web/login/oauth2/code/openidconnect__oidc";
 
     /**
@@ -144,7 +145,7 @@ public class KeyCloakIntegrationTest extends KeyCloakIntegrationTestSupport {
 
         // get IDTOKEN.resource_access.gs-client.roles
         // this should be "geoserverAdmin" (from keycloak)
-        DefaultOidcUser principal = (DefaultOidcUser) auth.getPrincipal();
+        OidcUser principal = (OidcUser) auth.getPrincipal();
         @SuppressWarnings("rawtypes")
         Map resourceAccess = (Map) principal.getIdToken().getClaim("resource_access");
         assertNotNull(resourceAccess);
@@ -616,11 +617,11 @@ public class KeyCloakIntegrationTest extends KeyCloakIntegrationTestSupport {
         filterConfig.setOidcScopes("openid profile email phone address");
         filterConfig.setEnableRedirectAuthenticationEntryPoint(false);
         filterConfig.setOidcUserNameAttribute("email");
-        filterConfig.setRoleSource(GeoServerOAuth2LoginFilterConfig.OpenIdRoleSource.IdToken);
+        filterConfig.setRoleSource(OpenIdRoleSource.IdToken);
         filterConfig.setTokenRolesClaim("roles");
 
         // setup roles extraction
-        filterConfig.setRoleSource(GeoServerOAuth2LoginFilterConfig.OpenIdRoleSource.IdToken);
+        filterConfig.setRoleSource(OpenIdRoleSource.IdToken);
         filterConfig.setRoleConverterString("geoserverAdmin=ROLE_ADMINISTRATOR");
         filterConfig.setOnlyExternalListedRoles(true);
         filterConfig.setTokenRolesClaim("resource_access.gs-client.roles");
