@@ -94,7 +94,7 @@
     <!-- ================================ -->
     <!-- Project version management       -->
     <!-- ================================ -->
-    <gt.version>35.2-NIVA</gt.version>
+    <gt.version>35.3-NIVA</gt.version>
     <gwc.version>2.0.0-NIVA</gwc.version>
     <spring.version>7.0.7</spring.version>
     <spring.security.version>7.0.5</spring.security.version>
