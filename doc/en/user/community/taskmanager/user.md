@@ -280,7 +280,7 @@ Batches can be created and edited from here as well, however the configuration m
 
 #### Import/Export
 
-It is also possible to import/export entire configurations to XML, for example to transfer them from one geoserver to another. The import button is on the configurations page, while the export button is on the page of a specific configuration. The user is responsible for making sure that the configuration is compatible with the other geoserver (available task extensions, attribute values,\...).
+It is also possible to import/export entire configurations to XML, for example to transfer them from one geoserver to another. The import button is on the configurations page, while the export button is on the page of a specific configuration. The user is responsible for making sure that the configuration is compatible with the other geoserver (available task extensions, attribute values,...).
 
 ### Batches
 
@@ -316,11 +316,11 @@ Once you open a new or existing batch, one can add or remove tasks from it and c
 - `ConfigureCachedLayer` Configure caching for a layer on a remote geoserver with internal GWC, synchronise the settings with the local geoserver. This task may turn caching on or off depending on local configuration.
 - `ClearCachedLayer` Clear (truncate) all tiles of a cached layer on a remote geoserver with internal GWC.
 - `LocalAppSchemaPublicationTask` Publish an [Application Schema](../../data/app-schema/index.md) layer locally. This is exactly the same as `LocalFilePublicationTask` with the Application Schema mapping file as the file being published, and two additional features.
-  - The mapping file may be provided as a template, with placeholders in the form of `${placeholder}`. The placeholders are replaced by the values of the connection parameters of the database that is provided as parameter to the task. This makes it possible to fill in the underlying source database for different geoservers. For example: specify `${jndiReferenceName}` as source database connection parameter in the mapping file.
-  - Multiple mapping files may be provided for a single layer (when the layer mapping uses included types), in the form of a ZIP file. The main mapping file and the ZIP file must have the same name before the extension.
+    - The mapping file may be provided as a template, with placeholders in the form of `${placeholder}`. The placeholders are replaced by the values of the connection parameters of the database that is provided as parameter to the task. This makes it possible to fill in the underlying source database for different geoservers. For example: specify `${jndiReferenceName}` as source database connection parameter in the mapping file.
+    - Multiple mapping files may be provided for a single layer (when the layer mapping uses included types), in the form of a ZIP file. The main mapping file and the ZIP file must have the same name before the extension.
 - `RemoteAppSchemaPublicationTask` Publish an [Application Schema](../../data/app-schema/index.md) layer remotely. This is exactly the same as `LocalFilePublicationTask` with the Application Schema mapping file as the file being published, and two additional features:
-  - The mapping file may be provided as a template, with placeholders in the form of `${placeholder}`. The placeholders are replaced by the values of the connection parameters of the database that is provided as parameter to the task. This makes it possible to fill in the underlying source database for different geoservers. For example: specify `${jndiReferenceName}` as source database connection parameter in the mapping file.
-  - Multiple mapping files may be provided for a single layer (when the layer mapping uses included types), in the form of a ZIP file. The main mapping file and the ZIP file must have the same name before the extension.
+    - The mapping file may be provided as a template, with placeholders in the form of `${placeholder}`. The placeholders are replaced by the values of the connection parameters of the database that is provided as parameter to the task. This makes it possible to fill in the underlying source database for different geoservers. For example: specify `${jndiReferenceName}` as source database connection parameter in the mapping file.
+    - Multiple mapping files may be provided for a single layer (when the layer mapping uses included types), in the form of a ZIP file. The main mapping file and the ZIP file must have the same name before the extension.
 - `LayerSecuritySync` this task will synchronise all [data access security rules](../../security/layer.md) associated with a layer to the external geoserver. Warning: the task assumes that the same roles exist on both geoservers. Does not support commit/rollback.
 - `WorkspaceSecuritySync` this task will synchronise all [data access security rules](../../security/layer.md) associated with a workspace to the external geoserver. Warning: the task assumes that the same roles exist on both geoservers. Does not support commit/rollback.
 - `TimeStamp` update a time stamp in a layer's metadata that represents the last time a layer's data has been updated. Since the data timestamp is part of the metadata, a metadata timestamp can also be updated. The task must be configured through its Spring Bean properties `timeStampTaskType.dataTimestampProperty` and `timeStampTaskType.metadataTimestampProperty` which represent the key (or key path) in the layer's resource metadata. If you are using the [Metadata Community Module](../../extensions/metadata/index.md) you should set `timeStampTaskType.metadataTimestampProperty=custom._timestamp`.
@@ -405,7 +405,7 @@ When we now create a new configuration based on this template we choose a source
 ![](img/template-db-workflow-config.png)  
 *workflow config*
 
-After clicking apply, the configuration is being initialized (the layer is created locally)\...
+After clicking apply, the configuration is being initialized (the layer is created locally)...
 
 ![](img/template-db-workflow-initializing.png)  
 *initializing...*

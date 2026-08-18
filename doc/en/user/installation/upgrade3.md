@@ -74,13 +74,13 @@ All indexing is now handled in-memory and derived directly from the NetCDF datas
 Existing installations may still contain legacy index artifacts that are not needed anymore in GeoServer 3. 
 Hidden directories named like: `.<FILENAME_HASH>` (e.g. `.polyphemus_20130301_710e4edfc7d0ff89faf932b208ca22bda37a6921`) are companion folders created next to the NetCDF file (e.g. `polyphemus_20130301.nc`) and used to store:
 - the H2 db files:
-  - the primary H2 data storage file. (e.g. `polyphemus_20130301.data.db`)
-  - the index storage file (e.g. `polyphemus_20130301.index.db`)
-  - the transaction log (e.g. `polyphemus_20130301.4.log.db`)
-  - the debug/trace log (e.g. `polyphemus_20130301.trace.db`)
+    - the primary H2 data storage file. (e.g. `polyphemus_20130301.data.db`)
+    - the index storage file (e.g. `polyphemus_20130301.index.db`)
+    - the transaction log (e.g. `polyphemus_20130301.4.log.db`)
+    - the debug/trace log (e.g. `polyphemus_20130301.trace.db`)
 
 - the binary index file:
-  - FILENAME.idx (e.g. `polyphemus_20130301.idx`)
+    - FILENAME.idx (e.g. `polyphemus_20130301.idx`)
 
 All such files are now obsolete and can be deleted without affecting functionality.
 If the `NETCDF_DATA_DIR JAVA_OPT` is configured, these hidden folders are grouped within the specified directory instead of being located alongside each NetCDF file.
@@ -106,12 +106,12 @@ With the GeoServer 3 refactoring, this configuration is no longer required. The 
 ```
 ### OAuth and Keycloak and migrate to new OIDC plugin
 
-GeoServer 3 marks the end-of-life for several popular community plugins - which all have a single replacement in the [OIDC plugin](https://docs.geoserver.org/main/en/user/community/oidc/) module.
+GeoServer 3 marks the end-of-life for several popular community plugins - which all have a single replacement in the [OIDC plugin](https://docs.geoserver.org/main/en/user/extensions/oidc/) module.
 
-* If you previously used Keycloak support, there are setup instructions for [configuring with Keycloak](https://docs.geoserver.org/main/en/user/community/oidc/oauth2/keycloak/).
-* If you previously used an OAuth2 integration, you can find individual setup instructions for [Google](https://docs.geoserver.org/main/en/user/community/oidc/oauth2/google/), [Azure](https://docs.geoserver.org/main/en/user/community/oidc/oauth2/azure/), and [GitHub](https://docs.geoserver.org/main/en/user/community/oidc/oauth2/azure/).
+* If you previously used Keycloak support, there are setup instructions for [configuring with Keycloak](https://docs.geoserver.org/main/en/user/extensions/oidc/oauth2/keycloak/).
+* If you previously used an OAuth2 integration, you can find individual setup instructions for [Google](https://docs.geoserver.org/main/en/user/extensions/oidc/oauth2/google/), [Azure](https://docs.geoserver.org/main/en/user/extensions/oidc/oauth2/azure/), and [GitHub](https://docs.geoserver.org/main/en/user/extensions/oidc/oauth2/azure/).
 
-For more information, and installation instructions, use the user guide [OAuth2 OpenID Connect](https://docs.geoserver.org/main/en/user/community/oidc/) page. 
+For more information, and installation instructions, use the user guide [OAuth2 OpenID Connect](https://docs.geoserver.org/main/en/user/extensions/oidc/) page. 
 
 ## How to upgrade
 

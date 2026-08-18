@@ -25,18 +25,18 @@ jobs:
             jdk: 17
             dist: 'temurin'
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up JDK
       uses: actions/setup-java@v5
       with:
         java-version: ${{ matrix.jdk }}
         distribution: ${{ matrix.dist }}
     - name: Set up Maven
-      uses: stCarolas/setup-maven@v5
+      uses: stCarolas/setup-maven@v5.1
       with:
-        maven-version: 3.9.8
+        maven-version: 3.9.16
     - name: Maven repository caching
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.m2/repository
         key: gs-${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}

@@ -20,7 +20,7 @@ The following are the directives available in JSON based templates.
 | filter the array, object, attribute | \$filter | specify it inside the first nested object in arrays (`{"$filter":"condition"}`) or as an attribute in objects (`"$filter":"condition"`) or in an attribute next to the attribute value separated by a `,` (`"attribute":"$filter{condition}, ${property}"`) |
 | defines options to customize the output outside of a feature scope | \$options | specify it at the top of the JSON template as a JSON object (GeoJSON options: `"$options":{"flat_output":true, "separator":"."}`; JSON-LD options: `"$options":{"@context": "the context json", "encode_as_string": true, "@type":"schema:SpecialAnnouncement", "collection_name":"customCollectionName"}`). |
 | allows including a template into another | \$include, \$includeFlat | specify the `$include` option as an attribute value (`"attribute":"$include{subProperty.json}"`) and the `$includeFlat` as an attribute name with the included template path as a value (`"$includeFlat":"included.json"`) |
-| allows a template to extend another template | \$merge | specify the `$merge` directive as an attribute name containing the path to the extended template (:code: `"\$merged":"base_template.json"`). |
+| allows a template to extend another template | \$merge | specify the `$merge` directive as an attribute name containing the path to the extended template (`"$merged":"base_template.json"`). |
 | allows null values to be encoded. default is not encoded. | \${property}! or \$\${expression}! | ! at the end of a property interpolation or cql directive (`"attribute":"${property}!"` or `"attribute":"$${expression}!"`). |
 
 ### XML based templates
@@ -34,7 +34,7 @@ The following are the directives available in XML based templates.
 | setting the evaluation context for property interpolation and cql evaluation in child elements. | gft:source | specify it as an xml attribute (`<element gft:source:"property">`) |
 | filter the element to which is applied based on the defined condition | gft:filter | specify it as an XML attribute on the element to be filtered (`<element gft:filter:"condition">`) |
 | marks the beginning of an XML template. | gft:Template | It has to be the root element of an XML template (`<gft:Template> Template content</gft:Template>`) |
-| defines options to customize the output outside of a feature scope | gft:Options | specify it as an element at the beginning of the xml document after the `<gft:Template>` one (`<gft:Options></gft:Options>`). GML options: `<gtf:Namespaces>`,`<gtf:SchemaLocation>`. HTML options: `<script>`, :code: `<script type="application/ld+json"/>`, `<style>`, :code: `<link>`. |
+| defines options to customize the output outside of a feature scope | gft:Options | specify it as an element at the beginning of the xml document after the `<gft:Template>` one (`<gft:Options></gft:Options>`). GML options: `<gtf:Namespaces>`,`<gtf:SchemaLocation>`. HTML options: `<script>`, `<script type="application/ld+json"/>`, `<style>`, `<link>`. |
 | allows including a template into another | \$include, gft:includeFlat | specify the `$include` option as an element value (`<element>$include{included.xml}</element>`) and the `gft:includeFlat` as an element having the included template as text content (`<gft:includeFlat>included.xml</gft:includeFlat>`) |
 | allows null values to be encoded. default is not encoded. | \${property}! | specify it either as an element value (`<element>${property}!</element>`) or as an xml attribute value (`<element attribute:"${property}!"/>`) |
 
@@ -1303,11 +1303,11 @@ When a property interpolation targets an attribute with multiple cardinality in 
 
 - `aggregate`: takes as arguments an expression (a property name or a function) that returns a list of values and a literal with the aggregation type eg. `aggregate(my.property.name,'MIN')`. The supported aggregation type are the following:
 
-  - `MIN` will return the minimum value from a list of numeric values.
-  - `MAX` will return the max value from a list of numeric values.
-  - `AVG` will return the average value from a list of numeric values.
-  - `UNIQUE` will remove duplicates values from a list of values.
-  - `JOIN` will concatenate the list of values in a single string. It accepts a parameter to specify the separator that by default is blank space: `aggregate(my.property.name,'JOIN(,)')` .
+    - `MIN` will return the minimum value from a list of numeric values.
+    - `MAX` will return the max value from a list of numeric values.
+    - `AVG` will return the average value from a list of numeric values.
+    - `UNIQUE` will remove duplicates values from a list of values.
+    - `JOIN` will concatenate the list of values in a single string. It accepts a parameter to specify the separator that by default is blank space: `aggregate(my.property.name,'JOIN(,)')` .
 
 - `stream`: takes an undefined number of expressions as parameters and chain them so that each expression evaluate on top of the output of the previous expression: eg. `stream(aPropertyName,aFunction,anotherPropertyName)` while evaluate the `aFunction` on the output of `aPropertyName` evaluation and finally `anotherPropertyName` will evaluate on top of the result of `aFunction`.
 

@@ -42,8 +42,8 @@ For more information see [Community Support](http://geoserver.org/comm/).
 
 - Public CVE: Most reliable response is to locate the CVE on advisory database and issue a pull-request clarification.
 
-  - <https://github.com/advisories?query=geoserver>
-  - <https://github.com/advisories?query=geotools>
+    - <https://github.com/advisories?query=geoserver>
+    - <https://github.com/advisories?query=geotools>
 
   You may also go through the steps of "disputing" a CVE, this involves contacting the original numbering authority (each of which have their own procedures).
 
@@ -220,7 +220,7 @@ When a national agency or similar has already reported a vulnerability publicly,
     
         [DISPUTED] GeoServer 2, in some configurations, allows remote attackers to execute arbitrary code via java.lang.Runtime.getRuntime().exec in wps:LiteralData within a wps:Execute request, as exploited in the wild in June 2023. NOTE: the vendor states that they are unable to reproduce this in any version.
     
-        This is the opposite of controlling the message, it now appears as if the issue being disputed - rather than accepted as already solved please update etc\...
+        This is the opposite of controlling the message, it now appears as if the issue being disputed - rather than accepted as already solved please update etc...
 
 4.  Claim the ticket with a Jira issue, linking to the revised GitHub record, or national record as appropriate.
 

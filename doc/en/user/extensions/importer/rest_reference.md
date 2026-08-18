@@ -6,7 +6,7 @@ The importer REST api is built around a tree of objects representing a single im
 
 - import
 
-  - target workspace
+    - target workspace
 
       - data
 
@@ -30,7 +30,7 @@ A **task** represents a unit of work to the importer needed to register one new 
 
 This data comes in a variety of forms including:
 
-- A spatial file (Shapefile, GeoTiff, KML, etc\...)
+- A spatial file (Shapefile, GeoTiff, KML, etc...)
 - A directory of spatial files
 - A table in a spatial database
 - A remote location that the server will download data from

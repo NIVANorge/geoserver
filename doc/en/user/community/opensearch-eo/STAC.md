@@ -9,7 +9,7 @@ The landing page of the STAC API is linked from the GeoServer home page, and ava
 
 Given the differences in names and structures the STAC resources are created using templates, in particular:
 
-- The HTML representation is built using [Freemarker templates](../../tutorials/freemarker.md)
+- The HTML representation is built using [Freemarker templates](../../tutorials/freemarker/index.md)
 - The GeoJSON representation is built using GeoJSON [features templates](../features-templating/index.md)
 
 The default templates work against the [default PostGIS database structure](https://raw.githubusercontent.com/geoserver/geoserver/main/src/community/oseo/oseo-core/src/test/resources/postgis.sql) and can be customized to include new properties to follow eventual database modifications.
@@ -38,8 +38,8 @@ All built-in templates are copied over to the data directory for customization, 
 
 Specifically for the JSON output:
 
-- `\$GEOSERVER_DATA_DIR/templates/ogc/stac/v1/collections.json` is the [collections template](https://raw.githubusercontent.com/geoserver/geoserver/main/src/community/oseo/oseo-stac/src/main/resources/org/geoserver/ogcapi/v1/stac/collections.json)
-- `\$GEOSERVER_DATA_DIR/templates/ogc/stac/v1/items.json` is the [items template](https://raw.githubusercontent.com/geoserver/geoserver/main/src/community/oseo/oseo-stac/src/main/resources/org/geoserver/ogcapi/v1/stac/items.json)
+- `$GEOSERVER_DATA_DIR/templates/ogc/stac/v1/collections.json` is the [collections template](https://raw.githubusercontent.com/geoserver/geoserver/main/src/community/oseo/oseo-stac/src/main/resources/org/geoserver/ogcapi/v1/stac/collections.json)
+- `$GEOSERVER_DATA_DIR/templates/ogc/stac/v1/items.json` is the [items template](https://raw.githubusercontent.com/geoserver/geoserver/main/src/community/oseo/oseo-stac/src/main/resources/org/geoserver/ogcapi/v1/stac/items.json)
 
 The JSON templates in the case of STAC also drive database querying, the exposed STAC properties are back-mapped into database properties by interpreting the template. It is advised to keep property mapping as simple as possible to allow usage of native SQL queries and indexes while accessing the database through the STAC API.
 
@@ -77,7 +77,7 @@ Support for the [STAC Datacube Extension](https://github.com/stac-extensions/dat
 
 - property - The name of the property being summarized.
 
-  - Note that for the "bounds" aggregate, this value should either be "x","y","xmin","ymin","xmax", or "ymax".
+    - Note that for the "bounds" aggregate, this value should either be "x","y","xmin","ymin","xmax", or "ymax".
 
 **JSON Template Example**:
 
@@ -143,12 +143,12 @@ Layers are kept in the `layers` attribute of a collection, each one exposes the 
 - The layer `title` and `description` from the GeoServer own configuration
 
 - A list of `styles`, matching the styles associated to the layer. The first one is the default style. Each style contains the following properties:
-  - `name`: the style name
-  - `title`: the style title
+    - `name`: the style name
+    - `title`: the style title
 
 - A `services` object with attributes matching a lowercase service name, e.g., `wms`, `wcs`, `wmts`, each one being an object with the following two fields:
 
-  - `enabled`: true or false (might depend on the layer configuration too)
+    - `enabled`: true or false (might depend on the layer configuration too)
       - `formats`: the formats supported, for that layer, by the main service output (e.g., maps, coverages, tiles)
 
 This information could be used, for example, to implement the STAC [web-map-links](https://github.com/stac-extensions/web-map-links) extension.
