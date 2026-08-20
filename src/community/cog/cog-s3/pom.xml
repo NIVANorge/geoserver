@@ -10,7 +10,7 @@
   <parent>
     <groupId>org.geoserver.community</groupId>
     <artifactId>gs-cog</artifactId>
-    <version>3.0.1-NIVA</version>
+    <version>3.0.2-NIVA</version>
   </parent>
 
   <artifactId>gs-cog-s3</artifactId>
