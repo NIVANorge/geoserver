@@ -205,6 +205,7 @@
   </bean>
   
   <bean id="wfsFormatOptionsKvpParser" class="org.geoserver.ows.kvp.FormatOptionsKvpParser">
+    <constructor-arg index="0" value="xml"/>
   </bean>
   
   <bean id="propertyName20KvpParser" class="org.geoserver.wfs.kvp.QNameNestedKvpParser">
