@@ -167,12 +167,17 @@ public class GeoServerFeatureSource extends AbstractDecorator<SimpleFeatureSourc
     public static GeoServerFeatureSource create(
             FeatureSource<SimpleFeatureType, SimpleFeature> featureSource, Settings settings) {
         if (featureSource instanceof FeatureLocking) {
+        	LOGGER.fine(
+				"FeatureSource "
+						+ featureSource.getClass().getName()
+						+ " is a FeatureLocking, returning a GeoServerFeatureLocking");
             return new GeoServerFeatureLocking(
                     (FeatureLocking<SimpleFeatureType, SimpleFeature>) featureSource, settings);
         } else if (featureSource instanceof FeatureStore) {
+        	LOGGER.fine("FeatureSource " + featureSource.getClass().getName() + " is a FeatureStore, returning a GeoServerFeatureStore");
             return new GeoServerFeatureStore((FeatureStore<SimpleFeatureType, SimpleFeature>) featureSource, settings);
         }
-
+        LOGGER.fine("FeatureSource " + featureSource.getClass().getName() + " is a FeatureSource, returning a GeoServerFeatureSource");
         return new GeoServerFeatureSource(featureSource, settings);
     }
 

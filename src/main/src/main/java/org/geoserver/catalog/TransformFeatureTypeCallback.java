@@ -7,6 +7,7 @@ package org.geoserver.catalog;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.geoserver.platform.ServiceException;
@@ -29,6 +30,7 @@ import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.geotools.util.NumberRange;
 import org.geotools.util.SimpleInternationalString;
+import org.geotools.util.logging.Logging;
 
 /**
  * Transforms a vector layer {@link org.geotools.api.feature.type.FeatureType} based on the definitions contains in the
@@ -37,6 +39,7 @@ import org.geotools.util.SimpleInternationalString;
 public class TransformFeatureTypeCallback {
 
     static final FilterFactory FF = CommonFactoryFinder.getFilterFactory(null);
+    private static Logger LOGGER = Logging.getLogger(TransformFeatureTypeCallback.class);
 
     public FeatureType retypeFeatureType(FeatureTypeInfo fti, FeatureType schema) throws IOException {
         List<AttributeTypeInfo> attributes = fti.getAttributes();
@@ -64,6 +67,8 @@ public class TransformFeatureTypeCallback {
         List<Definition> definitions =
                 attributes.stream().map(ati -> toDefinition(ati)).collect(Collectors.toList());
         SimpleFeatureSource tfs = TransformFactory.transform(fs, fti.getName(), definitions);
+        LOGGER.fine("Feature source " + fti.getName() + " transformed with a "
+                + tfs.getClass().getSimpleName() + " wrapper");
         return tfs;
     }
 

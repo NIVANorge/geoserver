@@ -1361,6 +1361,9 @@ public class ResourcePool {
         if (info.getAttributes() != null
                 && !info.getAttributes().isEmpty()
                 && !info.getFeatureType().equals(fs.getSchema())) {
+            LOGGER.fine("Feature type customization detected for "
+                    + info.getName()
+                    + ", applying retyping to feature source");
             fs = (SimpleFeatureSource) transformer.wrapFeatureSource(info, fs);
         }
         // then check name, and other customizations (e.g., projection policy)
